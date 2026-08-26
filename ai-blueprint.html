@@ -2,390 +2,426 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zone21 AI Blueprint Chat</title>
-    <!-- Font Awesome -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone21 AI Event Architect</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
             --navy: #102838;
-            --lime: #C0C800;
+            --lime: #C0C800; 
             --pink: #F80070;
             --white: #F8F8F8;
             --grey: #E0E0E8;
-            --black: #101010;
             --radius-xl: 24px;
-            --radius-lg: 18px;
-            --radius-md: 12px;
         }
         * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
         body {
             background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f5f3f1 100%);
-            min-height: 100vh;
+            height: 100dvh; 
             display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
-        }
-        .chat-container {
-            width: 100%;
-            max-width: 800px;
-            height: 90vh;
-            background: white;
-            border-radius: var(--radius-xl);
-            box-shadow: 0 20px 60px rgba(16,40,56,0.15);
-            display: flex;
-            flex-direction: column;
+            gap: 20px;
             overflow: hidden;
         }
-        .chat-header {
-            background: var(--navy);
-            color: white;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            border-bottom: 4px solid var(--lime);
+        
+        /* Mobile Overlay & Sidebar */
+        .sidebar-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; transition: opacity 0.3s ease;
         }
-        .chat-header img {
-            height: 50px;
-            width: 50px;
-            border-radius: 50%;
-            background: white;
-            padding: 5px;
+        .sidebar {
+            width: 280px; background: var(--navy); border-radius: var(--radius-xl); color: white;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(16,40,56,0.15); transition: transform 0.3s ease; z-index: 1000;
         }
-        .chat-header .bot-info h1 {
-            font-size: 1.5rem;
-            color: var(--lime);
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .new-chat-btn { background: var(--lime); color: var(--navy); border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.2s; }
+        .new-chat-btn:active { transform: scale(0.95); }
+        .history-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .history-item { padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+        
+        /* Main Chat Container */
+        .chat-container {
+            flex: 1; background: white; border-radius: var(--radius-xl);
+            box-shadow: 0 20px 60px rgba(16,40,56,0.15); display: flex; flex-direction: column; overflow: hidden; position: relative;
         }
-        .chat-header .bot-info p {
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.8);
-        }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            background: #fafbfc;
-        }
-        .message {
-            display: flex;
-            align-items: flex-start;
-            max-width: 80%;
-            animation: fadeInUp 0.4s ease forwards;
-        }
-        .message.bot {
-            align-self: flex-start;
-        }
-        .message.user {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-        }
-        .message .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--lime);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: var(--navy);
-            margin: 0 10px;
-        }
-        .message.user .avatar {
-            background: var(--pink);
-            color: white;
-        }
-        .message .bubble {
-            background: white;
-            padding: 12px 18px;
-            border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border: 1px solid var(--grey);
-            font-size: 0.95rem;
-        }
-        .message.bot .bubble {
-            border-top-left-radius: 5px;
-        }
-        .message.user .bubble {
-            background: var(--navy);
-            color: white;
-            border: none;
-            border-top-right-radius: 5px;
-        }
-        .message .bubble p {
-            line-height: 1.5;
-        }
-        .chat-input-area {
-            padding: 15px;
-            background: white;
-            border-top: 1px solid var(--grey);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .chat-input-area input[type="text"] {
-            flex: 1;
-            padding: 12px 20px;
-            border: 2px solid var(--grey);
-            border-radius: 30px;
-            font-size: 1rem;
-            outline: none;
-        }
-        .chat-input-area input[type="text"]:focus {
-            border-color: var(--navy);
-        }
-        .attach-btn, .send-btn {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            transition: all 0.2s;
-        }
-        .attach-btn {
-            background: var(--grey);
-            color: var(--navy);
-        }
-        .attach-btn:hover {
-            background: #d0d0d8;
-        }
-        .send-btn {
-            background: var(--lime);
-            color: var(--navy);
-        }
-        .send-btn:hover {
-            background: #d4dc00;
-        }
-        .file-preview-container {
-            display: flex;
-            gap: 10px;
-            padding: 0 15px;
-            background: white;
-        }
-        .file-preview {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: #f0f0f0;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            color: #555;
-            margin-bottom: 10px;
-        }
-        .loading-dots {
-            display: inline-block;
-            width: 50px;
-            text-align: left;
-        }
-        .loading-dots span {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: var(--navy);
-            border-radius: 50%;
-            animation: bounce 1.2s infinite;
-        }
+        .chat-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); z-index: 10; }
+        .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
+        .chat-header img { height: 45px; width: 45px; border-radius: 50%; background: white; padding: 2px; }
+        .chat-header .bot-info h1 { font-size: 1.3rem; color: var(--lime); }
+        .chat-header .bot-info p { font-size: 0.8rem; color: rgba(255,255,255,0.8); }
+        
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; background: #fafbfc; scroll-behavior: smooth; }
+        
+        /* Chat Bubbles */
+        .message { display: flex; align-items: flex-start; max-width: 85%; animation: fadeInUp 0.3s ease forwards; }
+        .message.bot { align-self: flex-start; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message .avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; color: var(--navy); margin: 0 10px; flex-shrink: 0; }
+        .message.user .avatar { background: var(--pink); color: white; }
+        .message .bubble { background: white; padding: 14px 18px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--grey); font-size: 0.95rem; line-height: 1.5; }
+        .message.bot .bubble { border-top-left-radius: 4px; }
+        .message.user .bubble { background: var(--navy); color: white; border: none; border-top-right-radius: 4px; }
+        
+        .options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .option-btn { background: white; border: 1px solid var(--navy); border-radius: 30px; padding: 8px 18px; cursor: pointer; font-weight: 600; color: var(--navy); transition: 0.2s; font-size: 0.85rem; }
+        .option-btn:hover { background: var(--navy); color: white; }
+
+        /* The Important Continue Button */
+        .continue-btn { margin-top: 15px; background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.95rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.2s; }
+        .continue-btn:hover { background: var(--lime); color: var(--navy); }
+        .continue-btn:active { transform: scale(0.95); }
+
+        /* Spinner */
+        .loading-dots { display: inline-block; width: 50px; text-align: left; }
+        .loading-dots span { display: inline-block; width: 8px; height: 8px; background: var(--navy); border-radius: 50%; animation: bounce 1.2s infinite; }
         .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
         .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-        }
-        .blueprint-result {
-            background: #f0f4f8;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 10px;
-            overflow-x: auto;
-        }
-        .blueprint-result pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 0.85rem;
-            color: var(--navy);
+        /* Input Area */
+        .chat-input-area { padding: 15px; background: white; border-top: 1px solid var(--grey); display: flex; align-items: center; gap: 8px; transition: opacity 0.3s; }
+        .chat-input-area.disabled-area { opacity: 0.4; pointer-events: none; }
+        .chat-input-area input[type="text"] { flex: 1; padding: 14px 20px; background: #f0f4f8; border: none; border-radius: 30px; font-size: 1rem; outline: none; transition: 0.2s; }
+        .chat-input-area input[type="text"]:focus { background: #e8eef4; border: 1px solid var(--navy); }
+        .icon-btn { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.2s; flex-shrink: 0; }
+        .send-btn { background: var(--lime); color: var(--navy); }
+        .send-btn:active { transform: scale(0.9); }
+        .skip-btn { background: rgba(248, 0, 112, 0.1); color: var(--pink); border: 1px solid var(--pink); padding: 0 16px; border-radius: 30px; height: 44px; font-weight: 600; font-size: 0.85rem; cursor: pointer; flex-shrink: 0; }
+
+        /* Beautiful Blueprint Rendering */
+        .blueprint-result { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--grey); margin-top: 10px; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .blueprint-result h2 { color: var(--navy); font-size: 1.4rem; border-bottom: 3px solid var(--lime); padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; }
+        .blueprint-result h2:first-child { margin-top: 0; }
+        .blueprint-result h3 { color: var(--pink); font-size: 1.1rem; margin-top: 15px; margin-bottom: 10px; }
+        .blueprint-result ul { list-style: none; padding-left: 0; margin-bottom: 20px; }
+        .blueprint-result li { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.5; color: #333; display: flex; align-items: flex-start; gap: 10px; }
+        .blueprint-result li i { color: var(--lime); margin-top: 3px; font-size: 1.1rem; }
+        .blueprint-result p { margin-bottom: 15px; line-height: 1.6; color: #444; }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        @media (max-width: 768px) {
+            body { padding: 0; gap: 0; }
+            .chat-container { border-radius: 0; box-shadow: none; }
+            .menu-btn { display: block; }
+            .sidebar { position: fixed; top: 0; left: -320px; height: 100dvh; width: 280px; border-radius: 0 24px 24px 0; }
+            .sidebar.active { transform: translateX(320px); }
+            .sidebar-overlay.active { display: block; opacity: 1; }
+            .message { max-width: 95%; }
+            .chat-messages { padding: 15px 10px; }
+            .skip-btn { padding: 0 12px; font-size: 0.75rem; } 
+            .chat-input-area { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
         }
     </style>
 </head>
 <body>
+
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div><h2>Past Events</h2></div>
+    </div>
+    <div style="padding: 0 20px;">
+        <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Blueprint</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+</div>
+
 <div class="chat-container">
-    <!-- Header -->
     <div class="chat-header">
+        <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
         <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjPnN7sH3Tr31O3qQpQGXpc8PVVARZ2kWqEDiyoggiJuvZiEOgTQaaDNWrrZbfDVNklA-LjjmvI3lXr9pc6SoilJME8VU5uXy0GsURUG1fAq_mPNKGKAGeDJwz3iZB7zYEuXo2YbbKKh4P1lKOBG2hmhyphenhyphenZysI-T3PsH3dS3M6zM-WkmMjZOKke3ENQiVdT_/s1600/file_00000000ee1081fd892f74d0cad0dc3f.png" alt="Zone21 AI">
         <div class="bot-info">
             <h1>Zone21 AI</h1>
-            <p>Your event planning copilot</p>
+            <p>Interactive Event Architect</p>
         </div>
     </div>
 
-    <!-- Chat Messages -->
-    <div class="chat-messages" id="chat-messages">
-        <!-- Messages appear dynamically -->
-    </div>
+    <div class="chat-messages" id="chat-messages"></div>
 
-    <!-- Upload Previews -->
-    <div class="file-preview-container" id="file-preview-container"></div>
-
-    <!-- Input Area -->
-    <div class="chat-input-area">
-        <button class="attach-btn" id="attach-btn"><i class="fas fa-paperclip"></i></button>
-        <input type="file" id="file-input" style="display:none;" accept="image/*">
-        <input type="text" id="text-input" placeholder="Type your answer...">
-        <button class="send-btn" id="send-btn"><i class="fas fa-paper-plane"></i></button>
+    <div class="chat-input-area" id="input-area">
+        <input type="text" id="text-input" placeholder="Type answer or ask for ideas...">
+        <button class="skip-btn" id="skip-btn" title="Not Sure? Get an AI Suggestion">Not Sure / Suggest</button>
+        <button class="icon-btn send-btn" id="send-btn"><i class="fas fa-arrow-up"></i></button>
     </div>
 </div>
 
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
 <script>
-    // ====== CONFIGURATION ======
-    const firebaseConfig = {
-        apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-        authDomain: "zone21.firebaseapp.com",
-        projectId: "zone21",
-        storageBucket: "zone21.firebasestorage.app",
-        messagingSenderId: "405963057292",
-        appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-        measurementId: "G-KE007Y89F1"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    // ====== MOBILE MENU LOGIC ======
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
+    if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
+    if (overlay) overlay.addEventListener('click', closeSidebar);
 
-    // ====== GEMINI API SETUP ======
-    // Key mapped directly from 1787694306239.jpeg
-    const GEMINI_API_KEY = "AQ.Ab8RN6J930Znp8dLfHkOUnT5-s3MvpVe3TMK10gCNxY5-fnebw"; 
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    // ====== OPENROUTER API ======
+    const OPENROUTER_API_KEY = "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"; 
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-    // ====== STATE ======
+    // ====== STATE & QUESTIONS ======
     const chat = document.getElementById('chat-messages');
     const textInput = document.getElementById('text-input');
     const sendBtn = document.getElementById('send-btn');
-    const attachBtn = document.getElementById('attach-btn');
-    const fileInput = document.getElementById('file-input');
-    const previewContainer = document.getElementById('file-preview-container');
+    const skipBtn = document.getElementById('skip-btn');
+    const inputArea = document.getElementById('input-area');
     
-    let chatHistory = [];
-    let pendingAttachments = [];
+    const questions = [
+        { key: 'eventName', question: "Let's start! What is the name of your event?" },
+        { key: 'eventType', question: "What format or type of event are we building?", options: ["Corporate Gala", "Music Festival", "Conference", "Wedding", "Brand Launch", "Private Party"] },
+        { key: 'eventLocation', question: "Where are we hosting this? (Mention the city, e.g. Harare, Bulawayo)" },
+        { key: 'eventDate', question: "When is the event scheduled, and what is the expected duration?" },
+        { key: 'eventGuests', question: "Who is your target audience, and roughly how many guests are you expecting?" },
+        { key: 'eventBudget', question: "What is your estimated total budget in USD?" },
+        { key: 'eventObjective', question: "What is the main objective or goal of this event?" },
+        { key: 'eventTheme', question: "Do you have a specific theme, dress code, or brand identity in mind?" },
+        { key: 'eventDescription', question: "Finally, briefly describe any special requests, key speakers, or vendors you want." }
+    ];
+    
+    let currentQuestionIndex = 0;
+    let answers = {};
     let isProcessing = false;
 
-    // ====== HELPER FUNCTIONS ======
-    function addMessage(type, content) {
+    // ====== UI HELPERS ======
+    function addMessage(type, content, extraClass = '') {
         const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${type}`;
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.textContent = type === 'bot' ? 'Z' : 'U';
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble';
-        bubble.innerHTML = content;
-        msgDiv.appendChild(avatar);
-        msgDiv.appendChild(bubble);
+        msgDiv.className = `message ${type}${extraClass}`;
+        msgDiv.innerHTML = `<div class="avatar">${type === 'bot' ? 'Z' : 'U'}</div><div class="bubble">${content}</div>`;
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight;
+        return msgDiv.querySelector('.bubble');
     }
 
     function addTypingIndicator() {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message bot';
         msgDiv.id = 'typing-indicator';
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.textContent = 'Z';
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble';
-        bubble.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-        msgDiv.appendChild(avatar);
-        msgDiv.appendChild(bubble);
+        msgDiv.innerHTML = `<div class="avatar">Z</div><div class="bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div>`;
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight;
     }
 
     function removeTypingIndicator() {
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) indicator.remove();
+        const ind = document.getElementById('typing-indicator');
+        if (ind) ind.remove();
     }
 
-    function showFilePreview(file) {
-        const preview = document.createElement('div');
-        preview.className = 'file-preview';
-        preview.innerHTML = `<i class="fas fa-image"></i> ${file.name}`;
-        previewContainer.appendChild(preview);
+    function disableInput(disable) {
+        isProcessing = disable;
+        if (disable) {
+            inputArea.classList.add('disabled-area');
+            textInput.blur();
+        } else {
+            inputArea.classList.remove('disabled-area');
+            setTimeout(() => textInput.focus(), 50); // Kept tiny delay just for mobile keyboard focus rendering
+        }
     }
 
-    // ====== DYNAMIC AI CHAT ENGINE ======
-    async function sendToGemini(userText = null) {
-        if (isProcessing) return;
-        
-        let parts = [];
-        if (userText) {
-            parts.push({ text: userText });
-            addMessage('user', `<div style="white-space:pre-wrap;">${userText}</div>`);
+    // ====== CORE FLOW ======
+    function askNextQuestion() {
+        if (currentQuestionIndex >= questions.length) {
+            generateFinalBlueprint();
+            return;
         }
         
-        // Attach any uploaded images directly to the conversation turn
-        if (pendingAttachments.length > 0) {
-            parts = parts.concat(pendingAttachments);
-            pendingAttachments = [];
-            previewContainer.innerHTML = ''; // Clear visual previews
-        }
-
-        // Only append to history if the user actually sent text or an image
-        if (parts.length > 0) {
-            chatHistory.push({
-                role: "user",
-                parts: parts
+        disableInput(false);
+        const q = questions[currentQuestionIndex];
+        
+        // Removed artificial timeout delay for instant rendering
+        const bubble = addMessage('bot', `<p><strong>${currentQuestionIndex + 1}/${questions.length}:</strong>${q.question}</p>`);
+        
+        if (q.options) {
+            const optionsDiv = document.createElement('div');
+            optionsDiv.className = 'options';
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn'; 
+                btn.textContent = opt;
+                btn.onclick = () => { optionsDiv.remove(); processAnswer(opt, q, true); };
+                optionsDiv.appendChild(btn);
             });
+            bubble.appendChild(optionsDiv);
         }
+    }
 
-        isProcessing = true;
-        textInput.disabled = true;
+    // 🚀 THE INTERCEPTOR
+    async function processAnswer(text, q, isOptionClick = false) {
+        if (isProcessing) return;
+        disableInput(true);
+        
+        const isSkip = (text === "SKIP_COMMAND" || text.toLowerCase().includes("not sure"));
+        const displayUserText = isSkip ? "<em>I'm not sure. Can you suggest something?</em>" : text;
+        addMessage('user', `<p>${displayUserText}</p>`);
+
         addTypingIndicator();
+        
+        try {
+            const promptContext = `
+            You are Zone21 AI, a friendly event planning copilot.
+            Current Question: "${q.question}"
+            User's Answer: "${text}"
+            
+            Instructions:
+            1. If the user answered the question, give a 1-2 sentence friendly validation, tip, or quick analysis of their choice.
+            2. If the user skipped ("SKIP_COMMAND") or is unsure, provide a great, specific suggestion tailored to a modern event.
+            3. Keep the tone warm, professional, and conversational. Do NOT generate the full blueprint yet.
+            `;
 
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://zone21-ai.local', // FIXED: Hardcoded fake URL to bypass mobile blocks
+                    'X-Title': 'Zone21 AI'
+                },
+                body: JSON.stringify({ 
+                    model: "openrouter/auto", // FIXED: Switched to auto-router for fastest available model
+                    messages: [{ role: "user", content: promptContext }] 
+                })
+            });
+            
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error.message || "OpenRouter API returned an error");
+            }
+            
+            removeTypingIndicator();
+            
+            const aiReply = data.choices[0].message.content.trim();
+            const safeTextToSave = isSkip ? (q.key + " - AI Suggestion accepted") : text.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+            
+            const botHtml = `
+                <p>${aiReply}</p>
+                <button class="continue-btn" onclick="confirmAndMoveOn(this, '${q.key}', '${safeTextToSave}')">
+                    Yes, looks good! Next <i class="fas fa-check-circle"></i>
+                </button>
+            `;
+            addMessage('bot', botHtml);
+
+        } catch (error) {
+            console.error("Interceptor Error:", error);
+            removeTypingIndicator();
+            
+            const safeText = isSkip ? "Will decide later" : text.replace(/'/g, "&apos;");
+            addMessage('bot', `
+                <p style="color:var(--pink); font-size:0.85rem; margin-bottom:5px;"><em>(AI check skipped - API overloaded)</em></p>
+                <p>Got it! Let's save that and move on.</p>
+                <button class="continue-btn" onclick="confirmAndMoveOn(this, '${q.key}', '${safeText}')">Next Question <i class="fas fa-arrow-right"></i></button>
+            `);
+        }
+    }
+
+    // 🚀 MANUAL PROGRESSION
+    window.confirmAndMoveOn = function(btnElement, key, answerToSave) {
+        btnElement.style.display = 'none'; 
+        answers[key] = answerToSave;
+        currentQuestionIndex++;
+        askNextQuestion();
+    };
+
+    // ====== GENERATE FINAL BLUEPRINT ======
+    async function generateFinalBlueprint() {
+        disableInput(true);
+        addMessage('bot', `<p>All details collected! I am now generating your comprehensive Event Blueprint based on the 13-Step Event Hosting Master Template...</p>`);
+        addTypingIndicator();
+        
+        const prompt = `
+You are Zone21 AI, the ultimate event planning expert. 
+Based on the following collected user details, fill out a comprehensive Event Hosting Blueprint.
+
+USER DETAILS:
+${Object.entries(answers).map(([k, v]) => `- ${k}: ${v}`).join('\n')}
+
+INSTRUCTIONS:
+1. Use the user's details to create specific, realistic, and creative recommendations.
+2. Do NOT output raw JSON.
+3. Output the blueprint in CLEAN HTML FORMAT using <h2> for main sections, <h3> for subsections, and <ul><li> for checklists. 
+4. Include FontAwesome square icons inside the list items like this: <li><i class="fa-regular fa-square"></i> Task name</li>.
+5. Provide all 13 sections of the blueprint template below, filled out intelligently. Do not wrap the response in markdown code blocks (\`\`\`html) - just return the raw HTML string.
+
+TEMPLATE TO FILL OUT:
+<h2>1. Event Concept</h2> (Fill out name, theme, format, target audience, expected guests, etc)
+<h2>2. Event Planning & Management</h2> (Provide team roles, timelines)
+<h2>3. Detailed Budget Breakdown</h2> (Allocate the user's stated budget specifically across venue, decor, marketing, etc.)
+<h2>4. Event Branding</h2> (Suggest color palettes, logo ideas, merchandise)
+<h2>5. Marketing & Promotion</h2> (Provide Pre-launch, Launch, Social Media, and Offline strategies)
+<h2>6. Sponsorship Strategy</h2> (Suggest sponsor packages)
+<h2>7. Ticketing & Registration</h2> (Suggest ticket categories and systems)
+<h2>8. Venue Setup & Production</h2> (Layout ideas for guest areas and stage production)
+<h2>9. Programme / Run of Show</h2> (Draft a realistic timeline schedule for the event day)
+<h2>10. Event-Day Team</h2> (List required staff and security)
+<h2>11. Content & Media</h2> (Photography/Video requirements)
+<h2>12. Post-Event Marketing</h2> (Follow up strategy within 24 hours and beyond)
+<h2>13. Event Marketing Funnel</h2> (Awareness -> Purchase -> Loyalty breakdown)
+`;
         try {
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': GEMINI_API_KEY // Fast Auth Key Validation
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://zone21-ai.local', // FIXED
+                    'X-Title': 'Zone21 AI'
                 },
-                body: JSON.stringify({
-                    system_instruction: {
-                        parts: [{
-                            text: "You are Zone21 AI, an expert event planning copilot. Your goal is to logically interview the user step-by-step to gather information and create an event blueprint.\n\nRequired Data: Event Name, Event Type, Date, Location, Expected Guests, and Budget.\n\nRULES:\n1. Ask only ONE question at a time.\n2. If the user says 'not sure' or doesn't know an answer, respond as an AI copilot: validate their uncertainty, provide 2-3 helpful suggestions or cost estimates based on context, and gently skip or transition to the next question.\n3. Keep your tone natural, enthusiastic, and empathetic.\n4. Once all necessary info is gathered (or if the user explicitly asks for the blueprint), generate the final blueprint.\n5. The final blueprint MUST be output as a valid JSON object enclosed in ```json ... ``` markdown tags. The JSON must contain: overview, timeline, budgetBreakdown, marketingStrategy, venueSuggestions, vendorRecommendations, staffingRequirements, securityPlan, guestManagement, riskConsiderations, ticketingRecommendations."
-                        }]
-                    },
-                    contents: chatHistory
+                body: JSON.stringify({ 
+                    model: "openrouter/auto", // FIXED
+                    messages: [{ role: "user", content: prompt }] 
                 })
             });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-
-            const replyText = data.candidates[0].content.parts[0].text;
             
-            // Save model response to maintain live memory
-            chatHistory.push({
-                role: "model",
-                parts: [{ text: replyText }]
-            });
-
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message || "OpenRouter API returned an error");
+            }
+            
             removeTypingIndicator();
             
-            // Parse for Markdown JSON Blocks dynamically
-            const jsonMatch = replyText.match(/```json\s*([\s\S]*?)\s*
+            let htmlOutput = data.choices[0].message.content.trim();
+            htmlOutput = htmlOutput.replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
+            
+            const formatted = `<div class="blueprint-result">${htmlOutput}</div>`;
+            addMessage('bot', `<p>🎉 <strong>Here is your complete Event Blueprint:</strong></p>${formatted}`);
+            
+        } catch (error) {
+            console.error("Blueprint Generation Error:", error);
+            removeTypingIndicator();
+            addMessage('bot', `<p style="color:var(--pink);">Error generating blueprint. The AI server is congested. Please check the browser console for details.</p>`);
+        }
+    }
+
+    // ====== EVENT LISTENERS & INITIALIZATION ======
+    function startNewSession() {
+        closeSidebar(); 
+        currentQuestionIndex = 0;
+        answers = {};
+        chat.innerHTML = '';
+        addMessage('bot', '<p>Hello! I am <strong>Zone21 AI</strong>. I will guide you question by question. I will offer analysis and ideas for every answer you provide. Let\'s build your event blueprint! 🚀</p>');
+        askNextQuestion(); // FIXED: Removed 1000ms delay to make startup instant
+    }
+
+    sendBtn.addEventListener('click', () => {
+        const text = textInput.value.trim();
+        if (!text || isProcessing) return;
+        textInput.value = '';
+        processAnswer(text, questions[currentQuestionIndex], false);
+    });
+
+    skipBtn.addEventListener('click', () => {
+        if (isProcessing) return;
+        textInput.value = ''; 
+        processAnswer("SKIP_COMMAND", questions[currentQuestionIndex], false);
+    });
+
+    textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        startNewSession();
+    });
+</script>
+</body>
+</html>

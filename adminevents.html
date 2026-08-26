@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 Admin – Event Approvals</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+        .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+        .stat-card .stat-value { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .stat-card .stat-label { font-size: 0.85rem; color: var(--text-muted); }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { background: white; border: 1px solid var(--border); border-radius: 30px; padding: 8px 16px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
+        .filter-btn.active { background: var(--navy); color: var(--lime); border-color: var(--navy); }
+        .event-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+        .event-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; transition: 0.2s; }
+        .event-card:hover { box-shadow: 0 12px 40px rgba(16,40,56,0.12); }
+        .event-card .poster { width: 100%; height: 180px; object-fit: cover; background: #f0f0f0; }
+        .event-card .event-body { padding: 20px; }
+        .event-card .event-name { font-size: 1.2rem; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+        .event-card .event-meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
+        .event-card .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-cancelled { background: #e2e3e5; color: #383d41; }
+        .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
+        .event-actions { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-approve { background: #28a745; color: white; }
+        .btn-approve:hover { background: #218838; }
+        .btn-reject { background: var(--pink); color: white; }
+        .btn-reject:hover { background: #d0005e; }
+        .btn-view { background: var(--navy); color: white; }
+        .btn-view:hover { background: #1a3a4a; }
+        .btn-cancel { background: #ffc107; color: var(--navy); }
+        .btn-cancel:hover { background: #e0a800; }
+        .btn-restore { background: #17a2b8; color: white; }
+        .btn-restore:hover { background: #138496; }
+        .btn-download { background: #6f42c1; color: white; }
+        .btn-download:hover { background: #5a32a3; }
+        .btn-copy { background: #fd7e14; color: white; }
+        .btn-copy:hover { background: #dc6a0e; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; border-radius: 16px; padding: 25px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h2 { font-size: 1.5rem; color: var(--navy); }
+        .modal-close { background: none; border: none; font-size: 1.8rem; cursor: pointer; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .detail-item { margin-bottom: 10px; }
+        .detail-item label { font-weight: 600; color: var(--navy); display: block; margin-bottom: 3px; }
+        .detail-item p { color: #444; }
+        .ticket-detail { background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 10px; }
+        .ticket-detail .ticket-img { max-width: 120px; height: auto; margin-top: 10px; border-radius: 8px; }
+        .loading { text-align: center; padding: 40px; font-size: 1.2rem; color: var(--text-muted); }
+        .no-events { text-align: center; padding: 40px; color: var(--text-muted); }
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .copy-result { color: var(--lime); font-weight: 600; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-shield-alt" style="color:var(--pink);"></i> Zone21 Admin Approval Dashboard</h1>
+            <button class="btn btn-view" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats" id="stats-container">
+            <div class="stat-card"><div class="stat-value" id="total-events">0</div><div class="stat-label">Total Events</div></div>
+            <div class="stat-card"><div class="stat-value" id="pending-events">0</div><div class="stat-label">Pending</div></div>
+            <div class="stat-card"><div class="stat-value" id="approved-events">0</div><div class="stat-label">Approved</div></div>
+            <div class="stat-card"><div class="stat-value" id="rejected-events">0</div><div class="stat-label">Rejected</div></div>
+            <div class="stat-card"><div class="stat-value" id="cancelled-events">0</div><div class="stat-label">Cancelled</div></div>
+        </div>
+
+        <!-- Filter -->
+        <div class="filter-bar" id="filter-bar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="approved">Approved</button>
+            <button class="filter-btn" data-filter="rejected">Rejected</button>
+            <button class="filter-btn" data-filter="cancelled">Cancelled</button>
+            <button class="filter-btn" data-filter="cancellation_requested">Cancellation Requested</button>
+        </div>
+
+        <!-- Events List -->
+        <div id="events-list" class="event-list">
+            <div class="loading">Loading events...</div>
+        </div>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div class="modal" id="event-detail-modal">
+        <div class="modal-content" id="modal-content">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <script>
+        // Firebase config (same as provided)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let allEvents = [];
+        let currentFilter = 'all';
+
+        // Load all events
+        function loadEvents() {
+            const listDiv = document.getElementById('events-list');
+            listDiv.innerHTML = '<div class="loading">Loading events...</div>';
+
+            db.collection('events').orderBy('createdAt', 'desc').get()
+                .then(snapshot => {
+                    allEvents = [];
+                    snapshot.forEach(doc => {
+                        allEvents.push({ id: doc.id, ...doc.data() });
+                    });
+                    updateStats();
+                    applyFilter();
+                })
+                .catch(err => {
+                    console.error('Error loading events:', err);
+                    listDiv.innerHTML = '<div class="no-events">Failed to load events. Check console for details.</div>';
+                });
+        }
+
+        function updateStats() {
+            document.getElementById('total-events').textContent = allEvents.length;
+            document.getElementById('pending-events').textContent = allEvents.filter(e => e.status === 'pending').length;
+            document.getElementById('approved-events').textContent = allEvents.filter(e => e.status === 'approved').length;
+            document.getElementById('rejected-events').textContent = allEvents.filter(e => e.status === 'rejected').length;
+            document.getElementById('cancelled-events').textContent = allEvents.filter(e => e.status === 'cancelled' || e.status === 'cancellation_requested').length;
+        }
+
+        function applyFilter() {
+            const listDiv = document.getElementById('events-list');
+            listDiv.innerHTML = '';
+
+            const filtered = currentFilter === 'all' 
+                ? allEvents 
+                : allEvents.filter(e => e.status === currentFilter);
+
+            if (filtered.length === 0) {
+                listDiv.innerHTML = '<div class="no-events">No events found for this filter.</div>';
+                return;
+            }
+
+            filtered.forEach(event => {
+                const card = createEventCard(event);
+                listDiv.appendChild(card);
+            });
+        }
+
+        function createEventCard(event) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+
+            const posterHtml = event.posterImage 
+                ? `<img src="${event.posterImage}" class="poster" alt="${event.eventName}">` 
+                : `<div class="poster" style="display:flex; align-items:center; justify-content:center; color:#aaa;"><i class="fas fa-image fa-3x"></i></div>`;
+
+            const statusClass = `status-${event.status}`;
+            const statusText = event.status.replace(/_/g, ' ').toUpperCase();
+
+            let actionsHtml = '';
+            if (event.status === 'pending') {
+                actionsHtml = `
+                    <button class="btn btn-approve" onclick="approveEvent('${event.id}')"><i class="fas fa-check"></i> Approve</button>
+                    <button class="btn btn-reject" onclick="rejectEvent('${event.id}')"><i class="fas fa-times"></i> Reject</button>
+                `;
+            } else if (event.status === 'approved') {
+                actionsHtml = `
+                    <button class="btn btn-cancel" onclick="cancelApprovedEvent('${event.id}')"><i class="fas fa-ban"></i> Cancel Event</button>
+                `;
+            } else if (event.status === 'rejected') {
+                actionsHtml = `
+                    <button class="btn btn-restore" onclick="restoreToPending('${event.id}')"><i class="fas fa-undo"></i> Restore to Pending</button>
+                `;
+            } else if (event.status === 'cancellation_requested') {
+                actionsHtml = `
+                    <button class="btn btn-cancel" onclick="approveCancellation('${event.id}')"><i class="fas fa-check-circle"></i> Approve Cancellation</button>
+                    <button class="btn btn-restore" onclick="restoreToApproved('${event.id}')"><i class="fas fa-undo"></i> Keep Approved</button>
+                `;
+            }
+
+            actionsHtml += `<button class="btn btn-view" onclick="viewEventDetails('${event.id}')"><i class="fas fa-eye"></i> Details</button>`;
+
+            card.innerHTML = `
+                ${posterHtml}
+                <div class="event-body">
+                    <div class="event-name">${event.eventName}</div>
+                    <div class="event-meta">
+                        <span><i class="far fa-calendar-alt"></i> ${new Date(event.startDate).toLocaleDateString()} ${event.endDate ? '→ ' + new Date(event.endDate).toLocaleDateString() : ''}</span><br>
+                        <span><i class="fas fa-map-marker-alt"></i> ${event.location}</span>
+                    </div>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    <div class="event-actions">${actionsHtml}</div>
+                </div>
+            `;
+            return card;
+        }
+
+        // Event actions
+        async function approveEvent(id) {
+            if (!confirm('Approve this event? It will go live for ticket sales.')) return;
+            try {
+                await db.collection('events').doc(id).update({ status: 'approved', approvedAt: new Date().toISOString() });
+                alert('Event approved!');
+                loadEvents();
+            } catch (err) {
+                console.error('Approval failed:', err);
+                alert('Failed to approve event.');
+            }
+        }
+
+        async function rejectEvent(id) {
+            const reason = prompt('Reason for rejection (optional):');
+            try {
+                await db.collection('events').doc(id).update({ status: 'rejected', rejectionReason: reason || '', rejectedAt: new Date().toISOString() });
+                alert('Event rejected.');
+                loadEvents();
+            } catch (err) {
+                console.error('Rejection failed:', err);
+                alert('Failed to reject event.');
+            }
+        }
+
+        async function cancelApprovedEvent(id) {
+            if (!confirm('Cancel this approved event? It will no longer be publicly visible.')) return;
+            try {
+                await db.collection('events').doc(id).update({ status: 'cancelled' });
+                alert('Event cancelled.');
+                loadEvents();
+            } catch (err) {
+                console.error('Cancel failed:', err);
+                alert('Failed to cancel event.');
+            }
+        }
+
+        async function restoreToPending(id) {
+            if (!confirm('Restore this rejected event back to pending?')) return;
+            try {
+                await db.collection('events').doc(id).update({ status: 'pending' });
+                alert('Event restored to pending.');
+                loadEvents();
+            } catch (err) {
+                console.error('Restore failed:', err);
+                alert('Failed to restore event.');
+            }
+        }
+
+        async function approveCancellation(id) {
+            if (!confirm('Approve cancellation request?')) return;
+            try {
+                await db.collection('events').doc(id).update({ status: 'cancelled' });
+                alert('Cancellation approved.');
+                loadEvents();
+            } catch (err) {
+                console.error('Cancellation approval failed:', err);
+                alert('Failed to process cancellation.');
+            }
+        }
+
+        async function restoreToApproved(id) {
+            if (!confirm('Reject cancellation request and keep event approved?')) return;
+            try {
+                await db.collection('events').doc(id).update({ status: 'approved' });
+                alert('Cancellation request rejected. Event remains approved.');
+                loadEvents();
+            } catch (err) {
+                console.error('Update failed:', err);
+                alert('Failed to update event.');
+            }
+        }
+
+        // ---- NEW: Download and Copy functions ----
+        function downloadBase64Image(base64, filename) {
+            if (!base64) { alert('No image available.'); return; }
+            const a = document.createElement('a');
+            a.href = base64;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function copyText(text, successMsg) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(successMsg || 'Copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('Copied using fallback.');
+            });
+        }
+
+        function getEventAsPlainText(event) {
+            let txt = `Event Name: ${event.eventName}\n`;
+            txt += `Type: ${event.type}\n`;
+            txt += `Description: ${event.description}\n`;
+            txt += `Start: ${new Date(event.startDate).toLocaleString()}\n`;
+            txt += `End: ${new Date(event.endDate).toLocaleString()}\n`;
+            txt += `Location: ${event.location}\n`;
+            txt += `Capacity: ${event.capacity}\n`;
+            txt += `Organizer: ${event.organizerName || 'N/A'} (${event.organizerEmail || 'no email'})\n`;
+            txt += `Age Restriction: ${event.ageRestriction || 'None'}\n`;
+            txt += `Status: ${event.status}\n\n`;
+            txt += `Ticket Types:\n`;
+            if (event.ticketTypes && event.ticketTypes.length) {
+                event.ticketTypes.forEach(t => {
+                    txt += `- ${t.name}: $${t.price} (${t.quantity} available) - ${t.description || ''}\n`;
+                });
+            } else {
+                txt += 'None\n';
+            }
+            return txt;
+        }
+
+        function getEventAsHTML(event) {
+            let html = `<h2>${event.eventName}</h2>\n`;
+            html += `<p><strong>Type:</strong> ${event.type}</p>\n`;
+            html += `<p><strong>Description:</strong> ${event.description}</p>\n`;
+            html += `<p><strong>Start:</strong> ${new Date(event.startDate).toLocaleString()}</p>\n`;
+            html += `<p><strong>End:</strong> ${new Date(event.endDate).toLocaleString()}</p>\n`;
+            html += `<p><strong>Location:</strong> ${event.location}</p>\n`;
+            html += `<p><strong>Capacity:</strong> ${event.capacity}</p>\n`;
+            html += `<p><strong>Organizer:</strong> ${event.organizerName || 'N/A'} (${event.organizerEmail || 'no email'})</p>\n`;
+            html += `<p><strong>Age Restriction:</strong> ${event.ageRestriction || 'None'}</p>\n`;
+            html += `<p><strong>Status:</strong> ${event.status}</p>\n`;
+            if (event.posterImage) {
+                html += `<p><strong>Flier:</strong><br><img src="${event.posterImage}" style="max-width:300px; height:auto;" /></p>\n`;
+            }
+            html += `<h3>Ticket Types</h3>\n`;
+            if (event.ticketTypes && event.ticketTypes.length) {
+                event.ticketTypes.forEach(t => {
+                    html += `<div style="margin-bottom:10px; padding:10px; border:1px solid #ccc; border-radius:8px;">\n`;
+                    html += `<strong>${t.name}</strong> - $${t.price} (${t.quantity} available)<br>\n`;
+                    html += `Description: ${t.description || 'N/A'}<br>\n`;
+                    if (t.imageBase64) {
+                        html += `<img src="${t.imageBase64}" style="max-width:100px; height:auto; margin-top:5px;" />\n`;
+                    }
+                    html += `</div>\n`;
+                });
+            } else {
+                html += `<p>None</p>\n`;
+            }
+            return html;
+        }
+
+        // View details modal
+        async function viewEventDetails(id) {
+            const event = allEvents.find(e => e.id === id);
+            if (!event) return;
+
+            const modal = document.getElementById('event-detail-modal');
+            const content = document.getElementById('modal-content');
+
+            let ticketDetails = '';
+            if (event.ticketTypes && event.ticketTypes.length > 0) {
+                event.ticketTypes.forEach((t, index) => {
+                    ticketDetails += `
+                        <div class="ticket-detail">
+                            <strong>${t.name}</strong> — $${t.price} (${t.quantity} available)
+                            <p style="font-size:0.9rem; margin-top:5px;">${t.description || 'No description'}</p>
+                            ${t.imageBase64 ? `
+                                <img src="${t.imageBase64}" class="ticket-img" alt="${t.name} ticket design">
+                                <div class="button-group">
+                                    <button class="btn btn-download" onclick="downloadBase64Image('${t.imageBase64}', '${event.eventName.replace(/[^a-z0-9]/gi, '_')}_${t.name.replace(/[^a-z0-9]/gi, '_')}.jpg')"><i class="fas fa-download"></i> Download Ticket</button>
+                                    <button class="btn btn-copy" onclick="copyText('<img src=\\'${t.imageBase64}\\' alt=\\'${t.name} ticket\\' />', 'Ticket HTML copied!')"><i class="fas fa-code"></i> Copy Ticket HTML</button>
+                                </div>
+                            ` : '<p>No ticket image uploaded.</p>'}
+                        </div>
+                    `;
+                });
+            } else {
+                ticketDetails = '<p>No ticket types defined.</p>';
+            }
+
+            content.innerHTML = `
+                <div class="modal-header">
+                    <h2>${event.eventName}</h2>
+                    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                </div>
+
+                <div class="button-group" style="margin-bottom:20px;">
+                    <button class="btn btn-copy" onclick="copyText(getEventAsPlainText(allEvents.find(e => e.id === '${event.id}')), 'Event details copied as text!')"><i class="fas fa-copy"></i> Copy Details as Text</button>
+                    <button class="btn btn-copy" onclick="copyText(getEventAsHTML(allEvents.find(e => e.id === '${event.id}')), 'Event details copied as HTML!')"><i class="fas fa-code"></i> Copy Details as HTML</button>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="detail-item"><label>Status</label><span class="status-badge status-${event.status}">${event.status.replace(/_/g, ' ').toUpperCase()}</span></div>
+                    <div class="detail-item"><label>Organizer</label><p>${event.organizerName || 'N/A'} (${event.organizerEmail || 'no email'})</p></div>
+                    <div class="detail-item"><label>Type</label><p>${event.type}</p></div>
+                    <div class="detail-item"><label>Location</label><p>${event.location}</p></div>
+                    <div class="detail-item"><label>Start</label><p>${new Date(event.startDate).toLocaleString()}</p></div>
+                    <div class="detail-item"><label>End</label><p>${new Date(event.endDate).toLocaleString()}</p></div>
+                    <div class="detail-item"><label>Capacity</label><p>${event.capacity}</p></div>
+                    <div class="detail-item"><label>Age Restriction</label><p>${event.ageRestriction || 'None'}</p></div>
+                </div>
+                <div class="detail-item"><label>Description</label><p>${event.description}</p></div>
+                <div class="detail-item">
+                    <label>Flier / Poster</label>
+                    ${event.posterImage ? `
+                        <img src="${event.posterImage}" style="max-width:300px; border-radius:8px; margin-top:10px;">
+                        <div class="button-group">
+                            <button class="btn btn-download" onclick="downloadBase64Image('${event.posterImage}', '${event.eventName.replace(/[^a-z0-9]/gi, '_')}_flier.jpg')"><i class="fas fa-download"></i> Download Flier</button>
+                            <button class="btn btn-copy" onclick="copyText('<img src=\\'${event.posterImage}\\' alt=\\'${event.eventName} flier\\' />', 'Flier HTML copied!')"><i class="fas fa-code"></i> Copy Flier HTML</button>
+                        </div>
+                    ` : 'No poster uploaded'}
+                </div>
+                <h3 style="margin: 20px 0 10px; color: var(--navy);">Ticket Types</h3>
+                ${ticketDetails}
+                ${event.rejectionReason ? `<div class="detail-item" style="margin-top:20px;"><label>Rejection Reason</label><p style="color:var(--pink);">${event.rejectionReason}</p></div>` : ''}
+            `;
+
+            modal.style.display = 'flex';
+        }
+
+        function closeDetailModal() {
+            document.getElementById('event-detail-modal').style.display = 'none';
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.dataset.filter;
+                applyFilter();
+            });
+        });
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('event-detail-modal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        // Initial load
+        loadEvents();
+    </script>
+</body>
+</html>

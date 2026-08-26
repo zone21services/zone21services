@@ -52,10 +52,13 @@
         .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: var(--navy); font-size: 0.9rem; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
         .form-group input:focus, .form-group select:focus { border-color: var(--lime); }
-        .ticket-type-section { border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 20px; background: #fafbfc; }
-        .ticket-type-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-        .ticket-type-header h3 { margin: 0; }
-        .ticket-type-header .price { font-weight: 700; color: var(--pink); }
+        .ticket-type-section { border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 20px; background: #fafbfc; transition: 0.2s; }
+        .ticket-type-section:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .ticket-type-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .ticket-type-header h3 { margin: 0; font-size: 1.2rem; }
+        .ticket-type-header .price { font-weight: 700; color: var(--pink); font-size: 1.1rem; }
+        .ticket-stats { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.9rem; }
+        .ticket-stats span { background: white; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); }
         .invoice-list { margin-top: 10px; }
         .invoice-item { background: white; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .invoice-item .info { flex: 1; }
@@ -251,3 +254,681 @@
         let currentEvent = null;
         let currentEventTicketTypes = [];
         let allTicketsListener = null;
+        let html5QrCode = null;
+
+        // ============ DOM ELEMENTS ============
+        const eventSelect = document.getElementById('event-select');
+        const eventDetailsDiv = document.getElementById('event-details');
+        const ticketTypesContainer = document.getElementById('ticket-types-container');
+        const allTicketsList = document.getElementById('all-tickets-list');
+
+        // ============ INITIAL LOAD ============
+        async function loadApprovedEvents() {
+            eventSelect.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const snapshot = await db.collection('events').where('status', '==', 'approved').orderBy('createdAt', 'desc').get();
+                eventSelect.innerHTML = '<option value="">-- Choose an approved event --</option>';
+                snapshot.forEach(doc => {
+                    const ev = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = ev.eventName + ' (' + new Date(ev.startDate).toLocaleDateString() + ')';
+                    eventSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error loading events:', err);
+                eventSelect.innerHTML = '<option value="">Failed to load events</option>';
+            }
+        }
+
+        eventSelect.addEventListener('change', async function() {
+            const eventId = this.value;
+            if (!eventId) {
+                currentEvent = null;
+                currentEventTicketTypes = [];
+                eventDetailsDiv.classList.add('hidden');
+                ticketTypesContainer.innerHTML = '';
+                allTicketsList.innerHTML = 'Select an event to view tickets.';
+                return;
+            }
+            try {
+                const doc = await db.collection('events').doc(eventId).get();
+                if (doc.exists) {
+                    currentEvent = { id: doc.id, ...doc.data() };
+                    currentEventTicketTypes = currentEvent.ticketTypes || [];
+                    displayEventDetails(currentEvent);
+                    displayTicketTypes(currentEventTicketTypes);
+                    loadAllTickets(eventId);
+                }
+            } catch (err) {
+                console.error('Error fetching event:', err);
+            }
+        });
+
+        function displayEventDetails(ev) {
+            eventDetailsDiv.classList.remove('hidden');
+            document.getElementById('ev-name').textContent = ev.eventName;
+            document.getElementById('ev-date').textContent = new Date(ev.startDate).toLocaleString();
+            document.getElementById('ev-location').textContent = ev.location;
+        }
+
+        function displayTicketTypes(ticketTypes) {
+            ticketTypesContainer.innerHTML = '';
+            if (!ticketTypes || ticketTypes.length === 0) {
+                ticketTypesContainer.innerHTML = '<div class="card">No ticket types defined for this event.</div>';
+                return;
+            }
+            ticketTypes.forEach(ticketType => {
+                const section = document.createElement('div');
+                section.className = 'ticket-type-section';
+                section.innerHTML = `
+                    <div class="ticket-type-header">
+                        <h3>${ticketType.name}</h3>
+                        <span class="price">$${ticketType.price}</span>
+                        <button class="btn btn-lime" onclick="openInvoiceModal('${currentEvent.id}', '${ticketType.name}')">
+                            <i class="fas fa-plus"></i> Create Invoice
+                        </button>
+                    </div>
+                    <div class="ticket-stats" id="stats-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">
+                        <span>Total: ${ticketType.quantity}</span>
+                        <span>Sold: <span id="sold-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">0</span></span>
+                        <span>Remaining: <span id="remaining-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">${ticketType.quantity}</span></span>
+                    </div>
+                    <div class="invoice-list" id="invoices-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">
+                        Loading invoices...
+                    </div>
+                `;
+                ticketTypesContainer.appendChild(section);
+                loadInvoicesForTicketType(currentEvent.id, ticketType.name);
+                loadSoldCount(currentEvent.id, ticketType.name, ticketType.quantity);
+            });
+        }
+
+        // Load sold count for a ticket type
+        async function loadSoldCount(eventId, ticketTypeName, totalQuantity) {
+            const soldSpan = document.getElementById('sold-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
+            const remainingSpan = document.getElementById('remaining-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
+            try {
+                const snapshot = await db.collection('tickets')
+                    .where('eventId', '==', eventId)
+                    .where('ticketTypeName', '==', ticketTypeName)
+                    .get();
+                const sold = snapshot.size;
+                if (soldSpan) soldSpan.textContent = sold;
+                if (remainingSpan) remainingSpan.textContent = totalQuantity - sold;
+            } catch (err) {
+                console.error('Error loading sold count:', err);
+            }
+        }
+
+        // ============ INVOICE HANDLING ============
+        function openInvoiceModal(eventId, ticketTypeName) {
+            const modal = document.getElementById('invoice-modal');
+            document.getElementById('invoice-event-id').value = eventId;
+            document.getElementById('invoice-ticket-type').value = ticketTypeName;
+            const ticketType = currentEventTicketTypes.find(t => t.name === ticketTypeName);
+            if (ticketType) {
+                document.getElementById('invoice-amount').value = ticketType.price;
+            }
+            document.getElementById('invoice-form').reset();
+            document.getElementById('invoice-event-id').value = eventId;
+            document.getElementById('invoice-ticket-type').value = ticketTypeName;
+            if (ticketType) {
+                document.getElementById('invoice-amount').value = ticketType.price;
+            }
+            modal.style.display = 'flex';
+        }
+
+        document.getElementById('invoice-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const eventId = document.getElementById('invoice-event-id').value;
+            const ticketTypeName = document.getElementById('invoice-ticket-type').value;
+            const buyerName = document.getElementById('invoice-buyer-name').value.trim();
+            const buyerEmail = document.getElementById('invoice-buyer-email').value.trim();
+            const buyerPhone = document.getElementById('invoice-buyer-phone').value.trim();
+            const amount = parseFloat(document.getElementById('invoice-amount').value);
+            const proofFile = document.getElementById('invoice-proof').files[0];
+
+            if (!buyerName || !buyerEmail || !buyerPhone || isNaN(amount)) {
+                alert('Please fill all required fields.');
+                return;
+            }
+
+            let paymentProofBase64 = null;
+            if (proofFile) {
+                paymentProofBase64 = await fileToBase64(proofFile, 800, 0.7);
+            }
+
+            const invoiceData = {
+                eventId,
+                ticketTypeName,
+                buyerName,
+                buyerEmail,
+                buyerPhone,
+                amount,
+                paymentProofBase64,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                ticketId: null
+            };
+
+            try {
+                await db.collection('invoices').add(invoiceData);
+                alert('Invoice created.');
+                closeModal('invoice-modal');
+                loadInvoicesForTicketType(eventId, ticketTypeName);
+            } catch (err) {
+                console.error('Error creating invoice:', err);
+                alert('Failed to create invoice.');
+            }
+        });
+
+        async function loadInvoicesForTicketType(eventId, ticketTypeName) {
+            const containerId = 'invoices-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase();
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = 'Loading...';
+            try {
+                const snapshot = await db.collection('invoices')
+                    .where('eventId', '==', eventId)
+                    .where('ticketTypeName', '==', ticketTypeName)
+                    .orderBy('createdAt', 'desc')
+                    .get();
+                container.innerHTML = '';
+                if (snapshot.empty) {
+                    container.innerHTML = '<p>No invoices yet.</p>';
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const inv = doc.data();
+                    inv.id = doc.id;
+                    const div = document.createElement('div');
+                    div.className = 'invoice-item';
+                    const statusClass = inv.status === 'paid' ? 'status-paid' : (inv.status === 'pending' ? 'status-pending' : 'status-void');
+                    div.innerHTML = `
+                        <div class="info">
+                            <strong>${inv.buyerName}</strong> (${inv.buyerEmail})<br>
+                            <small>Amount: $${inv.amount.toFixed(2)} | ${inv.buyerPhone}</small>
+                            ${inv.paymentProofBase64 ? `<br><a href="${inv.paymentProofBase64}" target="_blank">View Payment Proof</a>` : ''}
+                        </div>
+                        <span class="status ${statusClass}">${inv.status.toUpperCase()}</span>
+                        <div class="button-group">
+                            ${inv.status === 'pending' ? `
+                                <button class="btn btn-green" onclick="verifyPayment('${doc.id}')"><i class="fas fa-check"></i> Verify & Generate Ticket</button>
+                            ` : ''}
+                            ${inv.status === 'paid' && inv.ticketId ? `
+                                <button class="btn btn-primary" onclick="openShareModal('${inv.ticketId}')"><i class="fas fa-share"></i> Share Ticket</button>
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error('Error loading invoices:', err);
+                container.innerHTML = 'Failed to load invoices.';
+            }
+        }
+
+        // ============ PAYMENT VERIFICATION & TICKET GENERATION ============
+        async function verifyPayment(invoiceId) {
+            const modal = document.getElementById('verify-modal');
+            const content = document.getElementById('verify-content');
+            content.innerHTML = 'Loading invoice...';
+            modal.style.display = 'flex';
+
+            try {
+                const invDoc = await db.collection('invoices').doc(invoiceId).get();
+                if (!invDoc.exists) {
+                    content.innerHTML = 'Invoice not found.';
+                    return;
+                }
+                const inv = invDoc.data();
+                inv.id = invDoc.id;
+                if (inv.ticketId) {
+                    content.innerHTML = 'Ticket already generated.';
+                    return;
+                }
+
+                content.innerHTML = `
+                    <p><strong>Buyer:</strong> ${inv.buyerName} (${inv.buyerEmail})</p>
+                    <p><strong>Ticket Type:</strong> ${inv.ticketTypeName}</p>
+                    <p><strong>Amount:</strong> $${inv.amount.toFixed(2)}</p>
+                    ${inv.paymentProofBase64 ? `<img src="${inv.paymentProofBase64}" style="max-width:200px; border-radius:8px;">` : '<p>No payment proof uploaded.</p>'}
+                    <div class="button-group" style="margin-top:15px;">
+                        <button class="btn btn-green" onclick="confirmGenerateTicket('${inv.id}')"><i class="fas fa-check-circle"></i> Confirm Payment & Generate Ticket</button>
+                        <button class="btn btn-pink" onclick="voidInvoice('${inv.id}')"><i class="fas fa-ban"></i> Void Invoice</button>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                content.innerHTML = 'Error loading invoice.';
+            }
+        }
+
+        async function confirmGenerateTicket(invoiceId) {
+            try {
+                const invDoc = await db.collection('invoices').doc(invoiceId).get();
+                if (!invDoc.exists) {
+                    alert('Invoice not found.');
+                    return;
+                }
+                const inv = invDoc.data();
+                const ticketId = generateUUID();
+                const ticketData = {
+                    eventId: inv.eventId,
+                    ticketTypeName: inv.ticketTypeName,
+                    buyerName: inv.buyerName,
+                    buyerEmail: inv.buyerEmail,
+                    buyerPhone: inv.buyerPhone,
+                    invoiceId: invoiceId,
+                    status: 'approved',
+                    createdAt: new Date().toISOString(),
+                    approvedAt: new Date().toISOString(),
+                    scannedAt: null,
+                    scannerId: null,
+                    qrCodeData: ticketId
+                };
+
+                await db.collection('tickets').doc(ticketId).set(ticketData);
+                await db.collection('invoices').doc(invoiceId).update({
+                    status: 'paid',
+                    ticketId: ticketId
+                });
+
+                alert('Ticket generated successfully!');
+                closeModal('verify-modal');
+                loadInvoicesForTicketType(inv.eventId, inv.ticketTypeName);
+                loadAllTickets(inv.eventId);
+                loadSoldCount(inv.eventId, inv.ticketTypeName, getTicketTypeQuantity(inv.ticketTypeName));
+            } catch (err) {
+                console.error('Error generating ticket:', err);
+                alert('Failed to generate ticket.');
+            }
+        }
+
+        function getTicketTypeQuantity(ticketTypeName) {
+            const type = currentEventTicketTypes.find(t => t.name === ticketTypeName);
+            return type ? type.quantity : 0;
+        }
+
+        async function voidInvoice(invoiceId) {
+            if (!confirm('Void this invoice?')) return;
+            try {
+                await db.collection('invoices').doc(invoiceId).update({ status: 'void' });
+                closeModal('verify-modal');
+                const invDoc = await db.collection('invoices').doc(invoiceId).get();
+                if (invDoc.exists) {
+                    loadInvoicesForTicketType(invDoc.data().eventId, invDoc.data().ticketTypeName);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Failed to void invoice.');
+            }
+        }
+
+        // ============ TICKET SHARING ============
+        function openShareModal(ticketId) {
+            const modal = document.getElementById('share-modal');
+            const content = document.getElementById('share-content');
+            content.innerHTML = 'Loading ticket...';
+            modal.style.display = 'flex';
+
+            db.collection('tickets').doc(ticketId).get().then(doc => {
+                if (!doc.exists) {
+                    content.innerHTML = 'Ticket not found.';
+                    return;
+                }
+                const ticket = doc.data();
+                const qrData = ticket.qrCodeData;
+                const whatsappText = `🎟️ *Zone21 Event Ticket*%0A%0A*Event:* ${currentEvent ? currentEvent.eventName : 'Event'}%0A*Ticket Type:* ${ticket.ticketTypeName}%0A*Buyer:* ${ticket.buyerName}%0A*Ticket ID:* ${ticketId}%0A%0A Please present the QR code at the entrance.`;
+                const emailSubject = `Your Zone21 Ticket - ${currentEvent ? currentEvent.eventName : 'Event'}`;
+                const emailBody = `Dear ${ticket.buyerName},%0D%0A%0D%0AHere is your ticket for ${currentEvent ? currentEvent.eventName : 'Event'}.%0D%0A%0D%0ATicket Type: ${ticket.ticketTypeName}%0D%0ATicket ID: ${ticketId}%0D%0A%0D%0APlease present the QR code at the entrance.`;
+
+                content.innerHTML = `
+                    <p><strong>Ticket ID:</strong> ${ticketId}</p>
+                    <p><strong>Buyer:</strong> ${ticket.buyerName}</p>
+                    <p><strong>Email:</strong> ${ticket.buyerEmail}</p>
+                    <p><strong>Phone:</strong> ${ticket.buyerPhone}</p>
+                    <div class="ticket-display">
+                        <div id="qr-code-${ticketId}"></div>
+                        <small>QR Code</small>
+                    </div>
+                    <div class="button-group" style="margin-top:15px;">
+                        <a href="https://wa.me/${ticket.buyerPhone.replace(/[^0-9]/g,'')}?text=${whatsappText}" target="_blank" class="btn btn-lime"><i class="fab fa-whatsapp"></i> Share via WhatsApp</a>
+                        <a href="mailto:${ticket.buyerEmail}?subject=${emailSubject}&body=${emailBody}" target="_blank" class="btn btn-primary"><i class="fas fa-envelope"></i> Send Email</a>
+                    </div>
+                `;
+                new QRCode(document.getElementById(`qr-code-${ticketId}`), {
+                    text: qrData,
+                    width: 150,
+                    height: 150
+                });
+            }).catch(err => {
+                console.error(err);
+                content.innerHTML = 'Error loading ticket.';
+            });
+        }
+
+        // ============ ALL TICKETS LIST ============
+        function loadAllTickets(eventId) {
+            if (allTicketsListener) {
+                allTicketsListener();
+            }
+            allTicketsList.innerHTML = 'Loading tickets...';
+            allTicketsListener = db.collection('tickets')
+                .where('eventId', '==', eventId)
+                .orderBy('createdAt', 'desc')
+                .onSnapshot(snapshot => {
+                    allTicketsList.innerHTML = '';
+                    if (snapshot.empty) {
+                        allTicketsList.innerHTML = 'No tickets generated yet.';
+                        return;
+                    }
+                    snapshot.forEach(doc => {
+                        const ticket = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'invoice-item';
+                        const statusClass = ticket.status === 'approved' ? 'status-paid' : (ticket.status === 'scanned' ? 'status-scanned' : 'status-void');
+                        div.innerHTML = `
+                            <div class="info">
+                                <strong>${ticket.buyerName}</strong> (${ticket.ticketTypeName})<br>
+                                <small>Ticket ID: ${doc.id}</small>
+                                ${ticket.scannedAt ? `<br><small>Scanned: ${new Date(ticket.scannedAt).toLocaleString()}</small>` : ''}
+                            </div>
+                            <span class="status ${statusClass}">${ticket.status.toUpperCase()}</span>
+                            <button class="btn btn-outline" onclick="openShareModal('${doc.id}')"><i class="fas fa-share"></i> Share</button>
+                        `;
+                        allTicketsList.appendChild(div);
+                    });
+                }, err => {
+                    console.error('Error loading tickets:', err);
+                    allTicketsList.innerHTML = 'Failed to load tickets.';
+                });
+        }
+
+        // ============ QR SCANNER (improved) ============
+        function openScanner() {
+            const modal = document.getElementById('scanner-modal');
+            modal.style.display = 'flex';
+            document.getElementById('scan-result').classList.add('hidden');
+            document.getElementById('qr-reader').innerHTML = '';
+            document.getElementById('camera-permission-section').classList.add('hidden');
+            startScanner();
+        }
+
+        async function startScanner() {
+            const qrReader = document.getElementById('qr-reader');
+            qrReader.innerHTML = '';
+            const permissionSection = document.getElementById('camera-permission-section');
+            permissionSection.classList.add('hidden');
+
+            if (html5QrCode) {
+                try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {}
+                html5QrCode = null;
+            }
+
+            if (!window.isSecureContext) {
+                permissionSection.classList.remove('hidden');
+                permissionSection.innerHTML = `
+                    <p style="color:#dc3545;">⚠️ Camera access requires a secure (HTTPS) connection.</p>
+                    <p>Please serve this page over HTTPS or use the "Scan from Image" option.</p>
+                    <button class="btn btn-lime" onclick="document.getElementById('qr-image-input').click()">Scan from Image</button>
+                `;
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                stream.getTracks().forEach(track => track.stop());
+
+                html5QrCode = new Html5Qrcode("qr-reader");
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    onScanSuccess,
+                    onScanFailure
+                );
+            } catch (err) {
+                console.error('Camera error:', err);
+                permissionSection.classList.remove('hidden');
+                permissionSection.innerHTML = `
+                    <p style="color:#856404;">Unable to access camera. Please allow camera permission in your browser settings and try again.</p>
+                    <button class="btn btn-lime" onclick="requestCameraAndScan()">
+                        <i class="fas fa-camera"></i> Allow Camera Access
+                    </button>
+                    <p style="font-size:0.8rem; margin-top:8px;">Alternatively, use "Scan from Image".</p>
+                `;
+            }
+        }
+
+        async function requestCameraAndScan() {
+            const permissionSection = document.getElementById('camera-permission-section');
+            permissionSection.classList.add('hidden');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                stream.getTracks().forEach(track => track.stop());
+                startScanner();
+            } catch (err) {
+                permissionSection.classList.remove('hidden');
+                permissionSection.innerHTML = `
+                    <p style="color:#dc3545;">Permission denied. Please allow camera access in your browser settings, then click "Restart Camera".</p>
+                    <button class="btn btn-outline" onclick="restartScanner()">Restart Camera</button>
+                `;
+            }
+        }
+
+        function restartScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                    startScanner();
+                }).catch(() => startScanner());
+            } else {
+                startScanner();
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                    validateTicket(decodedText);
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function onScanFailure(err) {}
+
+        async function scanFromFile(file) {
+            if (!file) return;
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
+            resultDiv.innerHTML = 'Processing image...';
+            try {
+                const tempScanner = new Html5Qrcode("qr-reader");
+                const result = await tempScanner.scanFile(file, false);
+                await tempScanner.clear();
+                validateTicket(result);
+            } catch (err) {
+                console.error('File scan error:', err);
+                resultDiv.classList.add('scan-invalid');
+                resultDiv.innerHTML = '<h3>❌ Could not read QR code from image</h3>';
+            }
+        }
+
+        function manualScanEntry() {
+            const ticketId = prompt('Enter Ticket ID (from QR code):');
+            if (ticketId) validateTicket(ticketId.trim());
+        }
+
+        function closeScanner() {
+            const modal = document.getElementById('scanner-modal');
+            modal.style.display = 'none';
+            if (html5QrCode) {
+                try { html5QrCode.stop().then(() => html5QrCode.clear()); } catch (e) {}
+                html5QrCode = null;
+            }
+        }
+
+        // ============ TICKET VALIDATION & EARLY SCAN PREVENTION ============
+        async function validateTicket(ticketId) {
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
+            resultDiv.innerHTML = 'Validating...';
+
+            try {
+                const ticketDoc = await db.collection('tickets').doc(ticketId).get();
+                if (!ticketDoc.exists) {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Ticket Not Found</h3>';
+                    return;
+                }
+                const ticket = ticketDoc.data();
+
+                if (ticket.status === 'scanned') {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = `<h3>❌ Already Scanned</h3><p>Scanned at: ${ticket.scannedAt ? new Date(ticket.scannedAt).toLocaleString() : 'Unknown'}</p>`;
+                    return;
+                }
+                if (ticket.status !== 'approved') {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Ticket Not Valid</h3>';
+                    return;
+                }
+
+                const eventDoc = await db.collection('events').doc(ticket.eventId).get();
+                if (!eventDoc.exists) {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Event Not Found</h3>';
+                    return;
+                }
+                const event = eventDoc.data();
+                const eventStart = new Date(event.startDate);
+                const now = new Date();
+                const diffMs = eventStart - now;
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                if (diffHours > 5) {
+                    showEarlyWarning(eventStart);
+                    resultDiv.classList.add('scan-warning');
+                    resultDiv.innerHTML = '<h3>⚠️ Too Early to Scan</h3>';
+                    return;
+                } else if (diffHours > 0) {
+                    resultDiv.classList.add('scan-warning');
+                    resultDiv.innerHTML = `<h3>⚠️ Gate Not Open Yet</h3><p>Gate opens in ${Math.ceil(diffHours)} hours.</p>`;
+                    return;
+                }
+
+                const ticketRef = db.collection('tickets').doc(ticketId);
+                await db.runTransaction(async (transaction) => {
+                    const freshTicketDoc = await transaction.get(ticketRef);
+                    if (!freshTicketDoc.exists) throw new Error('Ticket does not exist');
+                    const freshTicket = freshTicketDoc.data();
+                    if (freshTicket.status === 'scanned') throw new Error('Already scanned');
+                    if (freshTicket.status !== 'approved') throw new Error('Ticket not approved');
+                    transaction.update(ticketRef, {
+                        status: 'scanned',
+                        scannedAt: new Date().toISOString(),
+                        scannerId: 'admin'
+                    });
+                });
+
+                resultDiv.classList.add('scan-valid');
+                resultDiv.innerHTML = `<h3>✅ Valid Ticket</h3><p>Buyer: ${ticket.buyerName}</p><p>Type: ${ticket.ticketTypeName}</p><p>Entry Granted!</p>`;
+            } catch (err) {
+                console.error('Scan validation error:', err);
+                resultDiv.classList.add('scan-invalid');
+                resultDiv.innerHTML = `<h3>❌ Error</h3><p>${err.message || 'Failed to validate ticket'}</p>`;
+            }
+        }
+
+        function showEarlyWarning(eventStart) {
+            const modal = document.getElementById('early-warning-modal');
+            modal.style.display = 'flex';
+            const countdownElement = document.getElementById('countdown-timer');
+            const gateOpenTime = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
+            const updateCountdown = () => {
+                const now = new Date();
+                const diff = gateOpenTime - now;
+                if (diff <= 0) {
+                    countdownElement.textContent = '00:00:00';
+                    clearInterval(window._earlyCountdownInterval);
+                    return;
+                }
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                countdownElement.textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            };
+            updateCountdown();
+            window._earlyCountdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function closeEarlyWarning() {
+            const modal = document.getElementById('early-warning-modal');
+            modal.style.display = 'none';
+            if (window._earlyCountdownInterval) clearInterval(window._earlyCountdownInterval);
+            startScanner();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // ============ UTILITIES ============
+        function generateUUID() {
+            return 'ticket_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function fileToBase64(file, maxDimension = 800, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) modal.style.display = 'none';
+            });
+        };
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadApprovedEvents();
+        });
+    </script>
+</body>
+</html>

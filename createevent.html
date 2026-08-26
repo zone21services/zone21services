@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 Organizer Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat (as you provided) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .dashboard-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; flex-wrap: wrap; gap: 15px;
+        }
+        .dashboard-header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .btn-create {
+            background: var(--lime); color: var(--navy); border: none; border-radius: 30px;
+            padding: 12px 24px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .btn-create:hover { background: #d0d800; transform: translateY(-2px); }
+        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px; margin-bottom: 25px; }
+        .card h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--navy); }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--lime); }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group .helper { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        .poster-preview { width: 100%; max-width: 300px; height: auto; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
+        .ticket-type-row { background: #fafbfc; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative; }
+        .ticket-type-row .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--pink); font-size: 1.2rem; cursor: pointer; }
+        .ticket-type-row .ticket-preview { max-width: 120px; height: auto; margin-top: 10px; border-radius: 8px; }
+        .add-ticket-btn { background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .add-ticket-btn:hover { background: #1a3a4a; }
+        .checkbox-group { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
+        .checkbox-group input[type="checkbox"] { margin-top: 4px; width: auto; }
+        .checkbox-group label { font-weight: 500; color: var(--navy); }
+        .btn-submit { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 14px 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn-submit:hover { background: #d0d800; transform: translateY(-2px); }
+        .btn-cancel-form { background: #f0f0f0; color: var(--navy); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .my-events { margin-top: 40px; }
+        .event-card { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
+        .event-card .status { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-cancelled { background: #e2e3e5; color: #383d41; }
+        .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
+        .event-card .actions { display: flex; gap: 8px; }
+        .event-card button { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; padding: 5px; border-radius: 50%; }
+        .event-card .edit-btn { color: var(--navy); }
+        .event-card .delete-btn { color: var(--pink); }
+        .event-card .cancel-btn { color: #ffc107; }
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .card { padding: 20px; }
+            .dashboard-header { flex-direction: column; align-items: flex-start; }
+        }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; border-radius: 16px; padding: 25px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 15px; color: var(--navy); }
+        .modal-content p, .modal-content li { margin-bottom: 10px; color: #444; }
+        .modal-close { float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+        .btn-close-modal { background: var(--navy); color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; }
+        .terms-link { color: var(--pink); cursor: pointer; text-decoration: underline; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
+            <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
+        </div>
+
+        <!-- Event Creation Form (hidden by default) -->
+        <div class="card hidden" id="event-form-card">
+            <h2>Event Information</h2>
+            <form id="event-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Event Name *</label>
+                        <input type="text" id="eventName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Event Type *</label>
+                        <select id="eventType" required>
+                            <option value="">Select type...</option>
+                            <option>Conference</option>
+                            <option>Music Festival</option>
+                            <option>Corporate Gala</option>
+                            <option>Wedding</option>
+                            <option>Brand Launch</option>
+                            <option>Private Party</option>
+                            <option>Exhibition</option>
+                            <option>Sporting Event</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="eventDescription" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date & Time *</label>
+                        <input type="datetime-local" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date & Time *</label>
+                        <input type="datetime-local" id="endDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Location / Venue *</label>
+                        <input type="text" id="location" placeholder="e.g., Harare International Conference Centre" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Capacity *</label>
+                        <input type="number" id="capacity" min="1" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Organizer Contact Name *</label>
+                        <input type="text" id="organizerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Organizer Email *</label>
+                        <input type="email" id="organizerEmail" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Organizer Phone</label>
+                    <input type="tel" id="organizerPhone">
+                </div>
+                <div class="form-group">
+                    <label>Event Poster Image</label>
+                    <input type="file" id="posterUpload" accept="image/*">
+                    <div class="helper">Recommended size: 1200x800px, JPG/PNG. Max 500KB (will be compressed).</div>
+                    <img id="posterPreview" class="poster-preview" style="display:none;" alt="Poster Preview">
+                </div>
+                <div class="form-group">
+                    <label>Age Restriction (optional)</label>
+                    <input type="text" id="ageRestriction" placeholder="e.g., 18+">
+                </div>
+                <div class="form-group">
+                    <label>Dress Code (optional)</label>
+                    <input type="text" id="dressCode" placeholder="e.g., Formal / Smart Casual">
+                </div>
+                <div class="form-group">
+                    <label>Choose Default Ticket Template</label>
+                    <select id="ticketTemplate">
+                        <option value="classic">Classic (Z21 standard)</option>
+                        <option value="modern">Modern Minimal</option>
+                        <option value="festival">Festival Vibes</option>
+                        <option value="corporate">Corporate Elegance</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- Ticket Types Card (hidden by default, shown with form) -->
+        <div class="card hidden" id="ticket-types-card">
+            <h2>Ticket Types</h2>
+            <div id="ticket-types-container"></div>
+            <button type="button" class="add-ticket-btn" id="add-ticket-btn"><i class="fas fa-plus"></i> Add Ticket Type</button>
+            <p style="margin-top:10px; color:var(--text-muted);">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</p>
+        </div>
+
+        <!-- Terms & Submit (hidden) -->
+        <div class="card hidden" id="terms-submit-card">
+            <h2>Terms & Conditions</h2>
+            <div class="checkbox-group">
+                <input type="checkbox" id="agreeTerms" required>
+                <label for="agreeTerms">I agree to Zone21's <span class="terms-link" id="open-terms">Organizer Terms & Conditions</span> *</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="agreeRights">
+                <label for="agreeRights">I confirm that I have the rights to use all uploaded images and information provided.</label>
+            </div>
+            <button type="button" class="btn-submit" id="submit-event"><i class="fas fa-paper-plane"></i> Submit for Approval</button>
+            <button type="button" class="btn-cancel-form" id="cancel-create">Cancel</button>
+        </div>
+
+        <!-- My Events List -->
+        <div class="card my-events">
+            <h2>My Events</h2>
+            <div id="my-events-list"></div>
+            <p id="no-events-msg" style="color:var(--text-muted);">No events created yet. Click "Create New Event" to get started.</p>
+        </div>
+    </div>
+
+    <!-- Terms Modal -->
+    <div class="modal" id="terms-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-terms">&times;</button>
+            <h3>Zone21 Organizer Terms & Conditions</h3>
+            <p><strong>1. Platform Fee:</strong> Zone21 charges a <span style="color:var(--pink); font-weight:700;">2% fee</span> on every ticket sold through the platform. This fee is automatically deducted from the ticket price before payout to the organizer.</p>
+            <p><strong>2. Event Approval Workflow:</strong> All events are submitted as <span style="color:#856404;">Pending Approval</span>. An administrator will review and either approve or reject the event. Approved events are live and visible to the public with ticket purchasing enabled.</p>
+            <p><strong>3. Organizer Responsibilities:</strong> The organizer is fully responsible for all event logistics, compliance with local laws, venue arrangements, and any required permits or licenses.</p>
+            <p><strong>4. Image Rights:</strong> All uploaded images (posters, ticket designs, etc.) must be owned by the organizer or properly licensed for use.</p>
+            <p><strong>5. Event Cancellation:</strong> Organizers may request cancellation of an approved event. Cancellation requests require admin approval and may be subject to fees.</p>
+            <p><strong>6. Payment Processing:</strong> Zone21 processes payments via its payment partners; organizers will receive net proceeds after deduction of the 2% platform fee and any applicable payment processing fees.</p>
+            <p><strong>7. Prohibited Content:</strong> Events promoting illegal activities, hate speech, or violence are strictly prohibited and will be rejected.</p>
+            <p>By submitting an event, you agree to these terms.</p>
+            <button class="btn-close-modal" id="accept-terms-btn">I Understand</button>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE CONFIG (your exact config) ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ============ GLOBAL VARIABLES ============
+        // In a real app, this would come from authentication
+        const currentOrganizerId = "demo-organizer-123"; // replace with actual UID when auth is implemented
+
+        // ============ UI ELEMENTS ============
+        const showCreateBtn = document.getElementById('show-create-form');
+        const eventFormCard = document.getElementById('event-form-card');
+        const ticketTypesCard = document.getElementById('ticket-types-card');
+        const termsSubmitCard = document.getElementById('terms-submit-card');
+        const cancelCreateBtn = document.getElementById('cancel-create');
+
+        // ============ SHOW/HIDE FORM ============
+        showCreateBtn.addEventListener('click', () => {
+            eventFormCard.classList.remove('hidden');
+            ticketTypesCard.classList.remove('hidden');
+            termsSubmitCard.classList.remove('hidden');
+            showCreateBtn.style.display = 'none';
+            // reset form if needed
+            document.getElementById('event-form').reset();
+            document.getElementById('ticket-types-container').innerHTML = '';
+            addTicketType();
+            document.getElementById('posterPreview').style.display = 'none';
+            document.getElementById('submit-event').dataset.editId = '';
+            document.getElementById('submit-event').innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Approval';
+        });
+
+        cancelCreateBtn.addEventListener('click', () => {
+            eventFormCard.classList.add('hidden');
+            ticketTypesCard.classList.add('hidden');
+            termsSubmitCard.classList.add('hidden');
+            showCreateBtn.style.display = 'block';
+        });
+
+        // ============ IMAGE HANDLING (Base64) ============
+        function fileToBase64(file, maxDimension = 800, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handlePosterUpload(file) {
+            if (!file) return null;
+            try {
+                const base64 = await fileToBase64(file, 800, 0.7);
+                document.getElementById('posterPreview').src = base64;
+                document.getElementById('posterPreview').style.display = 'block';
+                return base64;
+            } catch (e) {
+                alert('Failed to process poster image. Please try another file.');
+                return null;
+            }
+        }
+
+        async function handleTicketImageUpload(file, previewId) {
+            if (!file) return null;
+            try {
+                const base64 = await fileToBase64(file, 400, 0.7); // smaller size for ticket
+                const preview = document.getElementById(previewId);
+                if (preview) { preview.src = base64; preview.style.display = 'block'; }
+                return base64;
+            } catch (e) {
+                alert('Failed to process ticket image.');
+                return null;
+            }
+        }
+
+        // ============ TICKET TYPES MANAGEMENT ============
+        let ticketCount = 0;
+        function addTicketType() {
+            ticketCount++;
+            const container = document.getElementById('ticket-types-container');
+            const ticketDiv = document.createElement('div');
+            ticketDiv.className = 'ticket-type-row';
+            ticketDiv.id = `ticket-row-${ticketCount}`;
+            ticketDiv.innerHTML = `
+                <button type="button" class="remove-btn" onclick="removeTicketType(${ticketCount})" title="Remove"><i class="fas fa-times"></i></button>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ticket Name *</label>
+                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP, VVIP" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (USD) *</label>
+                        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantity Available *</label>
+                        <input type="number" class="ticket-quantity" min="1" value="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge access">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Custom Ticket Design (optional)</label>
+                    <input type="file" class="ticket-image-upload" accept="image/*" onchange="previewTicketImage(this, ${ticketCount})">
+                    <img id="ticket-preview-${ticketCount}" class="ticket-preview" style="display:none;" alt="Ticket Design Preview">
+                </div>
+            `;
+            container.appendChild(ticketDiv);
+        }
+
+        function removeTicketType(id) {
+            const row = document.getElementById(`ticket-row-${id}`);
+            if (row) row.remove();
+        }
+
+        function previewTicketImage(input, id) {
+            const file = input.files[0];
+            if (file) {
+                const preview = document.getElementById(`ticket-preview-${id}`);
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function collectTicketTypes() {
+            const rows = document.querySelectorAll('.ticket-type-row');
+            if (rows.length === 0) {
+                alert('Please add at least one ticket type.');
+                return null;
+            }
+            const ticketTypes = [];
+            for (let row of rows) {
+                const name = row.querySelector('.ticket-name').value.trim();
+                const price = parseFloat(row.querySelector('.ticket-price').value);
+                const quantity = parseInt(row.querySelector('.ticket-quantity').value);
+                const description = row.querySelector('.ticket-description').value.trim();
+                const imageInput = row.querySelector('.ticket-image-upload');
+                let imageBase64 = null;
+                if (imageInput.files && imageInput.files[0]) {
+                    imageBase64 = await handleTicketImageUpload(imageInput.files[0], `ticket-preview-${row.id.split('-')[2]}`);
+                }
+                if (!name || isNaN(price) || isNaN(quantity)) {
+                    alert('Please fill all required ticket fields (name, price, quantity).');
+                    return null;
+                }
+                ticketTypes.push({
+                    name,
+                    price,
+                    quantity,
+                    description,
+                    imageBase64: imageBase64 || null,
+                    template: document.getElementById('ticketTemplate').value || 'classic'
+                });
+            }
+            return ticketTypes;
+        }
+
+        // ============ EVENT SUBMISSION ============
+        document.getElementById('submit-event').addEventListener('click', async function() {
+            const editId = this.dataset.editId;
+
+            // Validate form
+            const eventForm = document.getElementById('event-form');
+            if (!eventForm.checkValidity()) {
+                eventForm.reportValidity();
+                return;
+            }
+            if (!document.getElementById('agreeTerms').checked) {
+                alert('You must agree to the Terms & Conditions.');
+                return;
+            }
+
+            const posterInput = document.getElementById('posterUpload');
+            let posterBase64 = document.getElementById('posterPreview').src || null;
+            if (posterInput.files && posterInput.files[0]) {
+                posterBase64 = await handlePosterUpload(posterInput.files[0]);
+            }
+
+            const ticketTypes = await collectTicketTypes();
+            if (!ticketTypes) return;
+
+            const eventData = {
+                organizerId: currentOrganizerId,
+                eventName: document.getElementById('eventName').value.trim(),
+                type: document.getElementById('eventType').value,
+                description: document.getElementById('eventDescription').value.trim(),
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                location: document.getElementById('location').value.trim(),
+                capacity: parseInt(document.getElementById('capacity').value),
+                organizerName: document.getElementById('organizerName').value.trim(),
+                organizerEmail: document.getElementById('organizerEmail').value.trim(),
+                organizerPhone: document.getElementById('organizerPhone').value.trim(),
+                ageRestriction: document.getElementById('ageRestriction').value.trim(),
+                dressCode: document.getElementById('dressCode').value.trim(),
+                posterImage: posterBase64,
+                ticketTypes: ticketTypes,
+                status: 'pending', // always pending on new submission or update
+                createdAt: editId ? (await db.collection('events').doc(editId).get()).data().createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                id: editId || 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6)
+            };
+
+            try {
+                if (editId) {
+                    await db.collection('events').doc(editId).update(eventData);
+                    alert('Event updated and resubmitted for approval.');
+                } else {
+                    await db.collection('events').doc(eventData.id).set(eventData);
+                    alert('Event submitted for approval! It will appear in "My Events" and be reviewed by admin.');
+                }
+
+                // Reset UI
+                eventFormCard.classList.add('hidden');
+                ticketTypesCard.classList.add('hidden');
+                termsSubmitCard.classList.add('hidden');
+                showCreateBtn.style.display = 'block';
+                document.getElementById('event-form').reset();
+                document.getElementById('ticket-types-container').innerHTML = '';
+                document.getElementById('posterPreview').style.display = 'none';
+                document.getElementById('posterPreview').src = '';
+                document.getElementById('submit-event').dataset.editId = '';
+                document.getElementById('submit-event').innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Approval';
+                loadMyEvents();
+            } catch (error) {
+                console.error('Error saving event:', error);
+                alert('Failed to submit event. Please try again.');
+            }
+        });
+
+        // ============ LOAD MY EVENTS ============
+        function loadMyEvents() {
+            const listDiv = document.getElementById('my-events-list');
+            listDiv.innerHTML = '';
+            db.collection('events')
+                .where('organizerId', '==', currentOrganizerId)
+                .orderBy('createdAt', 'desc')
+                .get()
+                .then(snapshot => {
+                    const events = [];
+                    snapshot.forEach(doc => events.push(doc.data()));
+                    displayEvents(events);
+                })
+                .catch(err => {
+                    console.error('Error loading events:', err);
+                    document.getElementById('no-events-msg').style.display = 'block';
+                });
+        }
+
+        function displayEvents(events) {
+            const listDiv = document.getElementById('my-events-list');
+            const noMsg = document.getElementById('no-events-msg');
+            listDiv.innerHTML = '';
+            if (events.length === 0) {
+                noMsg.style.display = 'block';
+                return;
+            }
+            noMsg.style.display = 'none';
+            events.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.innerHTML = `
+                    <div>
+                        <strong>${ev.eventName}</strong> 
+                        <span class="status status-${ev.status}">${ev.status.replace('_', ' ').toUpperCase()}</span>
+                        <div style="font-size:0.85rem; color:var(--text-muted);">${new Date(ev.startDate).toLocaleDateString()} – ${ev.location}</div>
+                    </div>
+                    <div class="actions">
+                        ${ev.status === 'pending' ? `
+                            <button class="edit-btn" title="Edit" onclick="editEvent('${ev.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${ev.id}')"><i class="fas fa-ban"></i></button>
+                            <button class="delete-btn" title="Delete" onclick="deleteEvent('${ev.id}')"><i class="fas fa-trash"></i></button>
+                        ` : ''}
+                        ${ev.status === 'approved' ? `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${ev.id}')"><i class="fas fa-times-circle"></i></button>` : ''}
+                    </div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        // ============ EVENT ACTIONS ============
+        window.editEvent = function(eventId) {
+            db.collection('events').doc(eventId).get().then(doc => {
+                if (doc.exists) {
+                    const ev = doc.data();
+                    // Show form and populate
+                    eventFormCard.classList.remove('hidden');
+                    ticketTypesCard.classList.remove('hidden');
+                    termsSubmitCard.classList.remove('hidden');
+                    showCreateBtn.style.display = 'none';
+
+                    document.getElementById('eventName').value = ev.eventName;
+                    document.getElementById('eventType').value = ev.type;
+                    document.getElementById('eventDescription').value = ev.description;
+                    document.getElementById('startDate').value = ev.startDate;
+                    document.getElementById('endDate').value = ev.endDate;
+                    document.getElementById('location').value = ev.location;
+                    document.getElementById('capacity').value = ev.capacity;
+                    document.getElementById('organizerName').value = ev.organizerName;
+                    document.getElementById('organizerEmail').value = ev.organizerEmail;
+                    document.getElementById('organizerPhone').value = ev.organizerPhone || '';
+                    document.getElementById('ageRestriction').value = ev.ageRestriction || '';
+                    document.getElementById('dressCode').value = ev.dressCode || '';
+                    if (ev.posterImage) {
+                        document.getElementById('posterPreview').src = ev.posterImage;
+                        document.getElementById('posterPreview').style.display = 'block';
+                    } else {
+                        document.getElementById('posterPreview').style.display = 'none';
+                    }
+                    // Clear and re-add ticket types
+                    document.getElementById('ticket-types-container').innerHTML = '';
+                    ticketCount = 0;
+                    ev.ticketTypes.forEach(tt => {
+                        addTicketType();
+                        const lastRow = document.querySelector('.ticket-type-row:last-child');
+                        lastRow.querySelector('.ticket-name').value = tt.name;
+                        lastRow.querySelector('.ticket-price').value = tt.price;
+                        lastRow.querySelector('.ticket-quantity').value = tt.quantity;
+                        lastRow.querySelector('.ticket-description').value = tt.description || '';
+                        if (tt.imageBase64) {
+                            lastRow.querySelector('.ticket-preview').src = tt.imageBase64;
+                            lastRow.querySelector('.ticket-preview').style.display = 'block';
+                        }
+                    });
+                    // Update submit button to indicate editing
+                    document.getElementById('submit-event').innerHTML = '<i class="fas fa-save"></i> Update & Resubmit';
+                    document.getElementById('submit-event').dataset.editId = ev.id;
+                }
+            }).catch(err => console.error('Error editing event:', err));
+        };
+
+        window.deleteEvent = async function(eventId) {
+            if (!confirm('Are you sure you want to permanently delete this event?')) return;
+            try {
+                await db.collection('events').doc(eventId).delete();
+                alert('Event deleted.');
+                loadMyEvents();
+            } catch (err) {
+                console.error('Delete failed:', err);
+                alert('Failed to delete event.');
+            }
+        };
+
+        window.cancelEvent = async function(eventId) {
+            if (!confirm('Mark this event as cancelled? This will remove it from public view.')) return;
+            try {
+                await db.collection('events').doc(eventId).update({ status: 'cancelled' });
+                alert('Event cancelled.');
+                loadMyEvents();
+            } catch (err) {
+                console.error('Cancel failed:', err);
+                alert('Failed to cancel event.');
+            }
+        };
+
+        window.requestCancellation = async function(eventId) {
+            if (!confirm('Send cancellation request to admin?')) return;
+            try {
+                await db.collection('events').doc(eventId).update({ status: 'cancellation_requested' });
+                alert('Cancellation request sent.');
+                loadMyEvents();
+            } catch (err) {
+                console.error('Request failed:', err);
+                alert('Failed to send request.');
+            }
+        };
+
+        // ============ TERMS MODAL ============
+        document.getElementById('open-terms').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'flex';
+        });
+        document.getElementById('close-terms').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'none';
+        });
+        document.getElementById('accept-terms-btn').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'none';
+            document.getElementById('agreeTerms').checked = true;
+        });
+
+        // ============ INIT ============
+        document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
+        document.getElementById('posterUpload').addEventListener('change', async function() {
+            if (this.files[0]) await handlePosterUpload(this.files[0]);
+        });
+
+        // Load events on page load
+        loadMyEvents();
+
+        // Add initial ticket row when form is first shown
+        addTicketType();
+    </script>
+</body>
+</html>

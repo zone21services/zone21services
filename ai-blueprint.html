@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zone21 AI Event Architect</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --navy: #102838;
@@ -31,7 +37,7 @@
             background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; transition: opacity 0.3s ease;
         }
         .sidebar {
-            width: 280px; background: var(--navy); border-radius: var(--radius-xl); color: white;
+            width: 300px; background: var(--navy); border-radius: var(--radius-xl); color: white;
             display: flex; flex-direction: column; overflow: hidden;
             box-shadow: 0 20px 60px rgba(16,40,56,0.15); transition: transform 0.3s ease; z-index: 1000;
         }
@@ -39,7 +45,18 @@
         .new-chat-btn { background: var(--lime); color: var(--navy); border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.2s; }
         .new-chat-btn:active { transform: scale(0.95); }
         .history-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .history-item { padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+        
+        /* Updated History Item with Delete Button */
+        .history-item { 
+            padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; 
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; transition: 0.2s; gap: 8px;
+        }
+        .history-item:hover { background: rgba(255,255,255,0.15); }
+        .history-item.active { border-left: 4px solid var(--lime); background: rgba(255,255,255,0.1); }
+        .history-item .item-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex: 1; }
+        .history-item .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-item .delete-chat-btn { color: rgba(255,255,255,0.4); padding: 4px 6px; border-radius: 4px; transition: 0.2s; }
+        .history-item .delete-chat-btn:hover { color: var(--pink); background: rgba(248, 0, 112, 0.15); }
         
         /* Main Chat Container */
         .chat-container {
@@ -48,30 +65,38 @@
         }
         .chat-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); z-index: 10; }
         .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
-        .chat-header img { height: 45px; width: 45px; border-radius: 50%; background: white; padding: 2px; }
+        .chat-header img { height: 45px; width: 45px; border-radius: 50%; background: white; padding: 2px; object-fit: cover; }
         .chat-header .bot-info h1 { font-size: 1.3rem; color: var(--lime); }
         .chat-header .bot-info p { font-size: 0.8rem; color: rgba(255,255,255,0.8); }
         
         .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; background: #fafbfc; scroll-behavior: smooth; }
         
         /* Chat Bubbles */
-        .message { display: flex; align-items: flex-start; max-width: 85%; animation: fadeInUp 0.3s ease forwards; }
+        .message { display: flex; align-items: flex-start; max-width: 88%; animation: fadeInUp 0.3s ease forwards; }
         .message.bot { align-self: flex-start; }
         .message.user { align-self: flex-end; flex-direction: row-reverse; }
         .message .avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; color: var(--navy); margin: 0 10px; flex-shrink: 0; }
         .message.user .avatar { background: var(--pink); color: white; }
-        .message .bubble { background: white; padding: 14px 18px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--grey); font-size: 0.95rem; line-height: 1.5; }
+        .message .bubble { background: white; padding: 14px 18px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--grey); font-size: 0.95rem; line-height: 1.5; width: 100%; }
         .message.bot .bubble { border-top-left-radius: 4px; }
         .message.user .bubble { background: var(--navy); color: white; border: none; border-top-right-radius: 4px; }
         
-        .options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .option-btn { background: white; border: 1px solid var(--navy); border-radius: 30px; padding: 8px 18px; cursor: pointer; font-weight: 600; color: var(--navy); transition: 0.2s; font-size: 0.85rem; }
+        .options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .option-btn { background: white; border: 1px solid var(--navy); border-radius: 30px; padding: 8px 16px; cursor: pointer; font-weight: 600; color: var(--navy); transition: 0.2s; font-size: 0.85rem; }
         .option-btn:hover { background: var(--navy); color: white; }
 
-        /* The Important Continue Button */
-        .continue-btn { margin-top: 15px; background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.95rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.2s; }
+        /* Actions Row */
+        .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; align-items: center; }
+        .continue-btn { background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 10px 18px; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
         .continue-btn:hover { background: var(--lime); color: var(--navy); }
-        .continue-btn:active { transform: scale(0.95); }
+        .regen-btn { background: #f0f4f8; color: var(--navy); border: 1px solid var(--grey); border-radius: 30px; padding: 10px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+        .regen-btn:hover { background: var(--navy); color: white; }
+        
+        /* Custom Thoughts Input */
+        .thoughts-container { margin-top: 12px; background: #f9fafb; padding: 10px; border-radius: 12px; border: 1px dashed var(--pink); display: flex; flex-direction: column; gap: 8px; }
+        .thoughts-container label { font-size: 0.8rem; font-weight: bold; color: var(--pink); }
+        .thoughts-container textarea { width: 100%; border: 1px solid var(--grey); border-radius: 8px; padding: 8px; font-size: 0.85rem; resize: none; outline: none; }
+        .thoughts-container button { align-self: flex-end; background: var(--pink); color: white; border: none; border-radius: 20px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
 
         /* Spinner */
         .loading-dots { display: inline-block; width: 50px; text-align: left; }
@@ -80,24 +105,32 @@
         .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 
         /* Input Area */
-        .chat-input-area { padding: 15px; background: white; border-top: 1px solid var(--grey); display: flex; align-items: center; gap: 8px; transition: opacity 0.3s; }
+        .chat-input-wrapper { background: white; border-top: 1px solid var(--grey); padding: 10px 15px; display: flex; flex-direction: column; gap: 8px; }
+        .input-toolbar { display: flex; justify-content: flex-end; }
+        .skip-btn { background: rgba(248, 0, 112, 0.08); color: var(--pink); border: 1px solid var(--pink); padding: 4px 14px; border-radius: 20px; font-weight: 600; font-size: 0.78rem; cursor: pointer; transition: 0.2s; }
+        .skip-btn:hover { background: var(--pink); color: white; }
+        
+        .chat-input-area { display: flex; align-items: center; gap: 8px; transition: opacity 0.3s; }
         .chat-input-area.disabled-area { opacity: 0.4; pointer-events: none; }
-        .chat-input-area input[type="text"] { flex: 1; padding: 14px 20px; background: #f0f4f8; border: none; border-radius: 30px; font-size: 1rem; outline: none; transition: 0.2s; }
-        .chat-input-area input[type="text"]:focus { background: #e8eef4; border: 1px solid var(--navy); }
-        .icon-btn { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.2s; flex-shrink: 0; }
+        .chat-input-area input[type="text"] { flex: 1; padding: 12px 18px; background: #f0f4f8; border: 1px solid transparent; border-radius: 30px; font-size: 0.95rem; outline: none; transition: 0.2s; }
+        .chat-input-area input[type="text"]:focus { background: #e8eef4; border-color: var(--navy); }
+        .icon-btn { width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.2s; flex-shrink: 0; }
         .send-btn { background: var(--lime); color: var(--navy); }
-        .send-btn:active { transform: scale(0.9); }
-        .skip-btn { background: rgba(248, 0, 112, 0.1); color: var(--pink); border: 1px solid var(--pink); padding: 0 16px; border-radius: 30px; height: 44px; font-weight: 600; font-size: 0.85rem; cursor: pointer; flex-shrink: 0; }
 
-        /* Beautiful Blueprint Rendering */
+        /* Blueprint Rendering */
         .blueprint-result { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--grey); margin-top: 10px; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .blueprint-result h2 { color: var(--navy); font-size: 1.4rem; border-bottom: 3px solid var(--lime); padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; }
+        .blueprint-result h2 { color: var(--navy); font-size: 1.3rem; border-bottom: 3px solid var(--lime); padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; }
         .blueprint-result h2:first-child { margin-top: 0; }
-        .blueprint-result h3 { color: var(--pink); font-size: 1.1rem; margin-top: 15px; margin-bottom: 10px; }
+        .blueprint-result h3 { color: var(--pink); font-size: 1.05rem; margin-top: 15px; margin-bottom: 10px; }
         .blueprint-result ul { list-style: none; padding-left: 0; margin-bottom: 20px; }
-        .blueprint-result li { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.5; color: #333; display: flex; align-items: flex-start; gap: 10px; }
+        .blueprint-result li { margin-bottom: 10px; font-size: 0.92rem; line-height: 1.5; color: #333; display: flex; align-items: flex-start; gap: 10px; }
         .blueprint-result li i { color: var(--lime); margin-top: 3px; font-size: 1.1rem; }
-        .blueprint-result p { margin-bottom: 15px; line-height: 1.6; color: #444; }
+        .blueprint-result p { margin-bottom: 15px; line-height: 1.6; color: #444; font-size: 0.93rem; }
+
+        .blueprint-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; border-top: 1px solid var(--grey); padding-top: 15px; }
+        .blueprint-btn { padding: 10px 18px; border-radius: 30px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+        .btn-download { background: #28a745; color: white; }
+        .btn-refine { background: var(--navy); color: var(--lime); }
 
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
@@ -109,10 +142,16 @@
             .sidebar { position: fixed; top: 0; left: -320px; height: 100dvh; width: 280px; border-radius: 0 24px 24px 0; }
             .sidebar.active { transform: translateX(320px); }
             .sidebar-overlay.active { display: block; opacity: 1; }
-            .message { max-width: 95%; }
+            .message { max-width: 96%; }
             .chat-messages { padding: 15px 10px; }
-            .skip-btn { padding: 0 12px; font-size: 0.75rem; } 
-            .chat-input-area { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+            .chat-input-wrapper { padding: 8px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            .blueprint-result, .blueprint-result * { visibility: visible; }
+            .blueprint-result { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
+            .blueprint-controls { display: none !important; }
         }
     </style>
 </head>
@@ -141,15 +180,77 @@
 
     <div class="chat-messages" id="chat-messages"></div>
 
-    <div class="chat-input-area" id="input-area">
-        <input type="text" id="text-input" placeholder="Type answer or ask for ideas...">
-        <button class="skip-btn" id="skip-btn" title="Not Sure? Get an AI Suggestion">Not Sure / Suggest</button>
-        <button class="icon-btn send-btn" id="send-btn"><i class="fas fa-arrow-up"></i></button>
+    <div class="chat-input-wrapper">
+        <div class="input-toolbar">
+            <button class="skip-btn" id="skip-btn" title="Not Sure? Get an AI Suggestion">
+                <i class="fas fa-lightbulb"></i> Not Sure? Suggest Ideas
+            </button>
+        </div>
+        <div class="chat-input-area" id="input-area">
+            <input type="text" id="text-input" placeholder="Type answer or ask for recommendations...">
+            <button class="icon-btn send-btn" id="send-btn"><i class="fas fa-paper-plane"></i></button>
+        </div>
     </div>
 </div>
 
 <script>
-    // ====== MOBILE MENU LOGIC ======
+    // ====== FIREBASE INITIALIZATION ======
+    const firebaseConfig = {
+        apiKey: "YOUR_FIREBASE_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "YOUR_APP_ID"
+    };
+
+    let db = null;
+    let currentUser = null;
+    let currentSessionId = null;
+
+    try {
+        if (firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firebase.auth().onAuthStateChanged(user => {
+                currentUser = user;
+                loadHistoryFromFirestore();
+            });
+        }
+    } catch (e) {
+        console.warn("Firestore not configured. Using LocalStorage.", e);
+    }
+
+    // ====== OPENROUTER API ======
+    const OPENROUTER_API_KEY = "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"; 
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+    // ====== QUESTIONS & FLOW ======
+    const baseQuestions = [
+        { key: 'eventName', question: "Let's build your blueprint! What is the official name of your event?" },
+        { key: 'eventType', question: "What format or type of event are we planning?", options: ["Corporate Gala", "Music Festival / Concert", "Conference / Expo", "Wedding", "Brand / Product Launch", "Private Party"] },
+        { key: 'eventLocation', question: "Where will this take place? (Mention city/area, e.g. Harare, Bulawayo, Cape Town)" },
+        { key: 'eventDate', question: "When is the event scheduled, and how many hours or days will it last?" },
+        { key: 'eventGuests', question: "Who is your target audience, and roughly how many guests are expected?" },
+        { key: 'eventBudget', question: "What is your estimated total budget in USD?" },
+        { key: 'eventObjective', question: "What is the primary objective or vibe of this event?" },
+        { key: 'eventTheme', question: "Do you have a specific theme, dress code, or color palette in mind?" },
+        { key: 'eventVendors', question: "Do you need recommendations for specific local vendors (Venues, Sound, Lighting, Catering, Decor, Photography)?" }
+    ];
+
+    let dynamicQuestions = [...baseQuestions];
+    let currentQuestionIndex = 0;
+    let answers = {};
+    let isProcessing = false;
+    let currentRegenCount = 0;
+
+    // ====== UI HELPERS ======
+    const chat = document.getElementById('chat-messages');
+    const textInput = document.getElementById('text-input');
+    const sendBtn = document.getElementById('send-btn');
+    const skipBtn = document.getElementById('skip-btn');
+    const inputArea = document.getElementById('input-area');
+
     const menuBtn = document.getElementById('menu-btn');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -157,40 +258,13 @@
     if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
     if (overlay) overlay.addEventListener('click', closeSidebar);
 
-    // ====== OPENROUTER API ======
-    const OPENROUTER_API_KEY = "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"; 
-    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
-    // ====== STATE & QUESTIONS ======
-    const chat = document.getElementById('chat-messages');
-    const textInput = document.getElementById('text-input');
-    const sendBtn = document.getElementById('send-btn');
-    const skipBtn = document.getElementById('skip-btn');
-    const inputArea = document.getElementById('input-area');
-    
-    const questions = [
-        { key: 'eventName', question: "Let's start! What is the name of your event?" },
-        { key: 'eventType', question: "What format or type of event are we building?", options: ["Corporate Gala", "Music Festival", "Conference", "Wedding", "Brand Launch", "Private Party"] },
-        { key: 'eventLocation', question: "Where are we hosting this? (Mention the city, e.g. Harare, Bulawayo)" },
-        { key: 'eventDate', question: "When is the event scheduled, and what is the expected duration?" },
-        { key: 'eventGuests', question: "Who is your target audience, and roughly how many guests are you expecting?" },
-        { key: 'eventBudget', question: "What is your estimated total budget in USD?" },
-        { key: 'eventObjective', question: "What is the main objective or goal of this event?" },
-        { key: 'eventTheme', question: "Do you have a specific theme, dress code, or brand identity in mind?" },
-        { key: 'eventDescription', question: "Finally, briefly describe any special requests, key speakers, or vendors you want." }
-    ];
-    
-    let currentQuestionIndex = 0;
-    let answers = {};
-    let isProcessing = false;
-
-    // ====== UI HELPERS ======
-    function addMessage(type, content, extraClass = '') {
+    function addMessage(type, content) {
         const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${type}${extraClass}`;
+        msgDiv.className = `message ${type}`;
         msgDiv.innerHTML = `<div class="avatar">${type === 'bot' ? 'Z' : 'U'}</div><div class="bubble">${content}</div>`;
         chat.appendChild(msgDiv);
         chat.scrollTop = chat.scrollHeight;
+        saveCurrentChatState();
         return msgDiv.querySelector('.bubble');
     }
 
@@ -215,22 +289,21 @@
             textInput.blur();
         } else {
             inputArea.classList.remove('disabled-area');
-            setTimeout(() => textInput.focus(), 50); // Kept tiny delay just for mobile keyboard focus rendering
+            setTimeout(() => textInput.focus(), 50);
         }
     }
 
-    // ====== CORE FLOW ======
+    // ====== CORE INTERACTION LOOP ======
     function askNextQuestion() {
-        if (currentQuestionIndex >= questions.length) {
+        currentRegenCount = 0;
+        if (currentQuestionIndex >= dynamicQuestions.length) {
             generateFinalBlueprint();
             return;
         }
         
         disableInput(false);
-        const q = questions[currentQuestionIndex];
-        
-        // Removed artificial timeout delay for instant rendering
-        const bubble = addMessage('bot', `<p><strong>${currentQuestionIndex + 1}/${questions.length}:</strong>${q.question}</p>`);
+        const q = dynamicQuestions[currentQuestionIndex];
+        const bubble = addMessage('bot', `<p><strong>Question ${currentQuestionIndex + 1} of ${dynamicQuestions.length}:</strong>${q.question}</p>`);
         
         if (q.options) {
             const optionsDiv = document.createElement('div');
@@ -239,34 +312,40 @@
                 const btn = document.createElement('button');
                 btn.className = 'option-btn'; 
                 btn.textContent = opt;
-                btn.onclick = () => { optionsDiv.remove(); processAnswer(opt, q, true); };
+                btn.onclick = () => { optionsDiv.remove(); processAnswer(opt, q); };
                 optionsDiv.appendChild(btn);
             });
             bubble.appendChild(optionsDiv);
         }
     }
 
-    // 🚀 THE INTERCEPTOR
-    async function processAnswer(text, q, isOptionClick = false) {
+    async function processAnswer(text, q, customThoughts = '') {
         if (isProcessing) return;
         disableInput(true);
         
         const isSkip = (text === "SKIP_COMMAND" || text.toLowerCase().includes("not sure"));
-        const displayUserText = isSkip ? "<em>I'm not sure. Can you suggest something?</em>" : text;
-        addMessage('user', `<p>${displayUserText}</p>`);
+        const displayUserText = isSkip 
+            ? "<em>I'm not sure. Can you suggest something local and suitable?</em>" 
+            : (customThoughts ? `${text} (Note:${customThoughts})` : text);
+        
+        if (!document.querySelector(`.user-msg-${currentQuestionIndex}`)) {
+            addMessage('user', `<p class="user-msg-${currentQuestionIndex}">${displayUserText}</p>`);
+        }
 
         addTypingIndicator();
         
         try {
             const promptContext = `
-            You are Zone21 AI, a friendly event planning copilot.
+            You are Zone21 AI, an expert event architect.
+            Event Name: "${answers.eventName || 'Upcoming Event'}"
+            Event Location: "${answers.eventLocation || 'Harare/Zimbabwe or specified city'}"
             Current Question: "${q.question}"
-            User's Answer: "${text}"
+            User Choice/Input: "${text}"
+            Custom User Guidance/Thoughts: "${customThoughts}"
             
             Instructions:
-            1. If the user answered the question, give a 1-2 sentence friendly validation, tip, or quick analysis of their choice.
-            2. If the user skipped ("SKIP_COMMAND") or is unsure, provide a great, specific suggestion tailored to a modern event.
-            3. Keep the tone warm, professional, and conversational. Do NOT generate the full blueprint yet.
+            1. Provide a warm, enthusiastic, high-value 2-3 sentence feedback or suggestion.
+            2. IF location or vendor details are involved, suggest 2-3 real, popular local venues or vendors. Include estimated pricing/contacts.
             `;
 
             const response = await fetch(API_URL, {
@@ -274,89 +353,106 @@
                 headers: { 
                     'Content-Type': 'application/json', 
                     'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': 'https://zone21-ai.local', // FIXED: Hardcoded fake URL to bypass mobile blocks
+                    'HTTP-Referer': 'https://zone21-ai.local',
                     'X-Title': 'Zone21 AI'
                 },
                 body: JSON.stringify({ 
-                    model: "openrouter/auto", // FIXED: Switched to auto-router for fastest available model
+                    model: "openrouter/auto", 
                     messages: [{ role: "user", content: promptContext }] 
                 })
             });
             
             const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error.message || "OpenRouter API returned an error");
-            }
+            if (data.error) throw new Error(data.error.message);
             
             removeTypingIndicator();
-            
             const aiReply = data.choices[0].message.content.trim();
-            const safeTextToSave = isSkip ? (q.key + " - AI Suggestion accepted") : text.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-            
-            const botHtml = `
-                <p>${aiReply}</p>
-                <button class="continue-btn" onclick="confirmAndMoveOn(this, '${q.key}', '${safeTextToSave}')">
-                    Yes, looks good! Next <i class="fas fa-check-circle"></i>
-                </button>
-            `;
-            addMessage('bot', botHtml);
+            const safeAnswer = isSkip ? `${q.key} - AI Suggested` : text;
+
+            renderBotResponseWithActions(aiReply, q.key, safeAnswer);
 
         } catch (error) {
             console.error("Interceptor Error:", error);
             removeTypingIndicator();
-            
-            const safeText = isSkip ? "Will decide later" : text.replace(/'/g, "&apos;");
-            addMessage('bot', `
-                <p style="color:var(--pink); font-size:0.85rem; margin-bottom:5px;"><em>(AI check skipped - API overloaded)</em></p>
-                <p>Got it! Let's save that and move on.</p>
-                <button class="continue-btn" onclick="confirmAndMoveOn(this, '${q.key}', '${safeText}')">Next Question <i class="fas fa-arrow-right"></i></button>
-            `);
+            renderBotResponseWithActions("That sounds like a great direction! I've noted that down.", q.key, text);
         }
     }
 
-    // 🚀 MANUAL PROGRESSION
+    function renderBotResponseWithActions(aiReply, key, answerToSave) {
+        currentRegenCount++;
+        
+        let thoughtsMarkup = '';
+        if (currentRegenCount >= 4) {
+            thoughtsMarkup = `
+                <div class="thoughts-container">
+                    <label><i class="fas fa-edit"></i> Wants something specific? Add your thoughts to guide AI:</label>
+                    <textarea id="custom-thought-text" rows="2" placeholder="e.g. Recommend outdoor garden venues only..."></textarea>
+                    <button onclick="submitCustomThoughts('${key}')">Apply My Ideas & Regenerate</button>
+                </div>
+            `;
+        }
+
+        const botHtml = `
+            <p>${aiReply}</p>${thoughtsMarkup}
+            <div class="action-row">
+                <button class="continue-btn" onclick="confirmAndMoveOn(this, '${key}', \`${answerToSave.replace(/`/g, "'")}\`)">
+                    Yes, looks good! Next <i class="fas fa-check-circle"></i>
+                </button>
+                <button class="regen-btn" onclick="regenerateStep('${key}')">
+                    <i class="fas fa-rotate"></i> Regenerate Idea (${currentRegenCount}/4)
+                </button>
+            </div>
+        `;
+        addMessage('bot', botHtml);
+    }
+
+    // ====== ACTION HANDLERS ======
     window.confirmAndMoveOn = function(btnElement, key, answerToSave) {
-        btnElement.style.display = 'none'; 
+        const actionRow = btnElement.closest('.action-row');
+        if (actionRow) actionRow.remove();
+        
         answers[key] = answerToSave;
+
+        // Dynamic Question Injection
+        if (key === 'eventType' && !dynamicQuestions.some(q => q.key === 'entertainmentType')) {
+            dynamicQuestions.splice(currentQuestionIndex + 1, 0, {
+                key: 'entertainmentType',
+                question: "What style of audio/visual, live performance, or DJ setup do you envision?"
+            });
+        }
+
         currentQuestionIndex++;
         askNextQuestion();
     };
 
-    // ====== GENERATE FINAL BLUEPRINT ======
-    async function generateFinalBlueprint() {
+    window.regenerateStep = function(key) {
+        const q = dynamicQuestions[currentQuestionIndex];
+        processAnswer(answers[key] || "SKIP_COMMAND", q);
+    };
+
+    window.submitCustomThoughts = function(key) {
+        const thoughts = document.getElementById('custom-thought-text').value.trim();
+        const q = dynamicQuestions[currentQuestionIndex];
+        processAnswer(answers[key] || "User Custom Guidance", q, thoughts);
+    };
+
+    // ====== BLUEPRINT GENERATION ======
+    async function generateFinalBlueprint(refinements = '') {
         disableInput(true);
-        addMessage('bot', `<p>All details collected! I am now generating your comprehensive Event Blueprint based on the 13-Step Event Hosting Master Template...</p>`);
+        addMessage('bot', `<p>🎉 All details collected! Generating your comprehensive <strong>13-Step Event Hosting Blueprint</strong>...</p>`);
         addTypingIndicator();
         
         const prompt = `
-You are Zone21 AI, the ultimate event planning expert. 
-Based on the following collected user details, fill out a comprehensive Event Hosting Blueprint.
+You are Zone21 AI, the ultimate Master Event Architect.
+Generate a high-detail Event Hosting Blueprint based on user choices below:
 
-USER DETAILS:
+EVENT DETAILS:
 ${Object.entries(answers).map(([k, v]) => `- ${k}: ${v}`).join('\n')}
+${refinements ? `USER REFINEMENT NOTES: ${refinements}` : ''}
 
-INSTRUCTIONS:
-1. Use the user's details to create specific, realistic, and creative recommendations.
-2. Do NOT output raw JSON.
-3. Output the blueprint in CLEAN HTML FORMAT using <h2> for main sections, <h3> for subsections, and <ul><li> for checklists. 
-4. Include FontAwesome square icons inside the list items like this: <li><i class="fa-regular fa-square"></i> Task name</li>.
-5. Provide all 13 sections of the blueprint template below, filled out intelligently. Do not wrap the response in markdown code blocks (\`\`\`html) - just return the raw HTML string.
-
-TEMPLATE TO FILL OUT:
-<h2>1. Event Concept</h2> (Fill out name, theme, format, target audience, expected guests, etc)
-<h2>2. Event Planning & Management</h2> (Provide team roles, timelines)
-<h2>3. Detailed Budget Breakdown</h2> (Allocate the user's stated budget specifically across venue, decor, marketing, etc.)
-<h2>4. Event Branding</h2> (Suggest color palettes, logo ideas, merchandise)
-<h2>5. Marketing & Promotion</h2> (Provide Pre-launch, Launch, Social Media, and Offline strategies)
-<h2>6. Sponsorship Strategy</h2> (Suggest sponsor packages)
-<h2>7. Ticketing & Registration</h2> (Suggest ticket categories and systems)
-<h2>8. Venue Setup & Production</h2> (Layout ideas for guest areas and stage production)
-<h2>9. Programme / Run of Show</h2> (Draft a realistic timeline schedule for the event day)
-<h2>10. Event-Day Team</h2> (List required staff and security)
-<h2>11. Content & Media</h2> (Photography/Video requirements)
-<h2>12. Post-Event Marketing</h2> (Follow up strategy within 24 hours and beyond)
-<h2>13. Event Marketing Funnel</h2> (Awareness -> Purchase -> Loyalty breakdown)
+CRITICAL INSTRUCTIONS:
+1. Under Section 8 (Venue Setup) & Section 10 (Event Team/Vendors), explicitly include REAL local service providers, venues, addresses, approximate pricing (USD), and contact details.
+2. Return output strictly in clean HTML format. Use <h2>, <h3>, <ul>, and <li> with icons like <i class="fa-regular fa-square"></i>.
 `;
         try {
             const response = await fetch(API_URL, {
@@ -364,63 +460,191 @@ TEMPLATE TO FILL OUT:
                 headers: { 
                     'Content-Type': 'application/json', 
                     'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': 'https://zone21-ai.local', // FIXED
+                    'HTTP-Referer': 'https://zone21-ai.local',
                     'X-Title': 'Zone21 AI'
                 },
                 body: JSON.stringify({ 
-                    model: "openrouter/auto", // FIXED
+                    model: "openrouter/auto", 
                     messages: [{ role: "user", content: prompt }] 
                 })
             });
             
             const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error.message || "OpenRouter API returned an error");
-            }
+            if (data.error) throw new Error(data.error.message);
             
             removeTypingIndicator();
+            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
             
-            let htmlOutput = data.choices[0].message.content.trim();
-            htmlOutput = htmlOutput.replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
+            const formattedBlueprint = `
+                <div class="blueprint-result" id="final-blueprint">
+                    ${htmlOutput}
+                    <div class="blueprint-controls">
+                        <button class="blueprint-btn btn-download" onclick="window.print()">
+                            <i class="fas fa-file-pdf"></i> Download / Print PDF
+                        </button>
+                        <button class="blueprint-btn btn-refine" onclick="promptBlueprintRefinement()">
+                            <i class="fas fa-pen-to-square"></i> Add Notes & Regenerate
+                        </button>
+                    </div>
+                </div>
+            `;
             
-            const formatted = `<div class="blueprint-result">${htmlOutput}</div>`;
-            addMessage('bot', `<p>🎉 <strong>Here is your complete Event Blueprint:</strong></p>${formatted}`);
-            
+            addMessage('bot', formattedBlueprint);
+            saveCurrentChatState(htmlOutput);
+
         } catch (error) {
-            console.error("Blueprint Generation Error:", error);
+            console.error("Blueprint Error:", error);
             removeTypingIndicator();
-            addMessage('bot', `<p style="color:var(--pink);">Error generating blueprint. The AI server is congested. Please check the browser console for details.</p>`);
+            addMessage('bot', `<p style="color:var(--pink);">Error generating blueprint. Click regenerate to try again.</p>`);
         }
     }
 
-    // ====== EVENT LISTENERS & INITIALIZATION ======
-    function startNewSession() {
-        closeSidebar(); 
-        currentQuestionIndex = 0;
-        answers = {};
-        chat.innerHTML = '';
-        addMessage('bot', '<p>Hello! I am <strong>Zone21 AI</strong>. I will guide you question by question. I will offer analysis and ideas for every answer you provide. Let\'s build your event blueprint! 🚀</p>');
-        askNextQuestion(); // FIXED: Removed 1000ms delay to make startup instant
+    window.promptBlueprintRefinement = function() {
+        const notes = prompt("Enter additional notes, preferred vendors, or budget adjustments:");
+        if (notes) generateFinalBlueprint(notes);
+    };
+
+    // ====== SMART CHAT NAMING & STORAGE ======
+    function getSmartChatTitle() {
+        if (answers.eventName && !answers.eventName.includes("AI Suggested") && !answers.eventName.includes("SKIP_COMMAND")) {
+            return answers.eventName;
+        }
+        if (answers.eventType && answers.eventLocation) {
+            const cleanType = answers.eventType.split('-')[0].trim();
+            const cleanLoc = answers.eventLocation.split('-')[0].trim();
+            return `${cleanLoc} ${cleanType}`;
+        }
+        if (answers.eventType) {
+            return `${answers.eventType} Blueprint`;
+        }
+        return "New Event Blueprint";
     }
 
+    function saveCurrentChatState(blueprintHtml = null) {
+        if (!currentSessionId) currentSessionId = 'session_' + Date.now();
+        
+        const smartTitle = getSmartChatTitle();
+        
+        const chatData = {
+            id: currentSessionId,
+            title: smartTitle,
+            answers: answers,
+            messages: chat.innerHTML,
+            blueprint: blueprintHtml,
+            updatedAt: new Date().toISOString()
+        };
+
+        // Save to LocalStorage
+        let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
+        localSessions[currentSessionId] = chatData;
+        localStorage.setItem('zone21_chats', JSON.stringify(localSessions));
+
+        // Save to Firestore
+        if (db && currentUser) {
+            db.collection('users').doc(currentUser.uid).collection('chats').doc(currentSessionId).set(chatData, { merge: true });
+        }
+
+        renderHistorySidebar();
+    }
+
+    function deleteChatSession(sessionId, event) {
+        if (event) event.stopPropagation(); // Prevents chat selection when clicking delete
+        
+        if (!confirm("Are you sure you want to delete this event chat?")) return;
+
+        // Delete from LocalStorage
+        let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
+        delete localSessions[sessionId];
+        localStorage.setItem('zone21_chats', JSON.stringify(localSessions));
+
+        // Delete from Firestore
+        if (db && currentUser) {
+            db.collection('users').doc(currentUser.uid).collection('chats').doc(sessionId).delete().catch(e => console.error(e));
+        }
+
+        // If active session was deleted, start new session
+        if (currentSessionId === sessionId) {
+            startNewSession();
+        } else {
+            renderHistorySidebar();
+        }
+    }
+
+    function renderHistorySidebar() {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+
+        let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
+        
+        Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
+            const item = document.createElement('div');
+            item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+            item.innerHTML = `
+                <div class="item-info">
+                    <i class="fas fa-calendar-check" style="color: var(--lime);"></i>
+                    <span class="item-title">${session.title}</span>
+                </div>
+                <i class="fas fa-trash delete-chat-btn" title="Delete Chat" onclick="deleteChatSession('${session.id}', event)"></i>
+            `;
+            item.onclick = () => loadChatSession(session.id);
+            historyList.appendChild(item);
+        });
+    }
+
+    function loadChatSession(sessionId) {
+        closeSidebar();
+        let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
+        const session = localSessions[sessionId];
+        if (!session) return;
+
+        currentSessionId = session.id;
+        answers = session.answers || {};
+        chat.innerHTML = session.messages;
+        renderHistorySidebar();
+    }
+
+    function loadHistoryFromFirestore() {
+        if (!db || !currentUser) return;
+        db.collection('users').doc(currentUser.uid).collection('chats').orderBy('updatedAt', 'desc').get().then(snapshot => {
+            snapshot.forEach(doc => {
+                let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
+                localSessions[doc.id] = doc.data();
+                localStorage.setItem('zone21_chats', JSON.stringify(localSessions));
+            });
+            renderHistorySidebar();
+        });
+    }
+
+    function startNewSession() {
+        closeSidebar();
+        currentSessionId = 'session_' + Date.now();
+        currentQuestionIndex = 0;
+        answers = {};
+        dynamicQuestions = [...baseQuestions];
+        chat.innerHTML = '';
+        addMessage('bot', '<p>Hello! I am <strong>Zone21 AI</strong>. I will guide you step by step to architect your event blueprint with precise vendor recommendations! 🚀</p>');
+        askNextQuestion();
+    }
+
+    // ====== LISTENERS ======
     sendBtn.addEventListener('click', () => {
         const text = textInput.value.trim();
         if (!text || isProcessing) return;
         textInput.value = '';
-        processAnswer(text, questions[currentQuestionIndex], false);
+        processAnswer(text, dynamicQuestions[currentQuestionIndex]);
     });
 
     skipBtn.addEventListener('click', () => {
         if (isProcessing) return;
         textInput.value = ''; 
-        processAnswer("SKIP_COMMAND", questions[currentQuestionIndex], false);
+        processAnswer("SKIP_COMMAND", dynamicQuestions[currentQuestionIndex]);
     });
 
     textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
 
     document.addEventListener('DOMContentLoaded', () => {
         startNewSession();
+        renderHistorySidebar();
     });
 </script>
 </body>

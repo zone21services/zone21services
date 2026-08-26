@@ -46,7 +46,7 @@
         .new-chat-btn:active { transform: scale(0.95); }
         .history-list { flex: 1; overflow-y: auto; padding: 10px; }
         
-        /* Updated History Item with Delete Button */
+        /* History Item with Delete Button */
         .history-item { 
             padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; 
             cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; transition: 0.2s; gap: 8px;
@@ -93,10 +93,12 @@
         .regen-btn:hover { background: var(--navy); color: white; }
         
         /* Custom Thoughts Input */
-        .thoughts-container { margin-top: 12px; background: #f9fafb; padding: 10px; border-radius: 12px; border: 1px dashed var(--pink); display: flex; flex-direction: column; gap: 8px; }
-        .thoughts-container label { font-size: 0.8rem; font-weight: bold; color: var(--pink); }
-        .thoughts-container textarea { width: 100%; border: 1px solid var(--grey); border-radius: 8px; padding: 8px; font-size: 0.85rem; resize: none; outline: none; }
-        .thoughts-container button { align-self: flex-end; background: var(--pink); color: white; border: none; border-radius: 20px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
+        .thoughts-container { margin-top: 12px; background: #f9fafb; padding: 12px; border-radius: 12px; border: 1px dashed var(--pink); display: flex; flex-direction: column; gap: 10px; animation: fadeInUp 0.3s ease; }
+        .thoughts-container label { font-size: 0.85rem; font-weight: bold; color: var(--pink); display: flex; align-items: center; gap: 6px; }
+        .thoughts-container textarea { width: 100%; border: 1px solid var(--grey); border-radius: 8px; padding: 10px; font-size: 0.9rem; resize: none; outline: none; transition: 0.2s; }
+        .thoughts-container textarea:focus { border-color: var(--pink); }
+        .thoughts-container button { align-self: flex-end; background: var(--pink); color: white; border: none; border-radius: 20px; padding: 8px 16px; font-weight: bold; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+        .thoughts-container button:hover { background: #d0005e; }
 
         /* Spinner */
         .loading-dots { display: inline-block; width: 50px; text-align: left; }
@@ -242,7 +244,10 @@
     let currentQuestionIndex = 0;
     let answers = {};
     let isProcessing = false;
+    
+    // Core Regeneration Trackers
     let currentRegenCount = 0;
+    let lastUserText = ""; 
 
     // ====== UI HELPERS ======
     const chat = document.getElementById('chat-messages');
@@ -295,7 +300,7 @@
 
     // ====== CORE INTERACTION LOOP ======
     function askNextQuestion() {
-        currentRegenCount = 0;
+        currentRegenCount = 0; // Reset counter for the new question
         if (currentQuestionIndex >= dynamicQuestions.length) {
             generateFinalBlueprint();
             return;
@@ -319,33 +324,43 @@
         }
     }
 
-    async function processAnswer(text, q, customThoughts = '') {
+    // The isRegen flag tells us if we are replacing an old bot message
+    async function processAnswer(text, q, customThoughts = '', isRegen = false) {
         if (isProcessing) return;
         disableInput(true);
         
-        const isSkip = (text === "SKIP_COMMAND" || text.toLowerCase().includes("not sure"));
-        const displayUserText = isSkip 
-            ? "<em>I'm not sure. Can you suggest something local and suitable?</em>" 
-            : (customThoughts ? `${text} (Note:${customThoughts})` : text);
-        
-        if (!document.querySelector(`.user-msg-${currentQuestionIndex}`)) {
-            addMessage('user', `<p class="user-msg-${currentQuestionIndex}">${displayUserText}</p>`);
+        // If this is a first-time answer, save the text and draw the user's chat bubble
+        if (!isRegen) {
+            lastUserText = text;
+            const isSkip = (text === "SKIP_COMMAND" || text.toLowerCase().includes("not sure"));
+            const displayUserText = isSkip 
+                ? "<em>I'm not sure. Can you suggest something local and suitable?</em>" 
+                : text;
+            
+            // Prevent duplicate user messages if they quickly double tap
+            if (!document.querySelector(`.user-msg-${currentQuestionIndex}`)) {
+                addMessage('user', `<p class="user-msg-${currentQuestionIndex}">${displayUserText}</p>`);
+            }
         }
 
         addTypingIndicator();
         
         try {
+            // If regenerating, strongly instruct the AI to provide a NEW alternative idea
+            const regenInstruction = isRegen ? "CRITICAL: This is a REGENERATION request. You must provide a completely DIFFERENT, fresh alternative to your previous suggestions." : "";
+
             const promptContext = `
             You are Zone21 AI, an expert event architect.
             Event Name: "${answers.eventName || 'Upcoming Event'}"
             Event Location: "${answers.eventLocation || 'Harare/Zimbabwe or specified city'}"
             Current Question: "${q.question}"
-            User Choice/Input: "${text}"
+            User Choice/Input: "${lastUserText}"
             Custom User Guidance/Thoughts: "${customThoughts}"
             
             Instructions:
             1. Provide a warm, enthusiastic, high-value 2-3 sentence feedback or suggestion.
             2. IF location or vendor details are involved, suggest 2-3 real, popular local venues or vendors. Include estimated pricing/contacts.
+            ${regenInstruction}
             `;
 
             const response = await fetch(API_URL, {
@@ -367,30 +382,33 @@
             
             removeTypingIndicator();
             const aiReply = data.choices[0].message.content.trim();
-            const safeAnswer = isSkip ? `${q.key} - AI Suggested` : text;
+            const safeAnswer = (lastUserText === "SKIP_COMMAND") ? `${q.key} - AI Suggested` : lastUserText;
 
             renderBotResponseWithActions(aiReply, q.key, safeAnswer);
 
         } catch (error) {
             console.error("Interceptor Error:", error);
             removeTypingIndicator();
-            renderBotResponseWithActions("That sounds like a great direction! I've noted that down.", q.key, text);
+            renderBotResponseWithActions("That sounds like a great direction! I've noted that down.", q.key, lastUserText);
         }
     }
 
     function renderBotResponseWithActions(aiReply, key, answerToSave) {
-        currentRegenCount++;
-        
         let thoughtsMarkup = '';
+        
+        // Show custom text area if they've hit the regenerate limit
         if (currentRegenCount >= 4) {
             thoughtsMarkup = `
                 <div class="thoughts-container">
-                    <label><i class="fas fa-edit"></i> Wants something specific? Add your thoughts to guide AI:</label>
-                    <textarea id="custom-thought-text" rows="2" placeholder="e.g. Recommend outdoor garden venues only..."></textarea>
-                    <button onclick="submitCustomThoughts('${key}')">Apply My Ideas & Regenerate</button>
+                    <label><i class="fas fa-edit"></i> Not quite right? Tell me what you're looking for:</label>
+                    <textarea id="custom-thought-text" rows="2" placeholder="e.g. Please suggest only outdoor garden venues..."></textarea>
+                    <button onclick="submitCustomThoughts(this, '${key}')"><i class="fas fa-magic"></i> Apply & Regenerate</button>
                 </div>
             `;
         }
+
+        // Cap the display text at 4 visually
+        let displayCount = currentRegenCount > 4 ? 4 : currentRegenCount;
 
         const botHtml = `
             <p>${aiReply}</p>${thoughtsMarkup}
@@ -398,8 +416,8 @@
                 <button class="continue-btn" onclick="confirmAndMoveOn(this, '${key}', \`${answerToSave.replace(/`/g, "'")}\`)">
                     Yes, looks good! Next <i class="fas fa-check-circle"></i>
                 </button>
-                <button class="regen-btn" onclick="regenerateStep('${key}')">
-                    <i class="fas fa-rotate"></i> Regenerate Idea (${currentRegenCount}/4)
+                <button class="regen-btn" onclick="regenerateStep(this, '${key}')">
+                    <i class="fas fa-rotate"></i> Regenerate Idea (${displayCount}/4)
                 </button>
             </div>
         `;
@@ -407,6 +425,35 @@
     }
 
     // ====== ACTION HANDLERS ======
+    
+    // REGENERATE: Removes the current bot message and fetches a new one
+    window.regenerateStep = function(btnElement, key) {
+        currentRegenCount++; // Increase attempt count
+        
+        // Remove the existing bot message from the DOM
+        const botMsg = btnElement.closest('.message.bot');
+        if (botMsg) botMsg.remove();
+        
+        const q = dynamicQuestions[currentQuestionIndex];
+        
+        // Call process answer with isRegen = true
+        processAnswer(lastUserText, q, '', true);
+    };
+
+    // CUSTOM THOUGHTS: Takes user's typed instructions, removes old bot message, generates new response
+    window.submitCustomThoughts = function(btnElement, key) {
+        const thoughts = document.getElementById('custom-thought-text').value.trim();
+        
+        // Remove the existing bot message
+        const botMsg = btnElement.closest('.message.bot');
+        if (botMsg) botMsg.remove();
+        
+        const q = dynamicQuestions[currentQuestionIndex];
+        
+        // Call process answer with the custom thoughts injected and isRegen = true
+        processAnswer(lastUserText, q, thoughts, true);
+    };
+
     window.confirmAndMoveOn = function(btnElement, key, answerToSave) {
         const actionRow = btnElement.closest('.action-row');
         if (actionRow) actionRow.remove();
@@ -425,17 +472,6 @@
         askNextQuestion();
     };
 
-    window.regenerateStep = function(key) {
-        const q = dynamicQuestions[currentQuestionIndex];
-        processAnswer(answers[key] || "SKIP_COMMAND", q);
-    };
-
-    window.submitCustomThoughts = function(key) {
-        const thoughts = document.getElementById('custom-thought-text').value.trim();
-        const q = dynamicQuestions[currentQuestionIndex];
-        processAnswer(answers[key] || "User Custom Guidance", q, thoughts);
-    };
-
     // ====== BLUEPRINT GENERATION ======
     async function generateFinalBlueprint(refinements = '') {
         disableInput(true);
@@ -447,7 +483,7 @@ You are Zone21 AI, the ultimate Master Event Architect.
 Generate a high-detail Event Hosting Blueprint based on user choices below:
 
 EVENT DETAILS:
-${Object.entries(answers).map(([k, v]) => `- ${k}: ${v}`).join('\n')}
+${Object.entries(answers).map(([k, v]) => `- ${k}:${v}`).join('\n')}
 ${refinements ? `USER REFINEMENT NOTES: ${refinements}` : ''}
 
 CRITICAL INSTRUCTIONS:
@@ -548,21 +584,17 @@ CRITICAL INSTRUCTIONS:
     }
 
     function deleteChatSession(sessionId, event) {
-        if (event) event.stopPropagation(); // Prevents chat selection when clicking delete
-        
+        if (event) event.stopPropagation();
         if (!confirm("Are you sure you want to delete this event chat?")) return;
 
-        // Delete from LocalStorage
         let localSessions = JSON.parse(localStorage.getItem('zone21_chats') || '{}');
         delete localSessions[sessionId];
         localStorage.setItem('zone21_chats', JSON.stringify(localSessions));
 
-        // Delete from Firestore
         if (db && currentUser) {
             db.collection('users').doc(currentUser.uid).collection('chats').doc(sessionId).delete().catch(e => console.error(e));
         }
 
-        // If active session was deleted, start new session
         if (currentSessionId === sessionId) {
             startNewSession();
         } else {

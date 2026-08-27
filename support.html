@@ -10,7 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* styles same as refined version, with minor additions */
         :root { --navy:#102838; --lime:#C0C800; --pink:#F80070; --bg:#f5f7fa; --card:#fff; --text:#1a1a2e; --muted:#6c757d; --border:#e0e0e8; --radius:16px; --shadow:0 8px 30px rgba(16,40,56,0.08); }
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
         body { background:var(--bg); color:var(--text); padding:20px; min-height:100vh; }
@@ -176,14 +175,15 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    let currentUserId = 'demo-user';
+    let currentUserId = null;   // will be set after auth state
     let chatImageBase64 = null;
 
-    auth.onAuthStateChanged(user => { 
-        if(user) { 
-            currentUserId = user.uid; 
-            loadNotifications(); 
-            loadChatMessages(); 
+    // Wait for authentication before loading data
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUserId = user.uid;
+            loadNotifications();
+            loadChatMessages();
         } else {
             window.location.href = 'login.html';
         }
@@ -202,6 +202,7 @@
 
     document.getElementById('queryForm').addEventListener('submit', async function(e){
         e.preventDefault();
+        if (!currentUserId) { alert('Please sign in first.'); return; }
         try{
             await db.collection('messages').add({
                 name: document.getElementById('queryName').value,
@@ -217,6 +218,7 @@
 
     document.getElementById('paymentForm').addEventListener('submit', async function(e){
         e.preventDefault();
+        if (!currentUserId) { alert('Please sign in first.'); return; }
         const file = document.getElementById('payProof').files[0];
         if(!file){ alert('Upload proof.'); return; }
         const base64 = await fileToBase64(file, 800, 0.7);
@@ -251,6 +253,7 @@
     }
 
     async function sendChatMessage(){
+        if (!currentUserId) { alert('Please sign in first.'); return; }
         const msg = document.getElementById('chatInput').value.trim();
         if(!msg && !chatImageBase64) return;
         try{
@@ -266,15 +269,16 @@
             document.getElementById('chatInput').value = '';
             chatImageBase64 = null;
             document.getElementById('chatImagePreview').style.display = 'none';
-            // No need to manually reload; onSnapshot will update automatically
         }catch(err){ alert('Failed to send message.'); }
     }
     window.sendChatMessage = sendChatMessage;
 
     function loadChatMessages(){
+        // Only proceed if currentUserId is set
+        if (!currentUserId) return;
         db.collection('messages')
             .where('type', '==', 'chat')
-            .where('senderId', '==', currentUserId)   // <-- FIX: only own messages
+            .where('senderId', '==', currentUserId)   // only own messages (both sent and received)
             .orderBy('createdAt', 'asc')
             .limit(100)
             .onSnapshot(snapshot => {
@@ -301,6 +305,7 @@
     }
 
     function loadNotifications(){
+        if (!currentUserId) return;
         db.collection('messages')
             .where('senderId', '==', currentUserId)
             .orderBy('createdAt', 'desc')
@@ -347,10 +352,6 @@
             reader.onerror=reject; reader.readAsDataURL(file);
         });
     }
-
-    // Init
-    loadChatMessages();
-    loadNotifications();
 </script>
 </body>
 </html>

@@ -600,7 +600,8 @@
             window.currentUser = { uid: cred.user.uid, ...data };
             window.activeRole = data.role || 'organizer';
             showToast("Login successful!", 'success');
-            showDashboard(data);
+            // Redirect to dashboard.html
+            window.location.href = 'dashboard.html';
         } catch (err) {
             showToast(sanitizeError(err), 'error');
         }
@@ -648,8 +649,9 @@
             await window.fb.setDoc(window.fb.doc(window.db, "users", cred.user.uid), userData);
             window.currentUser = { uid: cred.user.uid, ...userData };
             window.activeRole = userData.role;
-            showToast("Account created! You are now logged in.", 'success');
-            showDashboard(userData);
+            showToast("Account created! Redirecting...", 'success');
+            // Redirect to dashboard.html
+            window.location.href = 'dashboard.html';
         } catch (err) {
             showToast(sanitizeError(err), 'error');
             if (err.code === 'auth/email-already-in-use') {
@@ -681,7 +683,7 @@
         window.fb.confirmPasswordReset(window.auth, window.resetOobCode, pass)
             .then(() => {
                 showToast("Password updated! Redirecting...", 'success');
-                setTimeout(() => window.location.href = window.location.pathname, 2000);
+                setTimeout(() => window.location.href = 'login.html', 2000);
             })
             .catch(err => showToast(sanitizeError(err), 'error'));
     };
@@ -697,7 +699,7 @@
         window.fb.signOut(window.auth)
             .then(() => {
                 showToast('Signed out.', 'info');
-                hideDashboard();
+                window.location.href = 'login.html'; // Redirect to login page after sign out
             });
     };
 
@@ -711,7 +713,7 @@
         return 'An error occurred. Please try again.';
     }
 
-    // ================= DASHBOARD =================
+    // ================= DASHBOARD (kept for possible fallback, but not used after redirect) =================
     function showDashboard(userData) {
         document.getElementById('auth-panel').style.display = 'none';
         document.getElementById('reset-password-panel').style.display = 'none';
@@ -775,13 +777,6 @@
 
         // Build bottom nav
         buildFooterNav(isOrganizer);
-
-        // Fetch actual stats (optional, but we'll keep zeros for now)
-        if (isOrganizer) {
-            // fetchOrganizerStats();
-        } else {
-            // fetchServiceProviderStats();
-        }
     }
 
     function hideDashboard() {
@@ -826,7 +821,7 @@
         nav.appendChild(logoutBtn);
     }
 
-    // ================= AUTH OBSERVER =================
+    // ================= AUTH OBSERVER (no auto-redirect to avoid loops) =================
     window.fb.onAuthStateChanged(window.auth, async (user) => {
         if (user) {
             if (!window.currentUser) {
@@ -835,7 +830,10 @@
                     const data = userDoc.data();
                     window.currentUser = { uid: user.uid, ...data };
                     window.activeRole = data.role || 'organizer';
-                    showDashboard(data);
+                    // Do NOT auto-redirect; user may be on login page after explicit sign-out.
+                    // If you want to redirect only when page is not dashboard, use:
+                    // if (!window.location.pathname.includes('dashboard.html')) window.location.href='dashboard.html';
+                    // But we'll leave it as is to avoid unexpected redirects.
                 }
             }
         } else {

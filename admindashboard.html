@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --sidebar-width: 260px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--navy);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+        .sidebar .logo {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: var(--lime);
+        }
+        .sidebar .logo span { color: var(--pink); }
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.8);
+            border-left: 4px solid transparent;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { background: rgba(255,255,255,0.1); border-left-color: var(--lime); color: white; }
+        .nav-item i { width: 20px; text-align: center; }
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        .top-bar {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .top-bar h2 { font-size: 1.2rem; color: var(--navy); }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+        .stat-card .value { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
+        .iframe-container {
+            flex: 1;
+            background: white;
+            margin: 0 20px 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        iframe { width: 100%; height: 100%; border: none; }
+        .btn-signout {
+            background: var(--pink);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; flex-direction: row; align-items: center; overflow-x: auto; padding: 10px; }
+            .sidebar .logo { margin: 0 15px 0 0; font-size: 1.2rem; }
+            .nav-item { padding: 10px; white-space: nowrap; }
+            .main-content { height: calc(100vh - 60px); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">Zone<span>21</span> Admin</div>
+        <div class="nav-item active" data-page="overview"><i class="fas fa-chart-line"></i> Overview</div>
+        <div class="nav-item" data-page="approve"><i class="fas fa-check-circle"></i> Approve Events</div>
+        <div class="nav-item" data-page="manage-tickets"><i class="fas fa-ticket-alt"></i> Manage Tickets</div>
+        <div class="nav-item" data-page="publish"><i class="fas fa-globe"></i> Publish Events</div>
+        <div class="nav-item" data-page="revenue"><i class="fas fa-dollar-sign"></i> Tickets Revenue</div>
+        <div class="nav-item" data-page="sales"><i class="fas fa-chart-bar"></i> Sales Data</div>
+        <div class="nav-item" data-page="subscriptions"><i class="fas fa-credit-card"></i> Subscriptions Data</div>
+        <div class="nav-item" data-page="vendors"><i class="fas fa-store"></i> Vendors</div>
+        <div class="nav-item" data-page="organizers"><i class="fas fa-users"></i> Event Organizers</div>
+        <div class="nav-item" data-page="scan"><i class="fas fa-qrcode"></i> Scan Tickets</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <h2 id="page-title">Overview</h2>
+            <button class="btn-signout" onclick="signOut()"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+        </div>
+
+        <!-- Stats (visible on Overview) -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card"><div class="value" id="stat-total-events">0</div><div class="label">Total Events</div></div>
+            <div class="stat-card"><div class="value" id="stat-pending-events">0</div><div class="label">Pending Approval</div></div>
+            <div class="stat-card"><div class="value" id="stat-tickets-sold">0</div><div class="label">Tickets Sold</div></div>
+            <div class="stat-card"><div class="value" id="stat-revenue">$0</div><div class="label">Total Revenue</div></div>
+        </div>
+
+        <!-- Iframe container -->
+        <div class="iframe-container" id="iframe-container">
+            <iframe src="about:blank" id="content-frame"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ============ PAGE ROUTING ============
+        const pageMap = {
+            overview: { title: 'Overview', url: 'about:blank' },
+            approve: { title: 'Approve Events', url: 'admin-approval-dashboard.html' },
+            'manage-tickets': { title: 'Manage Tickets', url: 'admin-ticket-management.html' },
+            publish: { title: 'Publish Events', url: 'admin-publish-events.html' },
+            revenue: { title: 'Tickets Revenue', url: 'placeholder.html?module=revenue' },
+            sales: { title: 'Sales Data', url: 'placeholder.html?module=sales' },
+            subscriptions: { title: 'Subscriptions Data', url: 'placeholder.html?module=subscriptions' },
+            vendors: { title: 'Vendors', url: 'placeholder.html?module=vendors' },
+            organizers: { title: 'Event Organizers', url: 'placeholder.html?module=organizers' },
+            scan: { title: 'Scan Tickets', url: 'scan-tickets.html' }  // separate scanner page
+        };
+
+        // Navigation clicks
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                const page = this.dataset.page;
+                document.getElementById('page-title').textContent = pageMap[page].title;
+                document.getElementById('content-frame').src = pageMap[page].url;
+
+                // Hide stats grid except for overview
+                document.getElementById('stats-grid').style.display = (page === 'overview') ? 'grid' : 'none';
+            });
+        });
+
+        // ============ LIVE STATS (Overview) ============
+        function loadStats() {
+            // Total events
+            db.collection('events').onSnapshot(snap => {
+                document.getElementById('stat-total-events').textContent = snap.size;
+            });
+
+            // Pending events
+            db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
+                document.getElementById('stat-pending-events').textContent = snap.size;
+            });
+
+            // Tickets sold (sum of quantity from invoices? or count tickets collection)
+            db.collection('tickets').onSnapshot(snap => {
+                document.getElementById('stat-tickets-sold').textContent = snap.size;
+            });
+
+            // Revenue (sum of paid invoices)
+            db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
+                let total = 0;
+                snap.forEach(doc => { total += doc.data().amount || 0; });
+                document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
+            });
+        }
+
+        // ============ AUTH CHECK & SIGN OUT ============
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                window.location.href = 'admin-login.html';
+                return;
+            }
+            // Check if user is admin (optional, but Firestore rules will enforce)
+            db.collection('admins').doc(user.uid).get().then(doc => {
+                if (!doc.exists) {
+                    auth.signOut();
+                    window.location.href = 'admin-login.html';
+                } else {
+                    loadStats();
+                }
+            });
+        });
+
+        function signOut() {
+            auth.signOut().then(() => window.location.href = 'admin-login.html');
+        }
+
+        // Initial load
+        loadStats();
+    </script>
+</body>
+</html>

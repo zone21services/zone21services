@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 – Sales Database</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            color: var(--pink);
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .btn-primary:hover {
+            background: #1a3a4a;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .btn-lime:hover {
+            background: #d0d800;
+            transform: translateY(-2px);
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: #fff;
+        }
+        .btn-pink:hover {
+            background: #d0005e;
+        }
+        .btn-green {
+            background: #28a745;
+            color: #fff;
+        }
+        .btn-green:hover {
+            background: #218838;
+        }
+        .btn-outline {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.78rem;
+        }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header h2 i {
+            color: var(--pink);
+        }
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters select,
+        .filters input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            background: white;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        th {
+            text-align: left;
+            padding: 14px 12px;
+            background: #f0f4f8;
+            color: var(--navy);
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        td {
+            padding: 12px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: #fafbfc;
+        }
+        .buyer-link {
+            color: var(--pink);
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline dotted;
+            transition: 0.2s;
+            border: none;
+            background: none;
+            font-size: inherit;
+            padding: 0;
+        }
+        .buyer-link:hover {
+            color: var(--navy);
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-amber {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-blue {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .badge-gray {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .badge-pink {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 520px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .modal-header h2 {
+            font-size: 1.3rem;
+            color: var(--navy);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: var(--muted);
+        }
+        .modal-close:hover {
+            color: var(--pink);
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: var(--navy);
+            font-size: 0.85rem;
+            min-width: 130px;
+        }
+        .detail-value {
+            font-size: 0.9rem;
+            text-align: right;
+            word-break: break-word;
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-box .val {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .stat-box .lbl {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+            .card {
+                padding: 14px 12px;
+            }
+            table {
+                font-size: 0.75rem;
+            }
+            th,
+            td {
+                padding: 8px 6px;
+            }
+            .summary-stats {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-database"></i> Zone21 Sales Database</h1>
+            <div class="header-actions">
+                <span style="font-size:0.85rem;color:var(--muted);display:flex;align-items:center;">
+                    <span class="live-indicator"></span> Live
+                </span>
+                <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn btn-pink btn-sm" onclick="auth.signOut(); location.reload();"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <span id="user-email" style="font-size:0.85rem;color:var(--muted);"></span>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-filter"></i> Filters & Export</h2>
+                <div class="filters">
+                    <label>Event:</label>
+                    <select id="event-selector">
+                        <option value="all">All Events</option>
+                    </select>
+                    <label>Status:</label>
+                    <select id="status-filter">
+                        <option value="all">All Statuses</option>
+                        <option value="approved">Approved (Not Scanned)</option>
+                        <option value="scanned">Scanned</option>
+                    </select>
+                    <label>Search:</label>
+                    <input type="text" id="search-input" placeholder="Buyer name, email, phone..." />
+                    <button class="btn btn-primary btn-sm" onclick="applyFilters()"><i class="fas fa-search"></i> Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
+                    <button class="btn btn-lime btn-sm" onclick="exportCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="summary-stats" id="summary-stats">
+            <div class="stat-box"><div class="val" id="s-total-tickets">0</div><div class="lbl">Total Tickets</div></div>
+            <div class="stat-box"><div class="val" id="s-scanned">0</div><div class="lbl">Scanned</div></div>
+            <div class="stat-box"><div class="val" id="s-unscanned">0</div><div class="lbl">Unscanned</div></div>
+            <div class="stat-box"><div class="val" id="s-revenue">$0</div><div class="lbl">Total Revenue</div></div>
+            <div class="stat-box"><div class="val" id="s-unique-buyers">0</div><div class="lbl">Unique Buyers</div></div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-ticket-alt"></i> All Tickets & Buyer Details</h2>
+                <span class="text-muted" id="record-count">0 records</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Buyer Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Event</th>
+                            <th>Ticket Type</th>
+                            <th>Price</th>
+                            <th>Payment Approved At</th>
+                            <th>Scanned At</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tickets-table-body">
+                        <tr><td colspan="11" class="text-muted" style="text-align:center;">Loading data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buyer Detail Modal -->
+    <div class="modal" id="buyer-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user"></i> Buyer Details</h2>
+                <button class="modal-close" onclick="closeModal('buyer-modal')">&times;</button>
+            </div>
+            <div id="buyer-detail-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // ========== FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ========== STATE ==========
+        let allEvents = [];
+        let allTickets = [];
+        let allInvoices = [];
+        let currentUser = null;
+        let unsubscribers = [];
+        let filteredData = [];
+
+        // DOM refs
+        const $ = id => document.getElementById(id);
+        const eventSelector = $('event-selector');
+        const statusFilter = $('status-filter');
+        const searchInput = $('search-input');
+        const tableBody = $('tickets-table-body');
+        const recordCount = $('record-count');
+
+        // ========== AUTH ==========
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                $('user-email').textContent = user.email || user.uid;
+                startListening();
+            } else {
+                const email = prompt('Admin/Organiser Login - Enter your email:');
+                if (email) {
+                    const pw = prompt('Enter your password:');
+                    if (pw) {
+                        auth.signInWithEmailAndPassword(email, pw)
+                            .then(() => alert('Login successful!'))
+                            .catch(err => {
+                                alert('Login failed: ' + err.message);
+                                document.body.innerHTML =
+                                    '<h2 style="padding:30px;color:var(--navy);">Access Denied. Please refresh to retry.</h2>';
+                            });
+                    }
+                } else {
+                    document.body.innerHTML =
+                        '<h2 style="padding:30px;color:var(--navy);">Authentication required.</h2>';
+                }
+            }
+        });
+
+        // ========== REAL-TIME LISTENERS ==========
+        function startListening() {
+            unsubscribers.forEach(fn => fn());
+            unsubscribers = [];
+
+            const unsubEvents = db.collection('events').onSnapshot(snap => {
+                allEvents = [];
+                snap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
+                updateEventSelector();
+                buildAndRender();
+            }, err => console.error('Events listener error:', err));
+            unsubscribers.push(unsubEvents);
+
+            const unsubTickets = db.collection('tickets').onSnapshot(snap => {
+                allTickets = [];
+                snap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+                buildAndRender();
+            }, err => console.error('Tickets listener error:', err));
+            unsubscribers.push(unsubTickets);
+
+            const unsubInvoices = db.collection('invoices').onSnapshot(snap => {
+                allInvoices = [];
+                snap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
+                buildAndRender();
+            }, err => console.error('Invoices listener error:', err));
+            unsubscribers.push(unsubInvoices);
+        }
+
+        function refreshData() { buildAndRender(); }
+
+        // ========== UTILITY ==========
+        function getEventName(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            return ev ? ev.eventName : 'Unknown Event';
+        }
+
+        function getEventTicketTypes(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            return ev && ev.ticketTypes ? ev.ticketTypes : [];
+        }
+
+        function getTicketPrice(ticket) {
+            const inv = allInvoices.find(i => i.ticketId === ticket.id);
+            if (inv && inv.amount) return inv.amount;
+            const ev = allEvents.find(e => e.id === ticket.eventId);
+            if (ev && ev.ticketTypes) {
+                const tt = ev.ticketTypes.find(tk => tk.name === ticket.ticketTypeName);
+                if (tt) return tt.price;
+            }
+            return 0;
+        }
+
+        function getApprovedTime(ticket) {
+            if (ticket.approvedAt) return new Date(ticket.approvedAt);
+            const inv = allInvoices.find(i => i.ticketId === ticket.id);
+            if (inv && inv.paidAt) return new Date(inv.paidAt);
+            if (inv && inv.updatedAt) return new Date(inv.updatedAt);
+            if (ticket.createdAt) return new Date(ticket.createdAt);
+            return null;
+        }
+
+        function getScannedTime(ticket) {
+            return ticket.scannedAt ? new Date(ticket.scannedAt) : null;
+        }
+
+        function formatDate(date) {
+            if (!date) return '—';
+            return date.toLocaleString('en-GB', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        function formatDateShort(date) {
+            if (!date) return '—';
+            return date.toLocaleString('en-GB', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // ========== UPDATE EVENT SELECTOR ==========
+        function updateEventSelector() {
+            const currentVal = eventSelector.value;
+            eventSelector.innerHTML = '<option value="all">All Events</option>';
+            // Show all events (admin view) – but we could filter by organiser if needed
+            allEvents.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                opt.textContent = ev.eventName;
+                eventSelector.appendChild(opt);
+            });
+            if (currentVal && allEvents.some(e => e.id === currentVal)) {
+                eventSelector.value = currentVal;
+            }
+        }
+
+        // ========== BUILD & RENDER ==========
+        function buildAndRender() {
+            // Combine tickets with invoice data
+            const combined = allTickets.map(ticket => {
+                const inv = allInvoices.find(i => i.ticketId === ticket.id) || {};
+                return {
+                    ...ticket,
+                    invoiceData: inv,
+                    eventName: getEventName(ticket.eventId),
+                    price: getTicketPrice(ticket),
+                    approvedAt: getApprovedTime(ticket),
+                    scannedAt: getScannedTime(ticket)
+                };
+            });
+
+            // Apply filters
+            let data = combined;
+
+            const selectedEvent = eventSelector.value;
+            if (selectedEvent !== 'all') {
+                data = data.filter(t => t.eventId === selectedEvent);
+            }
+
+            const selStatus = statusFilter.value;
+            if (selStatus !== 'all') {
+                data = data.filter(t => t.status === selStatus);
+            }
+
+            const query = searchInput.value.trim().toLowerCase();
+            if (query) {
+                data = data.filter(t =>
+                    t.buyerName.toLowerCase().includes(query) ||
+                    t.buyerEmail.toLowerCase().includes(query) ||
+                    t.buyerPhone.toLowerCase().includes(query)
+                );
+            }
+
+            // Sort by approved time descending
+            data.sort((a, b) => {
+                const ta = a.approvedAt ? a.approvedAt.getTime() : 0;
+                const tb = b.approvedAt ? b.approvedAt.getTime() : 0;
+                return tb - ta;
+            });
+
+            filteredData = data;
+            renderTable(data);
+            renderStats(data);
+        }
+
+        function renderStats(data) {
+            const totalTickets = data.length;
+            const scanned = data.filter(t => t.status === 'scanned').length;
+            const unscanned = data.filter(t => t.status === 'approved').length;
+            const revenue = data.reduce((sum, t) => sum + t.price, 0);
+            const uniqueBuyers = new Set(data.map(t => t.buyerEmail || t.buyerName)).size;
+
+            $('s-total-tickets').textContent = totalTickets;
+            $('s-scanned').textContent = scanned;
+            $('s-unscanned').textContent = unscanned;
+            $('s-revenue').textContent = '$' + revenue.toFixed(2);
+            $('s-unique-buyers').textContent = uniqueBuyers;
+            recordCount.textContent = `${totalTickets} record${totalTickets !== 1 ? 's' : ''}`;
+        }
+
+        function renderTable(data) {
+            if (!data || data.length === 0) {
+                tableBody.innerHTML =
+                    `<tr><td colspan="11" class="text-muted" style="text-align:center;padding:30px;">No tickets found matching your filters.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            data.forEach((ticket, index) => {
+                const tr = document.createElement('tr');
+                const statusBadge = ticket.status === 'scanned' ?
+                    '<span class="badge badge-blue">Scanned</span>' :
+                    ticket.status === 'approved' ?
+                    '<span class="badge badge-green">Approved</span>' :
+                    `<span class="badge badge-gray">${ticket.status}</span>`;
+
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <button class="buyer-link" onclick="showBuyerDetails('${ticket.id}')">
+                            ${ticket.buyerName || '—'}
+                        </button>
+                    </td>
+                    <td>${ticket.buyerEmail || '—'}</td>
+                    <td>${ticket.buyerPhone || '—'}</td>
+                    <td>${ticket.eventName}</td>
+                    <td>${ticket.ticketTypeName || '—'}</td>
+                    <td>$${ticket.price.toFixed(2)}</td>
+                    <td>${formatDateShort(ticket.approvedAt)}</td>
+                    <td>${formatDateShort(ticket.scannedAt)}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="showBuyerDetails('${ticket.id}')">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // ========== BUYER DETAIL MODAL ==========
+        function showBuyerDetails(ticketId) {
+            const ticket = filteredData.find(t => t.id === ticketId);
+            if (!ticket) {
+                alert('Ticket not found in filtered data.');
+                return;
+            }
+
+            const modal = $('buyer-modal');
+            const content = $('buyer-detail-content');
+
+            const inv = ticket.invoiceData || {};
+            const paymentProof = inv.paymentProofBase64 || null;
+
+            const scanStatus = ticket.status === 'scanned' ?
+                `<span class="badge badge-blue">Scanned</span>` :
+                ticket.status === 'approved' ?
+                `<span class="badge badge-green">Approved (Not Scanned)</span>` :
+                `<span class="badge badge-gray">${ticket.status}</span>`;
+
+            content.innerHTML = `
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                        <h3 style="color:var(--navy);font-size:1.1rem;">${ticket.buyerName || '—'}</h3>
+                        ${scanStatus}
+                    </div>
+                    <small style="color:var(--muted);">Ticket ID: ${ticket.id}</small>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-envelope" style="color:var(--pink);"></i> Email</span>
+                    <span class="detail-value">${ticket.buyerEmail || '—'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-phone" style="color:var(--pink);"></i> Phone</span>
+                    <span class="detail-value">${ticket.buyerPhone || '—'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-calendar" style="color:var(--pink);"></i> Event</span>
+                    <span class="detail-value">${ticket.eventName}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-tag" style="color:var(--pink);"></i> Ticket Type</span>
+                    <span class="detail-value">${ticket.ticketTypeName || '—'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-dollar-sign" style="color:var(--pink);"></i> Price</span>
+                    <span class="detail-value">$${ticket.price.toFixed(2)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-clock" style="color:var(--pink);"></i> Payment Approved At</span>
+                    <span class="detail-value">${formatDate(ticket.approvedAt)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-qrcode" style="color:var(--pink);"></i> Scanned At</span>
+                    <span class="detail-value">${formatDate(ticket.scannedAt)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-file-invoice" style="color:var(--pink);"></i> Invoice ID</span>
+                    <span class="detail-value" style="font-size:0.8rem;word-break:break-all;">${inv.id || ticket.invoiceId || '—'}</span>
+                </div>
+                ${paymentProof ? `
+                <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+                    <span class="detail-label"><i class="fas fa-image" style="color:var(--pink);"></i> Payment Proof</span>
+                    <img src="${paymentProof}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);" alt="Payment proof" />
+                </div>
+                ` : ''}
+                <div class="detail-row">
+                    <span class="detail-label"><i class="fas fa-info-circle" style="color:var(--pink);"></i> Created At</span>
+                    <span class="detail-value">${formatDate(ticket.createdAt ? new Date(ticket.createdAt) : null)}</span>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) modal.style.display = 'none';
+            });
+        };
+
+        // ========== EXPORT CSV ==========
+        function exportCSV() {
+            if (!filteredData || filteredData.length === 0) {
+                alert('No data to export. Please adjust filters.');
+                return;
+            }
+            const headers = [
+                'Ticket ID', 'Buyer Name', 'Email', 'Phone', 'Event',
+                'Ticket Type', 'Price (USD)', 'Payment Approved At',
+                'Scanned At', 'Status', 'Invoice ID'
+            ];
+
+            const rows = filteredData.map(t => [
+                t.id,
+                t.buyerName || '',
+                t.buyerEmail || '',
+                t.buyerPhone || '',
+                t.eventName || '',
+                t.ticketTypeName || '',
+                t.price.toFixed(2),
+                t.approvedAt ? t.approvedAt.toISOString() : '',
+                t.scannedAt ? t.scannedAt.toISOString() : '',
+                t.status || '',
+                t.invoiceData?.id || t.invoiceId || ''
+            ]);
+
+            const csvContent = [headers, ...rows]
+                .map(row => row.map(cell => {
+                    if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes(
+                            '\n'))) {
+                        return '"' + cell.replace(/"/g, '""') + '"';
+                    }
+                    return cell;
+                }).join(','))
+                .join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().split('T')[0];
+            link.href = URL.createObjectURL(blob);
+            link.download = `zone21-sales-database-${timestamp}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // ========== FILTERS ==========
+        function applyFilters() { buildAndRender(); }
+
+        function resetFilters() {
+            eventSelector.value = 'all';
+            statusFilter.value = 'all';
+            searchInput.value = '';
+            buildAndRender();
+        }
+
+        // ========== GLOBALS ==========
+        window.applyFilters = applyFilters;
+        window.resetFilters = resetFilters;
+        window.refreshData = refreshData;
+        window.exportCSV = exportCSV;
+        window.showBuyerDetails = showBuyerDetails;
+        window.closeModal = closeModal;
+        window.auth = auth;
+    </script>
+</body>
+</html>

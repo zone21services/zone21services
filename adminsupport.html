@@ -5,493 +5,1541 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zone21 | Admin Support Panel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        :root{--navy:#102838;--lime:#C0C800;--pink:#F80070;--bg:#f5f7fa;--card:#fff;--text:#1a1a2e;--muted:#6c757d;--border:#e0e0e8;--radius:16px;--shadow:0 8px 30px rgba(16,40,56,0.08)}
-        *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
-        body{background:var(--bg);color:var(--text);padding:20px;min-height:100vh}
-        .container{max-width:1300px;margin:0 auto}
-        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:15px}
-        .header h1{font-size:2rem;font-weight:800;color:var(--navy)}
-        .btn{padding:10px 20px;border-radius:30px;font-weight:700;font-size:.9rem;cursor:pointer;border:none;transition:.3s;display:inline-flex;align-items:center;gap:8px}
-        .btn-outline{background:#fff;border:1px solid var(--border);color:var(--navy)}.btn-outline:hover{background:#f0f0f0}
-        .btn-lime{background:var(--lime);color:var(--navy)}.btn-lime:hover{background:#d0d800}
-        .btn-pink{background:var(--pink);color:#fff}.btn-pink:hover{background:#d0005e}
-        .btn-navy{background:var(--navy);color:var(--lime)}.btn-navy:hover{background:#1a3a4a}
-        .btn-block{width:100%;justify-content:center}
-        .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:15px;margin-bottom:25px}
-        .stat-card{background:#fff;border-radius:12px;padding:20px;box-shadow:var(--shadow);text-align:center}
-        .stat-value{font-size:2rem;font-weight:800;color:var(--navy)}.stat-label{font-size:.8rem;color:var(--muted)}
-        .tab-nav{display:flex;gap:5px;background:#fff;border-radius:40px;padding:6px;margin-bottom:25px;box-shadow:var(--shadow);overflow-x:auto}
-        .tab-btn{flex:1;min-width:120px;padding:12px 18px;border-radius:30px;border:none;cursor:pointer;font-weight:700;font-size:.85rem;transition:.3s;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
-        .tab-btn.active{background:var(--navy);color:var(--lime)}
-        .tab-btn .badge{background:var(--pink);color:#fff;font-size:.7rem;padding:2px 8px;border-radius:15px;font-weight:700}
-        .tab-content{display:none}.tab-content.active{display:block}
-        .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:25px;margin-bottom:20px}
-        .card h2{font-size:1.2rem;font-weight:700;color:var(--navy);margin-bottom:15px;border-bottom:3px solid var(--lime);padding-bottom:10px}
-        .message-card{background:#fafbfc;border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px;transition:.2s}
-        .message-card.unread{border-left:4px solid var(--pink);background:#fff5f8}
-        .msg-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px}
-        .msg-sender{font-weight:700;color:var(--navy)}
-        .msg-type{font-size:.7rem;font-weight:600;padding:3px 10px;border-radius:20px;text-transform:uppercase}
-        .type-query{background:#e3f2fd;color:#1565c0}.type-payment{background:#fff3e0;color:#e65100}.type-chat{background:#e8f5e9;color:#2e7d32}
-        .msg-body{font-size:.9rem;color:#444;margin-bottom:10px}
-        .msg-proof{max-width:150px;border-radius:8px;margin:10px 0;display:block;cursor:pointer}
-        .msg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-        .msg-time{font-size:.75rem;color:#aaa;margin-top:8px}
-        .form-group{margin-bottom:15px}
-        .form-group label{display:block;font-weight:600;margin-bottom:5px;color:var(--navy);font-size:.85rem}
-        .form-group input,.form-group select,.form-group textarea{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:.9rem;outline:none;background:#fafbfc}
-        .form-group textarea{min-height:80px;resize:vertical}
-        .template-card{background:#fafbfc;border:1px solid var(--border);border-radius:10px;padding:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-        .template-card .template-title{font-weight:700;color:var(--navy);margin-bottom:5px}
-        .template-card .template-content{font-size:.85rem;color:#555}
-        .search-box{display:flex;gap:10px;margin-bottom:15px}
-        .search-box input{flex:1;padding:10px 15px;border:1.5px solid var(--border);border-radius:25px;font-size:.9rem;outline:none}
-        .user-list{max-height:300px;overflow-y:auto}
-        .user-item{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #f0f0f0}
-        .user-item:hover{background:#f5f7fa}
-        .user-item .user-name{font-weight:600;color:var(--navy)}
-        .user-item .user-email{font-size:.8rem;color:var(--muted)}
-        .template-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-        .template-btn{background:#f0f4f8;border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:.75rem;cursor:pointer;transition:.2s;font-weight:600}
-        .template-btn:hover{background:var(--navy);color:var(--lime)}
-        .chat-history{max-height:220px;overflow-y:auto;background:#f9fbfd;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px}
-        .chat-bubble-mini{padding:8px 12px;border-radius:8px;font-size:0.8rem;margin-bottom:6px;max-width:85%}
-        .chat-bubble-mini.user{background:#e3f2fd;color:#0d47a1;margin-right:auto}
-        .chat-bubble-mini.admin{background:var(--navy);color:#fff;margin-left:auto}
-        .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center}
-        .modal-content{background:#fff;border-radius:16px;padding:25px;max-width:600px;width:95%;max-height:90vh;overflow-y:auto}
-        .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
-        .modal-header h3{color:var(--navy)}
-        .modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer}
-        @media(max-width:700px){.tab-btn{min-width:80px;font-size:.7rem;padding:8px 10px}}
+        :root {
+            --navy: #0f2437;
+            --navy-light: #1a3a55;
+            --lime: #C0C800;
+            --lime-dark: #a8b000;
+            --pink: #F80070;
+            --pink-dark: #d0005e;
+            --bg: #eef1f5;
+            --card: #ffffff;
+            --text: #16212e;
+            --muted: #6b7a8a;
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow: 0 2px 12px rgba(15, 36, 55, 0.06), 0 8px 30px rgba(15, 36, 55, 0.08);
+            --shadow-lg: 0 8px 40px rgba(15, 36, 55, 0.12);
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --gradient-lime: linear-gradient(135deg, #C0C800, #d4dc00);
+            --gradient-pink: linear-gradient(135deg, #F80070, #ff4d94);
+            --gradient-navy: linear-gradient(135deg, #0f2437, #1a3a55);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* === Header === */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+            background: var(--card);
+            padding: 20px 28px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 16px;
+            z-index: 50;
+            backdrop-filter: blur(12px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            background: var(--gradient-pink);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(248, 0, 112, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.5px;
+        }
+
+        .header .subtitle {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.2px;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-outline {
+            background: #fff;
+            border: 2px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            border-color: var(--navy);
+            background: #f8fafc;
+        }
+
+        .btn-lime {
+            background: var(--gradient-lime);
+            color: var(--navy);
+            box-shadow: 0 4px 15px rgba(192, 200, 0, 0.3);
+        }
+        .btn-lime:hover {
+            box-shadow: 0 6px 22px rgba(192, 200, 0, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-pink {
+            background: var(--gradient-pink);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(248, 0, 112, 0.3);
+        }
+        .btn-pink:hover {
+            box-shadow: 0 6px 22px rgba(248, 0, 112, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .btn-navy {
+            background: var(--gradient-navy);
+            color: var(--lime);
+            box-shadow: 0 4px 15px rgba(15, 36, 55, 0.25);
+        }
+        .btn-navy:hover {
+            box-shadow: 0 6px 22px rgba(15, 36, 55, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 0.75rem;
+            border-radius: 20px;
+        }
+        .btn-xs {
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            border-radius: 16px;
+        }
+
+        /* === Stats Row === */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--lime);
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-lime);
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+        .stat-card.pink::before {
+            background: var(--gradient-pink);
+        }
+        .stat-card.navy::before {
+            background: var(--gradient-navy);
+        }
+        .stat-card .stat-icon {
+            font-size: 1.6rem;
+            margin-bottom: 8px;
+            color: var(--lime-dark);
+        }
+        .stat-card.pink .stat-icon {
+            color: var(--pink);
+        }
+        .stat-card.navy .stat-icon {
+            color: var(--navy);
+        }
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--navy);
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        /* === Tab Nav === */
+        .tab-nav {
+            display: flex;
+            gap: 6px;
+            background: var(--card);
+            border-radius: 40px;
+            padding: 6px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+        .tab-btn {
+            flex: 1;
+            min-width: 130px;
+            padding: 13px 18px;
+            border-radius: 34px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.82rem;
+            transition: var(--transition);
+            background: transparent;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+        }
+        .tab-btn:hover {
+            color: var(--navy);
+            background: #f8fafc;
+        }
+        .tab-btn.active {
+            background: var(--gradient-navy);
+            color: var(--lime);
+            box-shadow: 0 4px 15px rgba(15, 36, 55, 0.3);
+        }
+        .tab-btn .badge {
+            background: var(--pink);
+            color: #fff;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 15px;
+            font-weight: 800;
+            min-width: 20px;
+            text-align: center;
+        }
+        .tab-content {
+            display: none;
+            animation: fadeUp 0.35s ease;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* === Cards === */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 26px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .card h2 {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 16px;
+            border-bottom: 3px solid var(--lime);
+            padding-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.3px;
+        }
+        .card h2 .h-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            background: #f8fafc;
+            color: var(--navy);
+        }
+
+        /* === Message Cards === */
+        .message-card {
+            background: #fafbfc;
+            border: 1.5px solid var(--border-light);
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+            transition: var(--transition);
+            position: relative;
+        }
+        .message-card:hover {
+            border-color: var(--lime);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        .message-card.unread {
+            border-left: 4px solid var(--pink);
+            background: #fff5f9;
+        }
+        .message-card.resolved {
+            opacity: 0.75;
+        }
+        .message-card.resolved .msg-sender {
+            text-decoration: line-through;
+            text-decoration-color: #ccc;
+        }
+
+        .msg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .msg-sender {
+            font-weight: 800;
+            color: var(--navy);
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .msg-sender .avatar-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--gradient-navy);
+            color: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .msg-type {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .type-query {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .type-payment {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .type-chat {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .msg-body {
+            font-size: 0.88rem;
+            color: #444;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        .msg-meta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .msg-meta i {
+            margin-right: 4px;
+            color: var(--navy);
+        }
+        .msg-proof {
+            max-width: 140px;
+            border-radius: 10px;
+            margin: 8px 0;
+            display: block;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            transition: var(--transition);
+        }
+        .msg-proof:hover {
+            border-color: var(--lime);
+            transform: scale(1.03);
+        }
+        .msg-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-light);
+        }
+        .msg-time {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-top: 6px;
+        }
+
+        /* === Forms === */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--navy);
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            outline: none;
+            background: #fafbfc;
+            transition: var(--transition);
+            font-family: 'Inter', sans-serif;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--lime);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(192, 200, 0, 0.1);
+        }
+        .form-group textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        /* === Template Cards === */
+        .template-card {
+            background: #fafbfc;
+            border: 1.5px solid var(--border-light);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            transition: var(--transition);
+        }
+        .template-card:hover {
+            border-color: var(--lime);
+            background: #fff;
+        }
+        .template-card .template-title {
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+        .template-card .template-content {
+            font-size: 0.82rem;
+            color: #555;
+            line-height: 1.4;
+        }
+
+        /* === Search === */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .search-box input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 18px;
+            border: 2px solid var(--border);
+            border-radius: 30px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: var(--transition);
+            background: #fafbfc;
+        }
+        .search-box input:focus {
+            border-color: var(--lime);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(192, 200, 0, 0.1);
+        }
+        .user-list {
+            max-height: 350px;
+            overflow-y: auto;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-light);
+        }
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-light);
+            transition: var(--transition);
+        }
+        .user-item:last-child {
+            border-bottom: none;
+        }
+        .user-item:hover {
+            background: #f8fafc;
+        }
+        .user-item .user-name {
+            font-weight: 700;
+            color: var(--navy);
+            font-size: 0.9rem;
+        }
+        .user-item .user-email {
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        /* === Template Buttons === */
+        .template-btns {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .template-btn {
+            background: #f0f4f8;
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 700;
+            color: var(--navy);
+            letter-spacing: 0.2px;
+        }
+        .template-btn:hover {
+            background: var(--gradient-navy);
+            color: var(--lime);
+            border-color: var(--navy);
+            transform: translateY(-1px);
+        }
+
+        /* === Chat History in Modal === */
+        .chat-history {
+            max-height: 260px;
+            min-height: 120px;
+            overflow-y: auto;
+            background: #f8fafc;
+            border: 1.5px solid var(--border-light);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+        .chat-bubble-mini {
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            max-width: 85%;
+            position: relative;
+            line-height: 1.4;
+            transition: var(--transition);
+        }
+        .chat-bubble-mini:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .chat-bubble-mini.user {
+            background: #e3f2fd;
+            color: #0d47a1;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble-mini.admin {
+            background: var(--gradient-navy);
+            color: #fff;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble-mini .bubble-time {
+            font-size: 0.62rem;
+            opacity: 0.7;
+            display: block;
+            text-align: right;
+            margin-top: 4px;
+        }
+        .chat-bubble-mini .bubble-delete {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--pink);
+            color: #fff;
+            border: none;
+            font-size: 0.6rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        .chat-bubble-mini:hover .bubble-delete {
+            display: flex;
+        }
+
+        /* === Modal === */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 36, 55, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            animation: fadeIn 0.25s ease;
+        }
+        .modal.active {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal-content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 28px;
+            max-width: 640px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.35s ease;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid var(--border-light);
+        }
+        .modal-header h3 {
+            color: var(--navy);
+            font-size: 1.1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--muted);
+            transition: var(--transition);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-close:hover {
+            background: #f1f5f9;
+            color: var(--pink);
+        }
+
+        /* === Empty States === */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted);
+        }
+        .empty-state i {
+            font-size: 3rem;
+            color: #d0d8e0;
+            margin-bottom: 12px;
+        }
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        /* === Toast === */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--navy);
+            color: #fff;
+            padding: 14px 22px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+            z-index: 2000;
+            animation: slideInRight 0.4s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+        .toast.success {
+            background: #2e7d32;
+        }
+        .toast.error {
+            background: #c62828;
+        }
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* === Responsive === */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .header {
+                padding: 16px 18px;
+                border-radius: 14px;
+                top: 8px;
+            }
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            .header-icon {
+                width: 36px;
+                height: 36px;
+                font-size: 1.1rem;
+                border-radius: 10px;
+            }
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .stat-card {
+                padding: 14px 16px;
+                border-radius: 12px;
+            }
+            .stat-value {
+                font-size: 1.6rem;
+            }
+            .stat-label {
+                font-size: 0.65rem;
+            }
+            .tab-nav {
+                border-radius: 28px;
+                padding: 5px;
+                margin-bottom: 16px;
+            }
+            .tab-btn {
+                min-width: 80px;
+                font-size: 0.7rem;
+                padding: 10px 12px;
+                gap: 5px;
+                border-radius: 24px;
+            }
+            .card {
+                padding: 18px 16px;
+                border-radius: 14px;
+            }
+            .card h2 {
+                font-size: 1rem;
+            }
+            .message-card {
+                padding: 14px 16px;
+                border-radius: 10px;
+            }
+            .msg-sender {
+                font-size: 0.85rem;
+            }
+            .modal-content {
+                padding: 18px 16px;
+                border-radius: 16px;
+                max-height: 95vh;
+            }
+            .toast {
+                bottom: 16px;
+                right: 16px;
+                left: 16px;
+                max-width: none;
+                justify-content: center;
+                text-align: center;
+            }
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 10px 14px;
+                font-size: 0.85rem;
+            }
+            .search-box input {
+                padding: 10px 14px;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+            .tab-btn {
+                min-width: 70px;
+                font-size: 0.65rem;
+                padding: 8px 8px;
+            }
+            .tab-btn i {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1><i class="fas fa-headset" style="color:var(--pink);"></i> Admin Support Panel</h1>
-        <a href="dashboard.html" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
-    </div>
-
-    <div class="stats-row">
-        <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total Messages</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-unread">0</div><div class="stat-label">Pending / Unread</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-payments">0</div><div class="stat-label">Payment Proofs</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-queries">0</div><div class="stat-label">Queries</div></div>
-    </div>
-
-    <div class="tab-nav">
-        <button class="tab-btn active" data-tab="inbox"><i class="fas fa-inbox"></i> Inbox <span class="badge" id="inbox-badge" style="display:none;">0</span></button>
-        <button class="tab-btn" data-tab="search"><i class="fas fa-search"></i> Search Users</button>
-        <button class="tab-btn" data-tab="broadcast"><i class="fas fa-bullhorn"></i> System Update</button>
-        <button class="tab-btn" data-tab="templates"><i class="fas fa-envelope-open-text"></i> Templates</button>
-    </div>
-
-    <div class="tab-content active" id="tab-inbox">
-        <div class="card"><h2>All Incoming Messages</h2><div id="inbox-list"><p style="color:var(--muted);">Loading messages...</p></div></div>
-    </div>
-
-    <div class="tab-content" id="tab-search">
-        <div class="card">
-            <h2>Search Users & Send Direct Message</h2>
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="Search by name or email...">
-                <button class="btn btn-lime" onclick="searchUsers()"><i class="fas fa-search"></i> Search</button>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-icon"><i class="fas fa-headset"></i></div>
+                <div>
+                    <h1>Admin Support Panel</h1>
+                    <div class="subtitle">Zone21 · Live Support Center</div>
+                </div>
             </div>
-            <div class="user-list" id="user-list"></div>
+            <a href="dashboard.html" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-card" onclick="filterByType('all')">
+                <div class="stat-icon"><i class="fas fa-inbox"></i></div>
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total Messages</div>
+            </div>
+            <div class="stat-card pink" onclick="filterByType('unread')">
+                <div class="stat-icon"><i class="fas fa-envelope-open"></i></div>
+                <div class="stat-value" id="stat-unread">0</div>
+                <div class="stat-label">Pending / Unread</div>
+            </div>
+            <div class="stat-card navy" onclick="filterByType('payment')">
+                <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="stat-value" id="stat-payments">0</div>
+                <div class="stat-label">Payment Proofs</div>
+            </div>
+            <div class="stat-card" onclick="filterByType('query')">
+                <div class="stat-icon"><i class="fas fa-question-circle"></i></div>
+                <div class="stat-value" id="stat-queries">0</div>
+                <div class="stat-label">Queries</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="inbox">
+                <i class="fas fa-inbox"></i> Inbox <span class="badge" id="inbox-badge" style="display:none;">0</span>
+            </button>
+            <button class="tab-btn" data-tab="search">
+                <i class="fas fa-search"></i> Search Users
+            </button>
+            <button class="tab-btn" data-tab="broadcast">
+                <i class="fas fa-bullhorn"></i> System Update
+            </button>
+            <button class="tab-btn" data-tab="templates">
+                <i class="fas fa-envelope-open-text"></i> Templates
+            </button>
+        </div>
+
+        <!-- Inbox Tab -->
+        <div class="tab-content active" id="tab-inbox">
+            <div class="card">
+                <h2><span class="h-icon"><i class="fas fa-inbox"></i></span> All Incoming Messages</h2>
+                <div id="inbox-list">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading messages...</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Tab -->
+        <div class="tab-content" id="tab-search">
+            <div class="card">
+                <h2><span class="h-icon"><i class="fas fa-search"></i></span> Search Users & Direct Message</h2>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Search by name, email or user ID..." onkeydown="if(event.key==='Enter')searchUsers()">
+                    <button class="btn btn-lime" onclick="searchUsers()"><i class="fas fa-search"></i> Search</button>
+                </div>
+                <div class="user-list" id="user-list"></div>
+            </div>
+        </div>
+
+        <!-- Broadcast Tab -->
+        <div class="tab-content" id="tab-broadcast">
+            <div class="card">
+                <h2><span class="h-icon"><i class="fas fa-bullhorn"></i></span> Send System Update</h2>
+                <form id="broadcastForm">
+                    <div class="form-group">
+                        <label>Notification Title *</label>
+                        <input type="text" id="broadcastTitle" required placeholder="e.g. Scheduled Maintenance">
+                    </div>
+                    <div class="form-group">
+                        <label>Notification Message *</label>
+                        <textarea id="broadcastMessage" required placeholder="Enter your broadcast message..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Audience *</label>
+                        <select id="broadcastTarget" required>
+                            <option value="">Select audience...</option>
+                            <option value="all">All Users</option>
+                            <option value="organizers">Organizers Only</option>
+                            <option value="service_providers">Service Providers Only</option>
+                            <option value="attendees">Attendees Only</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-pink btn-block"><i class="fas fa-bullhorn"></i> Send Broadcast</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div class="tab-content" id="tab-templates">
+            <div class="card">
+                <h2><span class="h-icon"><i class="fas fa-envelope-open-text"></i></span> Quick Response Templates</h2>
+                <div id="templates-list"></div>
+                <button class="btn btn-lime" onclick="addNewTemplate()"><i class="fas fa-plus"></i> Add Template</button>
+            </div>
         </div>
     </div>
 
-    <div class="tab-content" id="tab-broadcast">
-        <div class="card">
-            <h2>Send System Update Notification</h2>
-            <form id="broadcastForm">
-                <div class="form-group"><label>Notification Title *</label><input type="text" id="broadcastTitle" required></div>
-                <div class="form-group"><label>Notification Message *</label><textarea id="broadcastMessage" required></textarea></div>
-                <div class="form-group"><label>Target Audience *</label><select id="broadcastTarget" required><option value="">Select...</option><option value="all">All Users</option><option value="organizers">Organizers Only</option><option value="service_providers">Service Providers Only</option><option value="attendees">Attendees Only</option></select></div>
-                <button type="submit" class="btn btn-pink btn-block"><i class="fas fa-bullhorn"></i> Send Broadcast</button>
-            </form>
+    <!-- Direct Reply Modal -->
+    <div class="modal" id="dmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-reply" style="color:var(--lime);"></i> <span id="dmModalTitle">Reply to User</span></h3>
+                <button class="modal-close" onclick="closeDmModal()">&times;</button>
+            </div>
+            <div id="dm-user-info" style="margin-bottom:12px;font-size:0.85rem;color:var(--muted);"></div>
+            <div class="chat-history" id="dmChatHistory">
+                <p style="font-size:0.8rem;color:#888;text-align:center;">Loading history...</p>
+            </div>
+            <div class="template-btns" id="replyTemplates"></div>
+            <textarea id="dm-message" placeholder="Type your response..." style="width:100%;padding:14px;border:2px solid var(--border);border-radius:12px;min-height:90px;resize:vertical;margin-bottom:12px;font-size:0.9rem;outline:none;font-family:'Inter',sans-serif;"></textarea>
+            <input type="file" id="dm-image-input" accept="image/*" style="display:none;" onchange="previewDmImage(this)">
+            <img id="dm-image-preview" style="max-width:100%;border-radius:10px;display:none;margin-bottom:12px;border:2px solid var(--border);">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-lime" onclick="sendDirectMessage()"><i class="fas fa-paper-plane"></i> Send Reply</button>
+                <button class="btn btn-outline" onclick="document.getElementById('dm-image-input').click()"><i class="fas fa-image"></i> Attach Image</button>
+                <button class="btn btn-pink" style="margin-left:auto;" onclick="deleteThread()"><i class="fas fa-trash"></i> Delete Thread</button>
+            </div>
         </div>
     </div>
 
-    <div class="tab-content" id="tab-templates">
-        <div class="card">
-            <h2>Quick Response Templates</h2>
-            <div id="templates-list"></div>
-            <button class="btn btn-lime" onclick="addNewTemplate()"><i class="fas fa-plus"></i> Add Template</button>
+    <!-- Delete Confirm Modal -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content" style="max-width:420px;text-align:center;">
+            <div style="font-size:3rem;color:var(--pink);margin-bottom:12px;"><i class="fas fa-trash-alt"></i></div>
+            <h3 style="color:var(--navy);margin-bottom:8px;">Delete Message?</h3>
+            <p style="color:var(--muted);font-size:0.9rem;margin-bottom:20px;" id="confirmText">This action cannot be undone.</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-outline" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn btn-pink" id="confirmDeleteBtn">Delete</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Direct Reply Modal -->
-<div class="modal" id="dmModal">
-    <div class="modal-content">
-        <div class="modal-header"><h3 id="dmModalTitle">Respond to User</h3><button class="modal-close" onclick="closeDmModal()">&times;</button></div>
-        <div id="dm-user-info" style="margin-bottom:12px;"></div>
-        
-        <div class="chat-history" id="dmChatHistory">
-            <p style="font-size:0.8rem;color:#888;text-align:center;">Loading history...</p>
-        </div>
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
 
-        <div class="template-btns" id="replyTemplates"></div>
-        <textarea id="dm-message" placeholder="Type your response..." style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;min-height:90px;resize:vertical;margin-bottom:10px;"></textarea>
-        <input type="file" id="dm-image-input" accept="image/*" style="display:none;" onchange="previewDmImage(this)">
-        <img id="dm-image-preview" style="max-width:100%;border-radius:8px;display:none;margin-bottom:10px;">
-        <div style="display:flex;gap:10px;">
-            <button class="btn btn-lime" onclick="sendDirectMessage()"><i class="fas fa-paper-plane"></i> Send Reply</button>
-            <button class="btn btn-outline" onclick="document.getElementById('dm-image-input').click()"><i class="fas fa-image"></i> Attach Image</button>
-        </div>
-    </div>
-</div>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
 
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-        authDomain: "zone21.firebaseapp.com",
-        projectId: "zone21",
-        storageBucket: "zone21.firebasestorage.app",
-        messagingSenderId: "405963057292",
-        appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-        measurementId: "G-KE007Y89F1"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
+        let currentReplyDocId = null;
+        let currentDmUserId = null;
+        let dmImageBase64 = null;
+        let historyUnsubscribe = null;
+        let currentFilter = 'all';
+        let allMessagesCache = [];
+        let deleteTargetId = null;
+        let deleteTargetType = null;
 
-    let currentReplyDocId = null;
-    let currentDmUserId = null;
-    let dmImageBase64 = null;
-    let historyUnsubscribe = null;
+        const defaultTemplates = [
+            { id: 'tpl_payment_approved', title: 'Payment Approved',
+            content: 'Your payment has been verified and approved. Thank you for choosing Zone21! 🎉' },
+            { id: 'tpl_issue_resolved', title: 'Issue Resolved',
+            content: 'Your issue has been marked as resolved. If you need further assistance, please reach out anytime.' },
+            { id: 'tpl_investigating', title: 'Investigating',
+            content: 'We have received your details and are currently investigating. We will update you shortly.' },
+            { id: 'tpl_more_info', title: 'More Info Needed',
+            content: 'We need additional details to process your request. Please reply with extra information or screenshots.' }
+        ];
 
-    const defaultTemplates = [
-        { id:'tpl_payment_approved', title:'Payment Approved', content:'Your payment has been verified and approved. Thank you for choosing Zone21! 🎉' },
-        { id:'tpl_issue_resolved', title:'Issue Resolved', content:'Your issue has been marked as resolved. If you need further assistance, please reach out anytime.' },
-        { id:'tpl_investigating', title:'Investigating', content:'We have received your details and are currently investigating. We will update you shortly.' },
-        { id:'tpl_more_info', title:'More Info Needed', content:'We need additional details to process your request. Please reply with extra information or screenshots.' }
-    ];
-
-    auth.onAuthStateChanged(user => { 
-        if(user) {
-            loadInbox(); 
-            loadTemplates();
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300); }, 2500);
         }
-    });
 
-    function loadInbox(){
-        db.collection('messages').onSnapshot(snap => {
-            let total = 0, unread = 0, payments = 0, queries = 0;
-            const list = document.getElementById('inbox-list');
-            list.innerHTML = '';
-            
-            let docs = [];
-            snap.forEach(d => {
-                let data = d.data();
-                data.id = d.id;
-                docs.push(data);
-            });
-
-            // Client side sort to handle items gracefully without requiring compound index
-            docs.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-
-            docs.forEach(d => {
-                total++;
-                if(d.status === 'unread' || d.status === 'pending') unread++;
-                if(d.type === 'payment_proof') payments++;
-                if(d.type === 'general_query') queries++;
-
-                list.appendChild(createMessageCard(d));
-            });
-
-            document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-unread').textContent = unread;
-            document.getElementById('stat-payments').textContent = payments;
-            document.getElementById('stat-queries').textContent = queries;
-
-            const badge = document.getElementById('inbox-badge');
-            badge.style.display = unread > 0 ? 'inline' : 'none';
-            badge.textContent = unread;
-
-            if(docs.length === 0) {
-                list.innerHTML = '<p style="color:var(--muted);">No incoming messages found.</p>';
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                loadInbox();
+                loadTemplates();
             }
         });
-    }
 
-    function createMessageCard(d){ 
-        const div = document.createElement('div'); 
-        div.className = `message-card ${d.status==='unread'||d.status==='pending'?'unread':''}`; 
-        
-        const typeClass = d.type==='payment_proof'?'type-payment':d.type==='general_query'?'type-query':'type-chat'; 
-        const typeLabel = d.type==='payment_proof'?'Payment Proof':d.type==='general_query'?'Query':'Chat'; 
-        
-        let proofHtml = d.proofImage ? `<img src="${d.proofImage}" class="msg-proof" onclick="window.open('${d.proofImage}')" title="Click to view full">` : ''; 
-        let imgHtml = d.image ? `<img src="${d.image}" class="msg-proof" onclick="window.open('${d.image}')" title="Click to view full">` : ''; 
-        
-        const targetUserId = d.senderId || d.userId || '';
+        function loadInbox() {
+            db.collection('messages').onSnapshot(snap => {
+                let total = 0,
+                    unread = 0,
+                    payments = 0,
+                    queries = 0;
+                const list = document.getElementById('inbox-list');
+                list.innerHTML = '';
 
-        div.innerHTML = `
+                let docs = [];
+                snap.forEach(d => {
+                    let data = d.data();
+                    data.id = d.id;
+                    docs.push(data);
+                });
+                allMessagesCache = docs;
+
+                docs.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+                let filtered = docs;
+                if (currentFilter === 'unread') {
+                    filtered = docs.filter(d => d.status === 'unread' || d.status === 'pending');
+                } else if (currentFilter === 'payment') {
+                    filtered = docs.filter(d => d.type === 'payment_proof');
+                } else if (currentFilter === 'query') {
+                    filtered = docs.filter(d => d.type === 'general_query');
+                }
+
+                docs.forEach(d => {
+                    total++;
+                    if (d.status === 'unread' || d.status === 'pending') unread++;
+                    if (d.type === 'payment_proof') payments++;
+                    if (d.type === 'general_query') queries++;
+                });
+
+                document.getElementById('stat-total').textContent = total;
+                document.getElementById('stat-unread').textContent = unread;
+                document.getElementById('stat-payments').textContent = payments;
+                document.getElementById('stat-queries').textContent = queries;
+
+                const badge = document.getElementById('inbox-badge');
+                badge.style.display = unread > 0 ? 'inline' : 'none';
+                badge.textContent = unread;
+
+                if (filtered.length === 0) {
+                    list.innerHTML =
+                        `<div class="empty-state"><i class="fas fa-inbox"></i><p>No messages found.</p></div>`;
+                } else {
+                    filtered.forEach(d => list.appendChild(createMessageCard(d)));
+                }
+            });
+        }
+
+        function filterByType(type) {
+            currentFilter = type;
+            loadInbox();
+            document.querySelectorAll('.stat-card').forEach(c => c.style.borderColor = 'transparent');
+            if (type === 'all') document.querySelectorAll('.stat-card')[0].style.borderColor = 'var(--lime)';
+            if (type === 'unread') document.querySelectorAll('.stat-card')[1].style.borderColor = 'var(--pink)';
+            if (type === 'payment') document.querySelectorAll('.stat-card')[2].style.borderColor = 'var(--navy)';
+            if (type === 'query') document.querySelectorAll('.stat-card')[3].style.borderColor = 'var(--lime)';
+        }
+
+        function createMessageCard(d) {
+            const div = document.createElement('div');
+            div.className = `message-card ${d.status === 'unread' || d.status === 'pending' ? 'unread' : ''} ${d.status === 'resolved' ? 'resolved' : ''}`;
+
+            const typeClass = d.type === 'payment_proof' ? 'type-payment' : d.type === 'general_query' ? 'type-query' :
+                'type-chat';
+            const typeLabel = d.type === 'payment_proof' ? 'Payment Proof' : d.type === 'general_query' ? 'Query' : 'Chat';
+            const statusLabel = d.status || 'unread';
+            const targetUserId = d.senderId || d.userId || '';
+            const senderName = d.name || d.senderName || (d.sender === 'admin' ? 'Admin' : targetUserId);
+
+            let proofHtml = d.proofImage ?
+                `<img src="${d.proofImage}" class="msg-proof" onclick="window.open('${d.proofImage}')" title="Click to view full">` :
+                '';
+            let imgHtml = d.image ?
+                `<img src="${d.image}" class="msg-proof" onclick="window.open('${d.image}')" title="Click to view full">` : '';
+
+            const initials = (senderName || 'U').charAt(0).toUpperCase();
+
+            div.innerHTML = `
             <div class="msg-header">
-                <span class="msg-sender"><i class="fas fa-user"></i> ${d.name || d.senderName || (d.sender==='admin'?'Admin':targetUserId)}</span>
-                <span class="msg-type ${typeClass}">${typeLabel} [${d.status||'unread'}]</span>
+                <span class="msg-sender"><span class="avatar-dot">${initials}</span> ${senderName}</span>
+                <span class="msg-type ${typeClass}">${typeLabel} · ${statusLabel}</span>
             </div>
-            ${d.phone ? `<div style="font-size:.8rem;color:#666;"><i class="fas fa-phone"></i> ${d.phone}</div>` : ''}
-            ${d.email && d.email !== 'Not provided' ? `<div style="font-size:.8rem;color:#666;"><i class="fas fa-envelope"></i> ${d.email}</div>` : ''}
-            ${d.method ? `<div style="font-size:.8rem;color:#666;"><i class="fas fa-credit-card"></i> ${d.method} - $${d.amount||0} (${d.purpose||''})</div>` : ''}
-            <div class="msg-body"><strong>${d.subject ? d.subject + ': ' : ''}</strong>${d.message||''}</div>
+            ${d.phone ? `<div class="msg-meta"><span><i class="fas fa-phone"></i>${d.phone}</span></div>` : ''}
+            ${d.email && d.email !== 'Not provided' ? `<div class="msg-meta"><span><i class="fas fa-envelope"></i>${d.email}</span></div>` : ''}
+            ${d.method ? `<div class="msg-meta"><span><i class="fas fa-credit-card"></i>${d.method} · $${d.amount || 0} · ${d.purpose || ''}</span></div>` : ''}
+            <div class="msg-body"><strong>${d.subject ? d.subject + ': ' : ''}</strong>${d.message || ''}</div>
             ${proofHtml}${imgHtml}
             <div class="msg-time">${d.createdAt ? d.createdAt.toDate().toLocaleString() : 'Just now'}</div>
             <div class="msg-actions">
-                <button class="btn btn-lime" onclick="openReplyModal('${d.id}','${targetUserId}','${(d.name||'User').replace(/'/g,"\\'")}')" style="padding:6px 14px;font-size:.75rem;"><i class="fas fa-reply"></i> Reply / Open Thread</button>
-                <button class="btn btn-navy" onclick="markResolved('${d.id}')" style="padding:6px 14px;font-size:.75rem;"><i class="fas fa-check"></i> Mark Resolved</button>
-            </div>`; 
-        return div; 
-    }
-
-    function openReplyModal(docId, userId, userName){ 
-        currentReplyDocId = docId; 
-        currentDmUserId = userId; 
-        document.getElementById('dmModalTitle').textContent = `Reply to: ${userName}`;
-        
-        db.collection('messages').doc(docId).get().then(doc => { 
-            const d = doc.data(); 
-            document.getElementById('dm-user-info').innerHTML = `<strong>Subject/Type:</strong> ${d.type || 'Message'} | <strong>Sender:</strong> ${d.name||d.email||userId}`; 
-            if(d.status === 'unread' || d.status === 'pending') {
-                db.collection('messages').doc(docId).update({status: 'read'});
-            }
-        }); 
-        
-        loadTemplatesIntoReply(); 
-        attachLiveChatHistory(userId);
-        document.getElementById('dmModal').style.display = 'flex'; 
-    }
-
-    function attachLiveChatHistory(userId){
-        const historyBox = document.getElementById('dmChatHistory');
-        if(historyUnsubscribe) historyUnsubscribe();
-
-        if(!userId){
-            historyBox.innerHTML = '<p style="font-size:0.8rem;color:#888;">No historical user context attached.</p>';
-            return;
+                <button class="btn btn-lime btn-sm" onclick="openReplyModal('${d.id}','${targetUserId}','${(senderName || 'User').replace(/'/g, "\\'")}')"><i class="fas fa-reply"></i> Reply</button>
+                <button class="btn btn-navy btn-sm" onclick="markResolved('${d.id}')"><i class="fas fa-check"></i> Resolve</button>
+                <button class="btn btn-pink btn-sm" onclick="confirmDelete('${d.id}','message')"><i class="fas fa-trash"></i></button>
+            </div>`;
+            return div;
         }
 
-        historyUnsubscribe = db.collection('messages').onSnapshot(snap => {
-            let userMsgs = [];
-            snap.forEach(d => {
-                let data = d.data();
-                if(data.senderId === userId || data.recipientId === userId) {
-                    userMsgs.push(data);
+        function openReplyModal(docId, userId, userName) {
+            currentReplyDocId = docId;
+            currentDmUserId = userId;
+            document.getElementById('dmModalTitle').textContent = `Reply to: ${userName}`;
+
+            db.collection('messages').doc(docId).get().then(doc => {
+                const d = doc.data();
+                document.getElementById('dm-user-info').innerHTML =
+                    `<strong>Subject/Type:</strong> ${d.type || 'Message'} | <strong>Sender:</strong> ${d.name || d.email || userId}`;
+                if (d.status === 'unread' || d.status === 'pending') {
+                    db.collection('messages').doc(docId).update({ status: 'read' });
                 }
             });
 
-            userMsgs.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+            loadTemplatesIntoReply();
+            attachLiveChatHistory(userId);
+            document.getElementById('dmModal').classList.add('active');
+        }
 
-            historyBox.innerHTML = '';
-            if(userMsgs.length === 0){
-                historyBox.innerHTML = '<p style="font-size:0.8rem;color:#888;">No previous history found.</p>';
+        function attachLiveChatHistory(userId) {
+            const historyBox = document.getElementById('dmChatHistory');
+            if (historyUnsubscribe) historyUnsubscribe();
+
+            if (!userId) {
+                historyBox.innerHTML = '<p style="font-size:0.8rem;color:#888;">No historical user context attached.</p>';
                 return;
             }
 
-            userMsgs.forEach(m => {
-                const bubble = document.createElement('div');
-                const isAdmin = m.sender === 'admin';
-                bubble.className = `chat-bubble-mini ${isAdmin ? 'admin' : 'user'}`;
-                bubble.innerHTML = `<div>${m.message || m.subject || '[Attachment]'}</div><div style="font-size:0.65rem;opacity:0.75;text-align:right;">${m.createdAt?m.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}):''}</div>`;
-                historyBox.appendChild(bubble);
+            historyUnsubscribe = db.collection('messages').onSnapshot(snap => {
+                let userMsgs = [];
+                snap.forEach(d => {
+                    let data = d.data();
+                    if (data.senderId === userId || data.recipientId === userId) {
+                        userMsgs.push({ ...data, docId: d.id });
+                    }
+                });
+
+                userMsgs.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+
+                historyBox.innerHTML = '';
+                if (userMsgs.length === 0) {
+                    historyBox.innerHTML = '<p style="font-size:0.8rem;color:#888;">No previous history found.</p>';
+                    return;
+                }
+
+                userMsgs.forEach(m => {
+                    const bubble = document.createElement('div');
+                    const isAdmin = m.sender === 'admin';
+                    bubble.className = `chat-bubble-mini ${isAdmin ? 'admin' : 'user'}`;
+                    bubble.innerHTML = `
+                        <div>${m.message || m.subject || '[Attachment]'}</div>
+                        ${m.image ? `<img src="${m.image}" style="max-width:120px;border-radius:6px;display:block;margin-top:6px;" onclick="window.open('${m.image}')">` : ''}
+                        <span class="bubble-time">${m.createdAt ? m.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                        <button class="bubble-delete" onclick="confirmDelete('${m.docId}','message')" title="Delete message"><i class="fas fa-times"></i></button>
+                    `;
+                    historyBox.appendChild(bubble);
+                });
+                historyBox.scrollTop = historyBox.scrollHeight;
             });
-            historyBox.scrollTop = historyBox.scrollHeight;
-        });
-    }
-
-    function loadTemplatesIntoReply(){ 
-        const container = document.getElementById('replyTemplates'); 
-        container.innerHTML = ''; 
-        db.collection('templates').get().then(snap => { 
-            let items = [];
-            if(snap.empty){ 
-                items = defaultTemplates;
-            } else { 
-                snap.forEach(doc => items.push(doc.data()));
-            } 
-            items.forEach(t => {
-                container.innerHTML += `<button class="template-btn" onclick="useTemplate('${t.content.replace(/'/g,"\\'")}')">${t.title}</button>`;
-            });
-        }); 
-    }
-
-    function useTemplate(content){ document.getElementById('dm-message').value = content; }
-    
-    function closeDmModal(){ 
-        document.getElementById('dmModal').style.display = 'none'; 
-        document.getElementById('dm-message').value = ''; 
-        document.getElementById('dm-image-preview').style.display = 'none'; 
-        dmImageBase64 = null; 
-        currentReplyDocId = null; 
-        currentDmUserId = null; 
-        if(historyUnsubscribe) historyUnsubscribe();
-    }
-
-    async function sendDirectMessage(){ 
-        const msg = document.getElementById('dm-message').value.trim(); 
-        if(!msg && !dmImageBase64) return; 
-
-        if(!currentDmUserId){
-            alert('Cannot route message: Missing User Target ID.');
-            return;
         }
 
-        try{ 
-            // Write reply as standard document syncable with client's feed
-            await db.collection('messages').add({ 
-                sender: 'admin', 
-                senderId: 'admin',
-                recipientId: currentDmUserId,
-                message: msg, 
-                image: dmImageBase64 || null, 
-                type: 'chat', 
-                status: 'unread', 
-                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-            }); 
+        function loadTemplatesIntoReply() {
+            const container = document.getElementById('replyTemplates');
+            container.innerHTML = '';
+            db.collection('templates').get().then(snap => {
+                let items = [];
+                if (snap.empty) {
+                    items = defaultTemplates;
+                } else {
+                    snap.forEach(doc => items.push(doc.data()));
+                }
+                items.forEach(t => {
+                    container.innerHTML +=
+                        `<button class="template-btn" onclick="useTemplate('${t.content.replace(/'/g, "\\'")}')">${t.title}</button>`;
+                });
+            });
+        }
 
-            if(currentReplyDocId){ 
-                await db.collection('messages').doc(currentReplyDocId).update({status: 'resolved'}); 
-            } 
+        function useTemplate(content) { document.getElementById('dm-message').value = content; }
 
+        function closeDmModal() {
+            document.getElementById('dmModal').classList.remove('active');
             document.getElementById('dm-message').value = '';
             document.getElementById('dm-image-preview').style.display = 'none';
             dmImageBase64 = null;
-        }catch(err){ 
-            console.error(err);
-            alert('Failed to send message.'); 
-        } 
-    }
+            currentReplyDocId = null;
+            currentDmUserId = null;
+            if (historyUnsubscribe) historyUnsubscribe();
+        }
 
-    function previewDmImage(input){ 
-        const file = input.files[0]; 
-        if(!file) return; 
-        const reader = new FileReader(); 
-        reader.onload = e => { 
-            dmImageBase64 = e.target.result; 
-            document.getElementById('dm-image-preview').src = dmImageBase64; 
-            document.getElementById('dm-image-preview').style.display = 'block'; 
-        }; 
-        reader.readAsDataURL(file); 
-    }
+        async function sendDirectMessage() {
+            const msg = document.getElementById('dm-message').value.trim();
+            if (!msg && !dmImageBase64) return;
+            if (!currentDmUserId) {
+                showToast('Cannot route message: Missing User Target ID.', 'error');
+                return;
+            }
 
-    function markResolved(docId){ 
-        db.collection('messages').doc(docId).update({status:'resolved'}); 
-    }
+            try {
+                await db.collection('messages').add({
+                    sender: 'admin',
+                    senderId: 'admin',
+                    recipientId: currentDmUserId,
+                    message: msg,
+                    image: dmImageBase64 || null,
+                    type: 'chat',
+                    status: 'unread',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-    function searchUsers(){ 
-        const query = document.getElementById('search-input').value.trim().toLowerCase(); 
-        if(!query) return; 
-        
-        db.collection('users').get().then(snap => { 
-            const list = document.getElementById('user-list'); 
-            list.innerHTML = ''; 
-            
-            let found = 0;
-            snap.forEach(doc => { 
-                const u = doc.data(); 
-                const uName = u.name || u.displayName || '';
-                const uEmail = u.email || '';
-                
-                if(uName.toLowerCase().includes(query) || uEmail.toLowerCase().includes(query) || doc.id.includes(query)){
-                    found++;
-                    const div = document.createElement('div'); 
-                    div.className = 'user-item'; 
-                    div.innerHTML = `
+                if (currentReplyDocId) {
+                    await db.collection('messages').doc(currentReplyDocId).update({ status: 'resolved' });
+                }
+
+                document.getElementById('dm-message').value = '';
+                document.getElementById('dm-image-preview').style.display = 'none';
+                dmImageBase64 = null;
+                showToast('Reply sent successfully!');
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to send message.', 'error');
+            }
+        }
+
+        function previewDmImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                dmImageBase64 = e.target.result;
+                document.getElementById('dm-image-preview').src = dmImageBase64;
+                document.getElementById('dm-image-preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function markResolved(docId) {
+            db.collection('messages').doc(docId).update({ status: 'resolved' })
+                .then(() => showToast('Marked as resolved'));
+        }
+
+        function searchUsers() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            if (!query) return;
+
+            db.collection('users').get().then(snap => {
+                const list = document.getElementById('user-list');
+                list.innerHTML = '';
+
+                let found = 0;
+                snap.forEach(doc => {
+                    const u = doc.data();
+                    const uName = u.name || u.displayName || '';
+                    const uEmail = u.email || '';
+
+                    if (uName.toLowerCase().includes(query) || uEmail.toLowerCase().includes(query) || doc.id
+                        .includes(query)) {
+                        found++;
+                        const div = document.createElement('div');
+                        div.className = 'user-item';
+                        div.innerHTML = `
                         <div class="user-info">
                             <div class="user-name">${uName || 'No Name'}</div>
-                            <div class="user-email">${uEmail || 'No Email'} (${doc.id})</div>
+                            <div class="user-email">${uEmail || 'No Email'} · ${doc.id}</div>
                         </div>
-                        <button class="btn btn-lime" onclick="openDm('${doc.id}','${(uName||'User').replace(/'/g,"\\'")}')" style="padding:4px 12px;font-size:.75rem;">Message</button>`; 
-                    list.appendChild(div); 
+                        <button class="btn btn-lime btn-sm" onclick="openDm('${doc.id}','${(uName || 'User').replace(/'/g, "\\'")}')"><i class="fas fa-comment"></i> Message</button>`;
+                        list.appendChild(div);
+                    }
+                });
+                if (found === 0) {
+                    list.innerHTML = '<div class="empty-state"><p>No matching users found.</p></div>';
                 }
-            }); 
-            if(found === 0){
-                list.innerHTML = '<p style="padding:10px;color:var(--muted);">No matching users found.</p>';
+            });
+        }
+
+        function openDm(userId, userName) {
+            currentDmUserId = userId;
+            currentReplyDocId = null;
+            document.getElementById('dmModalTitle').textContent = `Direct Message: ${userName}`;
+            document.getElementById('dm-user-info').innerHTML = `<strong>Target User ID:</strong> ${userId}`;
+            document.getElementById('dm-message').value = '';
+            document.getElementById('dm-image-preview').style.display = 'none';
+            dmImageBase64 = null;
+            loadTemplatesIntoReply();
+            attachLiveChatHistory(userId);
+            document.getElementById('dmModal').classList.add('active');
+        }
+
+        function loadTemplates() {
+            const list = document.getElementById('templates-list');
+            list.innerHTML = '';
+            db.collection('templates').get().then(snap => {
+                if (snap.empty) {
+                    defaultTemplates.forEach(t => {
+                        const div = document.createElement('div');
+                        div.className = 'template-card';
+                        div.innerHTML =
+                            `<div><div class="template-title">${t.title}</div><div class="template-content">${t.content}</div></div>
+                             <button class="btn btn-outline btn-xs" onclick="deleteTemplate('${t.id}')"><i class="fas fa-trash"></i></button>`;
+                        list.appendChild(div);
+                    });
+                } else {
+                    snap.forEach(doc => {
+                        const t = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'template-card';
+                        div.innerHTML =
+                            `<div><div class="template-title">${t.title}</div><div class="template-content">${t.content}</div></div>
+                             <button class="btn btn-outline btn-xs" onclick="deleteTemplate('${doc.id}')"><i class="fas fa-trash"></i></button>`;
+                        list.appendChild(div);
+                    });
+                }
+            });
+        }
+
+        function addNewTemplate() {
+            const title = prompt('Template title:');
+            if (!title) return;
+            const content = prompt('Template content:');
+            if (!content) return;
+            db.collection('templates').add({ title, content, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+                .then(() => { loadTemplates();
+                    showToast('Template added'); });
+        }
+
+        function deleteTemplate(id) {
+            db.collection('templates').doc(id).delete().then(() => { loadTemplates();
+                showToast('Template deleted'); });
+        }
+
+        function confirmDelete(id, type) {
+            deleteTargetId = id;
+            deleteTargetType = type;
+            document.getElementById('confirmText').textContent =
+                type === 'thread' ? 'This will delete the entire conversation thread. This action cannot be undone.' :
+                'This will permanently delete this message. This action cannot be undone.';
+            document.getElementById('confirmModal').classList.add('active');
+            document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+            deleteTargetId = null;
+            deleteTargetType = null;
+        }
+
+        function executeDelete() {
+            if (!deleteTargetId) return;
+            const id = deleteTargetId;
+            const type = deleteTargetType;
+            closeConfirmModal();
+
+            if (type === 'message') {
+                db.collection('messages').doc(id).delete()
+                    .then(() => showToast('Message deleted'))
+                    .catch(err => showToast('Failed to delete: ' + err.message, 'error'));
+            } else if (type === 'thread') {
+                if (!currentDmUserId) return;
+                db.collection('messages')
+                    .where('senderId', '==', currentDmUserId)
+                    .get()
+                    .then(snap => {
+                        const batch = db.batch();
+                        snap.forEach(doc => batch.delete(doc.ref));
+                        return db.collection('messages').where('recipientId', '==', currentDmUserId).get().then(
+                            snap2 => {
+                                snap2.forEach(doc => batch.delete(doc.ref));
+                                return batch.commit();
+                            });
+                    })
+                    .then(() => {
+                        showToast('Thread deleted');
+                        closeDmModal();
+                    })
+                    .catch(err => showToast('Failed to delete thread: ' + err.message, 'error'));
             }
-        }); 
-    }
+        }
 
-    function openDm(userId, userName){ 
-        currentDmUserId = userId; 
-        currentReplyDocId = null;
-        document.getElementById('dmModalTitle').textContent = `Direct Message: ${userName}`;
-        document.getElementById('dm-user-info').innerHTML = `<strong>Target User ID:</strong> ${userId}`; 
-        document.getElementById('dm-message').value = ''; 
-        document.getElementById('dm-image-preview').style.display = 'none'; 
-        dmImageBase64 = null; 
-        loadTemplatesIntoReply();
-        attachLiveChatHistory(userId);
-        document.getElementById('dmModal').style.display = 'flex'; 
-    }
+        function deleteThread() {
+            if (!currentDmUserId) {
+                showToast('No user thread selected.', 'error');
+                return;
+            }
+            confirmDelete(currentDmUserId, 'thread');
+        }
 
-    function loadTemplates(){ 
-        const list = document.getElementById('templates-list'); 
-        list.innerHTML = ''; 
-        db.collection('templates').get().then(snap => { 
-            if(snap.empty){ 
-                defaultTemplates.forEach(t => { 
-                    const div = document.createElement('div'); 
-                    div.className = 'template-card'; 
-                    div.innerHTML = `<div><div class="template-title">${t.title}</div><div class="template-content">${t.content}</div></div>`; 
-                    list.appendChild(div); 
-                }); 
-            } else { 
-                snap.forEach(doc => { 
-                    const t = doc.data(); 
-                    const div = document.createElement('div'); 
-                    div.className = 'template-card'; 
-                    div.innerHTML = `<div><div class="template-title">${t.title}</div><div class="template-content">${t.content}</div></div><button class="btn btn-outline" onclick="deleteTemplate('${doc.id}')" style="padding:4px 10px;font-size:.7rem;"><i class="fas fa-trash"></i></button>`; 
-                    list.appendChild(div); 
-                }); 
-            } 
-        }); 
-    }
+        document.getElementById('broadcastForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                await db.collection('notifications').add({
+                    title: document.getElementById('broadcastTitle').value,
+                    message: document.getElementById('broadcastMessage').value,
+                    target: document.getElementById('broadcastTarget').value,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('System notification sent!');
+                this.reset();
+            } catch (err) {
+                showToast('Failed to send broadcast.', 'error');
+            }
+        });
 
-    function addNewTemplate(){ 
-        const title = prompt('Template title:'); 
-        if(!title) return; 
-        const content = prompt('Template content:'); 
-        if(!content) return; 
-        db.collection('templates').add({title, content, createdAt: firebase.firestore.FieldValue.serverTimestamp()})
-          .then(() => loadTemplates()); 
-    }
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
 
-    function deleteTemplate(id){ 
-        db.collection('templates').doc(id).delete().then(() => loadTemplates()); 
-    }
-
-    document.getElementById('broadcastForm').addEventListener('submit', async function(e){ 
-        e.preventDefault(); 
-        try{ 
-            await db.collection('notifications').add({
-                title: document.getElementById('broadcastTitle').value,
-                message: document.getElementById('broadcastMessage').value,
-                target: document.getElementById('broadcastTarget').value,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }); 
-            alert('System notification sent to all matching clients!'); 
-            this.reset(); 
-        }catch(err){ 
-            alert('Failed to send broadcast.'); 
-        } 
-    });
-
-    document.querySelectorAll('.tab-btn').forEach(btn => { 
-        btn.addEventListener('click', () => { 
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
-            btn.classList.add('active'); 
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active'); 
-        }); 
-    });
-</script>
+        document.getElementById('dmModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDmModal();
+        });
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) closeConfirmModal();
+        });
+    </script>
 </body>
 </html>

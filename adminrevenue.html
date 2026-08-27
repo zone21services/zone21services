@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zone21 Admin Revenue Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Zone21 Admin Revenue</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT ===== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -478,6 +477,26 @@
                 font-size: 1.2rem;
             }
         }
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -486,8 +505,11 @@
         <div class="header">
             <h1><i class="fas fa-chart-line"></i> Zone21 Admin Revenue</h1>
             <div class="header-actions">
+                <span style="font-size:0.85rem;color:var(--muted);display:flex;align-items:center;">
+                    <span class="live-indicator"></span> Live
+                </span>
                 <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
-                <button class="btn btn-primary btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
+                <button class="btn btn-primary btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Export</button>
                 <button class="btn btn-pink btn-sm" onclick="auth.signOut(); location.reload();"><i class="fas fa-sign-out-alt"></i> Logout</button>
                 <span id="user-email" style="font-size:0.85rem;color:var(--muted);"></span>
             </div>
@@ -586,6 +608,7 @@
         let allCashouts = [];
         let currentUser = null;
         let selectedCashoutId = null;
+        let unsubscribers = [];
 
         // ========== DOM REFS ==========
         const $ = id => document.getElementById(id);
@@ -595,7 +618,7 @@
             if (user) {
                 currentUser = user;
                 $('user-email').textContent = user.email || user.uid;
-                loadAllData();
+                startListening();
             } else {
                 const email = prompt('Admin Login - Enter your email:');
                 if (email) {
@@ -616,45 +639,55 @@
             }
         });
 
-        // ========== LOAD DATA ==========
-        async function loadAllData() {
-            try {
-                const evSnap = await db.collection('events').get();
+        // ========== REAL-TIME LISTENERS ==========
+        function startListening() {
+            // Unsubscribe any existing listeners
+            unsubscribers.forEach(fn => fn());
+            unsubscribers = [];
+
+            // Events
+            const unsubEvents = db.collection('events').onSnapshot(snap => {
                 allEvents = [];
-                evSnap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
-
-                const ticSnap = await db.collection('tickets').get();
-                allTickets = [];
-                ticSnap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
-
-                const invSnap = await db.collection('invoices').where('status', '==', 'paid').get();
-                allInvoices = [];
-                invSnap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
-
-                // Cashouts - try with orderBy, fallback to client sort
-                try {
-                    const coSnap = await db.collection('cashout_requests').orderBy('requestedAt', 'desc').get();
-                    allCashouts = [];
-                    coSnap.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
-                } catch (e) {
-                    const coSnap2 = await db.collection('cashout_requests').get();
-                    allCashouts = [];
-                    coSnap2.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
-                    allCashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
-                }
-
+                snap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
                 renderAdmin();
-            } catch (err) {
-                console.error('Load error:', err);
-            }
+            }, err => console.error('Events listener error:', err));
+            unsubscribers.push(unsubEvents);
+
+            // Tickets
+            const unsubTickets = db.collection('tickets').onSnapshot(snap => {
+                allTickets = [];
+                snap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+                renderAdmin();
+            }, err => console.error('Tickets listener error:', err));
+            unsubscribers.push(unsubTickets);
+
+            // Invoices (paid only)
+            const unsubInvoices = db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
+                allInvoices = [];
+                snap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
+                renderAdmin();
+            }, err => console.error('Invoices listener error:', err));
+            unsubscribers.push(unsubInvoices);
+
+            // Cashouts
+            const unsubCashouts = db.collection('cashout_requests').onSnapshot(snap => {
+                allCashouts = [];
+                snap.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                renderAdmin();
+            }, err => console.error('Cashouts listener error:', err));
+            unsubscribers.push(unsubCashouts);
         }
 
-        function refreshData() { loadAllData(); }
+        function refreshData() {
+            // Force re-render by triggering listeners again
+            renderAdmin();
+        }
 
         // ========== COMPUTATIONS ==========
         function getEventRevenue(eventId) {
-            const tickets = allTickets.filter(t => t.eventId === eventId && (t.status === 'approved' || t.status ===
-            'scanned'));
+            const tickets = allTickets.filter(t =>
+                t.eventId === eventId && (t.status === 'approved' || t.status === 'scanned')
+            );
             const sold = tickets.length;
             let revenue = 0;
             tickets.forEach(t => {
@@ -673,7 +706,7 @@
 
         function getEventCashoutStatus(eventId) {
             const cashouts = allCashouts.filter(c => c.eventId === eventId);
-            if (cashouts.length === 0) return 'pending'; // no request
+            if (cashouts.length === 0) return 'pending';
             const latest = cashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt))[0];
             return latest.status;
         }
@@ -751,8 +784,9 @@
                 container.innerHTML = '<span class="text-muted">No ticket types.</span>';
                 return;
             }
-            const tickets = allTickets.filter(t => t.eventId === eventId && (t.status === 'approved' || t.status ===
-            'scanned'));
+            const tickets = allTickets.filter(t =>
+                t.eventId === eventId && (t.status === 'approved' || t.status === 'scanned')
+            );
             let html = '';
             ev.ticketTypes.forEach(tt => {
                 const count = tickets.filter(t => t.ticketTypeName === tt.name).length;
@@ -848,7 +882,6 @@
                 });
                 alert('Cashout updated to: ' + status.toUpperCase());
                 closeModal('cashout-detail-modal');
-                loadAllData();
             } catch (err) {
                 console.error(err);
                 alert('Update failed.');

@@ -6,6 +6,10 @@
     <title>Zone21 Organizer Dashboard</title>
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
         /* ========== CSS VARIABLES ========== */
         :root {
@@ -85,31 +89,6 @@
         .sidebar .nav-links a i {
             width: 20px;
             text-align: center;
-        }
-
-        .sidebar .nav-links a .fa-chevron-down {
-            margin-left: auto;
-            font-size: 0.8rem;
-            transition: transform 0.3s;
-        }
-
-        .sidebar .nav-links a.submenu-open .fa-chevron-down {
-            transform: rotate(180deg);
-        }
-
-        .sidebar .submenu {
-            display: none;
-            list-style: none;
-            background: rgba(0,0,0,0.2);
-        }
-
-        .sidebar .submenu.open {
-            display: block;
-        }
-
-        .sidebar .submenu a {
-            padding-left: 40px;
-            font-size: 0.9rem;
         }
 
         .sidebar .sidebar-footer {
@@ -214,15 +193,6 @@
             color: var(--navy);
         }
 
-        .topbar .profile .logout-btn {
-            background: none;
-            border: none;
-            color: var(--navy);
-            cursor: pointer;
-            font-size: 1rem;
-            margin-left: 5px;
-        }
-
         /* ========== CONTENT AREA ========== */
         .content {
             flex: 1;
@@ -230,10 +200,6 @@
         }
 
         .section {
-            display: none;
-        }
-
-        .section.active {
             display: block;
         }
 
@@ -272,43 +238,14 @@
             font-size: 0.9rem;
         }
 
-        .btn-primary {
-            background: var(--navy);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #1a3f52;
-        }
-
-        .btn-lime {
-            background: var(--lime);
-            color: var(--navy);
-        }
-
-        .btn-lime:hover {
-            background: #d4dc00;
-        }
-
-        .btn-pink {
-            background: var(--pink);
-            color: white;
-        }
-
-        .btn-pink:hover {
-            background: #d90063;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--navy);
-            color: var(--navy);
-        }
-
-        .btn-outline:hover {
-            background: var(--navy);
-            color: white;
-        }
+        .btn-primary { background: var(--navy); color: white; }
+        .btn-primary:hover { background: #1a3f52; }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d4dc00; }
+        .btn-pink { background: var(--pink); color: white; }
+        .btn-pink:hover { background: #d90063; }
+        .btn-outline { background: transparent; border: 1px solid var(--navy); color: var(--navy); }
+        .btn-outline:hover { background: var(--navy); color: white; }
 
         .stats-grid {
             display: grid;
@@ -377,41 +314,19 @@
             min-width: 50px;
         }
 
-        .event-info .event-details h4 {
-            color: var(--navy);
-        }
-
-        .event-info .event-details p {
-            color: #666;
-            font-size: 0.85rem;
-        }
-
-        .event-actions {
-            display: flex;
-            gap: 10px;
-        }
+        .event-info .event-details h4 { color: var(--navy); margin-bottom: 3px; }
+        .event-info .event-details p { color: #666; font-size: 0.85rem; margin-bottom: 5px; }
 
         .badge {
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius: 15px;
             font-size: 0.75rem;
             font-weight: bold;
+            text-transform: uppercase;
         }
 
-        .badge-active {
-            background: #e6f7e6;
-            color: #2e7d32;
-        }
-
-        .badge-draft {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .badge-completed {
-            background: #e8eaf6;
-            color: #283593;
-        }
+        .badge-published { background: #e6f7e6; color: #2e7d32; }
+        .badge-draft { background: #e2e3e5; color: #383d41; }
 
         .quick-actions {
             display: flex;
@@ -422,30 +337,12 @@
 
         /* ========== RESPONSIVE ========== */
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .main-wrapper {
-                margin-left: 0;
-                width: 100%;
-            }
-
-            .topbar .menu-toggle {
-                display: block;
-            }
-
-            .topbar .search-bar {
-                display: none;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-wrapper { margin-left: 0; width: 100%; }
+            .topbar .menu-toggle { display: block; }
+            .topbar .search-bar { display: none; }
+            .stats-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -455,19 +352,18 @@
 <div class="sidebar" id="sidebar">
     <div class="logo">ZONE21</div>
     <div class="nav-links">
-        <a href="#" class="active" data-section="overview"><i class="fas fa-th-large"></i> Overview</a>
-        <a href="#" data-section="manage-events" class="manage-events-link"><i class="fas fa-calendar-alt"></i> Manage Events <i class="fas fa-chevron-down"></i></a>
-        <ul class="submenu" id="manage-events-submenu">
-            <li><a href="#" data-section="ai-blueprint"><i class="fas fa-brain"></i> AI Blueprint</a></li>
-            <li><a href="#" data-section="ticketing"><i class="fas fa-ticket-alt"></i> Ticketing</a></li>
-            <li><a href="#" data-section="guests"><i class="fas fa-users"></i> Guests</a></li>
-            <li><a href="#" data-section="budget"><i class="fas fa-wallet"></i> Budget</a></li>
-            <li><a href="#" data-section="tasks"><i class="fas fa-tasks"></i> Tasks</a></li>
-            <li><a href="#" data-section="security"><i class="fas fa-shield-alt"></i> Security</a></li>
-            <li><a href="#" data-section="vendors"><i class="fas fa-store"></i> Vendors</a></li>
-            <li><a href="#" data-section="analytics"><i class="fas fa-chart-bar"></i> Analytics</a></li>
-        </ul>
-        <a href="#" data-section="settings"><i class="fas fa-cog"></i> Settings</a>
+        <a href="#" class="active"><i class="fas fa-th-large"></i> Overview</a>
+        <a href="blueprint.html"><i class="fas fa-map"></i> Event Blueprint</a>
+        <a href="createvents.html"><i class="fas fa-plus-circle"></i> Create Event</a>
+        <a href="subcription.html"><i class="fas fa-crown"></i> Subscription Plan</a>
+        <a href="vendors.html"><i class="fas fa-store"></i> Vendors</a>
+        <a href="zone21security.html"><i class="fas fa-shield-alt"></i> Request Security</a>
+        <a href="revenue.html"><i class="fas fa-dollar-sign"></i> Revenue</a>
+        <a href="analytics.html"><i class="fas fa-chart-line"></i> Analytics</a>
+        <a href="invitations.html"><i class="fas fa-users"></i> Guests & Cards</a>
+        <a href="profile.html"><i class="fas fa-user-cog"></i> Profile</a>
+        <a href="Support.html"><i class="fas fa-envelope"></i> Contact</a>
+        <a href="#" id="sidebar-logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
     <div class="sidebar-footer">
         <p>Zone21 Platform v1.0</p>
@@ -489,9 +385,8 @@
                 <span class="badge">3</span>
             </div>
             <div class="profile">
-                <div class="profile-avatar">JO</div>
+                <div class="profile-avatar"><i class="fas fa-user"></i></div>
                 <span id="profile-name">Loading...</span>
-                <button class="logout-btn" id="logout-btn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
     </div>
@@ -499,64 +394,56 @@
     <!-- Content Area -->
     <div class="content">
         <!-- ====== OVERVIEW SECTION ====== -->
-        <div id="overview" class="section active">
+        <div id="overview" class="section">
             <div class="quick-actions">
-                <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> Create Your Event</a>
-                <a href="#" class="btn btn-lime"><i class="fas fa-concierge-bell"></i> Let Zone21 Plan</a>
-                <a href="#" class="btn btn-pink"><i class="fas fa-shield-alt"></i> Get Security</a>
+                <a href="createvents.html" class="btn btn-primary"><i class="fas fa-plus"></i> Create Your Event</a>
+                <a href="blueprint.html" class="btn btn-lime"><i class="fas fa-concierge-bell"></i> Let Zone21 Plan</a>
+                <a href="zone21security.html" class="btn btn-pink"><i class="fas fa-shield-alt"></i> Get Security</a>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-calendar"></i></div>
-                    <div class="stat-value" id="stat-total-events">0</div>
+                    <div class="stat-value" id="stat-total-events">...</div>
                     <div class="stat-label">Total Events</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-play-circle"></i></div>
-                    <div class="stat-value" id="stat-active-events">0</div>
+                    <div class="stat-value" id="stat-active-events">...</div>
                     <div class="stat-label">Active Events</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-                    <div class="stat-value" id="stat-tickets-sold">0</div>
+                    <div class="stat-value" id="stat-tickets-sold">...</div>
                     <div class="stat-label">Tickets Sold</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
-                    <div class="stat-value" id="stat-gross-revenue">$0</div>
+                    <div class="stat-value" id="stat-gross-revenue">...</div>
                     <div class="stat-label">Gross Revenue</div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Recent Events</h3>
-                    <a href="#" class="btn btn-outline btn-sm" style="padding:6px 12px;">View All</a>
-                </div>
-                <div class="event-list" id="recent-events-list">
-                    <p>Loading events...</p>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
                     <h3>Revenue Snapshot</h3>
+                    <a href="revenue.html" class="btn btn-outline btn-sm" style="padding:6px 12px;">Full Report</a>
                 </div>
                 <div style="display:flex; gap:20px; flex-wrap:wrap;" id="revenue-snapshot">
-                    <div><strong style="color:var(--navy);">Gross:</strong> $0</div>
-                    <div><strong style="color:var(--navy);">Zone21 Fee (2%):</strong> $0</div>
-                    <div><strong style="color:var(--navy);">Net Revenue:</strong> $0</div>
+                    <div><strong style="color:var(--navy);">Gross:</strong> Loading...</div>
+                    <div><strong style="color:var(--navy);">Zone21 Fee (2%):</strong> Loading...</div>
+                    <div><strong style="color:var(--navy);">Net Revenue:</strong> Loading...</div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Notifications</h3>
+                    <h3>Your Events</h3>
+                    <a href="createvents.html" class="btn btn-outline btn-sm" style="padding:6px 12px;">Create New</a>
                 </div>
-                <ul style="list-style:none; padding:0;" id="notifications-list">
-                    <li>Loading notifications...</li>
-                </ul>
+                <div class="event-list" id="recent-events-list">
+                    <p>Loading your events...</p>
+                </div>
             </div>
 
             <div class="card">
@@ -565,133 +452,15 @@
                 </div>
                 <p><strong>Professional Plan</strong> – $199/month</p>
                 <p style="color:#666;">Renews on Sep 30, 2026</p>
-                <a href="#" class="btn btn-lime" style="margin-top:10px;">Upgrade to Enterprise</a>
+                <a href="subcription.html" class="btn btn-lime" style="margin-top:10px;">Upgrade to Enterprise</a>
             </div>
         </div>
-
-        <!-- ====== MANAGE EVENTS SECTION ====== -->
-        <div id="manage-events" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>All Events</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> New Event</a>
-                </div>
-                <div class="event-list" id="all-events-list">
-                    <p>Loading events...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ====== AI BLUEPRINT SECTION (placeholder) ====== -->
-        <div id="ai-blueprint" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>AI Event Blueprint</h3>
-                    <a href="#" class="btn btn-lime"><i class="fas fa-sync"></i> Regenerate</a>
-                </div>
-                <p>Select an event to view or generate its AI blueprint. This feature will be fully integrated later.</p>
-                <div style="margin-top:15px;">
-                    <a href="#" class="btn btn-primary">Generate Blueprint for Selected Event</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- ====== TICKETING SECTION (placeholder) ====== -->
-        <div id="ticketing" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Ticketing</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> Add Ticket Type</a>
-                </div>
-                <p>Manage ticket types, prices, and quantities. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== GUESTS SECTION (placeholder) ====== -->
-        <div id="guests" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Guest Management</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add Guest</a>
-                </div>
-                <p>Track invited, registered, ticketed, and checked-in guests. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== BUDGET SECTION (placeholder) ====== -->
-        <div id="budget" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Budget Management</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> Add Expense</a>
-                </div>
-                <p>Monitor planned vs actual expenses. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== TASKS SECTION (placeholder) ====== -->
-        <div id="tasks" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Tasks</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> New Task</a>
-                </div>
-                <p>Organize your event to-dos. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== SECURITY SECTION (placeholder) ====== -->
-        <div id="security" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Security</h3>
-                    <a href="#" class="btn btn-pink"><i class="fas fa-shield-alt"></i> Request Security Quote</a>
-                </div>
-                <p>Manage security requirements and quotes. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== VENDORS SECTION (placeholder) ====== -->
-        <div id="vendors" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Vendors</h3>
-                    <a href="#" class="btn btn-primary"><i class="fas fa-plus"></i> Add Vendor</a>
-                </div>
-                <p>Manage vendor contacts and contracts. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== ANALYTICS SECTION (placeholder) ====== -->
-        <div id="analytics" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Analytics</h3>
-                </div>
-                <p>View ticket sales, revenue, and attendance analytics. (Placeholder)</p>
-            </div>
-        </div>
-
-        <!-- ====== SETTINGS SECTION (placeholder) ====== -->
-        <div id="settings" class="section">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Settings</h3>
-                </div>
-                <p>Update your profile, payment configurations, and preferences. (Placeholder)</p>
-            </div>
-        </div>
-
     </div><!-- end content -->
 </div><!-- end main-wrapper -->
 
-<!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <script>
-    // Your web app's Firebase configuration
+    // ============ FIREBASE CONFIGURATION ============
     const firebaseConfig = {
         apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
         authDomain: "zone21.firebaseapp.com",
@@ -702,140 +471,125 @@
         measurementId: "G-KE007Y89F1"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Get current user
     let currentUser = null;
-    let currentOrganizerId = null;
 
-    auth.onAuthStateChanged(user => {
+    // ============ AUTHENTICATION ============
+    auth.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
-            currentOrganizerId = user.uid; // Assuming organizer ID = user UID
-            document.getElementById('profile-name').textContent = user.displayName || user.email || 'Organizer';
-            // Load events for this organizer
-            loadEvents(currentOrganizerId);
+            document.getElementById('profile-name').textContent = user.email || 'Organizer';
+            loadDashboardData(user.uid);
         } else {
-            // Redirect to login page (or show message)
-            window.location.href = 'login.html'; // Adjust as needed
+            // Provide login prompt for security and testing
+            const email = prompt("Organizer Login - Enter your email:");
+            if (email) {
+                const password = prompt("Enter your password:");
+                if (password) {
+                    auth.signInWithEmailAndPassword(email, password)
+                        .then(() => alert("Login successful!"))
+                        .catch((err) => {
+                            alert("Login failed: " + err.message);
+                            document.body.innerHTML = "<h2 style='padding:20px;'>Access Denied. Please refresh to try again.</h2>";
+                        });
+                }
+            } else {
+                document.body.innerHTML = "<h2 style='padding:20px;'>Access Denied. Authentication required.</h2>";
+            }
         }
     });
 
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        auth.signOut().then(() => {
-            window.location.href = 'login.html';
-        });
+    // Logout logic
+    document.getElementById('sidebar-logout-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        auth.signOut().then(() => location.reload());
     });
 
-    // Function to load events from Firestore
-    function loadEvents(organizerId) {
-        const eventsRef = db.collection('events')
-            .where('organizerId', '==', organizerId)
-            .orderBy('date', 'desc');
-
-        // Update overview and manage events lists
-        eventsRef.onSnapshot(snapshot => {
-            const events = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                events.push({ id: doc.id, ...data });
+    // ============ LOAD LIVE DATA ============
+    async function loadDashboardData(organizerId) {
+        try {
+            // 1. Fetch Events (Removed orderBy to prevent Composite Index errors)
+            const eventsSnap = await db.collection('events').where('organizerId', '==', organizerId).get();
+            let events = [];
+            eventsSnap.forEach(doc => {
+                events.push({ id: doc.id, ...doc.data() });
             });
 
-            // Update stats
-            let totalEvents = events.length;
-            let activeEvents = events.filter(e => e.status === 'active').length;
-            let ticketsSold = events.reduce((sum, e) => sum + (e.ticketsSold || 0), 0);
-            let grossRevenue = events.reduce((sum, e) => sum + (e.grossRevenue || 0), 0);
+            // Sort newest first client-side
+            events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+            let totalEvents = events.length;
+            let activeEvents = events.filter(e => e.published === true).length;
+            
             document.getElementById('stat-total-events').textContent = totalEvents;
             document.getElementById('stat-active-events').textContent = activeEvents;
-            document.getElementById('stat-tickets-sold').textContent = ticketsSold;
-            document.getElementById('stat-gross-revenue').textContent = '$' + grossRevenue.toLocaleString();
+
+            // 2. Render Events List
+            const eventsListContainer = document.getElementById('recent-events-list');
+            if (events.length === 0) {
+                eventsListContainer.innerHTML = '<p style="color:var(--text-muted);">You have not created any events yet.</p>';
+            } else {
+                eventsListContainer.innerHTML = events.map(event => `
+                    <div class="event-item">
+                        <div class="event-info">
+                            <div class="event-date">
+                                ${new Date(event.startDate).toLocaleString('default', { month: 'short', day: '2-digit' }).toUpperCase()}
+                            </div>
+                            <div class="event-details">
+                                <h4>${event.eventName || 'Untitled Event'}</h4>
+                                <p><i class="fas fa-map-marker-alt"></i> ${event.location || 'No location'}</p>
+                                <span class="badge ${event.published ? 'badge-published' : 'badge-draft'}">${event.published ? 'Published' : 'Draft'}</span>
+                            </div>
+                        </div>
+                        <div class="event-actions">
+                            <a href="analytics.html?eventId=${event.id}" class="btn btn-outline" style="padding:6px 15px;">Analytics</a>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 3. Fetch Paid Invoices to Calculate Tickets Sold and Revenue
+            let totalTicketsSold = 0;
+            let grossRevenue = 0;
+
+            // Fetch revenue by checking paid invoices for the organizer's events
+            for (let ev of events) {
+                const invSnap = await db.collection('invoices')
+                    .where('eventId', '==', ev.id)
+                    .where('status', '==', 'paid')
+                    .get();
+                
+                totalTicketsSold += invSnap.size; // 1 invoice = 1 ticket
+                
+                invSnap.forEach(doc => {
+                    const invData = doc.data();
+                    grossRevenue += (invData.amount || 0);
+                });
+            }
+
+            document.getElementById('stat-tickets-sold').textContent = totalTicketsSold;
+            document.getElementById('stat-gross-revenue').textContent = '$' + grossRevenue.toFixed(2);
 
             // Update revenue snapshot
-            const fee = grossRevenue * 0.02;
+            const fee = grossRevenue * 0.02; // 2% Zone21 Fee
+            const netRevenue = grossRevenue - fee;
+
             document.getElementById('revenue-snapshot').innerHTML = `
-                <div><strong style="color:var(--navy);">Gross:</strong> $${grossRevenue.toLocaleString()}</div>
-                <div><strong style="color:var(--navy);">Zone21 Fee (2%):</strong> $${fee.toLocaleString()}</div>
-                <div><strong style="color:var(--navy);">Net Revenue:</strong> $${(grossRevenue - fee).toLocaleString()}</div>
+                <div><strong style="color:var(--navy);">Gross:</strong> $${grossRevenue.toFixed(2)}</div>
+                <div><strong style="color:var(--navy);">Zone21 Fee (2%):</strong> $${fee.toFixed(2)}</div>
+                <div><strong style="color:var(--navy);">Net Revenue:</strong> $${netRevenue.toFixed(2)}</div>
             `;
 
-            // Update Recent Events list (show first 3)
-            const recentList = document.getElementById('recent-events-list');
-            if (events.length === 0) {
-                recentList.innerHTML = '<p>No events yet.</p>';
-            } else {
-                recentList.innerHTML = events.slice(0, 3).map(event => `
-                    <div class="event-item">
-                        <div class="event-info">
-                            <div class="event-date">${formatDate(event.date)}</div>
-                            <div class="event-details">
-                                <h4>${event.name || 'Untitled'}</h4>
-                                <p>${event.location || 'No location'}</p>
-                                <span class="badge ${event.status === 'active' ? 'badge-active' : event.status === 'draft' ? 'badge-draft' : 'badge-completed'}">${capitalize(event.status)}</span>
-                            </div>
-                        </div>
-                        <div class="event-actions">
-                            <a href="#" class="btn btn-primary" style="padding:6px 15px;" onclick="openEventDashboard('${event.id}')">Dashboard</a>
-                            <a href="#" class="btn btn-outline" style="padding:6px 15px;">Edit</a>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            // Update All Events list
-            const allList = document.getElementById('all-events-list');
-            if (events.length === 0) {
-                allList.innerHTML = '<p>No events found.</p>';
-            } else {
-                allList.innerHTML = events.map(event => `
-                    <div class="event-item">
-                        <div class="event-info">
-                            <div class="event-date">${formatDate(event.date)}</div>
-                            <div class="event-details">
-                                <h4>${event.name || 'Untitled'}</h4>
-                                <p>${event.location || 'No location'}</p>
-                                <span class="badge ${event.status === 'active' ? 'badge-active' : event.status === 'draft' ? 'badge-draft' : 'badge-completed'}">${capitalize(event.status)}</span>
-                            </div>
-                        </div>
-                        <div class="event-actions">
-                            <a href="#" class="btn btn-primary" style="padding:6px 15px;" onclick="openEventDashboard('${event.id}')">Dashboard</a>
-                            <a href="#" class="btn btn-outline" style="padding:6px 15px;">Edit</a>
-                            <a href="#" class="btn btn-outline" style="padding:6px 15px;">Duplicate</a>
-                            <a href="#" class="btn btn-outline" style="padding:6px 15px; color:var(--pink); border-color:var(--pink);">Delete</a>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        });
-    }
-
-    // Helper: format date (timestamp to readable)
-    function formatDate(dateField) {
-        if (!dateField) return '';
-        if (dateField.toDate) {
-            const d = dateField.toDate();
-            return d.toLocaleString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
-        } else if (typeof dateField === 'string') {
-            const d = new Date(dateField);
-            return d.toLocaleString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
+        } catch (err) {
+            console.error("Error loading dashboard data:", err);
+            document.getElementById('recent-events-list').innerHTML = '<p>Error loading events. Please ensure your permissions are correct.</p>';
         }
-        return '';
     }
 
-    function capitalize(str) {
-        return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
-    }
-
-    function openEventDashboard(eventId) {
-        // Placeholder: navigate to event-specific dashboard
-        alert('Open event dashboard for ID: ' + eventId);
-    }
-
+    // ============ UI INTERACTIONS ============
     // Sidebar toggle for mobile
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
@@ -844,53 +598,6 @@
         sidebar.classList.toggle('open');
     });
 
-    // Navigation: show/hide sections
-    const navLinks = document.querySelectorAll('.nav-links > a');
-    const submenuLinks = document.querySelectorAll('.submenu a');
-    const sections = document.querySelectorAll('.section');
-
-    function hideAllSections() {
-        sections.forEach(s => s.classList.remove('active'));
-        navLinks.forEach(l => l.classList.remove('active'));
-        submenuLinks.forEach(l => l.classList.remove('active'));
-    }
-
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (link.classList.contains('manage-events-link')) {
-                // Toggle submenu
-                const submenu = document.getElementById('manage-events-submenu');
-                submenu.classList.toggle('open');
-                link.classList.toggle('submenu-open');
-                return;
-            }
-            hideAllSections();
-            link.classList.add('active');
-            const targetId = link.getAttribute('data-section');
-            document.getElementById(targetId).classList.add('active');
-            // Close sidebar on mobile
-            if (window.innerWidth <= 768) {
-                sidebar.classList.remove('open');
-            }
-        });
-    });
-
-    submenuLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            hideAllSections();
-            link.classList.add('active');
-            const targetId = link.getAttribute('data-section');
-            document.getElementById(targetId).classList.add('active');
-            // Mark parent manage-events-link as active as well
-            document.querySelector('.manage-events-link').classList.add('active');
-            // Close sidebar on mobile
-            if (window.innerWidth <= 768) {
-                sidebar.classList.remove('open');
-            }
-        });
-    });
 </script>
 </body>
 </html>

@@ -22,18 +22,18 @@
             --border: #e0e0e8;
             --radius: 16px;
             --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
-            --sidebar-width: 260px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+        body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
         .sidebar {
-            width: var(--sidebar-width);
+            width: 260px;
             background: var(--navy);
             color: white;
             display: flex;
             flex-direction: column;
             padding: 20px 0;
             overflow-y: auto;
+            z-index: 1000;
         }
         .sidebar .logo {
             text-align: center;
@@ -53,11 +53,12 @@
             font-size: 0.9rem;
             color: rgba(255,255,255,0.8);
             border-left: 4px solid transparent;
+            white-space: nowrap;
         }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
         .nav-item.active { background: rgba(255,255,255,0.1); border-left-color: var(--lime); color: white; }
         .nav-item i { width: 20px; text-align: center; }
-        .main-content { flex: 1; display: flex; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         .top-bar {
             background: white;
             padding: 15px 20px;
@@ -91,6 +92,7 @@
             border-radius: 12px;
             box-shadow: var(--shadow);
             overflow: hidden;
+            min-height: 0;
         }
         iframe { width: 100%; height: 100%; border: none; }
         .btn-signout {
@@ -103,13 +105,40 @@
             font-weight: 600;
             font-size: 0.85rem;
         }
+
+        /* Desktop: sidebar on left */
+        @media (min-width: 769px) {
+            body { flex-direction: row; }
+            .sidebar { height: 100vh; }
+            .main-content { height: 100vh; }
+        }
+
+        /* Mobile: sidebar becomes bottom bar, horizontally scrollable */
         @media (max-width: 768px) {
             body { flex-direction: column; }
-            .sidebar { width: 100%; flex-direction: row; align-items: center; overflow-x: auto; padding: 10px; }
-            .sidebar .logo { margin: 0 15px 0 0; font-size: 1.2rem; }
-            .nav-item { padding: 10px; white-space: nowrap; }
-            .main-content { height: calc(100vh - 60px); }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                align-items: center;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 8px 10px;
+                order: 2; /* place at bottom */
+                height: auto;
+                min-height: 60px;
+            }
+            .sidebar .logo { display: none; } /* hide logo on mobile to save space */
+            .nav-item {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                border-left: none;
+                border-bottom: 2px solid transparent;
+                flex-shrink: 0;
+            }
+            .nav-item.active { border-bottom-color: var(--lime); }
+            .main-content { order: 1; flex: 1; min-height: 0; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); padding: 10px; }
+            .iframe-container { margin: 0 10px 10px; }
         }
     </style>
 </head>
@@ -171,11 +200,11 @@
             approve: { title: 'Approve Events', url: 'admin-approval-dashboard.html' },
             'manage-tickets': { title: 'Manage Tickets', url: 'admin-ticket-management.html' },
             publish: { title: 'Publish Events', url: 'admin-publish-events.html' },
-            revenue: { title: 'Tickets Revenue', url: 'placeholder.html?module=revenue' },
-            sales: { title: 'Sales Data', url: 'placeholder.html?module=sales' },
-            subscriptions: { title: 'Subscriptions Data', url: 'placeholder.html?module=subscriptions' },
-            vendors: { title: 'Vendors', url: 'placeholder.html?module=vendors' },
-            organizers: { title: 'Event Organizers', url: 'placeholder.html?module=organizers' },
+            revenue: { title: 'Tickets Revenue', url: '#' },
+            sales: { title: 'Sales Data', url: '#' },
+            subscriptions: { title: 'Subscriptions Data', url: '#' },
+            vendors: { title: 'Vendors', url: '#' },
+            organizers: { title: 'Event Organizers', url: '#' },
             scan: { title: 'Scan Tickets', url: 'scan-tickets.html' }  // separate scanner page
         };
 
@@ -186,8 +215,14 @@
                 this.classList.add('active');
                 const page = this.dataset.page;
                 document.getElementById('page-title').textContent = pageMap[page].title;
-                document.getElementById('content-frame').src = pageMap[page].url;
-
+                const url = pageMap[page].url;
+                if (url !== '#') {
+                    document.getElementById('content-frame').src = url;
+                } else {
+                    // Placeholder: show a blank page or message
+                    document.getElementById('content-frame').src = 'about:blank';
+                    // Optionally show a toast
+                }
                 // Hide stats grid except for overview
                 document.getElementById('stats-grid').style.display = (page === 'overview') ? 'grid' : 'none';
             });
@@ -195,22 +230,15 @@
 
         // ============ LIVE STATS (Overview) ============
         function loadStats() {
-            // Total events
             db.collection('events').onSnapshot(snap => {
                 document.getElementById('stat-total-events').textContent = snap.size;
             });
-
-            // Pending events
             db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
                 document.getElementById('stat-pending-events').textContent = snap.size;
             });
-
-            // Tickets sold (sum of quantity from invoices? or count tickets collection)
             db.collection('tickets').onSnapshot(snap => {
                 document.getElementById('stat-tickets-sold').textContent = snap.size;
             });
-
-            // Revenue (sum of paid invoices)
             db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
                 let total = 0;
                 snap.forEach(doc => { total += doc.data().amount || 0; });
@@ -224,7 +252,6 @@
                 window.location.href = 'admin-login.html';
                 return;
             }
-            // Check if user is admin (optional, but Firestore rules will enforce)
             db.collection('admins').doc(user.uid).get().then(doc => {
                 if (!doc.exists) {
                     auth.signOut();

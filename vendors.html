@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 – Service Provider Directory</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --transition: 0.25s;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            color: var(--pink);
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: white;
+            color: var(--navy);
+            border: 1px solid var(--border);
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--lime);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #1a3a4a;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+        }
+        .btn-lime:hover {
+            background: #d0d800;
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: white;
+            border: none;
+        }
+        .btn-pink:hover {
+            background: #d0005e;
+        }
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        /* Featured Zone21 Card */
+        .zone21-featured {
+            background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 28px;
+            color: white;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 12px 35px rgba(16, 40, 56, 0.25);
+        }
+        .zone21-featured .logo {
+            font-size: 2.5rem;
+            color: var(--lime);
+        }
+        .zone21-featured .content {
+            flex: 1;
+            min-width: 220px;
+        }
+        .zone21-featured h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--lime);
+            margin-bottom: 6px;
+        }
+        .zone21-featured p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        .zone21-featured .badge-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .zone21-featured .badge {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .zone21-featured .cta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        /* Filters */
+        .filter-bar {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            background: white;
+            min-width: 140px;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 8px 16px;
+            gap: 8px;
+        }
+        .search-box i {
+            color: var(--muted);
+        }
+        .search-box input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 0.9rem;
+            background: transparent;
+        }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        /* Provider Grid */
+        .providers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .provider-card {
+            background: var(--card);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid transparent;
+        }
+        .provider-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 35px rgba(16, 40, 56, 0.12);
+            border-color: var(--lime);
+        }
+        .provider-card .top {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .provider-card .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--navy);
+            color: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .provider-card .info {
+            flex: 1;
+        }
+        .provider-card .name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .provider-card .category {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .provider-card .rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: #ffb400;
+            margin-top: 4px;
+        }
+        .provider-card .description {
+            font-size: 0.85rem;
+            color: var(--text);
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .provider-card .details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .provider-card .details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .provider-card .actions {
+            margin-top: auto;
+            display: flex;
+            gap: 8px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+        @media (max-width: 768px) {
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-box {
+                width: 100%;
+            }
+            .providers-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-concierge-bell"></i> Zone21 Service Directory</h1>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="window.location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+        </div>
+
+        <!-- Zone21 Featured Card (Planning & Security) -->
+        <div class="zone21-featured" id="zone21-featured">
+            <div class="logo">
+                <i class="fas fa-crown"></i>
+            </div>
+            <div class="content">
+                <h2>Zone21 Official Services</h2>
+                <p>We are your one-stop partner for event planning, management, and exclusive security. Trust our experienced team for seamless execution and uncompromised safety.</p>
+                <div class="badge-list">
+                    <span class="badge">Event Planning</span>
+                    <span class="badge">Event Management</span>
+                    <span class="badge">Coordination</span>
+                    <span class="badge">Security</span>
+                    <span class="badge">Crowd Control</span>
+                    <span class="badge">VIP Protection</span>
+                    <span class="badge">Access Control</span>
+                </div>
+                <div class="cta">
+                    <button class="btn btn-lime"><i class="fas fa-envelope"></i> Contact Us</button>
+                    <button class="btn btn-outline" style="background:transparent;border-color:rgba(255,255,255,0.4);color:white;"><i class="fas fa-phone"></i> +263 77 000 0000</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Search by name, description, tags...">
+            </div>
+            <div class="filter-group">
+                <label>Category</label>
+                <select id="category-filter">
+                    <option value="all">All Categories</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Location</label>
+                <select id="location-filter">
+                    <option value="all">All Locations</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Price Range</label>
+                <select id="price-filter">
+                    <option value="all">Any Price</option>
+                    <option value="$">Budget ($)</option>
+                    <option value="$$">Moderate ($$)</option>
+                    <option value="$$$">Premium ($$$)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Min Rating</label>
+                <select id="rating-filter">
+                    <option value="0">Any Rating</option>
+                    <option value="4">4+ Stars</option>
+                    <option value="4.5">4.5+ Stars</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="applyFilters()"><i class="fas fa-filter"></i> Filter</button>
+                <button class="btn btn-outline" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+        </div>
+
+        <!-- Providers Grid -->
+        <div id="providers-grid" class="providers-grid">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading providers...</div>
+        </div>
+        <div id="empty-state" class="empty-state" style="display:none;">
+            <i class="fas fa-search" style="font-size:2rem; margin-bottom:10px;"></i>
+            <p>No service providers found matching your filters.</p>
+        </div>
+    </div>
+
+    <script>
+        // ========== FIREBASE CONFIG ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ========== STATE ==========
+        let allProviders = [];
+        let filteredProviders = [];
+        let availableCategories = new Set();
+        let availableLocations = new Set();
+
+        // Categories to exclude (Zone21 provides these)
+        const excludedCategories = [
+            "Event Planning & Management",
+            "ZONE21 SECURITY — EXCLUSIVE"
+        ];
+
+        // DOM elements
+        const grid = document.getElementById('providers-grid');
+        const emptyState = document.getElementById('empty-state');
+        const categoryFilter = document.getElementById('category-filter');
+        const locationFilter = document.getElementById('location-filter');
+        const searchInput = document.getElementById('search-input');
+        const priceFilter = document.getElementById('price-filter');
+        const ratingFilter = document.getElementById('rating-filter');
+
+        // ========== LIVE DATA LISTENER ==========
+        function startListening() {
+            // Assuming collection name 'serviceProviders' with field 'status' = 'approved'
+            db.collection('serviceProviders')
+                .where('status', '==', 'approved')
+                .onSnapshot(snapshot => {
+                    allProviders = [];
+                    availableCategories.clear();
+                    availableLocations.clear();
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        // Filter out excluded categories
+                        if (excludedCategories.includes(data.category)) return;
+                        allProviders.push({ id: doc.id, ...data });
+                        if (data.category) availableCategories.add(data.category);
+                        if (data.location) availableLocations.add(data.location);
+                    });
+
+                    populateFilters();
+                    applyFilters();
+                }, err => {
+                    console.error('Error fetching providers:', err);
+                    grid.innerHTML = '<div class="loading">Failed to load providers. Please check permissions.</div>';
+                });
+        }
+
+        // ========== POPULATE FILTER OPTIONS ==========
+        function populateFilters() {
+            // Category filter
+            categoryFilter.innerHTML = '<option value="all">All Categories</option>';
+            const sortedCategories = Array.from(availableCategories).sort();
+            sortedCategories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                categoryFilter.appendChild(opt);
+            });
+
+            // Location filter
+            locationFilter.innerHTML = '<option value="all">All Locations</option>';
+            const sortedLocations = Array.from(availableLocations).sort();
+            sortedLocations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = loc;
+                locationFilter.appendChild(opt);
+            });
+        }
+
+        // ========== APPLY FILTERS ==========
+        function applyFilters() {
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            const selectedCategory = categoryFilter.value;
+            const selectedLocation = locationFilter.value;
+            const selectedPrice = priceFilter.value;
+            const minRating = parseFloat(ratingFilter.value) || 0;
+
+            filteredProviders = allProviders.filter(provider => {
+                // Search
+                if (searchTerm) {
+                    const searchable = `${provider.name || ''} ${provider.description || ''} ${(provider.tags || []).join(' ')}`.toLowerCase();
+                    if (!searchable.includes(searchTerm)) return false;
+                }
+                // Category
+                if (selectedCategory !== 'all' && provider.category !== selectedCategory) return false;
+                // Location
+                if (selectedLocation !== 'all' && provider.location !== selectedLocation) return false;
+                // Price
+                if (selectedPrice !== 'all' && provider.priceRange !== selectedPrice) return false;
+                // Rating
+                if (minRating > 0 && (provider.rating || 0) < minRating) return false;
+                return true;
+            });
+
+            renderProviders();
+        }
+
+        function resetFilters() {
+            searchInput.value = '';
+            categoryFilter.value = 'all';
+            locationFilter.value = 'all';
+            priceFilter.value = 'all';
+            ratingFilter.value = '0';
+            applyFilters();
+        }
+
+        // ========== RENDER PROVIDERS ==========
+        function renderProviders() {
+            if (filteredProviders.length === 0) {
+                grid.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+            grid.innerHTML = '';
+
+            filteredProviders.forEach(provider => {
+                const card = document.createElement('div');
+                card.className = 'provider-card';
+
+                // Determine initials for avatar
+                const initials = (provider.name || '?')
+                    .split(' ')
+                    .map(word => word.charAt(0))
+                    .join('')
+                    .substring(0, 2)
+                    .toUpperCase();
+
+                const ratingStars = provider.rating ?
+                    `<span class="rating"><i class="fas fa-star"></i> ${provider.rating.toFixed(1)}</span>` :
+                    '<span class="rating">No rating</span>';
+
+                const contactDetails = [];
+                if (provider.phone) contactDetails.push(`<span><i class="fas fa-phone"></i> ${provider.phone}</span>`);
+                if (provider.email) contactDetails.push(`<span><i class="fas fa-envelope"></i> ${provider.email}</span>`);
+                if (provider.website) contactDetails.push(`<span><i class="fas fa-globe"></i> Website</span>`);
+
+                card.innerHTML = `
+                    <div class="top">
+                        <div class="avatar">${initials}</div>
+                        <div class="info">
+                            <div class="name">${provider.name || 'Unnamed'}</div>
+                            <div class="category">${provider.category || 'General'}</div>
+                            ${ratingStars}
+                        </div>
+                    </div>
+                    <div class="description">${provider.description || 'No description available.'}</div>
+                    <div class="details">
+                        <span><i class="fas fa-map-marker-alt"></i> ${provider.location || 'Location unspecified'}</span>
+                        ${provider.priceRange ? `<span><i class="fas fa-dollar-sign"></i> ${provider.priceRange}</span>` : ''}
+                    </div>
+                    <div class="details">
+                        ${contactDetails.join('')}
+                    </div>
+                    <div class="actions">
+                        ${provider.website ? `<a href="${provider.website}" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-external-link-alt"></i> Visit</a>` : ''}
+                        ${provider.phone ? `<a href="tel:${provider.phone}" class="btn btn-primary btn-sm"><i class="fas fa-phone-alt"></i> Call</a>` : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // ========== EVENT LISTENERS ==========
+        searchInput.addEventListener('keyup', () => applyFilters());
+        categoryFilter.addEventListener('change', applyFilters);
+        locationFilter.addEventListener('change', applyFilters);
+        priceFilter.addEventListener('change', applyFilters);
+        ratingFilter.addEventListener('change', applyFilters);
+
+        // ========== INIT ==========
+        startListening();
+
+        // Expose functions globally if needed
+        window.applyFilters = applyFilters;
+        window.resetFilters = resetFilters;
+    </script>
+</body>
+</html>

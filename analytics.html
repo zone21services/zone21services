@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Zone21 Organiser – Sales Analytics</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --radius-sm: 10px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            color: var(--pink);
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .btn-primary:hover {
+            background: #1a3a4a;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .btn-lime:hover {
+            background: #d0d800;
+            transform: translateY(-2px);
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: #fff;
+        }
+        .btn-pink:hover {
+            background: #d0005e;
+        }
+        .btn-outline {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.78rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .stat-card .icon {
+            font-size: 1.5rem;
+            color: var(--pink);
+            margin-bottom: 4px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header h2 i {
+            color: var(--pink);
+        }
+        .card-header .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .card-header .filters select,
+        .card-header .filters input {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            background: white;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            background: #f0f4f8;
+            color: var(--navy);
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: #fafbfc;
+        }
+        .text-muted {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-amber {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-pink {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .badge-blue {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .badge-gray {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 10px;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            background: #e8ecf0;
+            border-radius: 30px;
+            padding: 4px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            background: transparent;
+            color: var(--muted);
+            transition: 0.25s;
+        }
+        .tab-btn.active {
+            background: var(--navy);
+            color: var(--lime);
+            box-shadow: 0 4px 12px rgba(16, 40, 56, 0.15);
+        }
+        .tab-btn:hover:not(.active) {
+            background: rgba(16, 40, 56, 0.06);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .cashout-list {
+            margin-top: 10px;
+        }
+        .cashout-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 14px;
+            background: #fafbfc;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--lime);
+            margin-bottom: 8px;
+        }
+        .cashout-item .info {
+            flex: 1;
+            min-width: 160px;
+        }
+        .cashout-item .info .name {
+            font-weight: 600;
+        }
+        .cashout-item .info .meta {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-paid {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .stat-card .value {
+                font-size: 1.5rem;
+            }
+            .card {
+                padding: 14px 12px;
+            }
+            table {
+                font-size: 0.78rem;
+            }
+            th,
+            td {
+                padding: 8px 6px;
+            }
+            .chart-container {
+                height: 200px;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 12px 10px;
+            }
+            .stat-card .value {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-chart-pie"></i> Zone21 Sales Analytics</h1>
+            <div class="header-actions">
+                <span style="font-size:0.85rem;color:var(--muted);display:flex;align-items:center;">
+                    <span class="live-indicator"></span> Live
+                </span>
+                <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn btn-pink btn-sm" onclick="auth.signOut(); location.reload();"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <span id="user-email" style="font-size:0.85rem;color:var(--muted);"></span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="analytics-stats">
+            <div class="stat-card"><div class="icon"><i class="fas fa-coins"></i></div><div class="value" id="a-total-revenue">$0</div><div class="label">Total Revenue</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-ticket-alt"></i></div><div class="value" id="a-total-tickets">0</div><div class="label">Tickets Sold</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-calendar-check"></i></div><div class="value" id="a-total-events">0</div><div class="label">My Events</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-hand-holding-usd"></i></div><div class="value" id="a-pending-cashouts">0</div><div class="label">Pending Cashouts</div></div>
+        </div>
+
+        <!-- Event Selector & Filter -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-filter"></i> Filters</h2>
+                <div class="filters">
+                    <label>Event:</label>
+                    <select id="event-selector">
+                        <option value="all">All My Events</option>
+                    </select>
+                    <label>From:</label>
+                    <input type="date" id="date-from" />
+                    <label>To:</label>
+                    <input type="date" id="date-to" />
+                    <button class="btn btn-primary btn-sm" onclick="applyFilters()"><i class="fas fa-search"></i> Apply</button>
+                    <button class="btn btn-outline btn-sm" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs: Daily, Weekly, Monthly -->
+        <div class="card">
+            <div class="tab-bar" id="analytics-tabs">
+                <button class="tab-btn active" data-tab="daily">Daily</button>
+                <button class="tab-btn" data-tab="weekly">Weekly</button>
+                <button class="tab-btn" data-tab="monthly">Monthly</button>
+            </div>
+
+            <!-- Daily -->
+            <div class="tab-content active" id="tab-daily">
+                <div class="chart-container"><canvas id="daily-chart"></canvas></div>
+                <div class="table-wrap" style="margin-top:16px;">
+                    <table>
+                        <thead><tr><th>Date</th><th>Tickets Sold</th><th>Revenue</th><th>Cumulative</th></tr></thead>
+                        <tbody id="daily-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Weekly -->
+            <div class="tab-content" id="tab-weekly">
+                <div class="chart-container"><canvas id="weekly-chart"></canvas></div>
+                <div class="table-wrap" style="margin-top:16px;">
+                    <table>
+                        <thead><tr><th>Week Starting</th><th>Tickets Sold</th><th>Revenue</th><th>Cumulative</th></tr></thead>
+                        <tbody id="weekly-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Monthly -->
+            <div class="tab-content" id="tab-monthly">
+                <div class="chart-container"><canvas id="monthly-chart"></canvas></div>
+                <div class="table-wrap" style="margin-top:16px;">
+                    <table>
+                        <thead><tr><th>Month</th><th>Tickets Sold</th><th>Revenue</th><th>Cumulative</th></tr></thead>
+                        <tbody id="monthly-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cash Out Summary & History -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-hand-holding-usd"></i> Cash Out Summary</h2>
+                <span class="text-muted" id="cashout-summary-label">Total requested: $0</span>
+            </div>
+            <div id="cashout-summary-list" class="cashout-list">
+                <p class="text-muted">Loading cash out data...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ========== STATE ==========
+        let allEvents = [];
+        let allTickets = [];
+        let allInvoices = [];
+        let allCashouts = [];
+        let currentUser = null;
+        let filteredEvents = [];
+        let unsubscribers = [];
+
+        // Chart instances
+        let dailyChart = null,
+            weeklyChart = null,
+            monthlyChart = null;
+
+        // DOM refs
+        const $ = id => document.getElementById(id);
+        const eventSelector = $('event-selector');
+        const dateFrom = $('date-from');
+        const dateTo = $('date-to');
+        const dailyBody = $('daily-table-body');
+        const weeklyBody = $('weekly-table-body');
+        const monthlyBody = $('monthly-table-body');
+
+        // ========== AUTH ==========
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                $('user-email').textContent = user.email || user.uid;
+                startListening();
+            } else {
+                const email = prompt('Organiser Login - Enter your email:');
+                if (email) {
+                    const pw = prompt('Enter your password:');
+                    if (pw) {
+                        auth.signInWithEmailAndPassword(email, pw)
+                            .then(() => alert('Login successful!'))
+                            .catch(err => {
+                                alert('Login failed: ' + err.message);
+                                document.body.innerHTML =
+                                    '<h2 style="padding:30px;color:var(--navy);">Access Denied. Please refresh to retry.</h2>';
+                            });
+                    }
+                } else {
+                    document.body.innerHTML =
+                        '<h2 style="padding:30px;color:var(--navy);">Authentication required.</h2>';
+                }
+            }
+        });
+
+        // ========== REAL-TIME LISTENERS ==========
+        function startListening() {
+            unsubscribers.forEach(fn => fn());
+            unsubscribers = [];
+
+            const unsubEvents = db.collection('events').onSnapshot(snap => {
+                allEvents = [];
+                snap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
+                updateEventSelector();
+                renderAll();
+            }, err => console.error('Events listener error:', err));
+            unsubscribers.push(unsubEvents);
+
+            const unsubTickets = db.collection('tickets').onSnapshot(snap => {
+                allTickets = [];
+                snap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+                renderAll();
+            }, err => console.error('Tickets listener error:', err));
+            unsubscribers.push(unsubTickets);
+
+            const unsubInvoices = db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
+                allInvoices = [];
+                snap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
+                renderAll();
+            }, err => console.error('Invoices listener error:', err));
+            unsubscribers.push(unsubInvoices);
+
+            const unsubCashouts = db.collection('cashout_requests').onSnapshot(snap => {
+                allCashouts = [];
+                snap.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                renderAll();
+            }, err => console.error('Cashouts listener error:', err));
+            unsubscribers.push(unsubCashouts);
+        }
+
+        function refreshData() { renderAll(); }
+
+        // ========== UTILITY ==========
+        function getEventRevenue(eventId) {
+            const tickets = allTickets.filter(t =>
+                t.eventId === eventId && (t.status === 'approved' || t.status === 'scanned')
+            );
+            const sold = tickets.length;
+            let revenue = 0;
+            tickets.forEach(t => {
+                const inv = allInvoices.find(i => i.ticketId === t.id);
+                if (inv && inv.amount) revenue += inv.amount;
+                else {
+                    const ev = allEvents.find(e => e.id === eventId);
+                    if (ev && ev.ticketTypes) {
+                        const tt = ev.ticketTypes.find(tk => tk.name === t.ticketTypeName);
+                        if (tt) revenue += tt.price;
+                    }
+                }
+            });
+            return { sold, revenue: Math.round(revenue * 100) / 100 };
+        }
+
+        function getMyEvents() {
+            if (!currentUser) return [];
+            return allEvents.filter(ev =>
+                ev.organizerId === currentUser.uid || ev.organizerEmail === currentUser.email
+            );
+        }
+
+        function getFilteredEvents() {
+            const myEvents = getMyEvents();
+            const selectedId = eventSelector.value;
+            let events = myEvents;
+            if (selectedId !== 'all') {
+                events = events.filter(ev => ev.id === selectedId);
+            }
+            // date filter
+            const from = dateFrom.value ? new Date(dateFrom.value) : null;
+            const to = dateTo.value ? new Date(dateTo.value) : null;
+            if (from) from.setHours(0, 0, 0, 0);
+            if (to) to.setHours(23, 59, 59, 999);
+            if (from || to) {
+                events = events.filter(ev => {
+                    const d = new Date(ev.startDate);
+                    if (from && d < from) return false;
+                    if (to && d > to) return false;
+                    return true;
+                });
+            }
+            return events;
+        }
+
+        // ========== UPDATE EVENT SELECTOR ==========
+        function updateEventSelector() {
+            const myEvents = getMyEvents();
+            const currentVal = eventSelector.value;
+            eventSelector.innerHTML = '<option value="all">All My Events</option>';
+            myEvents.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                opt.textContent = ev.eventName;
+                eventSelector.appendChild(opt);
+            });
+            if (currentVal && myEvents.some(e => e.id === currentVal)) {
+                eventSelector.value = currentVal;
+            }
+        }
+
+        // ========== RENDER ALL ==========
+        function renderAll() {
+            const myEvents = getMyEvents();
+            const filtered = getFilteredEvents();
+
+            // Stats
+            let totalRev = 0,
+                totalSold = 0;
+            myEvents.forEach(ev => {
+                const r = getEventRevenue(ev.id);
+                totalRev += r.revenue;
+                totalSold += r.sold;
+            });
+            const pending = allCashouts.filter(c =>
+                c.organiserId === currentUser?.uid && c.status === 'pending'
+            ).length;
+
+            $('a-total-revenue').textContent = '$' + totalRev.toFixed(2);
+            $('a-total-tickets').textContent = totalSold;
+            $('a-total-events').textContent = myEvents.length;
+            $('a-pending-cashouts').textContent = pending;
+
+            // Generate daily/weekly/monthly data from filtered events
+            const allTicketsForEvents = allTickets.filter(t =>
+                filtered.some(ev => ev.id === t.eventId) && (t.status === 'approved' || t.status === 'scanned')
+            );
+
+            // Build daily sales: group by date (from createdAt or approvedAt)
+            const dailyMap = new Map();
+            allTicketsForEvents.forEach(t => {
+                const dateKey = t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : null;
+                if (!dateKey) return;
+                if (!dailyMap.has(dateKey)) dailyMap.set(dateKey, { tickets: 0, revenue: 0 });
+                const entry = dailyMap.get(dateKey);
+                entry.tickets += 1;
+                const inv = allInvoices.find(i => i.ticketId === t.id);
+                if (inv && inv.amount) entry.revenue += inv.amount;
+                else {
+                    const ev = allEvents.find(e => e.id === t.eventId);
+                    if (ev && ev.ticketTypes) {
+                        const tt = ev.ticketTypes.find(tk => tk.name === t.ticketTypeName);
+                        if (tt) entry.revenue += tt.price;
+                    }
+                }
+            });
+
+            // Sort dates
+            const sortedDates = Array.from(dailyMap.keys()).sort();
+            const dailyData = sortedDates.map(d => ({
+                date: d,
+                tickets: dailyMap.get(d).tickets,
+                revenue: Math.round(dailyMap.get(d).revenue * 100) / 100
+            }));
+
+            // Cumulative for daily
+            let cum = 0;
+            const dailyCum = dailyData.map(d => {
+                cum += d.revenue;
+                return { ...d, cumulative: Math.round(cum * 100) / 100 };
+            });
+
+            // Weekly: group by week (starting Monday)
+            const weeklyMap = new Map();
+            dailyData.forEach(d => {
+                const dateObj = new Date(d.date);
+                const day = dateObj.getDay();
+                const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1); // Monday
+                const monday = new Date(dateObj);
+                monday.setDate(diff);
+                monday.setHours(0, 0, 0, 0);
+                const weekKey = monday.toISOString().split('T')[0];
+                if (!weeklyMap.has(weekKey)) weeklyMap.set(weekKey, { tickets: 0, revenue: 0 });
+                const entry = weeklyMap.get(weekKey);
+                entry.tickets += d.tickets;
+                entry.revenue += d.revenue;
+            });
+            const weeklyData = Array.from(weeklyMap.keys()).sort().map(w => ({
+                weekStart: w,
+                tickets: weeklyMap.get(w).tickets,
+                revenue: Math.round(weeklyMap.get(w).revenue * 100) / 100
+            }));
+            cum = 0;
+            const weeklyCum = weeklyData.map(w => {
+                cum += w.revenue;
+                return { ...w, cumulative: Math.round(cum * 100) / 100 };
+            });
+
+            // Monthly
+            const monthlyMap = new Map();
+            dailyData.forEach(d => {
+                const monthKey = d.date.substring(0, 7);
+                if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { tickets: 0, revenue: 0 });
+                const entry = monthlyMap.get(monthKey);
+                entry.tickets += d.tickets;
+                entry.revenue += d.revenue;
+            });
+            const monthlyData = Array.from(monthlyMap.keys()).sort().map(m => ({
+                month: m,
+                tickets: monthlyMap.get(m).tickets,
+                revenue: Math.round(monthlyMap.get(m).revenue * 100) / 100
+            }));
+            cum = 0;
+            const monthlyCum = monthlyData.map(m => {
+                cum += m.revenue;
+                return { ...m, cumulative: Math.round(cum * 100) / 100 };
+            });
+
+            // Render tables and charts
+            renderTable(dailyBody, dailyCum, 'date', 'Date');
+            renderTable(weeklyBody, weeklyCum, 'weekStart', 'Week Starting');
+            renderTable(monthlyBody, monthlyCum, 'month', 'Month');
+
+            renderChart('daily-chart', dailyCum, 'date', 'Daily Revenue');
+            renderChart('weekly-chart', weeklyCum, 'weekStart', 'Weekly Revenue');
+            renderChart('monthly-chart', monthlyCum, 'month', 'Monthly Revenue');
+
+            // Cashout summary
+            renderCashoutSummary();
+        }
+
+        function renderTable(tbody, data, keyLabel, headerLabel) {
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-muted">No data available.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = '';
+            data.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${d[keyLabel]}</td>
+                    <td>${d.tickets}</td>
+                    <td>$${d.revenue.toFixed(2)}</td>
+                    <td>$${d.cumulative.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChart(canvasId, data, labelKey, chartLabel) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            // Destroy existing chart
+            let chart = null;
+            if (canvasId === 'daily-chart') chart = dailyChart;
+            else if (canvasId === 'weekly-chart') chart = weeklyChart;
+            else if (canvasId === 'monthly-chart') chart = monthlyChart;
+            if (chart) { chart.destroy();
+                chart = null; }
+
+            const labels = data.map(d => d[labelKey]);
+            const revenues = data.map(d => d.revenue);
+            const tickets = data.map(d => d.tickets);
+
+            const newChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: revenues,
+                        backgroundColor: 'rgba(192, 200, 0, 0.6)',
+                        borderColor: '#C0C800',
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                    }, {
+                        label: 'Tickets Sold',
+                        data: tickets,
+                        backgroundColor: 'rgba(248, 0, 112, 0.4)',
+                        borderColor: '#F80070',
+                        borderWidth: 1,
+                        yAxisID: 'y1',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: chartLabel
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: 'Revenue ($)' }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Tickets' }
+                        }
+                    }
+                }
+            });
+
+            if (canvasId === 'daily-chart') dailyChart = newChart;
+            else if (canvasId === 'weekly-chart') weeklyChart = newChart;
+            else if (canvasId === 'monthly-chart') monthlyChart = newChart;
+        }
+
+        // ========== CASHOUT SUMMARY ==========
+        function renderCashoutSummary() {
+            const container = $('cashout-summary-list');
+            if (!currentUser) return;
+            const myCashouts = allCashouts.filter(c => c.organiserId === currentUser.uid);
+            const totalRequested = myCashouts.reduce((sum, c) => sum + c.amount, 0);
+            $('cashout-summary-label').textContent = 'Total requested: $' + totalRequested.toFixed(2);
+
+            if (myCashouts.length === 0) {
+                container.innerHTML = '<p class="text-muted">No cash out requests.</p>';
+                return;
+            }
+            // Group by event
+            const grouped = {};
+            myCashouts.forEach(c => {
+                const key = c.eventId;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(c);
+            });
+            container.innerHTML = '';
+            for (const [eventId, cashouts] of Object.entries(grouped)) {
+                const ev = allEvents.find(e => e.id === eventId);
+                const total = cashouts.reduce((s, c) => s + c.amount, 0);
+                const latest = cashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt))[0];
+                const div = document.createElement('div');
+                div.className = 'cashout-item';
+                div.style.borderLeftColor = latest.status === 'approved' ? '#28a745' :
+                    latest.status === 'paid' ? '#004085' :
+                    latest.status === 'rejected' ? '#dc3545' : '#ffc107';
+                div.innerHTML = `
+                    <div class="info">
+                        <div class="name">${ev ? ev.eventName : 'Unknown Event'}</div>
+                        <div class="meta">Total requested: <strong>$${total.toFixed(2)}</strong> · Latest status: <span class="status-badge ${latest.status === 'approved' ? 'status-approved' : latest.status === 'paid' ? 'status-paid' : latest.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${latest.status.toUpperCase()}</span></div>
+                    </div>
+                    <div class="flex gap-8">
+                        <button class="btn btn-outline btn-sm" onclick="viewCashoutDetails('${eventId}')"><i class="fas fa-eye"></i> Details</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function viewCashoutDetails(eventId) {
+            const cashouts = allCashouts.filter(c => c.eventId === eventId && c.organiserId === currentUser.uid);
+            if (cashouts.length === 0) return alert('No cashout requests.');
+            let msg = `Cashout History for ${allEvents.find(e => e.id === eventId)?.eventName || 'Event'}\n\n`;
+            cashouts.forEach(c => {
+                msg +=
+                    `Date: ${new Date(c.requestedAt).toLocaleString()}\nAmount: $${c.amount.toFixed(2)}\nStatus: ${c.status.toUpperCase()}\n`;
+                if (c.adminNotes) msg += `Admin Notes: ${c.adminNotes}\n`;
+                msg += '---\n';
+            });
+            alert(msg);
+        }
+
+        // ========== FILTERS ==========
+        function applyFilters() { renderAll(); }
+
+        function resetFilters() {
+            dateFrom.value = '';
+            dateTo.value = '';
+            eventSelector.value = 'all';
+            renderAll();
+        }
+
+        // ========== TAB SWITCHING ==========
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const tab = this.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                document.getElementById('tab-' + tab).classList.add('active');
+                // Resize charts to fit new container
+                setTimeout(() => {
+                    if (dailyChart) dailyChart.resize();
+                    if (weeklyChart) weeklyChart.resize();
+                    if (monthlyChart) monthlyChart.resize();
+                }, 100);
+            });
+        });
+
+        // ========== GLOBALS ==========
+        window.applyFilters = applyFilters;
+        window.resetFilters = resetFilters;
+        window.refreshData = refreshData;
+        window.viewCashoutDetails = viewCashoutDetails;
+        window.auth = auth;
+    </script>
+</body>
+</html>

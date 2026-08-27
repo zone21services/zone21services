@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 – Events & Tickets</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; flex-wrap: wrap; gap: 15px;
+        }
+        .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .header-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn {
+            padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d0d800; transform: translateY(-2px); }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
+        .btn-outline:hover { background: #f0f0f0; }
+        .btn-pink { background: var(--pink); color: white; }
+        .btn-pink:hover { background: #d0005e; }
+        .search-bar {
+            width: 100%; max-width: 400px; display: flex; gap: 10px; margin-bottom: 20px;
+        }
+        .search-bar input {
+            flex: 1; padding: 10px 15px; border: 1px solid var(--border); border-radius: 30px;
+            font-size: 0.9rem; outline: none;
+        }
+        .search-bar input:focus { border-color: var(--lime); }
+        .events-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;
+        }
+        .event-card {
+            background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow);
+            overflow: hidden; cursor: pointer; transition: 0.2s;
+        }
+        .event-card:hover { box-shadow: 0 12px 40px rgba(16, 40, 56, 0.15); transform: translateY(-4px); }
+        .event-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+        .event-card .event-body { padding: 20px; }
+        .event-card .event-name { font-size: 1.2rem; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+        .event-card .event-date { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+        .event-card .event-location { font-size: 0.85rem; color: var(--text-muted); }
+        .no-events { text-align: center; padding: 40px; color: var(--text-muted); }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: white; border-radius: 16px; padding: 25px; max-width: 700px; width: 95%;
+            max-height: 90vh; overflow-y: auto; position: relative;
+        }
+        .modal-close { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.8rem; cursor: pointer; color: var(--navy); }
+        .modal-poster { width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; }
+        .event-detail h2 { font-size: 1.8rem; color: var(--navy); margin-bottom: 10px; }
+        .event-detail .meta { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; color: var(--text-muted); font-size: 0.9rem; }
+        .event-detail .description { margin-bottom: 20px; line-height: 1.6; }
+        .ticket-type-item {
+            background: #fafbfc; border: 1px solid var(--border); border-radius: 12px; padding: 15px;
+            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+        }
+        .ticket-type-item .ticket-info { flex: 1; }
+        .ticket-type-item .ticket-name { font-weight: 700; color: var(--navy); }
+        .ticket-type-item .ticket-desc { font-size: 0.85rem; color: var(--text-muted); margin-top: 3px; }
+        .ticket-type-item .ticket-price { font-weight: 800; color: var(--pink); font-size: 1.1rem; }
+        .buy-btn { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 8px 16px; font-weight: 600; cursor: pointer; transition: 0.2s; text-decoration: none; display: inline-block; }
+        .buy-btn:hover { background: #d0d800; transform: translateY(-2px); }
+        .track-results { margin-top: 15px; }
+        .track-result { background: #f8f9fa; border-left: 4px solid var(--lime); padding: 10px; margin-bottom: 8px; border-radius: 8px; }
+        .track-result .invoice-id { font-weight: 700; }
+        .track-result .status { font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-paid { background: #d4edda; color: #155724; }
+        .status-cancelled { background: #e2e3e5; color: #383d41; }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; align-items: flex-start; }
+            .events-grid { grid-template-columns: 1fr; }
+            .search-bar { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-calendar-alt" style="color:var(--pink);"></i> Zone21 Events</h1>
+            <div class="header-buttons">
+                <button class="btn btn-outline" onclick="openTrackModal()"><i class="fas fa-search"></i> Track My Ticket</button>
+                <a href="admin-publish.html" class="btn btn-outline"><i class="fas fa-user-cog"></i> Admin</a>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Search events..." oninput="filterEvents()">
+        </div>
+
+        <div class="events-grid" id="events-grid">
+            <div class="no-events">Loading events...</div>
+        </div>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div class="modal" id="event-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('event-modal')">&times;</button>
+            <div id="event-detail-content"></div>
+        </div>
+    </div>
+
+    <!-- Track Ticket Modal -->
+    <div class="modal" id="track-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('track-modal')">&times;</button>
+            <h2 style="margin-bottom:15px;">Track My Ticket</h2>
+            <p>Enter your email or phone number used during purchase.</p>
+            <div style="display:flex; gap:10px; margin:15px 0;">
+                <input type="text" id="track-input" placeholder="Email or Phone" style="flex:1; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                <button class="btn btn-lime" onclick="trackTicket()">Search</button>
+            </div>
+            <div id="track-results" class="track-results"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let allEvents = [];
+
+        // ============ LOAD PUBLISHED EVENTS ============
+        async function loadEvents() {
+            const grid = document.getElementById('events-grid');
+            grid.innerHTML = '<div class="no-events">Loading events...</div>';
+            try {
+                // Removed orderBy() to prevent Firestore Composite Index failures
+                const snapshot = await db.collection('events')
+                    .where('status', '==', 'approved')
+                    .where('published', '==', true)
+                    .get();
+                    
+                allEvents = [];
+                grid.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    grid.innerHTML = '<div class="no-events">No events available right now.</div>';
+                    return;
+                }
+                
+                snapshot.forEach(doc => {
+                    const ev = doc.data();
+                    ev.id = doc.id;
+                    allEvents.push(ev);
+                });
+
+                // Sort locally by createdAt (newest first)
+                allEvents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                // Render events
+                allEvents.forEach(ev => {
+                    const card = document.createElement('div');
+                    card.className = 'event-card';
+                    card.onclick = () => showEventDetails(ev);
+                    const imgHtml = ev.posterImage ? `<img src="${ev.posterImage}" alt="${ev.eventName}">` : `<div style="height:160px; background:#e0e0e8; display:flex; align-items:center; justify-content:center; color:#aaa;"><i class="fas fa-image fa-3x"></i></div>`;
+                    card.innerHTML = `
+                        ${imgHtml}
+                        <div class="event-body">
+                            <div class="event-name">${ev.eventName}</div>
+                            <div class="event-date"><i class="far fa-calendar-alt"></i> ${new Date(ev.startDate).toLocaleDateString()}</div>
+                            <div class="event-location"><i class="fas fa-map-marker-alt"></i> ${ev.location}</div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+            } catch (err) {
+                console.error('Error loading events:', err);
+                grid.innerHTML = '<div class="no-events">Failed to load events. Please try again later.</div>';
+            }
+        }
+
+        // ============ FILTER EVENTS (search) ============
+        function filterEvents() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const grid = document.getElementById('events-grid');
+            const filtered = query ? allEvents.filter(ev => ev.eventName.toLowerCase().includes(query) || ev.location.toLowerCase().includes(query)) : allEvents;
+            grid.innerHTML = '';
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="no-events">No events match your search.</div>';
+                return;
+            }
+            filtered.forEach(ev => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.onclick = () => showEventDetails(ev);
+                const imgHtml = ev.posterImage ? `<img src="${ev.posterImage}" alt="${ev.eventName}">` : `<div style="height:160px; background:#e0e0e8; display:flex; align-items:center; justify-content:center; color:#aaa;"><i class="fas fa-image fa-3x"></i></div>`;
+                card.innerHTML = `
+                    ${imgHtml}
+                    <div class="event-body">
+                        <div class="event-name">${ev.eventName}</div>
+                        <div class="event-date"><i class="far fa-calendar-alt"></i> ${new Date(ev.startDate).toLocaleDateString()}</div>
+                        <div class="event-location"><i class="fas fa-map-marker-alt"></i> ${ev.location}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+        window.filterEvents = filterEvents;
+
+        // ============ SHOW EVENT DETAILS ============
+        function showEventDetails(ev) {
+            const modal = document.getElementById('event-modal');
+            const content = document.getElementById('event-detail-content');
+            const ticketTypes = ev.ticketTypes || [];
+
+            let ticketHtml = '';
+            if (ticketTypes.length === 0) {
+                ticketHtml = '<p>No tickets available.</p>';
+            } else {
+                ticketTypes.forEach(ticket => {
+                    const buyUrl = `checkout.html?eventId=${ev.id}&ticketType=${encodeURIComponent(ticket.name)}`;
+                    ticketHtml += `
+                        <div class="ticket-type-item">
+                            <div class="ticket-info">
+                                <div class="ticket-name">${ticket.name}</div>
+                                <div class="ticket-desc">${ticket.description || 'General Admission'}</div>
+                            </div>
+                            <div class="ticket-price">$${ticket.price}</div>
+                            <a href="${buyUrl}" class="buy-btn"><i class="fas fa-shopping-cart"></i> Buy</a>
+                        </div>
+                    `;
+                });
+            }
+
+            content.innerHTML = `
+                ${ev.posterImage ? `<img src="${ev.posterImage}" class="modal-poster" alt="${ev.eventName}">` : ''}
+                <div class="event-detail">
+                    <h2>${ev.eventName}</h2>
+                    <div class="meta">
+                        <span><i class="far fa-calendar-alt"></i> ${new Date(ev.startDate).toLocaleString()}</span>
+                        <span><i class="fas fa-map-marker-alt"></i> ${ev.location}</span>
+                    </div>
+                    <div class="description">${ev.description}</div>
+                    ${ev.ageRestriction ? `<p><strong>Age Restriction:</strong> ${ev.ageRestriction}</p>` : ''}
+                    ${ev.dressCode ? `<p><strong>Dress Code:</strong> ${ev.dressCode}</p>` : ''}
+                    <h3>Tickets</h3>
+                    ${ticketHtml}
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+        window.showEventDetails = showEventDetails;
+
+        // ============ TRACK TICKET ============
+        function openTrackModal() {
+            document.getElementById('track-modal').style.display = 'flex';
+            document.getElementById('track-results').innerHTML = '';
+            document.getElementById('track-input').value = '';
+        }
+        window.openTrackModal = openTrackModal;
+
+        async function trackTicket() {
+            const query = document.getElementById('track-input').value.trim();
+            const resultsDiv = document.getElementById('track-results');
+            resultsDiv.innerHTML = 'Searching...';
+            if (!query) {
+                resultsDiv.innerHTML = 'Please enter email or phone.';
+                return;
+            }
+            try {
+                const emailSnapshot = await db.collection('invoices').where('buyerEmail', '==', query).get();
+                const phoneSnapshot = await db.collection('invoices').where('buyerPhone', '==', query).get();
+                const results = [];
+                emailSnapshot.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
+                phoneSnapshot.forEach(doc => {
+                    if (!results.some(r => r.id === doc.id)) results.push({ id: doc.id, ...doc.data() });
+                });
+                if (results.length === 0) {
+                    resultsDiv.innerHTML = 'No invoices found.';
+                    return;
+                }
+                resultsDiv.innerHTML = '';
+                results.forEach(inv => {
+                    const div = document.createElement('div');
+                    div.className = 'track-result';
+                    const statusClass = inv.status === 'pending' ? 'status-pending' : inv.status === 'paid' ? 'status-paid' : 'status-cancelled';
+                    div.innerHTML = `
+                        <div class="invoice-id">Invoice #${inv.id.substring(0,8).toUpperCase()}</div>
+                        <div>Event: ${inv.eventId}</div>
+                        <div>Ticket Type: ${inv.ticketTypeName}</div>
+                        <div>Amount: $${inv.amount}</div>
+                        <span class="status ${statusClass}">${inv.status.toUpperCase()}</span>
+                        ${inv.ticketId ? `<div>Ticket ID: <strong>${inv.ticketId}</strong></div>` : ''}
+                    `;
+                    resultsDiv.appendChild(div);
+                });
+            } catch (err) {
+                console.error('Track error:', err);
+                resultsDiv.innerHTML = 'Error searching. Please try again.';
+            }
+        }
+        window.trackTicket = trackTicket;
+
+        // ============ MODAL HELPERS ============
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        window.closeModal = closeModal;
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) modal.style.display = 'none';
+            });
+        };
+
+        // ============ INIT ============
+        loadEvents();
+    </script>
+</body>
+</html>

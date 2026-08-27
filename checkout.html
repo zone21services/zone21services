@@ -351,9 +351,14 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // ============ STATE ============
+        // ============ STATE & URL PARAMS ============
         let currentEvent = null;
         let cart = []; // { ticketTypeName, price, quantity }
+        
+        // Extract URL Parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlEventId = urlParams.get('eventId');
+        const urlTicketType = urlParams.get('ticketType');
 
         // ============ DOM ELEMENTS ============
         const eventSelect = document.getElementById('event-select');
@@ -371,6 +376,7 @@
             try {
                 const snapshot = await db.collection('events').where('status', '==', 'approved').orderBy('createdAt', 'desc').get();
                 eventSelect.innerHTML = '<option value="">-- Choose an approved event --</option>';
+                
                 snapshot.forEach(doc => {
                     const ev = doc.data();
                     const option = document.createElement('option');
@@ -378,6 +384,14 @@
                     option.textContent = ev.eventName;
                     eventSelect.appendChild(option);
                 });
+
+                // AUTO-SELECT EVENT FROM URL
+                if (urlEventId) {
+                    eventSelect.value = urlEventId;
+                    // Trigger the change event manually to load details
+                    eventSelect.dispatchEvent(new Event('change'));
+                }
+
             } catch (err) {
                 console.error('Error loading events:', err);
                 eventSelect.innerHTML = '<option value="">Failed to load events</option>';
@@ -388,6 +402,7 @@
             const eventId = this.value;
             cart = [];
             updateCartUI();
+            
             if (!eventId) {
                 currentEvent = null;
                 eventDetailsDiv.classList.add('hidden');
@@ -405,6 +420,21 @@
                     displayTicketTypes(currentEvent.ticketTypes || []);
                     ticketTypesCard.classList.remove('hidden');
                     cartCard.classList.remove('hidden');
+
+                    // AUTO-ADD TICKET TO CART FROM URL
+                    if (urlTicketType && this.value === urlEventId) {
+                        const matchedTicket = (currentEvent.ticketTypes || []).find(t => t.name === urlTicketType);
+                        if (matchedTicket) {
+                            // Add 1 ticket to cart automatically
+                            addToCart(matchedTicket.name, matchedTicket.price, 1);
+                            
+                            // Clean up URL so it doesn't re-trigger if user changes events back and forth
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                            
+                            // Auto-open checkout modal for immediate purchase
+                            openCheckout();
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching event:', err);
@@ -436,9 +466,17 @@
         }
 
         // ============ CART FUNCTIONS ============
-        function addToCart(ticketTypeName, price) {
+        function addToCart(ticketTypeName, price, forceQty = null) {
+            let qty;
             const qtyInput = document.getElementById(`qty-${ticketTypeName}`);
-            const qty = parseInt(qtyInput.value);
+            
+            // Allow passing a forced quantity (for auto-add from URL)
+            if (forceQty !== null) {
+                qty = forceQty;
+            } else {
+                qty = parseInt(qtyInput.value);
+            }
+
             if (!qty || qty < 1) {
                 showToast('Please enter a valid quantity.', 'error');
                 return;
@@ -449,7 +487,10 @@
             } else {
                 cart.push({ ticketTypeName, price, quantity: qty });
             }
-            qtyInput.value = 0;
+            
+            // Reset input if it exists
+            if(qtyInput) qtyInput.value = 0; 
+            
             updateCartUI();
             showToast('Added to cart!', 'success');
         }

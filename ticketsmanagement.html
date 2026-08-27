@@ -9,6 +9,8 @@
     <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- ADDED: Firebase Auth for Admin Login -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <!-- QRCode.js for generating QR codes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- html5-qrcode for scanning -->
@@ -249,6 +251,7 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
         // ============ STATE ============
         let currentEvent = null;
@@ -262,22 +265,50 @@
         const ticketTypesContainer = document.getElementById('ticket-types-container');
         const allTicketsList = document.getElementById('all-tickets-list');
 
-        // ============ INITIAL LOAD ============
+        // ============ AUTHENTICATION & INITIAL LOAD ============
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loadApprovedEvents();
+            } else {
+                const email = prompt("Admin Login - Enter your email:");
+                if (email) {
+                    const password = prompt("Enter your password:");
+                    if (password) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .then(() => alert("Login successful!"))
+                            .catch((err) => {
+                                alert("Login failed: " + err.message);
+                                document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Please refresh to try again.</h2>";
+                            });
+                    }
+                } else {
+                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                }
+            }
+        });
+
         async function loadApprovedEvents() {
             eventSelect.innerHTML = '<option value="">Loading...</option>';
             try {
-                const snapshot = await db.collection('events').where('status', '==', 'approved').orderBy('createdAt', 'desc').get();
+                // Removed orderBy() to prevent Composite Index errors
+                const snapshot = await db.collection('events').where('status', '==', 'approved').get();
+                
+                let events = [];
+                snapshot.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort client-side
+                events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
                 eventSelect.innerHTML = '<option value="">-- Choose an approved event --</option>';
-                snapshot.forEach(doc => {
-                    const ev = doc.data();
+                events.forEach(ev => {
                     const option = document.createElement('option');
-                    option.value = doc.id;
+                    option.value = ev.id;
                     option.textContent = ev.eventName + ' (' + new Date(ev.startDate).toLocaleDateString() + ')';
                     eventSelect.appendChild(option);
                 });
             } catch (err) {
                 console.error('Error loading events:', err);
-                eventSelect.innerHTML = '<option value="">Failed to load events</option>';
+                eventSelect.innerHTML = '<option value="">Failed to load events. Check permissions.</option>';
             }
         }
 
@@ -344,7 +375,6 @@
             });
         }
 
-        // Load sold count for a ticket type
         async function loadSoldCount(eventId, ticketTypeName, totalQuantity) {
             const soldSpan = document.getElementById('sold-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
             const remainingSpan = document.getElementById('remaining-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
@@ -367,9 +397,7 @@
             document.getElementById('invoice-event-id').value = eventId;
             document.getElementById('invoice-ticket-type').value = ticketTypeName;
             const ticketType = currentEventTicketTypes.find(t => t.name === ticketTypeName);
-            if (ticketType) {
-                document.getElementById('invoice-amount').value = ticketType.price;
-            }
+            
             document.getElementById('invoice-form').reset();
             document.getElementById('invoice-event-id').value = eventId;
             document.getElementById('invoice-ticket-type').value = ticketTypeName;
@@ -429,19 +457,28 @@
             if (!container) return;
             container.innerHTML = 'Loading...';
             try {
+                // Removed orderBy to prevent composite index errors
                 const snapshot = await db.collection('invoices')
                     .where('eventId', '==', eventId)
                     .where('ticketTypeName', '==', ticketTypeName)
-                    .orderBy('createdAt', 'desc')
                     .get();
+                    
                 container.innerHTML = '';
+                
                 if (snapshot.empty) {
                     container.innerHTML = '<p>No invoices yet.</p>';
                     return;
                 }
+                
+                let invoices = [];
                 snapshot.forEach(doc => {
-                    const inv = doc.data();
-                    inv.id = doc.id;
+                    invoices.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort client side
+                invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                invoices.forEach(inv => {
                     const div = document.createElement('div');
                     div.className = 'invoice-item';
                     const statusClass = inv.status === 'paid' ? 'status-paid' : (inv.status === 'pending' ? 'status-pending' : 'status-void');
@@ -449,12 +486,12 @@
                         <div class="info">
                             <strong>${inv.buyerName}</strong> (${inv.buyerEmail})<br>
                             <small>Amount: $${inv.amount.toFixed(2)} | ${inv.buyerPhone}</small>
-                            ${inv.paymentProofBase64 ? `<br><a href="${inv.paymentProofBase64}" target="_blank">View Payment Proof</a>` : ''}
+                            ${inv.paymentProofBase64 ? `<br><a href="${inv.paymentProofBase64}" target="_blank" style="color:var(--pink); font-size:0.85rem;">View Payment Proof</a>` : ''}
                         </div>
                         <span class="status ${statusClass}">${inv.status.toUpperCase()}</span>
                         <div class="button-group">
                             ${inv.status === 'pending' ? `
-                                <button class="btn btn-green" onclick="verifyPayment('${doc.id}')"><i class="fas fa-check"></i> Verify & Generate Ticket</button>
+                                <button class="btn btn-green" onclick="verifyPayment('${inv.id}')"><i class="fas fa-check"></i> Verify & Generate</button>
                             ` : ''}
                             ${inv.status === 'paid' && inv.ticketId ? `
                                 <button class="btn btn-primary" onclick="openShareModal('${inv.ticketId}')"><i class="fas fa-share"></i> Share Ticket</button>
@@ -484,6 +521,7 @@
                 }
                 const inv = invDoc.data();
                 inv.id = invDoc.id;
+                
                 if (inv.ticketId) {
                     content.innerHTML = 'Ticket already generated.';
                     return;
@@ -493,8 +531,8 @@
                     <p><strong>Buyer:</strong> ${inv.buyerName} (${inv.buyerEmail})</p>
                     <p><strong>Ticket Type:</strong> ${inv.ticketTypeName}</p>
                     <p><strong>Amount:</strong> $${inv.amount.toFixed(2)}</p>
-                    ${inv.paymentProofBase64 ? `<img src="${inv.paymentProofBase64}" style="max-width:200px; border-radius:8px;">` : '<p>No payment proof uploaded.</p>'}
-                    <div class="button-group" style="margin-top:15px;">
+                    ${inv.paymentProofBase64 ? `<img src="${inv.paymentProofBase64}" style="max-width:100%; max-height:250px; border-radius:8px; margin-top:10px; display:block;">` : '<p style="color:var(--text-muted); margin-top:10px;">No payment proof uploaded.</p>'}
+                    <div class="button-group" style="margin-top:20px; justify-content:center;">
                         <button class="btn btn-green" onclick="confirmGenerateTicket('${inv.id}')"><i class="fas fa-check-circle"></i> Confirm Payment & Generate Ticket</button>
                         <button class="btn btn-pink" onclick="voidInvoice('${inv.id}')"><i class="fas fa-ban"></i> Void Invoice</button>
                     </div>
@@ -538,7 +576,6 @@
                 alert('Ticket generated successfully!');
                 closeModal('verify-modal');
                 loadInvoicesForTicketType(inv.eventId, inv.ticketTypeName);
-                loadAllTickets(inv.eventId);
                 loadSoldCount(inv.eventId, inv.ticketTypeName, getTicketTypeQuantity(inv.ticketTypeName));
             } catch (err) {
                 console.error('Error generating ticket:', err);
@@ -552,7 +589,7 @@
         }
 
         async function voidInvoice(invoiceId) {
-            if (!confirm('Void this invoice?')) return;
+            if (!confirm('Void this invoice? This action cannot be undone.')) return;
             try {
                 await db.collection('invoices').doc(invoiceId).update({ status: 'void' });
                 closeModal('verify-modal');
@@ -591,13 +628,17 @@
                     <p><strong>Phone:</strong> ${ticket.buyerPhone}</p>
                     <div class="ticket-display">
                         <div id="qr-code-${ticketId}"></div>
-                        <small>QR Code</small>
+                        <small style="margin-top:5px; display:block;">QR Code</small>
                     </div>
-                    <div class="button-group" style="margin-top:15px;">
+                    <div class="button-group" style="margin-top:15px; justify-content:center;">
                         <a href="https://wa.me/${ticket.buyerPhone.replace(/[^0-9]/g,'')}?text=${whatsappText}" target="_blank" class="btn btn-lime"><i class="fab fa-whatsapp"></i> Share via WhatsApp</a>
                         <a href="mailto:${ticket.buyerEmail}?subject=${emailSubject}&body=${emailBody}" target="_blank" class="btn btn-primary"><i class="fas fa-envelope"></i> Send Email</a>
                     </div>
                 `;
+                
+                // Clear any existing QR code first
+                document.getElementById(`qr-code-${ticketId}`).innerHTML = "";
+                
                 new QRCode(document.getElementById(`qr-code-${ticketId}`), {
                     text: qrData,
                     width: 150,
@@ -612,31 +653,40 @@
         // ============ ALL TICKETS LIST ============
         function loadAllTickets(eventId) {
             if (allTicketsListener) {
-                allTicketsListener();
+                allTicketsListener(); // Unsubscribe from previous listener
             }
             allTicketsList.innerHTML = 'Loading tickets...';
+            
+            // Note: removed orderBy('createdAt') to avoid index failures
             allTicketsListener = db.collection('tickets')
                 .where('eventId', '==', eventId)
-                .orderBy('createdAt', 'desc')
                 .onSnapshot(snapshot => {
                     allTicketsList.innerHTML = '';
                     if (snapshot.empty) {
-                        allTicketsList.innerHTML = 'No tickets generated yet.';
+                        allTicketsList.innerHTML = '<p style="color:var(--text-muted);">No tickets generated yet.</p>';
                         return;
                     }
+                    
+                    let tickets = [];
                     snapshot.forEach(doc => {
-                        const ticket = doc.data();
+                        tickets.push({id: doc.id, ...doc.data()});
+                    });
+                    
+                    // Sort client side
+                    tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
+                    tickets.forEach(ticket => {
                         const div = document.createElement('div');
                         div.className = 'invoice-item';
                         const statusClass = ticket.status === 'approved' ? 'status-paid' : (ticket.status === 'scanned' ? 'status-scanned' : 'status-void');
                         div.innerHTML = `
                             <div class="info">
                                 <strong>${ticket.buyerName}</strong> (${ticket.ticketTypeName})<br>
-                                <small>Ticket ID: ${doc.id}</small>
-                                ${ticket.scannedAt ? `<br><small>Scanned: ${new Date(ticket.scannedAt).toLocaleString()}</small>` : ''}
+                                <small>Ticket ID: ${ticket.id}</small>
+                                ${ticket.scannedAt ? `<br><small style="color:var(--pink);">Scanned: ${new Date(ticket.scannedAt).toLocaleString()}</small>` : ''}
                             </div>
                             <span class="status ${statusClass}">${ticket.status.toUpperCase()}</span>
-                            <button class="btn btn-outline" onclick="openShareModal('${doc.id}')"><i class="fas fa-share"></i> Share</button>
+                            <button class="btn btn-outline" onclick="openShareModal('${ticket.id}')"><i class="fas fa-share"></i> Share</button>
                         `;
                         allTicketsList.appendChild(div);
                     });
@@ -646,7 +696,7 @@
                 });
         }
 
-        // ============ QR SCANNER (improved) ============
+        // ============ QR SCANNER ============
         function openScanner() {
             const modal = document.getElementById('scanner-modal');
             modal.style.display = 'flex';
@@ -833,7 +883,7 @@
                     transaction.update(ticketRef, {
                         status: 'scanned',
                         scannedAt: new Date().toISOString(),
-                        scannerId: 'admin'
+                        scannerId: 'admin' // Could use auth.currentUser.uid here
                     });
                 });
 
@@ -924,11 +974,6 @@
                 if (event.target === modal) modal.style.display = 'none';
             });
         };
-
-        // Initial load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadApprovedEvents();
-        });
     </script>
 </body>
 </html>

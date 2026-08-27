@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone21 Organiser Revenue Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        /* Same styles as admin, with minor adjustments */
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --radius-sm: 10px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            color: var(--pink);
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .btn-primary:hover {
+            background: #1a3a4a;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .btn-lime:hover {
+            background: #d0d800;
+            transform: translateY(-2px);
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: #fff;
+        }
+        .btn-pink:hover {
+            background: #d0005e;
+        }
+        .btn-green {
+            background: #28a745;
+            color: #fff;
+        }
+        .btn-green:hover {
+            background: #1e7e34;
+        }
+        .btn-amber {
+            background: #ffc107;
+            color: var(--navy);
+        }
+        .btn-amber:hover {
+            background: #e0a800;
+        }
+        .btn-outline {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.78rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .stat-card .icon {
+            font-size: 1.5rem;
+            color: var(--pink);
+            margin-bottom: 4px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header h2 i {
+            color: var(--pink);
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            background: #f0f4f8;
+            color: var(--navy);
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: #fafbfc;
+        }
+        .text-muted {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-amber {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-pink {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .badge-blue {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .badge-gray {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .cashout-list {
+            margin-top: 10px;
+        }
+        .cashout-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 14px;
+            background: #fafbfc;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--lime);
+            margin-bottom: 8px;
+        }
+        .cashout-item .info {
+            flex: 1;
+            min-width: 160px;
+        }
+        .cashout-item .info .name {
+            font-weight: 600;
+        }
+        .cashout-item .info .meta {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: var(--radius);
+            max-width: 520px;
+            width: 100%;
+            padding: 24px 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: fadeUp 0.25s ease;
+        }
+        .modal-box h2 {
+            font-size: 1.3rem;
+            color: var(--navy);
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 8px;
+        }
+        .modal-box .form-group {
+            margin-bottom: 14px;
+        }
+        .modal-box .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .modal-box .form-group input,
+        .modal-box .form-group textarea,
+        .modal-box .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            outline: none;
+            background: #fafbfc;
+        }
+        .modal-box .form-group input:focus,
+        .modal-box .form-group textarea:focus {
+            border-color: var(--navy);
+            background: #fff;
+        }
+        .modal-box .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            justify-content: flex-end;
+        }
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .flex {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .gap-8 {
+            gap: 8px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .truncate {
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-paid {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-cancelled {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .stat-card .value {
+                font-size: 1.5rem;
+            }
+            .card {
+                padding: 14px 12px;
+            }
+            table {
+                font-size: 0.78rem;
+            }
+            th,
+            td {
+                padding: 8px 6px;
+            }
+            .modal-box {
+                padding: 18px 16px;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 12px 10px;
+            }
+            .stat-card .value {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-user-tie"></i> Zone21 Organiser Revenue</h1>
+            <div class="header-actions">
+                <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn btn-pink btn-sm" onclick="auth.signOut(); location.reload();"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <span id="user-email" style="font-size:0.85rem;color:var(--muted);"></span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="org-stats">
+            <div class="stat-card"><div class="icon"><i class="fas fa-coins"></i></div><div class="value" id="o-total-revenue">$0</div><div class="label">My Total Revenue</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-ticket-alt"></i></div><div class="value" id="o-total-tickets">0</div><div class="label">My Tickets Sold</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-calendar-check"></i></div><div class="value" id="o-total-events">0</div><div class="label">My Events</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-clock"></i></div><div class="value" id="o-pending-cashouts">0</div><div class="label">Pending Cashouts</div></div>
+        </div>
+
+        <!-- My Events -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-calendar-alt"></i> My Events</h2>
+                <span class="text-muted" id="org-event-count">0 events</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Tickets Sold</th>
+                            <th>Revenue</th>
+                            <th>Cashout Status</th>
+                            <th style="width:140px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="organiser-events-table">
+                        <tr><td colspan="6" class="text-center text-muted">Loading your events...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cashout History -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-history"></i> My Cashout History</h2>
+            </div>
+            <div id="organiser-cashout-history" class="cashout-list">
+                <p class="text-muted">No cashout requests yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashout Modal -->
+    <div class="modal-overlay" id="cashout-modal">
+        <div class="modal-box">
+            <h2><i class="fas fa-hand-holding-usd"></i> Request Cash Out</h2>
+            <div id="cashout-modal-body">
+                <div class="form-group">
+                    <label>Event</label>
+                    <input type="text" id="co-event-name" readonly style="background:#f0f4f8;">
+                </div>
+                <div class="form-group">
+                    <label>Amount to Cash Out</label>
+                    <input type="text" id="co-amount" readonly style="background:#f0f4f8; font-weight:700; color:var(--pink);">
+                </div>
+                <div class="form-group">
+                    <label>Bank / Mobile Money Details</label>
+                    <textarea id="co-details" placeholder="Bank account number, mobile money number, or payment instructions..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <input type="text" id="co-notes" placeholder="Any additional information">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-outline" onclick="closeModal('cashout-modal')">Cancel</button>
+                    <button class="btn btn-lime" onclick="submitCashout()"><i class="fas fa-paper-plane"></i> Submit Request</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ========== STATE ==========
+        let allEvents = [];
+        let allTickets = [];
+        let allInvoices = [];
+        let allCashouts = [];
+        let currentUser = null;
+        let cashoutEventId = null;
+
+        // ========== DOM REFS ==========
+        const $ = id => document.getElementById(id);
+
+        // ========== AUTH ==========
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                $('user-email').textContent = user.email || user.uid;
+                loadAllData();
+            } else {
+                const email = prompt('Organiser Login - Enter your email:');
+                if (email) {
+                    const pw = prompt('Enter your password:');
+                    if (pw) {
+                        auth.signInWithEmailAndPassword(email, pw)
+                            .then(() => alert('Login successful!'))
+                            .catch(err => {
+                                alert('Login failed: ' + err.message);
+                                document.body.innerHTML =
+                                    '<h2 style="padding:30px;color:var(--navy);">Access Denied. Please refresh to retry.</h2>';
+                            });
+                    }
+                } else {
+                    document.body.innerHTML =
+                        '<h2 style="padding:30px;color:var(--navy);">Authentication required.</h2>';
+                }
+            }
+        });
+
+        // ========== LOAD DATA ==========
+        async function loadAllData() {
+            try {
+                const evSnap = await db.collection('events').get();
+                allEvents = [];
+                evSnap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
+
+                const ticSnap = await db.collection('tickets').get();
+                allTickets = [];
+                ticSnap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+
+                const invSnap = await db.collection('invoices').where('status', '==', 'paid').get();
+                allInvoices = [];
+                invSnap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
+
+                try {
+                    const coSnap = await db.collection('cashout_requests').orderBy('requestedAt', 'desc').get();
+                    allCashouts = [];
+                    coSnap.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                } catch (e) {
+                    const coSnap2 = await db.collection('cashout_requests').get();
+                    allCashouts = [];
+                    coSnap2.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                    allCashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+                }
+
+                renderOrganiser();
+            } catch (err) {
+                console.error('Load error:', err);
+            }
+        }
+
+        function refreshData() { loadAllData(); }
+
+        // ========== COMPUTATIONS ==========
+        function getEventRevenue(eventId) {
+            const tickets = allTickets.filter(t => t.eventId === eventId && (t.status === 'approved' || t.status ===
+            'scanned'));
+            const sold = tickets.length;
+            let revenue = 0;
+            tickets.forEach(t => {
+                const inv = allInvoices.find(i => i.ticketId === t.id);
+                if (inv && inv.amount) revenue += inv.amount;
+                else {
+                    const ev = allEvents.find(e => e.id === eventId);
+                    if (ev && ev.ticketTypes) {
+                        const tt = ev.ticketTypes.find(tk => tk.name === t.ticketTypeName);
+                        if (tt) revenue += tt.price;
+                    }
+                }
+            });
+            return { sold, revenue: Math.round(revenue * 100) / 100 };
+        }
+
+        function getEventCashoutStatus(eventId) {
+            const cashouts = allCashouts.filter(c => c.eventId === eventId);
+            if (cashouts.length === 0) return 'pending';
+            const latest = cashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt))[0];
+            return latest.status;
+        }
+
+        // ========== RENDER ORGANISER ==========
+        function renderOrganiser() {
+            if (!currentUser) return;
+            const myEvents = allEvents.filter(ev =>
+                ev.organizerId === currentUser.uid || ev.organizerEmail === currentUser.email
+            );
+
+            let totalRev = 0,
+                totalSold = 0;
+            myEvents.forEach(ev => {
+                const r = getEventRevenue(ev.id);
+                totalRev += r.revenue;
+                totalSold += r.sold;
+            });
+            const myPending = allCashouts.filter(c => c.organiserId === currentUser.uid && c.status === 'pending').length;
+
+            $('o-total-revenue').textContent = '$' + totalRev.toFixed(2);
+            $('o-total-tickets').textContent = totalSold;
+            $('o-total-events').textContent = myEvents.length;
+            $('o-pending-cashouts').textContent = myPending;
+            $('org-event-count').textContent = myEvents.length + ' events';
+
+            // Table
+            const tbody = $('organiser-events-table');
+            if (myEvents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">You have no events yet.</td></tr>';
+            } else {
+                tbody.innerHTML = '';
+                myEvents.forEach(ev => {
+                    const rev = getEventRevenue(ev.id);
+                    const status = getEventCashoutStatus(ev.id);
+                    const statusLabel = status === 'pending' ? 'Not Requested' :
+                        status === 'approved' ? 'Approved ✓' :
+                        status === 'paid' ? 'Paid ✓' :
+                        status === 'rejected' ? 'Rejected ✗' : 'Pending';
+                    const statusClass = status === 'approved' ? 'badge-green' :
+                        status === 'paid' ? 'badge-blue' :
+                        status === 'rejected' ? 'badge-pink' :
+                        status === 'pending' ? 'badge-amber' : 'badge-gray';
+
+                    const canCashout = rev.revenue > 0 && status !== 'approved' && status !== 'paid' && status !==
+                        'pending';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span class="truncate" title="${ev.eventName}">${ev.eventName}</span></td>
+                        <td>${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'}</td>
+                        <td>${rev.sold}</td>
+                        <td><strong>$${rev.revenue.toFixed(2)}</strong></td>
+                        <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+                        <td>
+                            ${canCashout ? `<button class="btn btn-lime btn-sm" onclick="openCashoutModal('${ev.id}')"><i class="fas fa-hand-holding-usd"></i> Cash Out</button>` : 
+                            `<span class="text-muted" style="font-size:0.75rem;">${rev.revenue === 0 ? 'No revenue' : 'Requested'}</span>`}
+                            <button class="btn btn-outline btn-sm" onclick="viewEventTickets('${ev.id}')"><i class="fas fa-ticket-alt"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Cashout history
+            const myCashouts = allCashouts.filter(c => c.organiserId === currentUser.uid);
+            const histContainer = $('organiser-cashout-history');
+            if (myCashouts.length === 0) {
+                histContainer.innerHTML = '<p class="text-muted">No cashout requests yet.</p>';
+            } else {
+                histContainer.innerHTML = '';
+                myCashouts.forEach(co => {
+                    const ev = allEvents.find(e => e.id === co.eventId);
+                    const statusClass = co.status === 'approved' ? 'status-approved' :
+                        co.status === 'paid' ? 'status-paid' :
+                        co.status === 'rejected' ? 'status-rejected' : 'status-pending';
+                    const div = document.createElement('div');
+                    div.className = 'cashout-item';
+                    div.style.borderLeftColor = co.status === 'approved' ? '#28a745' :
+                        co.status === 'paid' ? '#004085' :
+                        co.status === 'rejected' ? '#dc3545' : '#ffc107';
+                    div.innerHTML = `
+                        <div class="info">
+                            <div class="name">${ev ? ev.eventName : 'Unknown Event'}</div>
+                            <div class="meta">Amount: <strong>$${co.amount.toFixed(2)}</strong> · ${new Date(co.requestedAt).toLocaleString()}</div>
+                            ${co.status === 'rejected' && co.adminNotes ? `<div class="meta" style="color:var(--pink);">Reason: ${co.adminNotes}</div>` : ''}
+                            ${co.status === 'approved' && co.adminNotes ? `<div class="meta" style="color:#155724;">Admin: ${co.adminNotes}</div>` : ''}
+                        </div>
+                        <span class="status-badge ${statusClass}">${co.status.toUpperCase()}</span>
+                    `;
+                    histContainer.appendChild(div);
+                });
+            }
+        }
+
+        // ========== CASHOUT MODAL ==========
+        function openCashoutModal(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            if (!ev) return alert('Event not found.');
+            const rev = getEventRevenue(eventId);
+            if (rev.revenue <= 0) return alert('No revenue to cash out.');
+
+            cashoutEventId = eventId;
+            $('co-event-name').value = ev.eventName;
+            $('co-amount').value = '$' + rev.revenue.toFixed(2);
+            $('co-details').value = '';
+            $('co-notes').value = '';
+            openModal('cashout-modal');
+        }
+
+        async function submitCashout() {
+            const details = $('co-details').value.trim();
+            if (!details) {
+                alert('Please provide payment details (bank / mobile money).');
+                return;
+            }
+            const ev = allEvents.find(e => e.id === cashoutEventId);
+            if (!ev) return alert('Event not found.');
+            const rev = getEventRevenue(cashoutEventId);
+
+            const data = {
+                eventId: cashoutEventId,
+                eventName: ev.eventName,
+                organiserId: currentUser.uid,
+                organiserName: ev.organizerName || currentUser.email || 'Organiser',
+                organiserEmail: currentUser.email,
+                amount: Math.round(rev.revenue * 100) / 100,
+                details: details,
+                notes: $('co-notes').value.trim() || '',
+                status: 'pending',
+                requestedAt: new Date().toISOString(),
+                processedAt: null,
+                adminNotes: ''
+            };
+
+            try {
+                await db.collection('cashout_requests').add(data);
+                alert('Cashout request submitted successfully!');
+                closeModal('cashout-modal');
+                loadAllData();
+            } catch (err) {
+                console.error('Cashout submit error:', err);
+                alert('Failed to submit cashout request. Check permissions.');
+            }
+        }
+
+        // ========== VIEW TICKETS ==========
+        function viewEventTickets(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            if (!ev) return alert('Event not found.');
+            const tickets = allTickets.filter(t => t.eventId === eventId);
+            if (tickets.length === 0) return alert('No tickets sold.');
+            let msg = `🎟️ Tickets for: ${ev.eventName}\n\n`;
+            tickets.forEach(t => {
+                msg +=
+                    `${t.buyerName} | ${t.ticketTypeName} | ${t.status} | ${t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}\n`;
+            });
+            alert(msg);
+        }
+
+        // ========== MODAL HELPERS ==========
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
+        });
+
+        // ========== GLOBALS ==========
+        window.openCashoutModal = openCashoutModal;
+        window.submitCashout = submitCashout;
+        window.viewEventTickets = viewEventTickets;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.refreshData = refreshData;
+        window.auth = auth;
+    </script>
+</body>
+</html>

@@ -9,6 +9,8 @@
     <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- ADDED: Firebase Auth Script -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
         :root {
             --navy: #102838;
@@ -220,6 +222,9 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        
+        // ADDED: Initialize Auth
+        const auth = firebase.auth(); 
 
         // ============ STATE ============
         let ticketCount = 0;
@@ -428,6 +433,10 @@
                 dressCode: document.getElementById('dressCode').value.trim(),
                 posterImage: posterBase64,
                 ticketTypes: ticketTypes,
+                
+                // ADDED: Pass the logged-in user's ID as the organizerId to pass Firestore Rules
+                organizerId: auth.currentUser.uid,
+                
                 status: 'approved',            // admin-created events are automatically approved
                 published: document.getElementById('publishStatus').value === 'published' ? true : false,
                 createdAt: isEditing ? (await db.collection('events').doc(editingEventId).get()).data().createdAt : new Date().toISOString(),
@@ -451,7 +460,7 @@
                 loadEvents();
             } catch (err) {
                 console.error('Save error:', err);
-                alert('Failed to save event.');
+                alert('Failed to save event. Check permissions.');
             }
         });
 
@@ -495,7 +504,7 @@
                 });
             } catch (err) {
                 console.error('Load error:', err);
-                listDiv.innerHTML = '<p class="helper">Failed to load events.</p>';
+                listDiv.innerHTML = '<p class="helper">Failed to load events. Ensure you are logged in.</p>';
             }
         }
 
@@ -570,14 +579,37 @@
             }
         };
 
-        // ============ INIT ============
+        // ============ INIT & AUTH CHECK ============
         document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
         document.getElementById('posterUpload').addEventListener('change', async function() {
             if (this.files[0]) await handlePosterUpload(this.files[0]);
         });
 
-        // initial load
-        loadEvents();
+        // ADDED: Listen for Auth State before loading data
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("Logged in as:", user.uid);
+                // Only load events if the user is authenticated
+                loadEvents();
+            } else {
+                // Prompt for login to access the admin panel
+                const email = prompt("Admin Login - Enter your email:");
+                if (email) {
+                    const password = prompt("Enter your password:");
+                    if (password) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .then(() => alert("Login successful!"))
+                            .catch((err) => {
+                                alert("Login failed: " + err.message);
+                                document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Please refresh to try again.</h2>";
+                            });
+                    }
+                } else {
+                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                }
+            }
+        });
+        
     </script>
 </body>
 </html>

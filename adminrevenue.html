@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone21 Admin Revenue Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        /* ===== ROOT ===== */
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --radius-sm: 10px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            color: var(--pink);
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .btn-primary:hover {
+            background: #1a3a4a;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .btn-lime:hover {
+            background: #d0d800;
+            transform: translateY(-2px);
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: #fff;
+        }
+        .btn-pink:hover {
+            background: #d0005e;
+        }
+        .btn-green {
+            background: #28a745;
+            color: #fff;
+        }
+        .btn-green:hover {
+            background: #1e7e34;
+        }
+        .btn-amber {
+            background: #ffc107;
+            color: var(--navy);
+        }
+        .btn-amber:hover {
+            background: #e0a800;
+        }
+        .btn-outline {
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.78rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .stat-card .icon {
+            font-size: 1.5rem;
+            color: var(--pink);
+            margin-bottom: 4px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px 22px;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header h2 i {
+            color: var(--pink);
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            background: #f0f4f8;
+            color: var(--navy);
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: #fafbfc;
+        }
+        .text-muted {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-amber {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-pink {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .badge-blue {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .badge-gray {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .expand-row {
+            display: none;
+            background: #f8f9fb;
+        }
+        .expand-row.open {
+            display: table-row;
+        }
+        .expand-content {
+            padding: 16px 20px;
+            border-radius: var(--radius-sm);
+        }
+        .ticket-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .ticket-breakdown .item {
+            background: #fff;
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .ticket-breakdown .item .name {
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .ticket-breakdown .item .count {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--pink);
+        }
+        .ticket-breakdown .item .rev {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .cashout-list {
+            margin-top: 10px;
+        }
+        .cashout-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px 14px;
+            background: #fafbfc;
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--lime);
+            margin-bottom: 8px;
+        }
+        .cashout-item .info {
+            flex: 1;
+            min-width: 160px;
+        }
+        .cashout-item .info .name {
+            font-weight: 600;
+        }
+        .cashout-item .info .meta {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: var(--radius);
+            max-width: 520px;
+            width: 100%;
+            padding: 24px 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: fadeUp 0.25s ease;
+        }
+        .modal-box h2 {
+            font-size: 1.3rem;
+            color: var(--navy);
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 8px;
+        }
+        .modal-box .form-group {
+            margin-bottom: 14px;
+        }
+        .modal-box .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .modal-box .form-group input,
+        .modal-box .form-group textarea,
+        .modal-box .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            outline: none;
+            background: #fafbfc;
+        }
+        .modal-box .form-group input:focus,
+        .modal-box .form-group textarea:focus {
+            border-color: var(--navy);
+            background: #fff;
+        }
+        .modal-box .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            justify-content: flex-end;
+        }
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .flex {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .gap-8 {
+            gap: 8px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .truncate {
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-paid {
+            background: #cce5ff;
+            color: #004085;
+        }
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-cancelled {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .stat-card .value {
+                font-size: 1.5rem;
+            }
+            .card {
+                padding: 14px 12px;
+            }
+            table {
+                font-size: 0.78rem;
+            }
+            th,
+            td {
+                padding: 8px 6px;
+            }
+            .modal-box {
+                padding: 18px 16px;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 12px 10px;
+            }
+            .stat-card .value {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> Zone21 Admin Revenue</h1>
+            <div class="header-actions">
+                <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn btn-primary btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
+                <button class="btn btn-pink btn-sm" onclick="auth.signOut(); location.reload();"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                <span id="user-email" style="font-size:0.85rem;color:var(--muted);"></span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="admin-stats">
+            <div class="stat-card"><div class="icon"><i class="fas fa-coins"></i></div><div class="value" id="a-total-revenue">$0</div><div class="label">Total Revenue</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-ticket-alt"></i></div><div class="value" id="a-total-tickets">0</div><div class="label">Tickets Sold</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-calendar-check"></i></div><div class="value" id="a-total-events">0</div><div class="label">Total Events</div></div>
+            <div class="stat-card"><div class="icon"><i class="fas fa-hand-holding-usd"></i></div><div class="value" id="a-pending-cashouts">0</div><div class="label">Pending Cashouts</div></div>
+        </div>
+
+        <!-- Revenue per Event -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-list-ul"></i> Revenue per Event</h2>
+                <span class="text-muted" id="event-count-badge">0 events</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Tickets Sold</th>
+                            <th>Revenue</th>
+                            <th>Cashout Status</th>
+                            <th style="width:120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-events-table">
+                        <tr><td colspan="6" class="text-center text-muted">Loading events...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cashout Requests -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-hand-holding-usd"></i> Cashout Requests</h2>
+                <span class="text-muted" id="cashout-count-badge">0 pending</span>
+            </div>
+            <div id="admin-cashout-list" class="cashout-list">
+                <p class="text-muted">No cashout requests yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashout Detail Modal -->
+    <div class="modal-overlay" id="cashout-detail-modal">
+        <div class="modal-box">
+            <h2><i class="fas fa-clipboard-list"></i> Cashout Request</h2>
+            <div id="cashout-detail-body">
+                <p><strong>Event:</strong> <span id="cd-event-name"></span></p>
+                <p><strong>Organiser:</strong> <span id="cd-organiser"></span></p>
+                <p><strong>Amount:</strong> <span id="cd-amount" style="font-weight:700;color:var(--pink);"></span></p>
+                <p><strong>Payment Details:</strong> <span id="cd-details"></span></p>
+                <p><strong>Notes:</strong> <span id="cd-notes"></span></p>
+                <p><strong>Requested:</strong> <span id="cd-requested"></span></p>
+                <hr style="margin:14px 0;border-color:var(--border);">
+                <div class="form-group">
+                    <label>Admin Notes</label>
+                    <textarea id="cd-admin-notes" placeholder="Add your notes..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-outline" onclick="closeModal('cashout-detail-modal')">Close</button>
+                    <button class="btn btn-danger btn-sm" onclick="processCashout('reject')"><i class="fas fa-times"></i> Reject</button>
+                    <button class="btn btn-green btn-sm" onclick="processCashout('approve')"><i class="fas fa-check"></i> Approve</button>
+                    <button class="btn btn-primary btn-sm" onclick="processCashout('paid')"><i class="fas fa-check-circle"></i> Mark Paid</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ========== STATE ==========
+        let allEvents = [];
+        let allTickets = [];
+        let allInvoices = [];
+        let allCashouts = [];
+        let currentUser = null;
+        let selectedCashoutId = null;
+
+        // ========== DOM REFS ==========
+        const $ = id => document.getElementById(id);
+
+        // ========== AUTH ==========
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                $('user-email').textContent = user.email || user.uid;
+                loadAllData();
+            } else {
+                const email = prompt('Admin Login - Enter your email:');
+                if (email) {
+                    const pw = prompt('Enter your password:');
+                    if (pw) {
+                        auth.signInWithEmailAndPassword(email, pw)
+                            .then(() => alert('Login successful!'))
+                            .catch(err => {
+                                alert('Login failed: ' + err.message);
+                                document.body.innerHTML =
+                                    '<h2 style="padding:30px;color:var(--navy);">Access Denied. Please refresh to retry.</h2>';
+                            });
+                    }
+                } else {
+                    document.body.innerHTML =
+                        '<h2 style="padding:30px;color:var(--navy);">Authentication required.</h2>';
+                }
+            }
+        });
+
+        // ========== LOAD DATA ==========
+        async function loadAllData() {
+            try {
+                const evSnap = await db.collection('events').get();
+                allEvents = [];
+                evSnap.forEach(d => allEvents.push({ id: d.id, ...d.data() }));
+
+                const ticSnap = await db.collection('tickets').get();
+                allTickets = [];
+                ticSnap.forEach(d => allTickets.push({ id: d.id, ...d.data() }));
+
+                const invSnap = await db.collection('invoices').where('status', '==', 'paid').get();
+                allInvoices = [];
+                invSnap.forEach(d => allInvoices.push({ id: d.id, ...d.data() }));
+
+                // Cashouts - try with orderBy, fallback to client sort
+                try {
+                    const coSnap = await db.collection('cashout_requests').orderBy('requestedAt', 'desc').get();
+                    allCashouts = [];
+                    coSnap.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                } catch (e) {
+                    const coSnap2 = await db.collection('cashout_requests').get();
+                    allCashouts = [];
+                    coSnap2.forEach(d => allCashouts.push({ id: d.id, ...d.data() }));
+                    allCashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+                }
+
+                renderAdmin();
+            } catch (err) {
+                console.error('Load error:', err);
+            }
+        }
+
+        function refreshData() { loadAllData(); }
+
+        // ========== COMPUTATIONS ==========
+        function getEventRevenue(eventId) {
+            const tickets = allTickets.filter(t => t.eventId === eventId && (t.status === 'approved' || t.status ===
+            'scanned'));
+            const sold = tickets.length;
+            let revenue = 0;
+            tickets.forEach(t => {
+                const inv = allInvoices.find(i => i.ticketId === t.id);
+                if (inv && inv.amount) revenue += inv.amount;
+                else {
+                    const ev = allEvents.find(e => e.id === eventId);
+                    if (ev && ev.ticketTypes) {
+                        const tt = ev.ticketTypes.find(tk => tk.name === t.ticketTypeName);
+                        if (tt) revenue += tt.price;
+                    }
+                }
+            });
+            return { sold, revenue: Math.round(revenue * 100) / 100 };
+        }
+
+        function getEventCashoutStatus(eventId) {
+            const cashouts = allCashouts.filter(c => c.eventId === eventId);
+            if (cashouts.length === 0) return 'pending'; // no request
+            const latest = cashouts.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt))[0];
+            return latest.status;
+        }
+
+        // ========== RENDER ADMIN ==========
+        function renderAdmin() {
+            const totalRevenue = allEvents.reduce((sum, ev) => sum + getEventRevenue(ev.id).revenue, 0);
+            const totalTickets = allEvents.reduce((sum, ev) => sum + getEventRevenue(ev.id).sold, 0);
+            const pendingCashouts = allCashouts.filter(c => c.status === 'pending').length;
+
+            $('a-total-revenue').textContent = '$' + totalRevenue.toFixed(2);
+            $('a-total-tickets').textContent = totalTickets;
+            $('a-total-events').textContent = allEvents.length;
+            $('a-pending-cashouts').textContent = pendingCashouts;
+            $('event-count-badge').textContent = allEvents.length + ' events';
+
+            // Table
+            const tbody = $('admin-events-table');
+            if (allEvents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No events found.</td></tr>';
+            } else {
+                tbody.innerHTML = '';
+                allEvents.forEach(ev => {
+                    const rev = getEventRevenue(ev.id);
+                    const status = getEventCashoutStatus(ev.id);
+                    const statusLabel = status === 'pending' ? 'Not Requested' :
+                        status === 'approved' ? 'Approved' :
+                        status === 'paid' ? 'Paid' :
+                        status === 'rejected' ? 'Rejected' : 'Pending';
+                    const statusClass = status === 'approved' ? 'badge-green' :
+                        status === 'paid' ? 'badge-blue' :
+                        status === 'rejected' ? 'badge-pink' :
+                        status === 'pending' ? 'badge-amber' : 'badge-gray';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span class="truncate" title="${ev.eventName}">${ev.eventName}</span></td>
+                        <td>${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'}</td>
+                        <td>${rev.sold}</td>
+                        <td><strong>$${rev.revenue.toFixed(2)}</strong></td>
+                        <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" onclick="toggleExpand('${ev.id}')"><i class="fas fa-chevron-down"></i></button>
+                            <button class="btn btn-outline btn-sm" onclick="viewEventTickets('${ev.id}')"><i class="fas fa-ticket-alt"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    // Expand row
+                    const expandTr = document.createElement('tr');
+                    expandTr.className = 'expand-row';
+                    expandTr.id = `expand-${ev.id}`;
+                    expandTr.innerHTML = `
+                        <td colspan="6">
+                            <div class="expand-content">
+                                <strong>Ticket Breakdown</strong>
+                                <div class="ticket-breakdown" id="breakdown-${ev.id}">Loading...</div>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(expandTr);
+                    loadTicketBreakdown(ev.id);
+                });
+            }
+
+            // Cashouts
+            renderCashouts();
+        }
+
+        function loadTicketBreakdown(eventId) {
+            const container = document.getElementById(`breakdown-${eventId}`);
+            if (!container) return;
+            const ev = allEvents.find(e => e.id === eventId);
+            if (!ev || !ev.ticketTypes) {
+                container.innerHTML = '<span class="text-muted">No ticket types.</span>';
+                return;
+            }
+            const tickets = allTickets.filter(t => t.eventId === eventId && (t.status === 'approved' || t.status ===
+            'scanned'));
+            let html = '';
+            ev.ticketTypes.forEach(tt => {
+                const count = tickets.filter(t => t.ticketTypeName === tt.name).length;
+                const rev = count * tt.price;
+                html += `
+                    <div class="item">
+                        <div class="name">${tt.name}</div>
+                        <div class="count">${count}</div>
+                        <div class="rev">$${rev.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html || '<span class="text-muted">No tickets sold.</span>';
+        }
+
+        function toggleExpand(eventId) {
+            const row = document.getElementById(`expand-${eventId}`);
+            if (row) row.classList.toggle('open');
+        }
+
+        function viewEventTickets(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            if (!ev) return alert('Event not found.');
+            const tickets = allTickets.filter(t => t.eventId === eventId);
+            if (tickets.length === 0) return alert('No tickets sold.');
+            let msg = `🎟️ Tickets for: ${ev.eventName}\n\n`;
+            tickets.forEach(t => {
+                msg +=
+                    `${t.buyerName} | ${t.ticketTypeName} | ${t.status} | ${t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}\n`;
+            });
+            alert(msg);
+        }
+
+        function renderCashouts() {
+            const container = $('admin-cashout-list');
+            const pending = allCashouts.filter(c => c.status === 'pending');
+            $('cashout-count-badge').textContent = pending.length + ' pending';
+            if (pending.length === 0) {
+                container.innerHTML = '<p class="text-muted">No pending cashout requests.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            pending.forEach(co => {
+                const ev = allEvents.find(e => e.id === co.eventId);
+                const div = document.createElement('div');
+                div.className = 'cashout-item';
+                div.innerHTML = `
+                    <div class="info">
+                        <div class="name">${ev ? ev.eventName : 'Unknown Event'}</div>
+                        <div class="meta">Organiser: ${co.organiserName || '—'} · Amount: <strong>$${co.amount.toFixed(2)}</strong> · ${new Date(co.requestedAt).toLocaleString()}</div>
+                    </div>
+                    <div class="flex gap-8">
+                        <button class="btn btn-primary btn-sm" onclick="openCashoutDetail('${co.id}')"><i class="fas fa-eye"></i> Review</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // ========== CASHOUT DETAIL (ADMIN) ==========
+        function openCashoutDetail(cashoutId) {
+            selectedCashoutId = cashoutId;
+            const co = allCashouts.find(c => c.id === cashoutId);
+            if (!co) return alert('Cashout not found.');
+            const ev = allEvents.find(e => e.id === co.eventId);
+            $('cd-event-name').textContent = ev ? ev.eventName : 'Unknown Event';
+            $('cd-organiser').textContent = co.organiserName || co.organiserEmail || '—';
+            $('cd-amount').textContent = '$' + co.amount.toFixed(2);
+            $('cd-details').textContent = co.details || '—';
+            $('cd-notes').textContent = co.notes || '—';
+            $('cd-requested').textContent = co.requestedAt ? new Date(co.requestedAt).toLocaleString() : '—';
+            $('cd-admin-notes').value = co.adminNotes || '';
+            openModal('cashout-detail-modal');
+        }
+
+        async function processCashout(action) {
+            if (!selectedCashoutId) return;
+            const co = allCashouts.find(c => c.id === selectedCashoutId);
+            if (!co) return alert('Cashout not found.');
+            let status = '';
+            let confirmMsg = '';
+            if (action === 'approve') { status = 'approved';
+                confirmMsg = 'Approve this cashout?'; } else if (action === 'reject') { status = 'rejected';
+                confirmMsg = 'Reject this cashout?'; } else if (action === 'paid') { status = 'paid';
+                confirmMsg = 'Mark as paid?'; }
+            if (!confirm(confirmMsg)) return;
+            const adminNotes = $('cd-admin-notes').value.trim();
+            try {
+                await db.collection('cashout_requests').doc(selectedCashoutId).update({
+                    status,
+                    processedAt: new Date().toISOString(),
+                    adminNotes: adminNotes || co.adminNotes || ''
+                });
+                alert('Cashout updated to: ' + status.toUpperCase());
+                closeModal('cashout-detail-modal');
+                loadAllData();
+            } catch (err) {
+                console.error(err);
+                alert('Update failed.');
+            }
+        }
+
+        // ========== MODAL HELPERS ==========
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
+        });
+
+        // ========== EXPORT CSV ==========
+        function exportCSV() {
+            if (allEvents.length === 0) return alert('No events.');
+            let csv = 'Event,Date,Tickets Sold,Revenue,Cashout Status\n';
+            allEvents.forEach(ev => {
+                const rev = getEventRevenue(ev.id);
+                const status = getEventCashoutStatus(ev.id);
+                csv +=
+                    `"${ev.eventName}",${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'},${rev.sold},${rev.revenue.toFixed(2)},${status}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'zone21_admin_revenue.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ========== GLOBALS ==========
+        window.toggleExpand = toggleExpand;
+        window.viewEventTickets = viewEventTickets;
+        window.openCashoutDetail = openCashoutDetail;
+        window.processCashout = processCashout;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.exportCSV = exportCSV;
+        window.refreshData = refreshData;
+        window.auth = auth;
+    </script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 | Admin Support Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 1300px; margin: 0 auto; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; flex-wrap: wrap; gap: 15px;
+        }
+        .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .btn {
+            padding: 10px 20px; border-radius: 30px; font-weight: 700; font-size: 0.9rem;
+            cursor: pointer; border: none; transition: 0.3s; display: inline-flex;
+            align-items: center; gap: 8px;
+        }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
+        .btn-outline:hover { background: #f0f0f0; }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d0d800; }
+        .btn-pink { background: var(--pink); color: white; }
+        .btn-pink:hover { background: #d0005e; }
+        .btn-navy { background: var(--navy); color: var(--lime); }
+        .btn-navy:hover { background: #1a3a4a; }
+
+        .stats-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px; margin-bottom: 25px;
+        }
+        .stat-card {
+            background: white; border-radius: 12px; padding: 20px;
+            box-shadow: var(--shadow); text-align: center;
+        }
+        .stat-card .value { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
+
+        .tab-nav {
+            display: flex; gap: 5px; background: white; border-radius: 40px;
+            padding: 6px; margin-bottom: 25px; box-shadow: var(--shadow); overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1; min-width: 140px; padding: 12px 20px; border-radius: 30px;
+            border: none; cursor: pointer; font-weight: 700; font-size: 0.85rem;
+            transition: 0.3s; background: transparent; color: var(--text-muted);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            white-space: nowrap;
+        }
+        .tab-btn.active { background: var(--navy); color: var(--lime); }
+        .tab-btn .badge {
+            background: var(--pink); color: white; font-size: 0.7rem;
+            padding: 2px 8px; border-radius: 15px; font-weight: 700;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 25px; margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.2rem; font-weight: 700; color: var(--navy);
+            margin-bottom: 15px; border-bottom: 3px solid var(--lime); padding-bottom: 10px;
+        }
+
+        .message-card {
+            background: #fafbfc; border: 1px solid var(--border); border-radius: 12px;
+            padding: 18px; margin-bottom: 12px; transition: 0.2s;
+        }
+        .message-card.unread { border-left: 4px solid var(--pink); background: #fff5f8; }
+        .message-card .msg-header {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 10px;
+        }
+        .message-card .msg-sender { font-weight: 700; color: var(--navy); }
+        .message-card .msg-type {
+            font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+            border-radius: 20px; text-transform: uppercase;
+        }
+        .type-query { background: #e3f2fd; color: #1565c0; }
+        .type-payment { background: #fff3e0; color: #e65100; }
+        .type-chat { background: #e8f5e9; color: #2e7d32; }
+        .message-card .msg-body { font-size: 0.9rem; color: #444; margin-bottom: 10px; }
+        .message-card .msg-proof { max-width: 150px; border-radius: 8px; margin: 10px 0; }
+        .message-card .msg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .message-card .msg-time { font-size: 0.75rem; color: #aaa; margin-top: 8px; }
+
+        .reply-box {
+            display: none; margin-top: 12px; background: white; border-radius: 10px;
+            padding: 15px; border: 1px solid var(--border);
+        }
+        .reply-box textarea {
+            width: 100%; padding: 10px; border: 1px solid var(--border);
+            border-radius: 8px; min-height: 70px; resize: vertical; margin-bottom: 10px;
+            font-size: 0.9rem; outline: none;
+        }
+        .reply-box .template-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .template-btn {
+            background: #f0f4f8; border: 1px solid var(--border); border-radius: 20px;
+            padding: 5px 12px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;
+            font-weight: 600;
+        }
+        .template-btn:hover { background: var(--navy); color: var(--lime); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: var(--navy); font-size: 0.85rem; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 11px 14px; border: 1.5px solid var(--border);
+            border-radius: 10px; font-size: 0.9rem; outline: none; background: #fafbfc;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--lime); background: white; }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+
+        .template-card {
+            background: #fafbfc; border: 1px solid var(--border); border-radius: 10px;
+            padding: 15px; margin-bottom: 10px;
+        }
+        .template-card .template-title { font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+        .template-card .template-content { font-size: 0.85rem; color: #555; }
+
+        @media (max-width: 700px) {
+            .tab-nav { flex-direction: row; flex-wrap: nowrap; }
+            .tab-btn { min-width: 110px; font-size: 0.75rem; padding: 10px 12px; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-headset" style="color:var(--pink);"></i> Admin Support Panel</h1>
+            <a href="admin-dashboard.html" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-card"><div class="value" id="stat-total">0</div><div class="label">Total Messages</div></div>
+            <div class="stat-card"><div class="value" id="stat-unread">0</div><div class="label">Unread</div></div>
+            <div class="stat-card"><div class="value" id="stat-payments">0</div><div class="label">Payment Proofs</div></div>
+            <div class="stat-card"><div class="value" id="stat-queries">0</div><div class="label">Queries</div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="inbox"><i class="fas fa-inbox"></i> Inbox <span class="badge" id="inbox-badge" style="display:none;">0</span></button>
+            <button class="tab-btn" data-tab="payments"><i class="fas fa-file-invoice-dollar"></i> Payment Proofs</button>
+            <button class="tab-btn" data-tab="queries"><i class="fas fa-question-circle"></i> Queries</button>
+            <button class="tab-btn" data-tab="templates"><i class="fas fa-envelope-open-text"></i> Templates</button>
+            <button class="tab-btn" data-tab="broadcast"><i class="fas fa-bullhorn"></i> System Update</button>
+        </div>
+
+        <!-- Inbox -->
+        <div class="tab-content active" id="tab-inbox">
+            <div class="card">
+                <h2>All Messages</h2>
+                <div id="inbox-list"></div>
+            </div>
+        </div>
+
+        <!-- Payment Proofs -->
+        <div class="tab-content" id="tab-payments">
+            <div class="card">
+                <h2>Payment Proof Submissions</h2>
+                <div id="payments-list"></div>
+            </div>
+        </div>
+
+        <!-- Queries -->
+        <div class="tab-content" id="tab-queries">
+            <div class="card">
+                <h2>General Queries</h2>
+                <div id="queries-list"></div>
+            </div>
+        </div>
+
+        <!-- Templates -->
+        <div class="tab-content" id="tab-templates">
+            <div class="card">
+                <h2>Notification Templates</h2>
+                <div id="templates-list"></div>
+                <button class="btn btn-lime" onclick="addNewTemplate()"><i class="fas fa-plus"></i> Add Template</button>
+            </div>
+        </div>
+
+        <!-- System Update Broadcast -->
+        <div class="tab-content" id="tab-broadcast">
+            <div class="card">
+                <h2>Send System Update Notification</h2>
+                <form id="broadcastForm">
+                    <div class="form-group">
+                        <label>Notification Title *</label>
+                        <input type="text" id="broadcastTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Notification Message *</label>
+                        <textarea id="broadcastMessage" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Target Audience *</label>
+                        <select id="broadcastTarget" required>
+                            <option value="">Select...</option>
+                            <option value="all">All Users</option>
+                            <option value="organizers">Organizers Only</option>
+                            <option value="service_providers">Service Providers Only</option>
+                            <option value="attendees">Attendees Only</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-pink btn-block"><i class="fas fa-bullhorn"></i> Send Notification</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reply Modal -->
+    <div id="replyModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:16px; padding:25px; max-width:500px; width:95%; max-height:90vh; overflow-y:auto;">
+            <h3 style="margin-bottom:15px;">Reply to Message</h3>
+            <div id="replyOriginal" style="background:#fafbfc; padding:12px; border-radius:8px; margin-bottom:15px; font-size:0.85rem;"></div>
+            <div class="template-btns" id="replyTemplates" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;"></div>
+            <textarea id="replyText" placeholder="Type your reply..." style="width:100%; padding:12px; border:1px solid var(--border); border-radius:8px; min-height:100px; resize:vertical; margin-bottom:15px; font-size:0.9rem;"></textarea>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-lime" onclick="sendReply()"><i class="fas fa-paper-plane"></i> Send Reply</button>
+                <button class="btn btn-outline" onclick="closeReplyModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentReplyDocId = null;
+        let currentReplyUserId = null;
+
+        // ============ TEMPLATES ============
+        const defaultTemplates = [
+            { id: 'tpl_payment_approved', title: 'Payment Approved', content: 'Your payment has been approved. Thank you for choosing Zone21! 🎉' },
+            { id: 'tpl_issue_resolved', title: 'Issue Resolved', content: 'Your issue has been resolved. If you need further assistance, please contact us.' },
+            { id: 'tpl_investigating', title: 'We Are Investigating', content: 'We are currently investigating your issue. We will update you shortly.' },
+            { id: 'tpl_more_info', title: 'Need More Information', content: 'We need more information to process your request. Please provide additional details.' },
+            { id: 'tpl_welcome', title: 'Welcome to Zone21', content: 'Welcome to Zone21! Your account has been successfully created. 🎉' }
+        ];
+
+        // ============ LOAD ALL DATA ============
+        function loadAllData() {
+            loadInbox();
+            loadPayments();
+            loadQueries();
+            loadTemplates();
+            loadStats();
+        }
+
+        function loadStats() {
+            db.collection('messages').onSnapshot(snap => {
+                let total = 0, unread = 0, payments = 0, queries = 0;
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    total++;
+                    if (d.status === 'unread' || d.status === 'pending') unread++;
+                    if (d.type === 'payment_proof') payments++;
+                    if (d.type === 'general_query') queries++;
+                });
+                document.getElementById('stat-total').textContent = total;
+                document.getElementById('stat-unread').textContent = unread;
+                document.getElementById('stat-payments').textContent = payments;
+                document.getElementById('stat-queries').textContent = queries;
+            });
+        }
+
+        // ============ INBOX ============
+        function loadInbox() {
+            db.collection('messages').orderBy('createdAt', 'desc').limit(50).onSnapshot(snap => {
+                const list = document.getElementById('inbox-list');
+                list.innerHTML = '';
+                let unread = 0;
+                if (snap.empty) list.innerHTML = '<p>No messages.</p>';
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    if (d.status === 'unread' || d.status === 'pending') unread++;
+                    list.appendChild(createMessageCard(d));
+                });
+                const badge = document.getElementById('inbox-badge');
+                badge.style.display = unread > 0 ? 'inline' : 'none';
+                badge.textContent = unread;
+            });
+        }
+
+        function loadPayments() {
+            db.collection('messages').where('type', '==', 'payment_proof').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const list = document.getElementById('payments-list');
+                list.innerHTML = '';
+                if (snap.empty) list.innerHTML = '<p>No payment proofs.</p>';
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    list.appendChild(createMessageCard(d));
+                });
+            });
+        }
+
+        function loadQueries() {
+            db.collection('messages').where('type', '==', 'general_query').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const list = document.getElementById('queries-list');
+                list.innerHTML = '';
+                if (snap.empty) list.innerHTML = '<p>No queries.</p>';
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    list.appendChild(createMessageCard(d));
+                });
+            });
+        }
+
+        function createMessageCard(d) {
+            const div = document.createElement('div');
+            div.className = `message-card ${d.status === 'unread' || d.status === 'pending' ? 'unread' : ''}`;
+            div.id = `msg-${d.id}`;
+            
+            const typeClass = d.type === 'payment_proof' ? 'type-payment' : d.type === 'general_query' ? 'type-query' : 'type-chat';
+            const typeLabel = d.type === 'payment_proof' ? 'Payment Proof' : d.type === 'general_query' ? 'Query' : 'Chat';
+            
+            let proofHtml = '';
+            if (d.proofImage) {
+                proofHtml = `<img src="${d.proofImage}" class="msg-proof" alt="Payment Proof">`;
+            }
+            
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span class="msg-sender"><i class="fas fa-user"></i> ${d.name || d.sender || 'Unknown'}</span>
+                    <span class="msg-type ${typeClass}">${typeLabel}</span>
+                </div>
+                ${d.phone ? `<div style="font-size:0.8rem; color:#666;"><i class="fas fa-phone"></i> ${d.phone}</div>` : ''}
+                ${d.email && d.email !== 'Not provided' ? `<div style="font-size:0.8rem; color:#666;"><i class="fas fa-envelope"></i> ${d.email}</div>` : ''}
+                ${d.method ? `<div style="font-size:0.8rem; color:#666;"><i class="fas fa-credit-card"></i> ${d.method} - $${d.amount || 0}</div>` : ''}
+                ${d.purpose ? `<div style="font-size:0.8rem; color:#666;"><i class="fas fa-tag"></i> ${d.purpose}</div>` : ''}
+                <div class="msg-body">${d.message || d.subject || '(No message)'}</div>
+                ${proofHtml}
+                <div class="msg-time">${d.createdAt ? d.createdAt.toDate().toLocaleString() : 'Just now'}</div>
+                <div class="msg-actions">
+                    <button class="btn btn-lime" onclick="openReplyModal('${d.id}', '${d.senderId || ''}')" style="padding:6px 14px; font-size:0.75rem;"><i class="fas fa-reply"></i> Reply</button>
+                    <button class="btn btn-navy" onclick="markResolved('${d.id}')" style="padding:6px 14px; font-size:0.75rem;"><i class="fas fa-check"></i> Resolve</button>
+                    <button class="btn btn-pink" onclick="deleteMessage('${d.id}')" style="padding:6px 14px; font-size:0.75rem;"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            return div;
+        }
+
+        // ============ REPLY ============
+        function openReplyModal(docId, userId) {
+            currentReplyDocId = docId;
+            currentReplyUserId = userId;
+            
+            // Show original message
+            db.collection('messages').doc(docId).get().then(doc => {
+                const d = doc.data();
+                document.getElementById('replyOriginal').innerHTML = `
+                    <strong>From:</strong> ${d.name || 'User'}<br>
+                    <strong>Message:</strong> ${d.message || d.subject || 'Payment proof submission'}<br>
+                    ${d.amount ? `<strong>Amount:</strong> $${d.amount} via ${d.method}` : ''}
+                `;
+            });
+            
+            // Load templates
+            loadTemplatesIntoReply();
+            
+            document.getElementById('replyModal').style.display = 'flex';
+        }
+
+        function loadTemplatesIntoReply() {
+            const container = document.getElementById('replyTemplates');
+            container.innerHTML = '';
+            db.collection('templates').get().then(snap => {
+                if (snap.empty) {
+                    defaultTemplates.forEach(t => {
+                        container.innerHTML += `<button class="template-btn" onclick="useTemplate('${t.content.replace(/'/g, "\\'")}')">${t.title}</button>`;
+                    });
+                } else {
+                    snap.forEach(doc => {
+                        const t = doc.data();
+                        container.innerHTML += `<button class="template-btn" onclick="useTemplate('${t.content.replace(/'/g, "\\'")}')">${t.title}</button>`;
+                    });
+                }
+            });
+        }
+
+        function useTemplate(content) {
+            document.getElementById('replyText').value = content;
+        }
+
+        function closeReplyModal() {
+            document.getElementById('replyModal').style.display = 'none';
+            document.getElementById('replyText').value = '';
+            currentReplyDocId = null;
+        }
+
+        async function sendReply() {
+            const replyText = document.getElementById('replyText').value.trim();
+            if (!replyText || !currentReplyDocId) return;
+            
+            try {
+                // Save reply as a chat message to the user
+                await db.collection('messages').add({
+                    sender: 'admin',
+                    senderId: currentReplyUserId || 'user',
+                    message: replyText,
+                    type: 'chat',
+                    status: 'unread',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Update original message status
+                await db.collection('messages').doc(currentReplyDocId).update({
+                    status: 'resolved',
+                    repliedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                closeReplyModal();
+                alert('Reply sent!');
+                loadAllData();
+            } catch (err) {
+                alert('Failed to send reply.');
+            }
+        }
+
+        async function markResolved(docId) {
+            await db.collection('messages').doc(docId).update({ status: 'resolved' });
+            loadAllData();
+        }
+
+        async function deleteMessage(docId) {
+            if (!confirm('Delete this message?')) return;
+            await db.collection('messages').doc(docId).delete();
+            loadAllData();
+        }
+
+        // ============ TEMPLATES ============
+        function loadTemplates() {
+            const list = document.getElementById('templates-list');
+            list.innerHTML = '';
+            
+            db.collection('templates').get().then(snap => {
+                if (snap.empty) {
+                    // Show default templates
+                    defaultTemplates.forEach(t => {
+                        const div = document.createElement('div');
+                        div.className = 'template-card';
+                        div.innerHTML = `
+                            <div class="template-title">${t.title}</div>
+                            <div class="template-content">${t.content}</div>
+                        `;
+                        list.appendChild(div);
+                    });
+                } else {
+                    snap.forEach(doc => {
+                        const t = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'template-card';
+                        div.innerHTML = `
+                            <div class="template-title">${t.title}</div>
+                            <div class="template-content">${t.content}</div>
+                            <button class="btn btn-outline" onclick="deleteTemplate('${doc.id}')" style="padding:4px 10px; font-size:0.7rem; margin-top:8px;"><i class="fas fa-trash"></i></button>
+                        `;
+                        list.appendChild(div);
+                    });
+                }
+            });
+        }
+
+        function addNewTemplate() {
+            const title = prompt('Template title:');
+            if (!title) return;
+            const content = prompt('Template content:');
+            if (!content) return;
+            db.collection('templates').add({ title, content, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            loadTemplates();
+        }
+
+        async function deleteTemplate(id) {
+            await db.collection('templates').doc(id).delete();
+            loadTemplates();
+        }
+
+        // ============ BROADCAST ============
+        document.getElementById('broadcastForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                await db.collection('notifications').add({
+                    title: document.getElementById('broadcastTitle').value,
+                    message: document.getElementById('broadcastMessage').value,
+                    target: document.getElementById('broadcastTarget').value,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('System notification sent!');
+                this.reset();
+            } catch (err) {
+                alert('Failed to send notification.');
+            }
+        });
+
+        // ============ TAB SWITCHING ============
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Init
+        loadAllData();
+    </script>
+</body>
+</html>

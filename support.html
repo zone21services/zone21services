@@ -10,13 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* (same refined styles as previous version, but with minor additions for image preview) */
-        :root {
-            --navy: #102838; --lime: #C0C800; --pink: #F80070;
-            --bg: #f5f7fa; --card-bg: #ffffff; --text: #1a1a2e;
-            --text-muted: #6c757d; --border: #e0e0e8;
-            --radius: 16px; --shadow: 0 8px 30px rgba(16,40,56,0.08);
-        }
+        /* styles same as refined version, with minor additions */
+        :root { --navy:#102838; --lime:#C0C800; --pink:#F80070; --bg:#f5f7fa; --card:#fff; --text:#1a1a2e; --muted:#6c757d; --border:#e0e0e8; --radius:16px; --shadow:0 8px 30px rgba(16,40,56,0.08); }
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
         body { background:var(--bg); color:var(--text); padding:20px; min-height:100vh; }
         .container { max-width:1100px; margin:0 auto; }
@@ -31,7 +26,7 @@
         .tab-btn .badge { background:var(--pink); color:white; font-size:0.7rem; padding:2px 8px; border-radius:15px; font-weight:700; }
         .tab-content { display:none; }
         .tab-content.active { display:block; }
-        .card { background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow); padding:25px; margin-bottom:20px; }
+        .card { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:25px; margin-bottom:20px; }
         .card h2 { font-size:1.2rem; font-weight:700; color:var(--navy); margin-bottom:15px; border-bottom:3px solid var(--lime); padding-bottom:10px; }
         .form-row { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
         .form-group { margin-bottom:15px; }
@@ -40,12 +35,9 @@
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--lime); background:white; }
         .form-group textarea { min-height:90px; resize:vertical; }
         .btn { padding:12px 20px; border-radius:30px; font-weight:700; font-size:0.9rem; cursor:pointer; border:none; transition:0.3s; display:inline-flex; align-items:center; gap:8px; }
-        .btn-lime { background:var(--lime); color:var(--navy); }
-        .btn-lime:hover { background:#d0d800; }
-        .btn-pink { background:var(--pink); color:white; }
-        .btn-pink:hover { background:#d0005e; }
-        .btn-navy { background:var(--navy); color:var(--lime); }
-        .btn-navy:hover { background:#1a3a4a; }
+        .btn-lime { background:var(--lime); color:var(--navy); } .btn-lime:hover { background:#d0d800; }
+        .btn-pink { background:var(--pink); color:white; } .btn-pink:hover { background:#d0005e; }
+        .btn-navy { background:var(--navy); color:var(--lime); } .btn-navy:hover { background:#1a3a4a; }
         .btn-block { width:100%; justify-content:center; }
         .contact-methods { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
         .contact-method { background:#fafbfc; border:1px solid var(--border); border-radius:10px; padding:18px; text-align:center; transition:0.2s; text-decoration:none; color:inherit; cursor:pointer; }
@@ -187,7 +179,15 @@
     let currentUserId = 'demo-user';
     let chatImageBase64 = null;
 
-    auth.onAuthStateChanged(user => { if(user) currentUserId = user.uid; loadNotifications(); loadChatMessages(); });
+    auth.onAuthStateChanged(user => { 
+        if(user) { 
+            currentUserId = user.uid; 
+            loadNotifications(); 
+            loadChatMessages(); 
+        } else {
+            window.location.href = 'login.html';
+        }
+    });
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -212,7 +212,7 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             alert('Query sent!'); this.reset();
-        }catch(err){ alert('Failed.'); }
+        }catch(err){ alert('Failed to send query.'); }
     });
 
     document.getElementById('paymentForm').addEventListener('submit', async function(e){
@@ -235,7 +235,7 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             alert('Payment proof submitted!'); this.reset();
-        }catch(err){ alert('Failed.'); }
+        }catch(err){ alert('Failed to submit payment proof.'); }
     });
 
     function previewChatImage(input){
@@ -255,65 +255,78 @@
         if(!msg && !chatImageBase64) return;
         try{
             await db.collection('messages').add({
-                sender: 'user', senderId: currentUserId, message: msg,
+                sender: 'user', 
+                senderId: currentUserId, 
+                message: msg,
                 image: chatImageBase64 || null,
-                type: 'chat', status: 'unread',
+                type: 'chat', 
+                status: 'unread',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             document.getElementById('chatInput').value = '';
             chatImageBase64 = null;
             document.getElementById('chatImagePreview').style.display = 'none';
-            loadChatMessages();
-        }catch(err){ alert('Failed to send.'); }
+            // No need to manually reload; onSnapshot will update automatically
+        }catch(err){ alert('Failed to send message.'); }
     }
     window.sendChatMessage = sendChatMessage;
 
     function loadChatMessages(){
-        db.collection('messages').where('type','==','chat').orderBy('createdAt','asc').limit(50)
-        .onSnapshot(snapshot => {
-            const chatDiv = document.getElementById('chatMessages');
-            chatDiv.innerHTML = '';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const div = document.createElement('div');
-                div.className = `chat-message ${d.sender==='user'?'user':'admin'}`;
-                let imgHtml = d.image ? `<img src="${d.image}" class="chat-attachment">` : '';
-                div.innerHTML = `
-                    <div class="msg-avatar">${d.sender==='user'?'ME':'AD'}</div>
-                    <div>
-                        <div class="msg-bubble">${d.message || ''}${imgHtml}</div>
-                        <div class="msg-time">${d.createdAt?d.createdAt.toDate().toLocaleString():'Now'}</div>
-                    </div>`;
-                chatDiv.appendChild(div);
+        db.collection('messages')
+            .where('type', '==', 'chat')
+            .where('senderId', '==', currentUserId)   // <-- FIX: only own messages
+            .orderBy('createdAt', 'asc')
+            .limit(100)
+            .onSnapshot(snapshot => {
+                const chatDiv = document.getElementById('chatMessages');
+                chatDiv.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    const div = document.createElement('div');
+                    div.className = `chat-message ${d.sender==='user'?'user':'admin'}`;
+                    let imgHtml = d.image ? `<img src="${d.image}" class="chat-attachment">` : '';
+                    div.innerHTML = `
+                        <div class="msg-avatar">${d.sender==='user'?'ME':'AD'}</div>
+                        <div>
+                            <div class="msg-bubble">${d.message || ''}${imgHtml}</div>
+                            <div class="msg-time">${d.createdAt?d.createdAt.toDate().toLocaleString():'Now'}</div>
+                        </div>`;
+                    chatDiv.appendChild(div);
+                });
+                chatDiv.scrollTop = chatDiv.scrollHeight;
+            }, error => {
+                console.error('Chat load error:', error);
+                document.getElementById('chatMessages').innerHTML = '<p style="color:red;">Failed to load chat. Check console.</p>';
             });
-            chatDiv.scrollTop = chatDiv.scrollHeight;
-        });
     }
 
     function loadNotifications(){
-        db.collection('messages').where('senderId','==',currentUserId).orderBy('createdAt','desc').limit(20)
-        .onSnapshot(snapshot => {
-            const list = document.getElementById('notifications-list');
-            list.innerHTML = '';
-            let unread = 0;
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                if(d.status==='unread') unread++;
-                const div = document.createElement('div');
-                div.className = `notification-item ${d.status==='unread'?'unread':''}`;
-                const icon = d.type==='payment_proof'?'fa-file-invoice-dollar':d.type==='chat'?'fa-comments':'fa-envelope';
-                const title = d.type==='payment_proof'?`Payment - ${d.purpose}`:d.type==='chat'?'Admin Message':d.subject||'Query';
-                const msg = d.type==='payment_proof'?`$${d.amount} via ${d.method} - ${d.status}`:d.message||d.subject;
-                div.innerHTML = `<div class="notif-icon"><i class="fas ${icon}"></i></div>
-                    <div><div class="notif-title">${title}</div>
-                    <div class="notif-message">${msg}</div>
-                    <div class="notif-time">${d.createdAt?d.createdAt.toDate().toLocaleString():'Now'}</div></div>`;
-                list.appendChild(div);
+        db.collection('messages')
+            .where('senderId', '==', currentUserId)
+            .orderBy('createdAt', 'desc')
+            .limit(20)
+            .onSnapshot(snapshot => {
+                const list = document.getElementById('notifications-list');
+                list.innerHTML = '';
+                let unread = 0;
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if(d.status==='unread' || d.status==='pending') unread++;
+                    const div = document.createElement('div');
+                    div.className = `notification-item ${d.status==='unread'||d.status==='pending'?'unread':''}`;
+                    const icon = d.type==='payment_proof'?'fa-file-invoice-dollar':d.type==='chat'?'fa-comments':'fa-envelope';
+                    const title = d.type==='payment_proof'?`Payment - ${d.purpose}`:d.type==='chat'?'Admin Message':d.subject||'Query';
+                    const msg = d.type==='payment_proof'?`$${d.amount} via ${d.method} - ${d.status}`:d.message||d.subject;
+                    div.innerHTML = `<div class="notif-icon"><i class="fas ${icon}"></i></div>
+                        <div><div class="notif-title">${title}</div>
+                        <div class="notif-message">${msg}</div>
+                        <div class="notif-time">${d.createdAt?d.createdAt.toDate().toLocaleString():'Now'}</div></div>`;
+                    list.appendChild(div);
+                });
+                const badge = document.getElementById('notif-badge');
+                badge.style.display = unread>0?'inline':'none';
+                badge.textContent = unread;
             });
-            const badge = document.getElementById('notif-badge');
-            badge.style.display = unread>0?'inline':'none';
-            badge.textContent = unread;
-        });
     }
 
     function fileToBase64(file, maxDimension=800, quality=0.7){

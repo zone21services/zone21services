@@ -6,9 +6,13 @@
     <title>Zone21 Admin – Event Approvals</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- ADDED: Firebase Auth Script -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
     <style>
         :root {
             --navy: #102838;
@@ -108,7 +112,7 @@
 
         <!-- Events List -->
         <div id="events-list" class="event-list">
-            <div class="loading">Loading events...</div>
+            <div class="loading">Authenticating and loading events...</div>
         </div>
     </div>
 
@@ -120,7 +124,7 @@
     </div>
 
     <script>
-        // Firebase config (same as provided)
+        // Firebase config
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -133,11 +137,14 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        
+        // ADDED: Initialize Firebase Auth
+        const auth = firebase.auth();
 
         let allEvents = [];
         let currentFilter = 'all';
 
-        // Load all events
+        // Load all events (Now safely inside Auth check)
         function loadEvents() {
             const listDiv = document.getElementById('events-list');
             listDiv.innerHTML = '<div class="loading">Loading events...</div>';
@@ -153,7 +160,7 @@
                 })
                 .catch(err => {
                     console.error('Error loading events:', err);
-                    listDiv.innerHTML = '<div class="no-events">Failed to load events. Check console for details.</div>';
+                    listDiv.innerHTML = '<div class="no-events">Failed to load events. Check your Firestore rules or permissions.</div>';
                 });
         }
 
@@ -237,8 +244,13 @@
         async function approveEvent(id) {
             if (!confirm('Approve this event? It will go live for ticket sales.')) return;
             try {
-                await db.collection('events').doc(id).update({ status: 'approved', approvedAt: new Date().toISOString() });
-                alert('Event approved!');
+                // Ensure published is set to true when approved by admin
+                await db.collection('events').doc(id).update({ 
+                    status: 'approved', 
+                    published: true, 
+                    approvedAt: new Date().toISOString() 
+                });
+                alert('Event approved and is now live!');
                 loadEvents();
             } catch (err) {
                 console.error('Approval failed:', err);
@@ -249,7 +261,12 @@
         async function rejectEvent(id) {
             const reason = prompt('Reason for rejection (optional):');
             try {
-                await db.collection('events').doc(id).update({ status: 'rejected', rejectionReason: reason || '', rejectedAt: new Date().toISOString() });
+                await db.collection('events').doc(id).update({ 
+                    status: 'rejected', 
+                    published: false,
+                    rejectionReason: reason || '', 
+                    rejectedAt: new Date().toISOString() 
+                });
                 alert('Event rejected.');
                 loadEvents();
             } catch (err) {
@@ -261,7 +278,10 @@
         async function cancelApprovedEvent(id) {
             if (!confirm('Cancel this approved event? It will no longer be publicly visible.')) return;
             try {
-                await db.collection('events').doc(id).update({ status: 'cancelled' });
+                await db.collection('events').doc(id).update({ 
+                    status: 'cancelled',
+                    published: false 
+                });
                 alert('Event cancelled.');
                 loadEvents();
             } catch (err) {
@@ -285,7 +305,10 @@
         async function approveCancellation(id) {
             if (!confirm('Approve cancellation request?')) return;
             try {
-                await db.collection('events').doc(id).update({ status: 'cancelled' });
+                await db.collection('events').doc(id).update({ 
+                    status: 'cancelled',
+                    published: false 
+                });
                 alert('Cancellation approved.');
                 loadEvents();
             } catch (err) {
@@ -306,7 +329,7 @@
             }
         }
 
-        // ---- NEW: Download and Copy functions ----
+        // ---- Download and Copy functions ----
         function downloadBase64Image(base64, filename) {
             if (!base64) { alert('No image available.'); return; }
             const a = document.createElement('a');
@@ -322,7 +345,6 @@
                 alert(successMsg || 'Copied to clipboard!');
             }).catch(err => {
                 console.error('Copy failed:', err);
-                // Fallback
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
@@ -477,8 +499,30 @@
             }
         };
 
-        // Initial load
-        loadEvents();
+        // ADDED: Listen for Auth State before loading data
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("Logged in as Admin:", user.uid);
+                // Only load events if the user is authenticated
+                loadEvents();
+            } else {
+                // Prompt for login to access the admin panel
+                const email = prompt("Admin Login - Enter your email:");
+                if (email) {
+                    const password = prompt("Enter your password:");
+                    if (password) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .then(() => alert("Login successful!"))
+                            .catch((err) => {
+                                alert("Login failed: " + err.message);
+                                document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Please refresh to try again.</h2>";
+                            });
+                    }
+                } else {
+                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                }
+            }
+        });
     </script>
 </body>
 </html>

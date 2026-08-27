@@ -24,15 +24,19 @@
             --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+        }
         .sidebar {
-            width: 260px;
             background: var(--navy);
             color: white;
+            padding: 20px 0;
             display: flex;
             flex-direction: column;
-            padding: 20px 0;
-            overflow-y: auto;
             z-index: 1000;
         }
         .sidebar .logo {
@@ -45,7 +49,6 @@
         .sidebar .logo span { color: var(--pink); }
         .nav-item {
             padding: 12px 20px;
-            cursor: pointer;
             transition: 0.2s;
             display: flex;
             align-items: center;
@@ -53,48 +56,33 @@
             font-size: 0.9rem;
             color: rgba(255,255,255,0.8);
             border-left: 4px solid transparent;
+            text-decoration: none;
             white-space: nowrap;
         }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { background: rgba(255,255,255,0.1); border-left-color: var(--lime); color: white; }
+        .nav-item.active {
+            background: rgba(255,255,255,0.1);
+            border-left-color: var(--lime);
+            color: white;
+        }
         .nav-item i { width: 20px; text-align: center; }
-        .main-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .main-content {
+            flex: 1;
+            padding: 20px;
+        }
         .top-bar {
             background: white;
             padding: 15px 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
+            margin-bottom: 20px;
         }
-        .top-bar h2 { font-size: 1.2rem; color: var(--navy); }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 20px;
-        }
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: var(--shadow);
-            text-align: center;
-        }
-        .stat-card .value { font-size: 2rem; font-weight: 800; color: var(--navy); }
-        .stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
-        .iframe-container {
-            flex: 1;
-            background: white;
-            margin: 0 20px 20px;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            min-height: 0;
-        }
-        iframe { width: 100%; height: 100%; border: none; }
+        .top-bar h2 { font-size: 1.5rem; color: var(--navy); }
         .btn-signout {
             background: var(--pink);
             color: white;
@@ -105,29 +93,53 @@
             font-weight: 600;
             font-size: 0.85rem;
         }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 25px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+        .stat-card .value { font-size: 2.5rem; font-weight: 800; color: var(--navy); }
+        .stat-card .label { font-size: 0.9rem; color: var(--text-muted); margin-top: 5px; }
 
         /* Desktop: sidebar on left */
         @media (min-width: 769px) {
             body { flex-direction: row; }
-            .sidebar { height: 100vh; }
-            .main-content { height: 100vh; }
+            .sidebar {
+                width: 260px;
+                height: 100vh;
+                position: sticky;
+                top: 0;
+            }
+            .main-content { overflow-y: auto; height: 100vh; }
         }
 
-        /* Mobile: sidebar becomes bottom bar, horizontally scrollable */
+        /* Mobile: sidebar fixed at bottom, horizontally scrollable */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
                 width: 100%;
                 flex-direction: row;
                 align-items: center;
                 overflow-x: auto;
                 overflow-y: hidden;
                 padding: 8px 10px;
-                order: 2; /* place at bottom */
                 height: auto;
                 min-height: 60px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                background: var(--navy);
             }
-            .sidebar .logo { display: none; } /* hide logo on mobile to save space */
+            .sidebar .logo { display: none; }
             .nav-item {
                 padding: 8px 12px;
                 font-size: 0.8rem;
@@ -136,9 +148,11 @@
                 flex-shrink: 0;
             }
             .nav-item.active { border-bottom-color: var(--lime); }
-            .main-content { order: 1; flex: 1; min-height: 0; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); padding: 10px; }
-            .iframe-container { margin: 0 10px 10px; }
+            .main-content {
+                padding-bottom: 80px; /* avoid content hidden behind bottom bar */
+                order: 1;
+                flex: 1;
+            }
         }
     </style>
 </head>
@@ -146,36 +160,43 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="logo">Zone<span>21</span> Admin</div>
-        <div class="nav-item active" data-page="overview"><i class="fas fa-chart-line"></i> Overview</div>
-        <div class="nav-item" data-page="approve"><i class="fas fa-check-circle"></i> Approve Events</div>
-        <div class="nav-item" data-page="manage-tickets"><i class="fas fa-ticket-alt"></i> Manage Tickets</div>
-        <div class="nav-item" data-page="publish"><i class="fas fa-globe"></i> Publish Events</div>
-        <div class="nav-item" data-page="revenue"><i class="fas fa-dollar-sign"></i> Tickets Revenue</div>
-        <div class="nav-item" data-page="sales"><i class="fas fa-chart-bar"></i> Sales Data</div>
-        <div class="nav-item" data-page="subscriptions"><i class="fas fa-credit-card"></i> Subscriptions Data</div>
-        <div class="nav-item" data-page="vendors"><i class="fas fa-store"></i> Vendors</div>
-        <div class="nav-item" data-page="organizers"><i class="fas fa-users"></i> Event Organizers</div>
-        <div class="nav-item" data-page="scan"><i class="fas fa-qrcode"></i> Scan Tickets</div>
+        <a class="nav-item active" href="admin-dashboard.html"><i class="fas fa-chart-line"></i> Overview</a>
+        <a class="nav-item" href="adminevents.html"><i class="fas fa-check-circle"></i> Approve Events</a>
+        <a class="nav-item" href="ticketsmanagements.html"><i class="fas fa-ticket-alt"></i> Manage Tickets</a>
+        <a class="nav-item" href="adminpublishevents.html"><i class="fas fa-globe"></i> Publish Events</a>
+        <a class="nav-item" href="#"><i class="fas fa-dollar-sign"></i> Tickets Revenue</a>
+        <a class="nav-item" href="#"><i class="fas fa-chart-bar"></i> Sales Data</a>
+        <a class="nav-item" href="#"><i class="fas fa-credit-card"></i> Subscriptions Data</a>
+        <a class="nav-item" href="#"><i class="fas fa-store"></i> Vendors</a>
+        <a class="nav-item" href="#"><i class="fas fa-users"></i> Event Organizers</a>
+        <a class="nav-item" href="#"><i class="fas fa-qrcode"></i> Scan Tickets</a>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
         <div class="top-bar">
-            <h2 id="page-title">Overview</h2>
+            <h2>Dashboard Overview</h2>
             <button class="btn-signout" onclick="signOut()"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
         </div>
 
-        <!-- Stats (visible on Overview) -->
-        <div class="stats-grid" id="stats-grid">
-            <div class="stat-card"><div class="value" id="stat-total-events">0</div><div class="label">Total Events</div></div>
-            <div class="stat-card"><div class="value" id="stat-pending-events">0</div><div class="label">Pending Approval</div></div>
-            <div class="stat-card"><div class="value" id="stat-tickets-sold">0</div><div class="label">Tickets Sold</div></div>
-            <div class="stat-card"><div class="value" id="stat-revenue">$0</div><div class="label">Total Revenue</div></div>
-        </div>
-
-        <!-- Iframe container -->
-        <div class="iframe-container" id="iframe-container">
-            <iframe src="about:blank" id="content-frame"></iframe>
+        <!-- Live Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="value" id="stat-total-events">0</div>
+                <div class="label">Total Events</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-pending-events">0</div>
+                <div class="label">Pending Approval</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-tickets-sold">0</div>
+                <div class="label">Tickets Sold</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-revenue">$0</div>
+                <div class="label">Total Revenue</div>
+            </div>
         </div>
     </div>
 
@@ -194,58 +215,6 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // ============ PAGE ROUTING ============
-        const pageMap = {
-            overview: { title: 'Overview', url: 'about:blank' },
-            approve: { title: 'Approve Events', url: 'admin-approval-dashboard.html' },
-            'manage-tickets': { title: 'Manage Tickets', url: 'admin-ticket-management.html' },
-            publish: { title: 'Publish Events', url: 'admin-publish-events.html' },
-            revenue: { title: 'Tickets Revenue', url: '#' },
-            sales: { title: 'Sales Data', url: '#' },
-            subscriptions: { title: 'Subscriptions Data', url: '#' },
-            vendors: { title: 'Vendors', url: '#' },
-            organizers: { title: 'Event Organizers', url: '#' },
-            scan: { title: 'Scan Tickets', url: 'scan-tickets.html' }  // separate scanner page
-        };
-
-        // Navigation clicks
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-                const page = this.dataset.page;
-                document.getElementById('page-title').textContent = pageMap[page].title;
-                const url = pageMap[page].url;
-                if (url !== '#') {
-                    document.getElementById('content-frame').src = url;
-                } else {
-                    // Placeholder: show a blank page or message
-                    document.getElementById('content-frame').src = 'about:blank';
-                    // Optionally show a toast
-                }
-                // Hide stats grid except for overview
-                document.getElementById('stats-grid').style.display = (page === 'overview') ? 'grid' : 'none';
-            });
-        });
-
-        // ============ LIVE STATS (Overview) ============
-        function loadStats() {
-            db.collection('events').onSnapshot(snap => {
-                document.getElementById('stat-total-events').textContent = snap.size;
-            });
-            db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
-                document.getElementById('stat-pending-events').textContent = snap.size;
-            });
-            db.collection('tickets').onSnapshot(snap => {
-                document.getElementById('stat-tickets-sold').textContent = snap.size;
-            });
-            db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
-                let total = 0;
-                snap.forEach(doc => { total += doc.data().amount || 0; });
-                document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
-            });
-        }
-
         // ============ AUTH CHECK & SIGN OUT ============
         auth.onAuthStateChanged(user => {
             if (!user) {
@@ -259,6 +228,10 @@
                 } else {
                     loadStats();
                 }
+            }).catch(err => {
+                console.error('Admin check failed:', err);
+                auth.signOut();
+                window.location.href = 'admin-login.html';
             });
         });
 
@@ -266,8 +239,30 @@
             auth.signOut().then(() => window.location.href = 'admin-login.html');
         }
 
-        // Initial load
-        loadStats();
+        // ============ LIVE STATS ============
+        function loadStats() {
+            // Total events
+            db.collection('events').onSnapshot(snap => {
+                document.getElementById('stat-total-events').textContent = snap.size;
+            }, err => console.error('Total events listener error:', err));
+
+            // Pending events
+            db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
+                document.getElementById('stat-pending-events').textContent = snap.size;
+            }, err => console.error('Pending events listener error:', err));
+
+            // Tickets sold (count of generated tickets)
+            db.collection('tickets').onSnapshot(snap => {
+                document.getElementById('stat-tickets-sold').textContent = snap.size;
+            }, err => console.error('Tickets listener error:', err));
+
+            // Revenue from paid invoices
+            db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
+                let total = 0;
+                snap.forEach(doc => { total += doc.data().amount || 0; });
+                document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
+            }, err => console.error('Invoices listener error:', err));
+        }
     </script>
 </body>
 </html>

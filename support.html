@@ -298,20 +298,12 @@
     function loadChatMessages(){
         if (!currentUserId) return;
         
-        db.collection('messages').onSnapshot(snapshot => {
-            const chatDiv = document.getElementById('chatMessages');
+        const chatDiv = document.getElementById('chatMessages');
+        let allMessages = new Map();
+
+        function renderChat() {
             chatDiv.innerHTML = '';
-            let messages = [];
-
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                // Match items where user is sender OR user is intended recipient
-                if (d.senderId === currentUserId || d.recipientId === currentUserId) {
-                    messages.push(d);
-                }
-            });
-
-            // Client side sorting to eliminate query index errors
+            let messages = Array.from(allMessages.values());
             messages.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
 
             messages.forEach(d => {
@@ -332,28 +324,33 @@
             if(messages.length === 0){
                 chatDiv.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px;">No message history. Send a query or direct message below!</p>';
             }
-
             chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        // Query 1: Messages sent BY the user
+        db.collection('messages').where('senderId', '==', currentUserId).onSnapshot(snapshot => {
+            snapshot.forEach(doc => allMessages.set(doc.id, doc.data()));
+            renderChat();
+        });
+
+        // Query 2: Messages sent TO the user (by admin)
+        db.collection('messages').where('recipientId', '==', currentUserId).onSnapshot(snapshot => {
+            snapshot.forEach(doc => allMessages.set(doc.id, doc.data()));
+            renderChat();
         });
     }
 
     function loadNotifications(){
         if (!currentUserId) return;
         
-        // Listen to broadcasts and dynamic account messages simultaneously
-        db.collection('messages').onSnapshot(snapshot => {
-            const list = document.getElementById('notifications-list');
+        let allNotifs = new Map();
+        const list = document.getElementById('notifications-list');
+        const badge = document.getElementById('notif-badge');
+
+        function renderNotifs() {
             list.innerHTML = '';
             let unread = 0;
-            let items = [];
-
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                if (d.senderId === currentUserId || d.recipientId === currentUserId) {
-                    items.push(d);
-                }
-            });
-
+            let items = Array.from(allNotifs.values());
             items.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
             items.forEach(d => {
@@ -373,13 +370,19 @@
                 list.appendChild(div);
             });
 
-            const badge = document.getElementById('notif-badge');
             badge.style.display = unread > 0 ? 'inline' : 'none';
             badge.textContent = unread;
+            if(items.length === 0) list.innerHTML = '<p style="color:var(--muted);">No notifications yet.</p>';
+        }
 
-            if(items.length === 0){
-                list.innerHTML = '<p style="color:var(--muted);">No notifications yet.</p>';
-            }
+        db.collection('messages').where('senderId', '==', currentUserId).onSnapshot(snapshot => {
+            snapshot.forEach(doc => allNotifs.set(doc.id, doc.data()));
+            renderNotifs();
+        });
+
+        db.collection('messages').where('recipientId', '==', currentUserId).onSnapshot(snapshot => {
+            snapshot.forEach(doc => allNotifs.set(doc.id, doc.data()));
+            renderNotifs();
         });
     }
 

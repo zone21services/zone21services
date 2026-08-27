@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 | Organizer Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; flex-wrap: wrap; gap: 15px;
+        }
+        .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .btn {
+            padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 0.9rem;
+            cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
+        .btn-outline:hover { background: #f0f0f0; }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d0d800; transform: translateY(-2px); }
+        .btn-pink { background: var(--pink); color: white; }
+        .btn-pink:hover { background: #d0005e; }
+        .card {
+            background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow);
+            padding: 30px; margin-bottom: 25px;
+        }
+        .card h2 { font-size: 1.3rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
+        .profile-header {
+            display: flex; align-items: center; gap: 20px; margin-bottom: 25px;
+        }
+        .profile-avatar {
+            width: 100px; height: 100px; border-radius: 50%;
+            background: var(--navy); color: var(--lime);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: 800; overflow: hidden;
+            flex-shrink: 0;
+            border: 3px solid var(--lime);
+        }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-info h3 { font-size: 1.5rem; color: var(--navy); }
+        .profile-info p { color: var(--text-muted); font-size: 0.9rem; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: var(--navy); font-size: 0.9rem; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 0.95rem; outline: none; transition: 0.2s; background: #fafbfc;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--lime); background: white; }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+        .password-wrapper { position: relative; }
+        .password-wrapper input { padding-right: 45px; }
+        .password-toggle {
+            position: absolute; right: 14px; top: 42px;
+            cursor: pointer; color: var(--navy); font-size: 1.1rem;
+        }
+        .btn-block { width: 100%; justify-content: center; }
+        .divider { height: 1px; background: var(--border); margin: 25px 0; }
+        .success-msg {
+            background: #d4edda; color: #155724; padding: 12px 15px;
+            border-radius: 8px; margin-bottom: 15px; display: none;
+        }
+        .error-msg {
+            background: #f8d7da; color: #721c24; padding: 12px 15px;
+            border-radius: 8px; margin-bottom: 15px; display: none;
+        }
+        .avatar-upload {
+            display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
+        }
+        .avatar-upload input[type="file"] { display: none; }
+        .avatar-upload .upload-label {
+            background: var(--navy); color: var(--lime); padding: 10px 20px;
+            border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 0.85rem;
+        }
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .profile-header { flex-direction: column; text-align: center; }
+            .card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-user-circle" style="color:var(--pink);"></i> My Profile</h1>
+            <a href="organizer-dashboard.html" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
+        </div>
+
+        <!-- Success/Error Messages -->
+        <div class="success-msg" id="success-msg"></div>
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Profile Information Card -->
+        <div class="card">
+            <h2>Profile Information</h2>
+            <div class="profile-header">
+                <div class="profile-avatar" id="avatar-preview">
+                    <span id="avatar-initials">Z21</span>
+                </div>
+                <div class="profile-info">
+                    <h3 id="display-name">Loading...</h3>
+                    <p id="display-email">Loading...</p>
+                </div>
+            </div>
+
+            <div class="avatar-upload" style="margin-bottom: 20px;">
+                <label class="upload-label" for="avatar-upload-input">
+                    <i class="fas fa-camera"></i> Upload Profile Picture
+                </label>
+                <input type="file" id="avatar-upload-input" accept="image/*" onchange="previewAvatar(this)">
+                <button class="btn btn-outline" onclick="clearAvatar()" style="display:none;" id="clear-avatar-btn">Remove</button>
+            </div>
+
+            <form id="profile-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="profile-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Company / Organization</label>
+                        <input type="text" id="profile-company">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="profile-email" disabled style="background:#f0f0f0;">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="profile-phone" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Country</label>
+                        <select id="profile-country">
+                            <option value="">Select Country...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>City / Location</label>
+                        <input type="text" id="profile-city">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Bio / About</label>
+                    <textarea id="profile-bio" placeholder="Tell us about yourself or your organization..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Website / Social Media</label>
+                    <input type="text" id="profile-website" placeholder="https://...">
+                </div>
+                <button type="submit" class="btn btn-lime btn-block"><i class="fas fa-save"></i> Save Profile</button>
+            </form>
+        </div>
+
+        <!-- Change Password Card -->
+        <div class="card">
+            <h2>Change Password</h2>
+            <form id="password-form">
+                <div class="form-group password-wrapper">
+                    <label>Current Password *</label>
+                    <input type="password" id="current-password" required>
+                    <i class="fa-regular fa-eye password-toggle" onclick="togglePassword('current-password', this)"></i>
+                </div>
+                <div class="form-group password-wrapper">
+                    <label>New Password *</label>
+                    <input type="password" id="new-password" required minlength="6">
+                    <i class="fa-regular fa-eye password-toggle" onclick="togglePassword('new-password', this)"></i>
+                </div>
+                <div class="form-group password-wrapper">
+                    <label>Confirm New Password *</label>
+                    <input type="password" id="confirm-password" required minlength="6">
+                    <i class="fa-regular fa-eye password-toggle" onclick="togglePassword('confirm-password', this)"></i>
+                </div>
+                <button type="submit" class="btn btn-pink btn-block"><i class="fas fa-key"></i> Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let profileImageBase64 = null;
+
+        // ============ COUNTRY LIST ============
+        const countriesList = [
+            "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan",
+            "Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi",
+            "Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic",
+            "Democratic Republic of the Congo","Denmark","Djibouti","Dominica","Dominican Republic",
+            "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia",
+            "Fiji","Finland","France",
+            "Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana",
+            "Haiti","Honduras","Hungary",
+            "Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Ivory Coast",
+            "Jamaica","Japan","Jordan",
+            "Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan",
+            "Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg",
+            "Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar",
+            "Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway",
+            "Oman",
+            "Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal",
+            "Qatar",
+            "Romania","Russia","Rwanda",
+            "Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria",
+            "Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu",
+            "Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan",
+            "Vanuatu","Vatican City","Venezuela","Vietnam",
+            "Yemen",
+            "Zambia","Zimbabwe"
+        ];
+
+        // Populate country dropdown
+        function populateCountries() {
+            const select = document.getElementById('profile-country');
+            countriesList.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                select.appendChild(option);
+            });
+        }
+
+        // ============ AUTH & PROFILE LOADING ============
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            await loadProfile(user.uid);
+        });
+
+        async function loadProfile(uid) {
+            try {
+                const userDoc = await db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    
+                    // Display name & email
+                    document.getElementById('display-name').textContent = data.name || currentUser.displayName || 'Organizer';
+                    document.getElementById('display-email').textContent = currentUser.email;
+                    
+                    // Fill form
+                    document.getElementById('profile-name').value = data.name || '';
+                    document.getElementById('profile-company').value = data.company || '';
+                    document.getElementById('profile-email').value = currentUser.email;
+                    document.getElementById('profile-phone').value = data.phone || '';
+                    document.getElementById('profile-country').value = data.country || '';
+                    document.getElementById('profile-city').value = data.city || '';
+                    document.getElementById('profile-bio').value = data.bio || '';
+                    document.getElementById('profile-website').value = data.website || '';
+                    
+                    // Avatar
+                    if (data.profileImage) {
+                        profileImageBase64 = data.profileImage;
+                        document.getElementById('avatar-preview').innerHTML = `<img src="${data.profileImage}" alt="Profile">`;
+                        document.getElementById('clear-avatar-btn').style.display = 'inline-flex';
+                    } else {
+                        const initials = (data.name || 'Z21').substring(0, 2).toUpperCase();
+                        document.getElementById('avatar-initials').textContent = initials;
+                    }
+                } else {
+                    // No profile doc yet
+                    document.getElementById('display-name').textContent = currentUser.displayName || currentUser.email;
+                    document.getElementById('display-email').textContent = currentUser.email;
+                    document.getElementById('profile-email').value = currentUser.email;
+                    document.getElementById('profile-name').value = currentUser.displayName || '';
+                }
+            } catch (err) {
+                console.error('Profile load error:', err);
+                showError('Failed to load profile. Please refresh.');
+            }
+        }
+
+        // ============ AVATAR UPLOAD ============
+        function previewAvatar(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // Compress to base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > 400 || height > 400) {
+                        if (width > height) {
+                            height = Math.round((height * 400) / width);
+                            width = 400;
+                        } else {
+                            width = Math.round((width * 400) / height);
+                            height = 400;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    profileImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    document.getElementById('avatar-preview').innerHTML = `<img src="${profileImageBase64}" alt="Profile">`;
+                    document.getElementById('clear-avatar-btn').style.display = 'inline-flex';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearAvatar() {
+            profileImageBase64 = null;
+            const name = document.getElementById('profile-name').value || 'Z21';
+            const initials = name.substring(0, 2).toUpperCase();
+            document.getElementById('avatar-preview').innerHTML = `<span id="avatar-initials">${initials}</span>`;
+            document.getElementById('clear-avatar-btn').style.display = 'none';
+            document.getElementById('avatar-upload-input').value = '';
+        }
+
+        // ============ SAVE PROFILE ============
+        document.getElementById('profile-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const profileData = {
+                name: document.getElementById('profile-name').value.trim(),
+                company: document.getElementById('profile-company').value.trim(),
+                phone: document.getElementById('profile-phone').value.trim(),
+                country: document.getElementById('profile-country').value,
+                city: document.getElementById('profile-city').value.trim(),
+                bio: document.getElementById('profile-bio').value.trim(),
+                website: document.getElementById('profile-website').value.trim(),
+                email: currentUser.email,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            if (profileImageBase64) {
+                profileData.profileImage = profileImageBase64;
+            }
+            
+            try {
+                await db.collection('users').doc(currentUser.uid).set(profileData, { merge: true });
+                
+                // Update display name in header
+                document.getElementById('display-name').textContent = profileData.name;
+                
+                showSuccess('Profile saved successfully!');
+            } catch (err) {
+                console.error('Save error:', err);
+                showError('Failed to save profile. Please try again.');
+            }
+        });
+
+        // ============ CHANGE PASSWORD ============
+        document.getElementById('password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentPass = document.getElementById('current-password').value;
+            const newPass = document.getElementById('new-password').value;
+            const confirmPass = document.getElementById('confirm-password').value;
+            
+            if (newPass !== confirmPass) {
+                showError('New passwords do not match.');
+                return;
+            }
+            
+            if (newPass.length < 6) {
+                showError('Password must be at least 6 characters.');
+                return;
+            }
+            
+            try {
+                // Re-authenticate
+                const credential = firebase.auth.EmailAuthProvider.credential(
+                    currentUser.email,
+                    currentPass
+                );
+                await currentUser.reauthenticateWithCredential(credential);
+                
+                // Update password
+                await currentUser.updatePassword(newPass);
+                
+                // Clear form
+                document.getElementById('password-form').reset();
+                
+                showSuccess('Password changed successfully!');
+            } catch (err) {
+                console.error('Password change error:', err);
+                if (err.code === 'auth/wrong-password') {
+                    showError('Current password is incorrect.');
+                } else {
+                    showError('Failed to change password. Please try again.');
+                }
+            }
+        });
+
+        // ============ HELPERS ============
+        function togglePassword(inputId, icon) {
+            const inp = document.getElementById(inputId);
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        }
+
+        function showSuccess(msg) {
+            const el = document.getElementById('success-msg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 5000);
+        }
+
+        // Init
+        populateCountries();
+    </script>
+</body>
+</html>

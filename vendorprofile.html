@@ -9,7 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <style>
         /* === ORIGINAL BEAUTIFUL UI CSS === */
         :root {
@@ -31,12 +30,17 @@
         .header { text-align: center; margin-bottom: 30px; position: relative; }
         .header .logo { font-size: 1.8rem; font-weight: 800; color: var(--navy); }
         .header .logo span { color: var(--pink); }
-        .back-btn { position: absolute; left: 0; top: 0; background: var(--navy); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+        .back-btn { position: absolute; left: 0; top: 0; background: var(--navy); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: 0.2s; }
         .back-btn:hover { background: var(--lime); color: var(--navy); }
 
-        .profile-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; }
+        .profile-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; animation: fadeIn 0.4s ease-out; }
         .profile-cover { height: 180px; background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%); position: relative; }
-        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; color: var(--navy); border: 4px solid white; margin-top: -60px; margin-left: 30px; position: relative; z-index: 2; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        
+        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; color: var(--navy); border: 4px solid white; margin-top: -60px; margin-left: 30px; position: relative; z-index: 2; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow: hidden; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-edit-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: white; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; font-size: 1.5rem; }
+        .profile-avatar.editable:hover .avatar-edit-overlay { opacity: 1; }
+
         .profile-info { padding: 20px 30px 30px; position: relative; }
         
         .edit-toggle-btn { position: absolute; top: 20px; right: 30px; background: #f0f4f8; color: var(--navy); border: 1px solid var(--border); padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
@@ -59,7 +63,7 @@
         .contact-item:hover { background: #e9ecef; border-color: var(--border); }
         .contact-item i { width: 20px; text-align: center; font-size: 1.2rem; }
         
-        .whatsapp-btn { background: #25D366; color: white; padding: 12px 24px; border-radius: 30px; display: inline-flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; transition: 0.2s; border: none; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .whatsapp-btn { background: #25D366; color: white; padding: 12px 24px; border-radius: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; text-decoration: none; transition: 0.2s; border: none; font-size: 1rem; cursor: pointer; margin-top: 10px; }
         .whatsapp-btn:hover { background: #1da851; transform: translateY(-2px); }
         
         .social-links { display: flex; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
@@ -67,11 +71,12 @@
         .social-link:hover { transform: scale(1.1); }
         .social-facebook { background: #1877F2; } .social-instagram { background: #E4405F; } .social-tiktok { background: #000; } .social-youtube { background: #FF0000; } .social-website { background: var(--navy); } .social-email { background: #EA4335; }
 
+        /* Standard Gallery */
         .gallery-section { margin: 25px 0; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-        .gallery-item { border-radius: 12px; overflow: hidden; height: 180px; background: #e9ecef; cursor: pointer; transition: 0.2s; border: 1px solid var(--border); position: relative; }
-        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
-        .gallery-item:hover { transform: scale(1.02); }
+        .standard-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
+        .standard-gallery .gallery-item { border-radius: 12px; overflow: hidden; aspect-ratio: 1/1; background: #e9ecef; cursor: pointer; transition: 0.3s; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .standard-gallery .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+        .standard-gallery .gallery-item:hover img { transform: scale(1.05); }
         
         .review-section { margin: 25px 0; }
         .review-form { background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
@@ -81,32 +86,41 @@
         .star-rating-input i.active { color: #ffb400; }
         .review-form input, .review-form textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
         .review-list { display: flex; flex-direction: column; gap: 15px; }
-        .review-item { padding: 15px; background: #fff; border-radius: 10px; border: 1px solid var(--border); }
+        .review-item { padding: 15px; background: #fff; border-radius: 10px; border: 1px solid var(--border); animation: fadeIn 0.4s ease-out; }
         .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .reviewer-name { font-weight: 700; }
         .review-date { font-size: 0.75rem; color: var(--muted); }
         .review-stars { color: #ffb400; }
         .review-comment { font-size: 0.9rem; line-height: 1.5; }
         
-        .share-btn { background: var(--lime); color: var(--navy); padding: 10px 20px; border-radius: 30px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border: none; margin-left: 10px; }
-        .loading, .error { text-align: center; padding: 40px; font-size: 1.2rem; color: var(--muted); }
-        .btn-create { display: inline-block; padding: 12px 30px; background: var(--navy); color: var(--lime); border-radius: 30px; font-weight: 600; text-decoration: none; margin-top: 15px; cursor: pointer; border: none; font-size: 1rem; }
+        .share-btn { background: var(--lime); color: var(--navy); padding: 10px 20px; border-radius: 30px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border: none; margin-left: 10px; transition: 0.2s; }
+        .share-btn:hover { background: #d4dc00; }
+        .loading, .error { text-align: center; padding: 60px 20px; font-size: 1.1rem; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .btn-create { display: inline-block; padding: 12px 30px; background: var(--navy); color: var(--lime); border-radius: 30px; font-weight: 600; text-decoration: none; margin-top: 15px; cursor: pointer; border: none; font-size: 1rem; transition: 0.2s; }
         .btn-create:hover { background: #1a3a4a; }
 
         /* === EDIT FORM CSS ENHANCEMENTS === */
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .input-group { display: flex; flex-direction: column; gap: 5px; }
         .input-group label { font-size: 0.85rem; font-weight: 600; color: var(--navy); }
-        .input-group input, .input-group textarea, .input-group select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; background: #f9fafb; outline: none; }
+        .input-group input, .input-group textarea, .input-group select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; background: #f9fafb; outline: none; transition: 0.3s; }
         .input-group input:focus, .input-group textarea:focus { border-color: var(--navy); background: white; }
         .full-width { grid-column: 1 / -1; }
         .services-check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; }
-        .service-checkbox { background: #f0f4f8; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .service-checkbox { background: #f0f4f8; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; }
+        .service-checkbox:hover { background: #e0e8f0; }
         .service-checkbox input { accent-color: var(--pink); }
         
-        .upload-area { border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; background: #f9fafb; margin-bottom: 15px; }
+        .upload-area { border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; background: #f9fafb; margin-bottom: 15px; transition: 0.3s; }
         .upload-area:hover { border-color: var(--navy); background: #f0f4f8; }
-        .delete-img-btn { position: absolute; top: 5px; right: 5px; background: var(--pink); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; }
+        .delete-img-btn { position: absolute; top: 8px; right: 8px; background: var(--pink); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: 0.2s; }
+        .delete-img-btn:hover { transform: scale(1.1); }
+
+        /* Animations & Spinners */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(16, 40, 56, 0.1); border-left-color: var(--pink); border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner-sm { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-left-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 600px) {
             .profile-info { padding: 15px; }
@@ -114,6 +128,7 @@
             .contact-grid { grid-template-columns: 1fr; }
             .form-grid { grid-template-columns: 1fr; }
             .edit-toggle-btn { top: 10px; right: 10px; font-size: 0.8rem; padding: 6px 12px; }
+            .whatsapp-btn { width: 100%; margin-top: 15px; }
         }
     </style>
 </head>
@@ -125,7 +140,10 @@
         </div>
 
         <div id="profile-content">
-            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading profile...</div>
+            <div class="loading">
+                <div class="spinner"></div>
+                Loading profile...
+            </div>
         </div>
     </div>
 
@@ -155,23 +173,21 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
-        const storage = firebase.storage();
 
-        // Exact AI Services List
-        const aiServicesList = [
-            "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs", 
+        // Updated Services List
+        const servicesList = [
+            "Venue / Space Rental", "Marquee / Tents & Chairs", 
             "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting", 
             "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar", 
             "Cake Designer / Baker", "Photographer", "Videographer", 
             "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist", 
-            "Zone21 Security - EXCLUSIVE", "Transport / Car Hire", 
-            "Cleaning Services", "Ushers & Hostesses"
+            "Transport / Car Hire", "Cleaning Services", "Ushers & Hostesses"
         ];
 
         let currentProviderId = null;
         let providerData = null;
         let isOwner = false;
-        let viewMode = 'public'; // 'public' or 'edit'
+        let viewMode = 'public'; 
         let uploadedImages = [];
 
         // Auth & Resolution
@@ -212,17 +228,17 @@
             if (isLoggedIn) {
                 content.innerHTML = `
                     <div class="error">
-                        <i class="fas fa-user-plus" style="font-size:3rem; color:var(--navy); margin-bottom:20px;"></i>
+                        <i class="fas fa-user-plus" style="font-size:3rem; color:var(--navy);"></i>
                         <h3>No Service Provider Profile Found</h3>
-                        <p style="margin:15px 0;">Your account does not have a provider profile yet.</p>
+                        <p style="margin:10px 0;">Your account does not have a provider profile yet.</p>
                         <button class="btn-create" onclick="createProviderProfile()"><i class="fas fa-plus"></i> Create My Profile</button>
                     </div>`;
             } else {
                 content.innerHTML = `
                     <div class="error">
-                        <i class="fas fa-lock" style="font-size:3rem; color:var(--navy); margin-bottom:20px;"></i>
+                        <i class="fas fa-lock" style="font-size:3rem; color:var(--navy);"></i>
                         <h3>Please Sign In</h3>
-                        <p style="margin:15px 0;">Log in to view or create your provider profile.</p>
+                        <p style="margin:10px 0;">Log in to view or create your provider profile.</p>
                         <a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
                     </div>`;
             }
@@ -257,14 +273,43 @@
 
         function toggleMode() {
             viewMode = viewMode === 'public' ? 'edit' : 'public';
-            loadProviderProfile(); // Reloads appropriate view
+            loadProviderProfile();
         }
 
-        // ================= RENDER PUBLIC VIEW (ORIGINAL STYLE) =================
+        // Base64 Image Compression
+        function compressToBase64(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    callback(dataUrl);
+                };
+            };
+        }
+
+        // ================= RENDER PUBLIC VIEW =================
         function renderPublicView() {
             const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = providerData.avatar 
+                ? `<img src="${providerData.avatar}" alt="Avatar">`
+                : initials;
 
-            // Social links setup
             const socialLinks = [];
             if (providerData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: providerData.facebook, label: 'Facebook' });
             if (providerData.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: providerData.instagram, label: 'Instagram' });
@@ -273,13 +318,11 @@
             if (providerData.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: providerData.website, label: 'Website' });
             if (providerData.email) socialLinks.push({ class: 'social-email', icon: 'fas fa-envelope', url: `mailto:${providerData.email}`, label: 'Email' });
 
-            // Services mapping
             const servicesHtml = (providerData.services || []).map(s => `<span class="service-tag">${s}</span>`).join('');
             
-            // Gallery Mapping
             const galleryHtml = (providerData.images || []).length > 0 
                 ? providerData.images.map(img => `<div class="gallery-item" onclick="window.open('${img}', '_blank')"><img src="${img}" alt="Gallery"></div>`).join('') 
-                : '<p style="color:var(--muted);">No images available</p>';
+                : '<p style="color:var(--muted); grid-column: 1/-1;">No images available</p>';
 
             const phoneLink = providerData.phone ? `tel:${providerData.phone}` : '#';
             const whatsappLink = providerData.phone ? `https://wa.me/${providerData.phone.replace(/[^0-9]/g, '')}` : '#';
@@ -297,7 +340,7 @@
             const html = `
                 <div class="profile-card">
                     <div class="profile-cover"></div>
-                    <div class="profile-avatar">${initials}</div>
+                    <div class="profile-avatar">${avatarHtml}</div>
                     <div class="profile-info">
                         ${isOwner ? `<button class="edit-toggle-btn" onclick="toggleMode()"><i class="fas fa-pen"></i> Edit Profile</button>` : ''}
                         
@@ -333,7 +376,7 @@
                 <div class="profile-card" style="padding:20px;">
                     <div class="gallery-section">
                         <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-images" style="color:var(--pink);"></i> Gallery</h2>
-                        <div class="gallery-grid">${galleryHtml}</div>
+                        <div class="standard-gallery">${galleryHtml}</div>
                     </div>
                 </div>
 
@@ -347,7 +390,7 @@
                             </div>
                             <input type="text" id="reviewer-name" placeholder="Your name (optional)">
                             <textarea id="review-comment" placeholder="Write your review..."></textarea>
-                            <button class="whatsapp-btn" style="background:var(--navy); color:var(--lime);" onclick="submitReview('${currentProviderId}')"><i class="fas fa-paper-plane"></i> Submit Review</button>
+                            <button class="whatsapp-btn" style="background:var(--navy); color:var(--lime); width:auto;" onclick="submitReview('${currentProviderId}')"><i class="fas fa-paper-plane"></i> Submit Review</button>
                         </div>
                         <div class="review-list" id="review-list"></div>
                     </div>
@@ -357,9 +400,9 @@
             setupStarRating();
         }
 
-        // ================= RENDER EDIT VIEW (SEAMLESSLY INTEGRATED) =================
+        // ================= RENDER EDIT VIEW =================
         function renderEditView() {
-            let checkboxesHtml = aiServicesList.map(svc => `
+            let checkboxesHtml = servicesList.map(svc => `
                 <label class="service-checkbox">
                     <input type="checkbox" class="edit-svc-chk" value="${svc}" ${(providerData.services || []).includes(svc) ? 'checked' : ''}>
                     ${svc}
@@ -373,11 +416,23 @@
                 </div>
             `).join('');
 
+            const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
+
             const html = `
                 <div class="profile-card" style="padding:30px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; border-bottom:2px solid var(--lime); padding-bottom:10px;">
                         <h2 style="color:var(--navy);"><i class="fas fa-edit"></i> Edit Profile</h2>
                         <button class="edit-toggle-btn" style="position:relative; top:0; right:0;" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px;">
+                        <div class="profile-avatar editable" style="margin:0; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()" id="avatar-preview-box">
+                            ${avatarHtml}
+                            <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
+                        </div>
+                        <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
+                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
                     </div>
 
                     <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
@@ -389,7 +444,7 @@
                         <div class="input-group full-width"><label>Description</label><textarea id="e-desc" rows="3">${providerData.description || ''}</textarea></div>
                     </div>
 
-                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">AI Search Services (Select yours)</h3>
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Services Offered</h3>
                     <div class="services-check-grid">${checkboxesHtml}</div>
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Contact & Social</h3>
@@ -404,12 +459,12 @@
                     </div>
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
-                    <div class="upload-area" onclick="document.getElementById('file-upload').click()">
+                    <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
                         <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
-                        <p>Click to upload images. (Uploading updates instantly)</p>
-                        <input type="file" id="file-upload" accept="image/*" multiple style="display:none;" onchange="uploadImages(event)">
+                        <p id="upload-text">Click to add gallery images.</p>
+                        <input type="file" id="gallery-upload" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(event)">
                     </div>
-                    <div class="gallery-grid" id="edit-gallery">${imagesHtml}</div>
+                    <div class="standard-gallery" id="edit-gallery">${imagesHtml}</div>
 
                     <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
                 </div>
@@ -418,20 +473,35 @@
         }
 
         // ================= EDIT LOGIC =================
-        async function uploadImages(event) {
-            const files = Array.from(event.target.files);
-            if (uploadedImages.length + files.length > 5) { alert("Maximum 5 images allowed."); return; }
+        function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const box = document.getElementById('avatar-preview-box');
+            box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
             
-            document.getElementById('edit-gallery').innerHTML = '<p>Uploading...</p>';
-            for (let file of files) {
-                const storageRef = storage.ref(`galleries/${currentProviderId}/${Date.now()}_${file.name}`);
-                try {
-                    const snap = await storageRef.put(file);
-                    const url = await snap.ref.getDownloadURL();
-                    uploadedImages.push(url);
-                } catch(e) { console.error(e); }
-            }
-            renderEditView(); // Re-render to show new images
+            compressToBase64(file, 400, 0.7, (base64) => {
+                providerData.avatar = base64;
+                box.innerHTML = `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+            });
+        }
+
+        function handleGalleryUpload(event) {
+            const files = Array.from(event.target.files);
+            if (uploadedImages.length + files.length > 5) { alert("Maximum 5 images allowed in the gallery."); return; }
+            
+            const txt = document.getElementById('upload-text');
+            txt.innerHTML = '<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing images...';
+            
+            let processed = 0;
+            files.forEach(file => {
+                compressToBase64(file, 800, 0.6, (base64) => {
+                    uploadedImages.push(base64);
+                    processed++;
+                    if(processed === files.length) {
+                        renderEditView();
+                    }
+                });
+            });
         }
 
         function removeImage(index) {
@@ -441,7 +511,7 @@
 
         async function saveProfileData() {
             const btn = document.getElementById('save-btn');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
             btn.disabled = true;
 
             const selectedSvc = Array.from(document.querySelectorAll('.edit-svc-chk:checked')).map(cb => cb.value);
@@ -460,6 +530,7 @@
                 facebook: document.getElementById('e-fb').value.trim(),
                 youtube: document.getElementById('e-yt').value.trim(),
                 website: document.getElementById('e-web').value.trim(),
+                avatar: providerData.avatar || null,
                 images: uploadedImages,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -467,17 +538,16 @@
             try {
                 await db.collection('serviceProviders').doc(currentProviderId).set(updates, { merge: true });
                 providerData = { ...providerData, ...updates };
-                alert("Profile Saved!");
-                toggleMode(); // Switch back to public view to see changes
+                toggleMode();
             } catch(e) {
                 console.error(e);
-                alert("Error saving profile.");
+                alert("Error saving profile. Ensure document size is within limits.");
                 btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
                 btn.disabled = false;
             }
         }
 
-        // ================= REVIEWS SYSTEM (ORIGINAL) =================
+        // ================= REVIEWS SYSTEM =================
         let selectedRating = 0;
         function setupStarRating() {
             const stars = document.querySelectorAll('#star-input i');
@@ -495,7 +565,7 @@
 
         async function loadReviews(pid) {
             const list = document.getElementById('review-list');
-            list.innerHTML = '<p style="color:var(--muted);">Loading reviews...</p>';
+            list.innerHTML = '<p style="color:var(--muted);"><span class="spinner-sm" style="border-left-color:var(--navy);"></span> Loading reviews...</p>';
             try {
                 const snap = await db.collection('serviceProviders').doc(pid).collection('reviews').orderBy('createdAt', 'desc').get();
                 list.innerHTML = '';
@@ -531,12 +601,11 @@
                     t.update(docRef, { rating: (oldSum + selectedRating) / (oldCount + 1), reviewsCount: oldCount + 1 });
                 });
                 loadProviderProfile();
-                alert('Review submitted!');
             } catch(e) { alert('Failed to submit review.'); }
         }
 
         function copyProfileLink(pid) {
-            navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!'));
+            navigator.clipboard.writeText(window.location.href).then(() => alert('Profile link copied!'));
         }
     </script>
 </body>

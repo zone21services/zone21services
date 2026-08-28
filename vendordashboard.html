@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provider Dashboard | Zone21</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --sidebar-width: 260px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+        }
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--navy);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-header h2 {
+            font-size: 1.3rem;
+            color: var(--lime);
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+        .nav-item {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: rgba(255,255,255,0.8);
+            font-weight: 500;
+            border-left: 4px solid transparent;
+        }
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: white;
+        }
+        .nav-item.active {
+            background: rgba(192, 200, 0, 0.1);
+            border-left-color: var(--lime);
+            color: var(--lime);
+        }
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+        }
+        .sidebar-footer {
+            padding: 15px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .top-bar h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .section {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            font-size: 1.3rem;
+            color: var(--navy);
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-primary { background: var(--navy); color: var(--lime); }
+        .btn-primary:hover { background: #1a3a4a; }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d0d800; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
+        .btn-outline:hover { background: #f0f0f0; }
+        .hidden { display: none !important; }
+        .profile-summary {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .subscription-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--lime);
+        }
+        .subscription-card.premium {
+            border-left-color: var(--pink);
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 15px;
+            }
+            .menu-toggle {
+                display: block;
+            }
+        }
+        .menu-toggle {
+            display: none;
+            background: var(--navy);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-briefcase" style="font-size:1.8rem; color: var(--lime);"></i>
+            <h2>Provider Hub</h2>
+        </div>
+        <div class="sidebar-nav">
+            <div class="nav-item active" data-page="profile" onclick="navigateTo('profile')">
+                <i class="fas fa-user"></i> My Profile
+            </div>
+            <div class="nav-item" data-page="subscriptions" onclick="navigateTo('subscriptions')">
+                <i class="fas fa-credit-card"></i> Subscriptions
+            </div>
+            <div class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+                <i class="fas fa-cog"></i> Account Settings
+            </div>
+            <div class="nav-item" data-page="support" onclick="navigateTo('support')">
+                <i class="fas fa-headset"></i> Contact Support
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <button class="btn btn-outline" style="width:100%; justify-content:center; background:transparent; border-color:rgba(255,255,255,0.3); color:white;" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <h1 id="page-title">My Profile</h1>
+            <span id="user-email" style="color:var(--muted); font-size:0.9rem;"></span>
+        </div>
+
+        <!-- My Profile Section -->
+        <div class="section" id="profile-section">
+            <h2>Profile Overview</h2>
+            <div id="profile-summary-container">
+                <!-- Dynamically filled -->
+            </div>
+            <div style="margin-top:15px;">
+                <a href="vendorprofile.html" class="btn btn-primary" id="edit-profile-link">
+                    <i class="fas fa-edit"></i> Edit Full Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Subscriptions Section -->
+        <div class="section hidden" id="subscriptions-section">
+            <h2>Your Subscription</h2>
+            <div id="subscription-details">
+                <!-- Dynamically filled -->
+            </div>
+            <button class="btn btn-lime" onclick="alert('Upgrade functionality coming soon.')"><i class="fas fa-arrow-up"></i> Upgrade to Premium</button>
+        </div>
+
+        <!-- Account Settings Section -->
+        <div class="section hidden" id="settings-section">
+            <h2>Account Settings</h2>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Change Email</label>
+                <input type="email" id="new-email" placeholder="New email address" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                <button class="btn btn-outline" onclick="changeEmail()" style="margin-top:8px;">Update Email</button>
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label>Change Password</label>
+                <input type="password" id="new-password" placeholder="New password" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                <button class="btn btn-outline" onclick="changePassword()" style="margin-top:8px;">Update Password</button>
+            </div>
+            <div class="form-group">
+                <label>Notification Preferences</label>
+                <label><input type="checkbox" id="notif-email" checked> Email notifications</label><br>
+                <label><input type="checkbox" id="notif-whatsapp"> WhatsApp notifications</label>
+            </div>
+        </div>
+
+        <!-- Contact Support Section -->
+        <div class="section hidden" id="support-section">
+            <h2>Contact Support</h2>
+            <p style="margin-bottom:15px;">Reach out via:</p>
+            <div style="margin-bottom:20px;">
+                <p><i class="fas fa-envelope" style="color:var(--pink);"></i> support@zone21.co.zw</p>
+                <p><i class="fas fa-phone" style="color:var(--pink);"></i> +263 77 000 0000</p>
+                <p><i class="fab fa-whatsapp" style="color:var(--pink);"></i> WhatsApp Support</p>
+            </div>
+            <form id="support-form">
+                <div style="margin-bottom:15px;">
+                    <label>Subject</label>
+                    <input type="text" id="support-subject" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                </div>
+                <div style="margin-bottom:15px;">
+                    <label>Message</label>
+                    <textarea id="support-message" rows="4" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Send Message</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase Config -->
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let providerDocId = null;
+
+        // ========== AUTH ==========
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-email').textContent = user.email;
+                await loadProviderData(user.email);
+                navigateTo('profile');
+            } else {
+                // Redirect to login page if not logged in
+                window.location.href = 'index.html';
+            }
+        });
+
+        // ========== LOAD PROVIDER DATA ==========
+        async function loadProviderData(email) {
+            try {
+                const snapshot = await db.collection('serviceProviders')
+                    .where('email', '==', email)
+                    .limit(1)
+                    .get();
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    providerDocId = doc.id;
+                    const data = doc.data();
+                    populateProfileSummary(data);
+                    populateSubscription(data);
+                    // Update edit profile link with ID
+                    document.getElementById('edit-profile-link').href = `vendorprofile.html?id=${providerDocId}`;
+                } else {
+                    // No provider doc; show message
+                    document.getElementById('profile-summary-container').innerHTML = 
+                        '<p style="color:var(--muted);">No provider profile found. Please contact support.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading provider data:', error);
+                alert('Failed to load your profile. Please try again.');
+            }
+        }
+
+        function populateProfileSummary(data) {
+            const initials = (data.name || '?')
+                .split(' ')
+                .map(w => w.charAt(0))
+                .join('')
+                .substring(0, 2)
+                .toUpperCase();
+            const html = `
+                <div class="profile-summary">
+                    <div class="avatar">${initials}</div>
+                    <div>
+                        <h3 style="font-size:1.3rem;">${data.name || 'Unnamed'}</h3>
+                        <p style="color:var(--muted);">${data.category || 'General'}</p>
+                        <p>${data.location || 'Location not set'}</p>
+                        <p><i class="fas fa-star" style="color:#ffb400;"></i> ${(data.rating || 0).toFixed(1)} (${data.reviewsCount || 0} reviews)</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('profile-summary-container').innerHTML = html;
+        }
+
+        function populateSubscription(data) {
+            const plan = data.subscriptionPlan || 'basic';
+            const planName = plan === 'premium' ? 'Premium' : 'Basic';
+            const price = plan === 'premium' ? '$15/month' : '$5/month';
+            const renewal = data.subscriptionRenewal ? new Date(data.subscriptionRenewal).toLocaleDateString() : 'N/A';
+            const status = data.subscriptionStatus || 'Active';
+            const html = `
+                <div class="subscription-card ${plan === 'premium' ? 'premium' : ''}">
+                    <h3>${planName} Plan</h3>
+                    <p><strong>Price:</strong> ${price}</p>
+                    <p><strong>Renewal Date:</strong> ${renewal}</p>
+                    <p><strong>Status:</strong> ${status}</p>
+                </div>
+            `;
+            document.getElementById('subscription-details').innerHTML = html;
+        }
+
+        // ========== NAVIGATION ==========
+        function navigateTo(page) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(page + '-section').classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+            const titles = {
+                'profile': 'My Profile',
+                'subscriptions': 'Subscriptions',
+                'settings': 'Account Settings',
+                'support': 'Contact Support'
+            };
+            document.getElementById('page-title').textContent = titles[page];
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.remove('active');
+            }
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        // ========== ACCOUNT SETTINGS ==========
+        async function changeEmail() {
+            const newEmail = document.getElementById('new-email').value;
+            if (!newEmail) { alert('Please enter a new email.'); return; }
+            try {
+                await currentUser.updateEmail(newEmail);
+                alert('Email updated! Please re-login.');
+                await auth.signOut();
+            } catch (error) {
+                alert('Failed to update email: ' + error.message);
+            }
+        }
+
+        async function changePassword() {
+            const newPassword = document.getElementById('new-password').value;
+            if (!newPassword) { alert('Please enter a new password.'); return; }
+            try {
+                await currentUser.updatePassword(newPassword);
+                alert('Password updated!');
+                document.getElementById('new-password').value = '';
+            } catch (error) {
+                alert('Failed to update password: ' + error.message);
+            }
+        }
+
+        // ========== SUPPORT ==========
+        document.getElementById('support-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const subject = document.getElementById('support-subject').value;
+            const message = document.getElementById('support-message').value;
+            try {
+                await db.collection('supportMessages').add({
+                    providerId: providerDocId,
+                    providerEmail: currentUser.email,
+                    subject,
+                    message,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert('Message sent to support.');
+                document.getElementById('support-subject').value = '';
+                document.getElementById('support-message').value = '';
+            } catch (error) {
+                console.error('Error sending support message:', error);
+                alert('Failed to send message.');
+            }
+        });
+
+        // ========== LOGOUT ==========
+        async function logout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                alert('Logout failed: ' + error.message);
+            }
+        }
+
+        // Expose functions
+        window.navigateTo = navigateTo;
+        window.toggleSidebar = toggleSidebar;
+        window.changeEmail = changeEmail;
+        window.changePassword = changePassword;
+        window.logout = logout;
+    </script>
+</body>
+</html>

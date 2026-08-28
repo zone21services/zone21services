@@ -10,7 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ... keep existing styles ... */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -319,6 +318,22 @@
             font-size: 1.2rem;
             color: var(--muted);
         }
+        .btn-create {
+            display: inline-block;
+            padding: 12px 30px;
+            background: var(--navy);
+            color: var(--lime);
+            border-radius: 30px;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 15px;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+        }
+        .btn-create:hover {
+            background: #1a3a4a;
+        }
         @media (max-width: 600px) {
             .profile-info {
                 padding: 15px;
@@ -374,50 +389,115 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // Helper to get provider ID: from URL or from current user's UID
+        // Helper to get provider ID from URL or auth user
         async function resolveProviderId() {
             const urlParams = new URLSearchParams(window.location.search);
-            const providerIdFromUrl = urlParams.get('id');
-            if (providerIdFromUrl) {
-                return providerIdFromUrl;
+            const idFromUrl = urlParams.get('id');
+            if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') {
+                return idFromUrl;
             }
-            // No ID in URL, try current authenticated user
+
             if (auth.currentUser) {
-                // Assuming service provider document ID equals user UID
-                return auth.currentUser.uid;
+                // First try UID as document ID
+                const uid = auth.currentUser.uid;
+                const uidDoc = await db.collection('serviceProviders').doc(uid).get();
+                if (uidDoc.exists) {
+                    return uid;
+                }
+                // Fallback: query by email
+                const email = auth.currentUser.email;
+                if (email) {
+                    const emailSnapshot = await db.collection('serviceProviders')
+                        .where('email', '==', email)
+                        .limit(1)
+                        .get();
+                    if (!emailSnapshot.empty) {
+                        return emailSnapshot.docs[0].id;
+                    }
+                }
+                return null; // No profile found
             }
             return null;
         }
 
-        // Listen for auth state; when ready, resolve ID and load
+        // Listen for auth state and load profile
         auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                // User is signed in, we can attempt to load their profile
-                const providerId = await resolveProviderId();
-                if (providerId) {
-                    loadProviderProfile(providerId);
-                } else {
-                    document.getElementById('profile-content').innerHTML = 
-                        '<div class="error">No provider ID specified and no account linked.</div>';
-                }
+            const providerId = await resolveProviderId();
+            if (providerId) {
+                loadProviderProfile(providerId);
+            } else if (user) {
+                // Logged in but no profile doc found
+                showProfileNotFound(true);
             } else {
-                // User not signed in, try URL ID (if any)
-                const providerId = new URLSearchParams(window.location.search).get('id');
-                if (providerId) {
-                    loadProviderProfile(providerId);
-                } else {
-                    document.getElementById('profile-content').innerHTML = 
-                        '<div class="error">Please sign in to view your profile or provide a valid provider ID.</div>';
-                }
+                // Not logged in and no ID
+                showProfileNotFound(false);
             }
         });
+
+        function showProfileNotFound(isLoggedIn) {
+            const content = document.getElementById('profile-content');
+            if (isLoggedIn) {
+                content.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-user-plus" style="font-size:3rem; color:var(--navy); margin-bottom:20px;"></i>
+                        <h3>No Service Provider Profile Found</h3>
+                        <p style="margin:15px 0;">Your account does not have a provider profile yet.</p>
+                        <button class="btn-create" onclick="createProviderProfile()">
+                            <i class="fas fa-plus"></i> Create My Profile
+                        </button>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-lock" style="font-size:3rem; color:var(--navy); margin-bottom:20px;"></i>
+                        <h3>Please Sign In</h3>
+                        <p style="margin:15px 0;">Log in to view or create your provider profile.</p>
+                        <a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+                    </div>
+                `;
+            }
+        }
+
+        async function createProviderProfile() {
+            if (!auth.currentUser) {
+                alert('You must be logged in to create a profile.');
+                window.location.href = 'login.html';
+                return;
+            }
+            const uid = auth.currentUser.uid;
+            const email = auth.currentUser.email || '';
+            const defaultData = {
+                name: email.split('@')[0] || 'My Business',
+                category: '',
+                services: [],
+                description: '',
+                phone: '',
+                email: email,
+                location: '',
+                rating: 0,
+                reviewsCount: 0,
+                status: 'pending', // or 'approved' depending on your workflow
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('serviceProviders').doc(uid).set(defaultData);
+                alert('Profile created! You can now edit it.');
+                window.location.reload();
+            } catch (error) {
+                console.error('Error creating profile:', error);
+                alert('Failed to create profile: ' + error.message);
+            }
+        }
 
         async function loadProviderProfile(providerId) {
             try {
                 const docRef = db.collection('serviceProviders').doc(providerId);
                 const doc = await docRef.get();
                 if (!doc.exists) {
-                    document.getElementById('profile-content').innerHTML = '<div class="error">Provider not found.</div>';
+                    // In case the doc was deleted after resolution
+                    showProfileNotFound(auth.currentUser ? true : false);
                     return;
                 }
                 const provider = doc.data();
@@ -430,7 +510,6 @@
         }
 
         function renderProfile(provider, providerId, docRef) {
-            // ... (keep existing renderProfile code exactly as before) ...
             // Determine avatar initials
             const initials = (provider.name || '?')
                 .split(' ')
@@ -691,6 +770,9 @@
                 alert('Failed to copy link. Please copy manually: ' + url);
             });
         }
+
+        // Expose create function globally
+        window.createProviderProfile = createProviderProfile;
     </script>
 </body>
 </html>

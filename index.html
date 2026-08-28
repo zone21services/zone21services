@@ -529,9 +529,12 @@
             spinner.style.display = 'none';
             return;
         }
+
         try {
             const cred = await window.fb.createUserWithEmailAndPassword(window.auth, email, pass);
             await window.fb.sendEmailVerification(cred.user);
+
+            // Build base user data
             const userData = {
                 uid: cred.user.uid,
                 name,
@@ -541,14 +544,34 @@
                 role: window.activeRole,
                 createdAt: window.fb.serverTimestamp(),
             };
+
             if (window.activeRole === 'organizer') {
-                const company = document.getElementById('reg-company').value.trim();
-                userData.company = company;
+                userData.company = document.getElementById('reg-company').value.trim();
             } else {
-                const serviceType = document.getElementById('reg-service-type').value;
-                userData.serviceType = serviceType;
+                userData.serviceType = document.getElementById('reg-service-type').value;
+                // Create a corresponding service provider profile document
+                const providerData = {
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    location: country,
+                    category: userData.serviceType,  // serviceType becomes the category
+                    services: [userData.serviceType], // initial services list
+                    description: '',
+                    images: [],
+                    rating: 0,
+                    reviewsCount: 0,
+                    status: 'approved', // or 'pending' depending on your workflow
+                    createdAt: window.fb.serverTimestamp(),
+                    updatedAt: window.fb.serverTimestamp()
+                };
+                // Save to serviceProviders using UID as document ID
+                await window.fb.setDoc(window.fb.doc(window.db, "serviceProviders", cred.user.uid), providerData);
             }
+
+            // Save user profile in users collection
             await window.fb.setDoc(window.fb.doc(window.db, "users", cred.user.uid), userData);
+
             window.currentUser = { uid: cred.user.uid, ...userData };
             window.activeRole = userData.role;
             showToast("Account created! Redirecting...", 'success');

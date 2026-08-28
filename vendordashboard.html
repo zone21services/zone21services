@@ -53,7 +53,6 @@
             color: var(--text);
         }
 
-        /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar {
             width: 5px;
         }
@@ -541,29 +540,6 @@
         .profile-summary .info .subtitle i {
             color: var(--lime);
             width: 16px;
-        }
-        .profile-summary .info .badge-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 12px;
-            border-radius: 30px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .badge-status.active {
-            background: #d4edda;
-            color: #155724;
-        }
-        .badge-status.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .badge-status.inactive {
-            background: #f8d7da;
-            color: #721c24;
         }
 
         /* ===== RATING BARS ===== */
@@ -1065,7 +1041,6 @@
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentUser = user;
-                // Update topbar with basic info
                 document.getElementById('topbar-name').textContent = user.email || 'Provider';
                 await loadProviderData(user);
                 switchSection('profile');
@@ -1079,14 +1054,12 @@
         // ============================================================
         async function loadProviderData(user) {
             try {
-                // 1) Try by UID as document ID
                 let docSnap = await db.collection('serviceProviders').doc(user.uid).get();
 
                 if (docSnap.exists) {
                     providerDocId = docSnap.id;
                     providerData = docSnap.data();
                 } else {
-                    // 2) Fallback: query by email
                     const snapshot = await db.collection('serviceProviders')
                         .where('email', '==', user.email)
                         .limit(1)
@@ -1102,9 +1075,7 @@
                     populateSubscription(providerData);
                     generateTips(providerData);
                     loadRatingBreakdown(providerDocId);
-                    // Update edit link
                     document.getElementById('edit-profile-link').href = `vendorprofile.html?id=${providerDocId}`;
-                    // Update topbar avatar with actual image if available
                     updateTopbarAvatar(providerData);
                 } else {
                     document.getElementById('profile-summary-container').innerHTML = `
@@ -1146,10 +1117,9 @@
         }
 
         // ============================================================
-        //  POPULATE PROFILE SUMMARY
+        //  POPULATE PROFILE SUMMARY (Status badge removed)
         // ============================================================
         function populateProfileSummary(data) {
-            // Avatar
             let avatarHtml = '';
             if (data.avatar && data.avatar.startsWith('data:image')) {
                 avatarHtml = `<img src="${data.avatar}" alt="Avatar" />`;
@@ -1163,15 +1133,6 @@
                 avatarHtml = `<span>${initials}</span>`;
             }
 
-            // Status badge
-            const status = data.status || 'active';
-            const statusMap = {
-                'active': { label: 'Active', class: 'active' },
-                'pending': { label: 'Pending', class: 'pending' },
-                'inactive': { label: 'Inactive', class: 'inactive' }
-            };
-            const st = statusMap[status] || statusMap.active;
-
             const html = `
                 <div class="profile-summary">
                     <div class="avatar-large">${avatarHtml}</div>
@@ -1181,15 +1142,12 @@
                             <span><i class="fas fa-tag"></i> ${data.category || 'General Service'}</span>
                             <span><i class="fas fa-map-pin"></i> ${data.location || 'Location not set'}</span>
                             <span><i class="fas fa-star" style="color:#ffb400;"></i> ${(data.rating || 0).toFixed(1)} (${data.reviewsCount || 0} reviews)</span>
-                            <span class="badge-status ${st.class}"><i class="fas fa-circle" style="font-size:0.4rem;"></i> ${st.label}</span>
                         </div>
                         ${data.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${data.basePrice}</div>` : ''}
                     </div>
                 </div>
             `;
             document.getElementById('profile-summary-container').innerHTML = html;
-
-            // Also update topbar name
             document.getElementById('topbar-name').textContent = data.name || 'Provider';
         }
 
@@ -1292,7 +1250,6 @@
                 tips.push({ type: 'info', text: 'Add at least 3 high-quality images to your gallery. Visuals greatly increase engagement.' });
             }
 
-            // Always add some positive tips
             tips.push({ type: 'info', text: 'Respond to client inquiries within 1 hour – fast response times dramatically improve booking rates.' });
             tips.push({ type: 'info', text: 'Keep your pricing transparent. Clients are more likely to book when they see clear rates.' });
             tips.push({ type: 'success', text: 'Encourage satisfied clients to leave reviews. A higher rating increases visibility in search results.' });
@@ -1384,12 +1341,10 @@
         // ============================================================
         //  EVENT LISTENERS
         // ============================================================
-        // Sidebar toggle
         document.getElementById('menuToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('open');
         });
 
-        // Sidebar nav links
         document.querySelectorAll('.sidebar .nav-links a[data-page]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -1397,7 +1352,6 @@
             });
         });
 
-        // Logout
         document.getElementById('logout-btn').addEventListener('click', () => {
             auth.signOut().then(() => window.location.href = 'login.html');
         });
@@ -1414,7 +1368,6 @@
             if (!newEmail) { alert('Please enter a new email address.'); return; }
             try {
                 await currentUser.updateEmail(newEmail);
-                // Also update Firestore
                 if (providerDocId) {
                     await db.collection('serviceProviders').doc(providerDocId).update({ email: newEmail });
                 }
@@ -1438,7 +1391,6 @@
             }
         }
 
-        // Expose functions globally
         window.switchSection = switchSection;
         window.changeEmail = changeEmail;
         window.changePassword = changePassword;

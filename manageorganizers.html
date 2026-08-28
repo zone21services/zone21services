@@ -726,7 +726,7 @@
     </div>
 
     <!-- ============================================================ -->
-    <!--  FIREBASE – ADMIN CHECK AGAINST `admins` COLLECTION            -->
+    <!--  FIREBASE – ADMIN CHECK & ORGANIZERS QUERY (FIXED)            -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
@@ -798,7 +798,7 @@
         });
 
         // ============================================================
-        //  LOAD ORGANIZERS
+        //  LOAD ORGANIZERS – FIXED: NO orderBy() TO AVOID COMPOSITE INDEX
         // ============================================================
         function loadOrganizers() {
             const container = document.getElementById('organizers-table-container');
@@ -809,15 +809,23 @@
                 </div>
             `;
 
+            // Query only by role – no orderBy to avoid needing a composite index
             db.collection('users')
                 .where('role', '==', 'organizer')
-                .orderBy('createdAt', 'desc')
                 .onSnapshot((snapshot) => {
                     allOrganizers = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         allOrganizers.push({ id: doc.id, ...data });
                     });
+
+                    // Sort client-side by createdAt (newest first)
+                    allOrganizers.sort((a, b) => {
+                        const aTime = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+                        const bTime = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+                        return bTime - aTime;
+                    });
+
                     applyFilters();
                 }, (error) => {
                     console.error('Error loading organizers:', error);
@@ -854,7 +862,7 @@
         document.getElementById('searchInput').addEventListener('input', applyFilters);
 
         // ============================================================
-        //  RENDER TABLE (Status column removed)
+        //  RENDER TABLE
         // ============================================================
         function renderOrganizersTable(organizers) {
             const container = document.getElementById('organizers-table-container');

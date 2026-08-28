@@ -841,4 +841,276 @@
         // ============================================================
         function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-            filteredOrganizers =
+            filteredOrganizers = allOrganizers.filter(o => {
+                if (!searchTerm) return true;
+                const searchable = `${o.name || ''} ${o.email || ''} ${o.company || ''} ${o.phone || ''} ${o.country || ''}`
+                    .toLowerCase();
+                return searchable.includes(searchTerm);
+            });
+            renderOrganizersTable(filteredOrganizers);
+            document.getElementById('organizer-count').textContent = `${filteredOrganizers.length} organizers`;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+        // ============================================================
+        //  RENDER TABLE (Status column removed)
+        // ============================================================
+        function renderOrganizersTable(organizers) {
+            const container = document.getElementById('organizers-table-container');
+            if (organizers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users-slash"></i>
+                        <h3 style="color:var(--navy);">No organizers found</h3>
+                        <p>${allOrganizers.length === 0 ? 'No organizers have registered yet.' : 'Try adjusting your search filters.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Company</th>
+                                <th>Country</th>
+                                <th>Joined</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            organizers.forEach(o => {
+                const joined = o.createdAt && o.createdAt.toDate ? new Date(o.createdAt.toDate()).toLocaleDateString() :
+                    '—';
+                html += `
+                    <tr>
+                        <td><strong>${o.name || '—'}</strong></td>
+                        <td>${o.email || '—'}</td>
+                        <td>${o.phone || '—'}</td>
+                        <td>${o.company || '—'}</td>
+                        <td>${o.country || '—'}</td>
+                        <td>${joined}</td>
+                        <td>
+                            <div class="action-btns" style="justify-content:center;">
+                                <button class="btn btn-primary btn-sm" onclick="openEditModal('${o.id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${o.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        //  COUNTRY LIST
+        // ============================================================
+        const countriesList = [
+            "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia",
+            "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
+            "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria",
+            "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad",
+            "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic",
+            "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+            "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+            "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau",
+            "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+            "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait",
+            "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania",
+            "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania",
+            "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique",
+            "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria",
+            "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama",
+            "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia",
+            "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino",
+            "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore",
+            "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain",
+            "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania",
+            "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan",
+            "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay",
+            "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+        ];
+
+        function populateCountrySelect(selectElement, selectedValue) {
+            selectElement.innerHTML = '<option value="">Select country</option>';
+            countriesList.forEach(country => {
+                const opt = document.createElement('option');
+                opt.value = country;
+                opt.textContent = country;
+                if (country === selectedValue) opt.selected = true;
+                selectElement.appendChild(opt);
+            });
+        }
+
+        // ============================================================
+        //  EDIT MODAL
+        // ============================================================
+        function openEditModal(organizerId) {
+            const organizer = allOrganizers.find(o => o.id === organizerId);
+            if (!organizer) return;
+
+            editingOrganizerId = organizerId;
+            document.getElementById('edit-name').value = organizer.name || '';
+            document.getElementById('edit-email').value = organizer.email || '';
+            document.getElementById('edit-phone').value = organizer.phone || '';
+            document.getElementById('edit-company').value = organizer.company || '';
+
+            const countrySelect = document.getElementById('edit-country');
+            populateCountrySelect(countrySelect, organizer.country || '');
+
+            document.getElementById('editModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('open');
+            document.body.style.overflow = '';
+            editingOrganizerId = null;
+        }
+
+        async function saveEditOrganizer() {
+            if (!editingOrganizerId) return;
+
+            const btn = document.getElementById('saveEditBtn');
+            btn.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite;"></span> Saving...';
+            btn.disabled = true;
+
+            try {
+                const updates = {
+                    name: document.getElementById('edit-name').value.trim(),
+                    email: document.getElementById('edit-email').value.trim(),
+                    phone: document.getElementById('edit-phone').value.trim(),
+                    company: document.getElementById('edit-company').value.trim(),
+                    country: document.getElementById('edit-country').value,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection('users').doc(editingOrganizerId).update(updates);
+
+                const organizer = allOrganizers.find(o => o.id === editingOrganizerId);
+                if (organizer) {
+                    Object.assign(organizer, updates);
+                }
+
+                closeEditModal();
+                applyFilters();
+
+                btn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+                    btn.disabled = false;
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error updating organizer:', error);
+                alert('Failed to update organizer: ' + error.message);
+                btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+                btn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        //  DELETE MODAL
+        // ============================================================
+        function openDeleteModal(organizerId) {
+            const organizer = allOrganizers.find(o => o.id === organizerId);
+            if (!organizer) return;
+            deletingOrganizerId = organizerId;
+            document.getElementById('deleteOrganizerName').textContent = organizer.name || 'Unnamed Organizer';
+            document.getElementById('deleteModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('open');
+            document.body.style.overflow = '';
+            deletingOrganizerId = null;
+        }
+
+        async function confirmDeleteOrganizer() {
+            if (!deletingOrganizerId) return;
+
+            const btn = document.getElementById('confirmDeleteBtn');
+            btn.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite;"></span> Deleting...';
+            btn.disabled = true;
+
+            try {
+                await db.collection('users').doc(deletingOrganizerId).delete();
+                allOrganizers = allOrganizers.filter(o => o.id !== deletingOrganizerId);
+                closeDeleteModal();
+                applyFilters();
+
+                btn.innerHTML = '<i class="fas fa-trash"></i> Delete Permanently';
+                btn.disabled = false;
+
+            } catch (error) {
+                console.error('Error deleting organizer:', error);
+                alert('Failed to delete organizer: ' + error.message);
+                btn.innerHTML = '<i class="fas fa-trash"></i> Delete Permanently';
+                btn.disabled = false;
+            }
+        }
+
+        // ============================================================
+        //  NAVIGATION & LOGOUT
+        // ============================================================
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            auth.signOut().then(() => window.location.href = 'admin-login.html');
+        });
+
+        // Close modals on overlay click
+        document.getElementById('editModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeEditModal();
+        });
+        document.getElementById('deleteModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeDeleteModal();
+        });
+
+        // ESC to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeEditModal();
+                closeDeleteModal();
+            }
+        });
+
+        // ============================================================
+        //  EXPOSE GLOBALS
+        // ============================================================
+        window.openEditModal = openEditModal;
+        window.closeEditModal = closeEditModal;
+        window.saveEditOrganizer = saveEditOrganizer;
+        window.openDeleteModal = openDeleteModal;
+        window.closeDeleteModal = closeDeleteModal;
+        window.confirmDeleteOrganizer = confirmDeleteOrganizer;
+        window.refreshOrganizers = refreshOrganizers;
+        window.loadOrganizers = loadOrganizers;
+        window.applyFilters = applyFilters;
+
+        // ============================================================
+        //  INITIALIZE COUNTRY SELECT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            populateCountrySelect(document.getElementById('edit-country'));
+        });
+    </script>
+
+</body>
+</html>

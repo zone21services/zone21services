@@ -8,7 +8,9 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
+        /* ... keep existing styles ... */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -370,16 +372,45 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        // Get provider ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const providerId = urlParams.get('id');
-
-        if (!providerId) {
-            document.getElementById('profile-content').innerHTML = '<div class="error">No provider ID specified. Please access via a valid link.</div>';
-        } else {
-            loadProviderProfile(providerId);
+        // Helper to get provider ID: from URL or from current user's UID
+        async function resolveProviderId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const providerIdFromUrl = urlParams.get('id');
+            if (providerIdFromUrl) {
+                return providerIdFromUrl;
+            }
+            // No ID in URL, try current authenticated user
+            if (auth.currentUser) {
+                // Assuming service provider document ID equals user UID
+                return auth.currentUser.uid;
+            }
+            return null;
         }
+
+        // Listen for auth state; when ready, resolve ID and load
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // User is signed in, we can attempt to load their profile
+                const providerId = await resolveProviderId();
+                if (providerId) {
+                    loadProviderProfile(providerId);
+                } else {
+                    document.getElementById('profile-content').innerHTML = 
+                        '<div class="error">No provider ID specified and no account linked.</div>';
+                }
+            } else {
+                // User not signed in, try URL ID (if any)
+                const providerId = new URLSearchParams(window.location.search).get('id');
+                if (providerId) {
+                    loadProviderProfile(providerId);
+                } else {
+                    document.getElementById('profile-content').innerHTML = 
+                        '<div class="error">Please sign in to view your profile or provide a valid provider ID.</div>';
+                }
+            }
+        });
 
         async function loadProviderProfile(providerId) {
             try {
@@ -399,6 +430,7 @@
         }
 
         function renderProfile(provider, providerId, docRef) {
+            // ... (keep existing renderProfile code exactly as before) ...
             // Determine avatar initials
             const initials = (provider.name || '?')
                 .split(' ')

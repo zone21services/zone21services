@@ -556,9 +556,12 @@
         <div class="card" id="profile-section">
             <div class="card-header">
                 <h3><i class="fas fa-id-badge" style="color:var(--lime);"></i> Profile Overview</h3>
+                <!-- Make sure 'vendorprofile.html' matches your actual file name -->
                 <a href="vendorprofile.html" class="btn btn-primary btn-sm" id="edit-profile-link"><i class="fas fa-edit"></i> Edit Profile</a>
             </div>
-            <div id="profile-summary-container"></div>
+            <div id="profile-summary-container">
+                <div style="padding:20px; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading data...</div>
+            </div>
             <div style="margin-top:20px;">
                 <h4 style="color:var(--navy); margin-bottom:10px;"><i class="fas fa-star" style="color:var(--pink);"></i> Rating Distribution</h4>
                 <div class="rating-breakdown" id="rating-bars"></div>
@@ -634,7 +637,9 @@
             currentUser = user;
             document.getElementById('profile-name').textContent = user.email || 'Provider';
             document.getElementById('profile-avatar').textContent = user.email ? user.email.charAt(0).toUpperCase() : 'SP';
-            await loadProviderData(user.email);
+            
+            // Pass the entire user object to securely fetch by UID
+            await loadProviderData(user);
             switchSection('profile');
         } else {
             window.location.href = 'login.html';
@@ -642,29 +647,43 @@
     });
 
     // ========== LOAD PROVIDER DATA ==========
-    async function loadProviderData(email) {
+    async function loadProviderData(user) {
         try {
-            const snapshot = await db.collection('serviceProviders')
-                .where('email', '==', email)
-                .limit(1)
-                .get();
-            if (!snapshot.empty) {
-                const doc = snapshot.docs[0];
-                providerDocId = doc.id;
-                providerData = doc.data();
+            // Priority 1: Fetch directly by the UID document ID (faster & exact match)
+            let docSnap = await db.collection('serviceProviders').doc(user.uid).get();
+            
+            if (docSnap.exists) {
+                providerDocId = docSnap.id;
+                providerData = docSnap.data();
+            } else {
+                // Priority 2: Fallback to querying by email if the document ID isn't the UID
+                const snapshot = await db.collection('serviceProviders')
+                    .where('email', '==', user.email)
+                    .limit(1)
+                    .get();
+                if (!snapshot.empty) {
+                    providerDocId = snapshot.docs[0].id;
+                    providerData = snapshot.docs[0].data();
+                }
+            }
+
+            if (providerData) {
                 populateProfileSummary(providerData);
                 populateSubscription(providerData);
                 generateTips(providerData);
                 loadRatingBreakdown(providerDocId);
                 document.getElementById('edit-profile-link').href = `vendorprofile.html?id=${providerDocId}`;
             } else {
+                // No data found in Firestore
                 document.getElementById('profile-summary-container').innerHTML = 
-                    '<p style="color:var(--muted);">No provider profile found. Please contact support.</p>';
+                    '<p style="color:var(--muted); padding:10px;">No provider profile found. Please complete your registration or contact support.</p>';
                 generateDefaultTips();
             }
         } catch (error) {
             console.error('Error loading provider data:', error);
-            alert('Failed to load your profile. Please try again.');
+            document.getElementById('profile-summary-container').innerHTML = 
+                `<p style="color:var(--pink); padding:10px;">Failed to load data from Firestore: ${error.message}</p>`;
+            generateDefaultTips();
         }
     }
 

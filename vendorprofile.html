@@ -389,40 +389,42 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // Helper to get provider ID from URL or auth user
-        async function resolveProviderId() {
+        // Pass 'user' object directly to avoid race conditions with auth.currentUser
+        async function resolveProviderId(user) {
             const urlParams = new URLSearchParams(window.location.search);
             const idFromUrl = urlParams.get('id');
             if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') {
                 return idFromUrl;
             }
 
-            if (auth.currentUser) {
-                // First try UID as document ID
-                const uid = auth.currentUser.uid;
-                const uidDoc = await db.collection('serviceProviders').doc(uid).get();
-                if (uidDoc.exists) {
-                    return uid;
-                }
-                // Fallback: query by email
-                const email = auth.currentUser.email;
-                if (email) {
-                    const emailSnapshot = await db.collection('serviceProviders')
-                        .where('email', '==', email)
-                        .limit(1)
-                        .get();
-                    if (!emailSnapshot.empty) {
-                        return emailSnapshot.docs[0].id;
+            if (user) {
+                try {
+                    // 1. Try UID as document ID directly (Fastest & most accurate)
+                    const uidDoc = await db.collection('serviceProviders').doc(user.uid).get();
+                    if (uidDoc.exists) {
+                        return user.uid;
                     }
+                    
+                    // 2. Fallback: query by email
+                    if (user.email) {
+                        const emailSnapshot = await db.collection('serviceProviders')
+                            .where('email', '==', user.email)
+                            .limit(1)
+                            .get();
+                        if (!emailSnapshot.empty) {
+                            return emailSnapshot.docs[0].id;
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error resolving provider ID:", error);
                 }
-                return null; // No profile found
             }
-            return null;
+            return null; // No profile found
         }
 
         // Listen for auth state and load profile
         auth.onAuthStateChanged(async (user) => {
-            const providerId = await resolveProviderId();
+            const providerId = await resolveProviderId(user);
             if (providerId) {
                 loadProviderProfile(providerId);
             } else if (user) {
@@ -482,6 +484,7 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             try {
+                // Create document strictly mapped to the UID
                 await db.collection('serviceProviders').doc(uid).set(defaultData);
                 alert('Profile created! You can now edit it.');
                 window.location.reload();
@@ -496,7 +499,6 @@
                 const docRef = db.collection('serviceProviders').doc(providerId);
                 const doc = await docRef.get();
                 if (!doc.exists) {
-                    // In case the doc was deleted after resolution
                     showProfileNotFound(auth.currentUser ? true : false);
                     return;
                 }
@@ -505,7 +507,11 @@
                 loadReviews(providerId);
             } catch (error) {
                 console.error('Error loading provider:', error);
-                document.getElementById('profile-content').innerHTML = '<div class="error">Failed to load profile. Please try again later.</div>';
+                document.getElementById('profile-content').innerHTML = `
+                    <div class="error">
+                        <p>Failed to load profile data: ${error.message}</p>
+                        <p>Please check your connection and Firestore security rules.</p>
+                    </div>`;
             }
         }
 
@@ -598,9 +604,10 @@
                         </div>
 
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                            ${provider.phone ? `
                             <a href="${whatsappLink}" target="_blank" class="whatsapp-btn">
                                 <i class="fab fa-whatsapp"></i> WhatsApp Direct
-                            </a>
+                            </a>` : ''}
                             <button class="share-btn" onclick="copyProfileLink('${providerId}')">
                                 <i class="fas fa-share-alt"></i> Share Profile
                             </button>
@@ -700,7 +707,13 @@
                     const review = doc.data();
                     const clone = template.content.cloneNode(true);
                     clone.querySelector('.reviewer-name').textContent = review.reviewerName || 'Anonymous';
-                    clone.querySelector('.review-date').textContent = review.createdAt ? new Date(review.createdAt.toDate()).toLocaleDateString() : '';
+                    
+                    // Fixed Timestamp extraction logic (Prevent errors if serverTimestamp is pending)
+                    let dateStr = 'Recently';
+                    if (review.createdAt && typeof review.createdAt.toDate === 'function') {
+                        dateStr = new Date(review.createdAt.toDate()).toLocaleDateString();
+                    }
+                    clone.querySelector('.review-date').textContent = dateStr;
                     
                     const starsHtml = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
                     clone.querySelector('.review-stars').textContent = starsHtml;

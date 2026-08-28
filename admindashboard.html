@@ -2,206 +2,788 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Zone21 Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
+        /* ===== ROOT ===== */
         :root {
-            --navy: #102838;
+            --navy: #0a1f2e;
+            --navy-light: #143040;
             --lime: #C0C800;
+            --lime-glow: rgba(192, 200, 0, 0.25);
             --pink: #F80070;
-            --bg: #f5f7fa;
+            --pink-glow: rgba(248, 0, 112, 0.15);
+            --bg: #f0f4fa;
             --card-bg: #ffffff;
-            --text: #1a1a2e;
-            --text-muted: #6c757d;
-            --border: #e0e0e8;
-            --radius: 16px;
-            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+            --text: #0f1a24;
+            --text-secondary: #3d4f5e;
+            --text-muted: #7a8a9a;
+            --border: #e6eaf0;
+            --radius: 20px;
+            --radius-sm: 12px;
+            --shadow: 0 8px 32px rgba(10, 31, 46, 0.06);
+            --shadow-hover: 0 16px 48px rgba(10, 31, 46, 0.10);
+            --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
         body {
             background: var(--bg);
             color: var(--text);
             display: flex;
             min-height: 100vh;
-            flex-direction: column;
+            overflow-x: hidden;
         }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 10px; }
+
+        /* ===== SIDEBAR ===== */
         .sidebar {
             background: var(--navy);
-            color: white;
-            padding: 20px 0;
+            color: #fff;
+            width: 260px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
             display: flex;
             flex-direction: column;
+            flex-shrink: 0;
+            overflow-y: auto;
+            transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             z-index: 1000;
+            border-right: 1px solid rgba(255,255,255,0.04);
         }
-        .sidebar .logo {
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: 800;
-            margin-bottom: 20px;
-            color: var(--lime);
-        }
-        .sidebar .logo span { color: var(--pink); }
-        .nav-item {
-            padding: 12px 20px;
-            transition: 0.2s;
+
+        .sidebar .brand {
+            padding: 24px 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.8);
-            border-left: 4px solid transparent;
+            gap: 12px;
+        }
+        .sidebar .brand .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--lime);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: var(--navy);
+        }
+        .sidebar .brand h1 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--lime);
+            letter-spacing: -0.02em;
+        }
+        .sidebar .brand h1 span { color: #fff; font-weight: 400; }
+
+        .sidebar .nav-section {
+            padding: 16px 12px;
+            flex: 1;
+        }
+        .sidebar .nav-section .section-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.3);
+            padding: 0 12px 8px;
+        }
+        .sidebar .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            color: rgba(255,255,255,0.65);
             text-decoration: none;
-            white-space: nowrap;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: var(--transition);
+            margin-bottom: 2px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
         }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active {
-            background: rgba(255,255,255,0.1);
-            border-left-color: var(--lime);
-            color: white;
+        .sidebar .nav-item:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
         }
-        .nav-item i { width: 20px; text-align: center; }
+        .sidebar .nav-item.active {
+            background: rgba(192, 200, 0, 0.12);
+            color: var(--lime);
+            box-shadow: inset 0 0 0 1px rgba(192, 200, 0, 0.10);
+        }
+        .sidebar .nav-item i { width: 20px; text-align: center; font-size: 1rem; }
+        .sidebar .nav-item .badge {
+            margin-left: auto;
+            background: var(--pink);
+            color: #fff;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .sidebar .nav-item .badge.lime { background: var(--lime); color: var(--navy); }
+
+        .sidebar .sidebar-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.3);
+            text-align: center;
+            letter-spacing: 0.04em;
+        }
+
+        /* ===== MAIN CONTENT ===== */
         .main-content {
             flex: 1;
-            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
         }
+
+        /* ===== TOP BAR ===== */
         .top-bar {
-            background: white;
-            padding: 15px 20px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
+            background: rgba(255,255,255,0.80);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(230, 234, 240, 0.6);
+            padding: 14px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+            gap: 16px;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
         }
-        .top-bar h2 { font-size: 1.5rem; color: var(--navy); }
-        .btn-signout {
-            background: var(--pink);
-            color: white;
+        .top-bar .left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .top-bar .left .menu-toggle {
+            display: none;
+            background: none;
             border: none;
+            font-size: 1.3rem;
+            color: var(--navy);
+            cursor: pointer;
+            padding: 4px;
+        }
+        .top-bar .left .page-title h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            letter-spacing: -0.02em;
+        }
+        .top-bar .left .page-title .sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .top-bar .right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .top-bar .right .notif-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+        }
+        .top-bar .right .notif-btn:hover {
+            border-color: var(--lime);
+            background: #fff;
+        }
+        .top-bar .right .notif-btn .dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--pink);
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        .top-bar .right .admin-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 12px 4px 4px;
+            border-radius: 40px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .top-bar .right .admin-profile:hover {
+            border-color: var(--lime);
+            box-shadow: 0 2px 12px rgba(192,200,0,0.08);
+        }
+        .top-bar .right .admin-profile .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .top-bar .right .admin-profile .name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+        .top-bar .right .admin-profile .role {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .top-bar .right .btn-signout {
+            background: transparent;
+            border: 1.5px solid var(--border);
             border-radius: 30px;
             padding: 8px 16px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+        .top-bar .right .btn-signout:hover {
+            border-color: var(--pink);
+            color: var(--pink);
+            background: rgba(248,0,112,0.04);
+        }
+
+        /* ===== CONTENT WRAPPER ===== */
+        .content-wrapper {
+            padding: 28px 32px 40px;
+            flex: 1;
+        }
+
+        /* ===== WELCOME SECTION ===== */
+        .welcome-section {
+            margin-bottom: 28px;
+        }
+        .welcome-section h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.03em;
+        }
+        .welcome-section p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+        .welcome-section p .highlight {
+            color: var(--lime);
+            font-weight: 700;
+        }
+
+        /* ===== STATS GRID ===== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            gap: 18px;
+            margin-bottom: 28px;
         }
         .stat-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: var(--radius);
-            padding: 25px;
+            padding: 22px 24px;
             box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-hover);
+            border-color: rgba(192, 200, 0, 0.15);
+        }
+        .stat-card .stat-accent {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+        .stat-card:nth-child(1) .stat-accent { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
+        .stat-card:nth-child(2) .stat-accent { background: linear-gradient(90deg, var(--lime), #d4dd00); }
+        .stat-card:nth-child(3) .stat-accent { background: linear-gradient(90deg, var(--pink), #e00066); }
+        .stat-card:nth-child(4) .stat-accent { background: linear-gradient(90deg, #10B981, #34D399); }
+
+        .stat-card .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .stat-card .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .stat-card:nth-child(1) .stat-icon { background: rgba(10,31,46,0.08); color: var(--navy); }
+        .stat-card:nth-child(2) .stat-icon { background: rgba(192,200,0,0.12); color: var(--lime); }
+        .stat-card:nth-child(3) .stat-icon { background: rgba(248,0,112,0.10); color: var(--pink); }
+        .stat-card:nth-child(4) .stat-icon { background: rgba(16,185,129,0.10); color: #10B981; }
+
+        .stat-card .stat-trend {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: #d4edda;
+            color: #155724;
+        }
+        .stat-card .stat-trend.down { background: #f8d7da; color: #721c24; }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        /* ===== QUICK ACTIONS ===== */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .quick-action-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 18px 16px;
             text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            color: var(--text);
         }
-        .stat-card .value { font-size: 2.5rem; font-weight: 800; color: var(--navy); }
-        .stat-card .label { font-size: 0.9rem; color: var(--text-muted); margin-top: 5px; }
-
-        /* Desktop: sidebar on left */
-        @media (min-width: 769px) {
-            body { flex-direction: row; }
-            .sidebar {
-                width: 260px;
-                height: 100vh;
-                position: sticky;
-                top: 0;
-            }
-            .main-content { overflow-y: auto; height: 100vh; }
+        .quick-action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--lime);
+        }
+        .quick-action-btn i {
+            font-size: 1.5rem;
+            color: var(--lime);
+            margin-bottom: 6px;
+            display: block;
+        }
+        .quick-action-btn .label {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .quick-action-btn .sub {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 400;
         }
 
-        /* Mobile: sidebar fixed at bottom, horizontally scrollable */
+        /* ===== RECENT ACTIVITY (placeholder) ===== */
+        .recent-section {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+        .recent-section .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .recent-section .header h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .recent-section .header h3 i { color: var(--lime); }
+        .recent-section .header a {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .recent-section .header a:hover { color: var(--lime); }
+
+        .recent-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .recent-item:last-child { border-bottom: none; }
+        .recent-item .icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--navy);
+            flex-shrink: 0;
+        }
+        .recent-item .info { flex: 1; }
+        .recent-item .info .title { font-weight: 600; font-size: 0.85rem; }
+        .recent-item .info .desc { font-size: 0.75rem; color: var(--text-muted); }
+        .recent-item .time { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 992px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         @media (max-width: 768px) {
-            body { flex-direction: column; }
             .sidebar {
                 position: fixed;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 width: 100%;
+                height: auto;
                 flex-direction: row;
-                align-items: center;
                 overflow-x: auto;
                 overflow-y: hidden;
-                padding: 8px 10px;
-                height: auto;
-                min-height: 60px;
-                border-top: 1px solid rgba(255,255,255,0.1);
+                padding: 6px 10px;
+                border-right: none;
+                border-top: 1px solid rgba(255,255,255,0.06);
                 background: var(--navy);
+                backdrop-filter: blur(8px);
+                transform: none;
+                top: auto;
+                z-index: 1000;
             }
-            .sidebar .logo { display: none; }
-            .nav-item {
-                padding: 8px 12px;
-                font-size: 0.8rem;
-                border-left: none;
-                border-bottom: 2px solid transparent;
+            .sidebar .brand { display: none; }
+            .sidebar .nav-section {
+                display: flex;
+                gap: 4px;
+                padding: 0;
+                flex: none;
+                width: 100%;
+                overflow-x: auto;
+            }
+            .sidebar .nav-section .section-label { display: none; }
+            .sidebar .nav-item {
+                padding: 8px 14px;
+                font-size: 0.7rem;
+                white-space: nowrap;
+                border-radius: 30px;
+                background: rgba(255,255,255,0.04);
+                margin-bottom: 0;
                 flex-shrink: 0;
+                border: none;
+                color: rgba(255,255,255,0.5);
             }
-            .nav-item.active { border-bottom-color: var(--lime); }
-            .main-content {
-                padding-bottom: 80px; /* avoid content hidden behind bottom bar */
-                order: 1;
-                flex: 1;
+            .sidebar .nav-item.active {
+                background: rgba(192,200,0,0.15);
+                color: var(--lime);
+                box-shadow: none;
             }
+            .sidebar .nav-item i { font-size: 0.8rem; }
+            .sidebar .nav-item .badge { display: none; }
+            .sidebar .sidebar-footer { display: none; }
+
+            .top-bar {
+                padding: 12px 16px;
+                flex-wrap: wrap;
+            }
+            .top-bar .left .menu-toggle { display: block; }
+            .top-bar .left .page-title h2 { font-size: 1rem; }
+            .top-bar .left .page-title .sub { font-size: 0.65rem; }
+            .top-bar .right .admin-profile .name { display: none; }
+            .top-bar .right .admin-profile .role { display: none; }
+            .top-bar .right .btn-signout span { display: none; }
+            .top-bar .right .btn-signout { padding: 8px 12px; }
+
+            .content-wrapper { padding: 16px 16px 80px; }
+
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+            .stat-card { padding: 16px 18px; }
+            .stat-card .value { font-size: 1.4rem; }
+            .stat-card .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
+
+            .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .quick-action-btn { padding: 14px 12px; }
+            .quick-action-btn i { font-size: 1.2rem; }
+
+            .recent-section { padding: 16px 18px; }
+            .welcome-section h1 { font-size: 1.3rem; }
+        }
+
+        @media (max-width: 400px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .quick-actions { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="logo">Zone<span>21</span> Admin</div>
-        <a class="nav-item active" href="admin-dashboard.html"><i class="fas fa-chart-line"></i> Overview</a>
-        <a class="nav-item" href="adminevents.html"><i class="fas fa-check-circle"></i> Approve Events</a>
-        <a class="nav-item" href="ticketsmanagement.html"><i class="fas fa-ticket-alt"></i> Manage Tickets</a>
-        <a class="nav-item" href="adminpublishevents.html"><i class="fas fa-globe"></i> Publish Events</a>
-        <a class="nav-item" href="adminrevenue"><i class="fas fa-dollar-sign"></i> Tickets Revenue</a>
-        <a class="nav-item" href="adminsalesdata.html"><i class="fas fa-chart-bar"></i> Sales Data</a>
-        <a class="nav-item" href="#"><i class="fas fa-credit-card"></i> Subscriptions Data</a>
-        <a class="nav-item" href="managevendors.html"><i class="fas fa-store"></i> Vendors</a>
-        <a class="nav-item" href="manageorganizers.html"><i class="fas fa-users"></i> Event Organizers</a>
-        <a class="nav-item" href="#"><i class="fas fa-qrcode"></i> Scan Tickets</a>
-    </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <div class="top-bar">
-            <h2>Dashboard Overview</h2>
-            <button class="btn-signout" onclick="signOut()"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="logo-icon">Z</div>
+            <h1>Zone<span>21</span></h1>
         </div>
+        <nav class="nav-section">
+            <div class="section-label">Main</div>
+            <a class="nav-item active" href="admin-dashboard.html">
+                <i class="fas fa-chart-line"></i> Overview
+            </a>
+            <a class="nav-item" href="adminevents.html">
+                <i class="fas fa-check-circle"></i> Approve Events
+                <span class="badge" id="pending-badge">0</span>
+            </a>
+            <a class="nav-item" href="ticketsmanagement.html">
+                <i class="fas fa-ticket-alt"></i> Manage Tickets
+            </a>
+            <a class="nav-item" href="adminpublishevents.html">
+                <i class="fas fa-globe"></i> Publish Events
+            </a>
 
-        <!-- Live Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="value" id="stat-total-events">0</div>
-                <div class="label">Total Events</div>
+            <div class="section-label" style="margin-top:12px;">Analytics</div>
+            <a class="nav-item" href="adminrevenue">
+                <i class="fas fa-dollar-sign"></i> Tickets Revenue
+            </a>
+            <a class="nav-item" href="adminsalesdata.html">
+                <i class="fas fa-chart-bar"></i> Sales Data
+            </a>
+            <a class="nav-item" href="#">
+                <i class="fas fa-credit-card"></i> Subscriptions
+            </a>
+
+            <div class="section-label" style="margin-top:12px;">Management</div>
+            <a class="nav-item" href="managevendors.html">
+                <i class="fas fa-store"></i> Vendors
+                <span class="badge lime">New</span>
+            </a>
+            <a class="nav-item" href="manageorganizers.html">
+                <i class="fas fa-users"></i> Organizers
+            </a>
+            <a class="nav-item" href="#">
+                <i class="fas fa-qrcode"></i> Scan Tickets
+            </a>
+        </nav>
+        <div class="sidebar-footer">Admin Panel v2.0</div>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="main-content">
+
+        <!-- ===== TOP BAR ===== -->
+        <header class="top-bar">
+            <div class="left">
+                <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="page-title">
+                    <h2>Dashboard</h2>
+                    <span class="sub">Welcome back, Admin</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="value" id="stat-pending-events">0</div>
-                <div class="label">Pending Approval</div>
+            <div class="right">
+                <button class="notif-btn" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="dot"></span>
+                </button>
+                <div class="admin-profile">
+                    <div class="avatar" id="admin-avatar">AD</div>
+                    <div>
+                        <div class="name" id="admin-name">Admin</div>
+                        <div class="role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-signout" onclick="signOut()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sign Out</span>
+                </button>
             </div>
-            <div class="stat-card">
-                <div class="value" id="stat-tickets-sold">0</div>
-                <div class="label">Tickets Sold</div>
+        </header>
+
+        <!-- ===== CONTENT WRAPPER ===== -->
+        <div class="content-wrapper">
+
+            <!-- Welcome -->
+            <div class="welcome-section">
+                <h1>Good to see you, <span id="greeting-name">Admin</span> 👋</h1>
+                <p>Here's what's happening across your <span class="highlight">Zone21</span> platform today.</p>
             </div>
-            <div class="stat-card">
-                <div class="value" id="stat-revenue">$0</div>
-                <div class="label">Total Revenue</div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-accent"></div>
+                    <div class="top-row">
+                        <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <span class="stat-trend">+12%</span>
+                    </div>
+                    <div class="value" id="stat-total-events">0</div>
+                    <div class="label">Total Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-accent"></div>
+                    <div class="top-row">
+                        <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+                        <span class="stat-trend" id="pending-trend">Awaiting</span>
+                    </div>
+                    <div class="value" id="stat-pending-events">0</div>
+                    <div class="label">Pending Approval</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-accent"></div>
+                    <div class="top-row">
+                        <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
+                        <span class="stat-trend">+8%</span>
+                    </div>
+                    <div class="value" id="stat-tickets-sold">0</div>
+                    <div class="label">Tickets Sold</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-accent"></div>
+                    <div class="top-row">
+                        <div class="stat-icon"><i class="fas fa-coins"></i></div>
+                        <span class="stat-trend">+5%</span>
+                    </div>
+                    <div class="value" id="stat-revenue">$0</div>
+                    <div class="label">Total Revenue</div>
+                </div>
             </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <a href="adminevents.html" class="quick-action-btn">
+                    <i class="fas fa-check-circle"></i>
+                    <div class="label">Approve Events</div>
+                    <div class="sub">Review pending requests</div>
+                </a>
+                <a href="ticketsmanagement.html" class="quick-action-btn">
+                    <i class="fas fa-ticket-alt"></i>
+                    <div class="label">Manage Tickets</div>
+                    <div class="sub">View & export tickets</div>
+                </a>
+                <a href="adminpublishevents.html" class="quick-action-btn">
+                    <i class="fas fa-globe"></i>
+                    <div class="label">Publish Events</div>
+                    <div class="sub">Go live with events</div>
+                </a>
+                <a href="managevendors.html" class="quick-action-btn">
+                    <i class="fas fa-store"></i>
+                    <div class="label">Manage Vendors</div>
+                    <div class="sub">View & edit providers</div>
+                </a>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="recent-section">
+                <div class="header">
+                    <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                    <a href="#">View All</a>
+                </div>
+                <div id="recent-activity">
+                    <div class="recent-item">
+                        <div class="icon"><i class="fas fa-plus"></i></div>
+                        <div class="info">
+                            <div class="title">New event created</div>
+                            <div class="desc">"Summer Music Fest" by Sarah's Events</div>
+                        </div>
+                        <span class="time">2 min ago</span>
+                    </div>
+                    <div class="recent-item">
+                        <div class="icon"><i class="fas fa-check"></i></div>
+                        <div class="info">
+                            <div class="title">Event approved</div>
+                            <div class="desc">"Tech Conference 2025" is now live</div>
+                        </div>
+                        <span class="time">18 min ago</span>
+                    </div>
+                    <div class="recent-item">
+                        <div class="icon"><i class="fas fa-ticket"></i></div>
+                        <div class="info">
+                            <div class="title">Ticket sale</div>
+                            <div class="desc">45 tickets sold for "Jazz Night"</div>
+                        </div>
+                        <span class="time">1 hour ago</span>
+                    </div>
+                    <div class="recent-item">
+                        <div class="icon"><i class="fas fa-user-plus"></i></div>
+                        <div class="info">
+                            <div class="title">New vendor registered</div>
+                            <div class="desc">"Elite Security Services" joined</div>
+                        </div>
+                        <span class="time">2 hours ago</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // ============ FIREBASE ============
+        // ============================================================
+        //  FIREBASE
+        // ============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -215,54 +797,87 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // ============ AUTH CHECK & SIGN OUT ============
-        auth.onAuthStateChanged(user => {
+        // ============================================================
+        //  AUTH CHECK
+        // ============================================================
+        auth.onAuthStateChanged(async (user) => {
             if (!user) {
                 window.location.href = 'admin-login.html';
                 return;
             }
-            db.collection('admins').doc(user.uid).get().then(doc => {
-                if (!doc.exists) {
-                    auth.signOut();
+
+            try {
+                const adminDoc = await db.collection('admins').doc(user.uid).get();
+                if (!adminDoc.exists) {
+                    await auth.signOut();
                     window.location.href = 'admin-login.html';
-                } else {
-                    loadStats();
+                    return;
                 }
-            }).catch(err => {
-                console.error('Admin check failed:', err);
-                auth.signOut();
+                const data = adminDoc.data();
+                const name = data.name || user.email?.split('@')[0] || 'Admin';
+                document.getElementById('admin-name').textContent = name;
+                document.getElementById('greeting-name').textContent = name;
+                document.getElementById('admin-avatar').textContent = name.charAt(0).toUpperCase();
+                loadStats();
+            } catch (err) {
+                console.error('Admin check error:', err);
+                await auth.signOut();
                 window.location.href = 'admin-login.html';
-            });
+            }
         });
 
         function signOut() {
             auth.signOut().then(() => window.location.href = 'admin-login.html');
         }
 
-        // ============ LIVE STATS ============
+        // ============================================================
+        //  LIVE STATS
+        // ============================================================
         function loadStats() {
             // Total events
             db.collection('events').onSnapshot(snap => {
                 document.getElementById('stat-total-events').textContent = snap.size;
-            }, err => console.error('Total events listener error:', err));
+            }, err => console.error('Total events error:', err));
 
             // Pending events
             db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
-                document.getElementById('stat-pending-events').textContent = snap.size;
-            }, err => console.error('Pending events listener error:', err));
+                const count = snap.size;
+                document.getElementById('stat-pending-events').textContent = count;
+                document.getElementById('pending-badge').textContent = count;
+                const trend = document.getElementById('pending-trend');
+                if (count > 0) {
+                    trend.textContent = `${count} awaiting`;
+                    trend.className = 'stat-trend';
+                } else {
+                    trend.textContent = 'All clear';
+                    trend.className = 'stat-trend';
+                    trend.style.background = '#d4edda';
+                    trend.style.color = '#155724';
+                }
+            }, err => console.error('Pending events error:', err));
 
-            // Tickets sold (count of generated tickets)
+            // Tickets sold
             db.collection('tickets').onSnapshot(snap => {
                 document.getElementById('stat-tickets-sold').textContent = snap.size;
-            }, err => console.error('Tickets listener error:', err));
+            }, err => console.error('Tickets error:', err));
 
             // Revenue from paid invoices
             db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
                 let total = 0;
                 snap.forEach(doc => { total += doc.data().amount || 0; });
                 document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
-            }, err => console.error('Invoices listener error:', err));
+            }, err => console.error('Invoices error:', err));
         }
+
+        // ============================================================
+        //  MOBILE SIDEBAR TOGGLE
+        // ============================================================
+        document.getElementById('menuToggle').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            // On mobile, the sidebar is already visible at bottom.
+            // This toggle could be used for a slide-out panel if needed.
+            // For now, we'll keep it simple.
+        });
     </script>
 </body>
 </html>

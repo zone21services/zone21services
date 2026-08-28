@@ -438,7 +438,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <script>
-    // Your web app's Firebase configuration
+    // ==============================================================
+    // FIREBASE CONFIG
+    // ==============================================================
     const firebaseConfig = {
         apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
         authDomain: "zone21.firebaseapp.com",
@@ -449,7 +451,6 @@
         measurementId: "G-KE007Y89F1"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
@@ -457,7 +458,9 @@
     let currentOrganizerId = null;
     let eventsUnsubscribe = null;
 
-    // ========== AUTH STATE ==========
+    // ==============================================================
+    // AUTH STATE
+    // ==============================================================
     auth.onAuthStateChanged(user => {
         if (user) {
             currentOrganizerId = user.uid;
@@ -470,7 +473,9 @@
         }
     });
 
-    // ========== LOGOUT (Redirect to index.html) ==========
+    // ==============================================================
+    // LOGOUT (Redirect to index.html)
+    // ==============================================================
     document.getElementById('logout-btn').addEventListener('click', () => {
         auth.signOut().then(() => window.location.href = 'index.html');
     });
@@ -479,14 +484,15 @@
         auth.signOut().then(() => window.location.href = 'index.html');
     });
 
-    // ========== LOAD EVENTS (Realtime) ==========
+    // ==============================================================
+    // LOAD EVENTS (Realtime - FIXED: No orderBy to avoid index error)
+    // ==============================================================
     function loadEvents(organizerId) {
         if (eventsUnsubscribe) eventsUnsubscribe();
 
-        // Order by 'date' descending (null dates will be last)
-        const eventsRef = db.collection('events')
-            .where('organizerId', '==', organizerId)
-            .orderBy('date', 'desc');
+        // Query without orderBy to avoid missing index issues.
+        // Sorting will be done client-side.
+        const eventsRef = db.collection('events').where('organizerId', '==', organizerId);
 
         eventsUnsubscribe = eventsRef.onSnapshot(snapshot => {
             const events = [];
@@ -495,15 +501,27 @@
                 events.push({ id: doc.id, ...data });
             });
 
-            // Update everything
+            // Sort client-side by date (descending)
+            events.sort((a, b) => {
+                const dateA = a.date ? (a.date.toDate ? a.date.toDate() : new Date(a.date)) : new Date(0);
+                const dateB = b.date ? (b.date.toDate ? b.date.toDate() : new Date(b.date)) : new Date(0);
+                return dateB - dateA;
+            });
+
             updateDashboard(events);
         }, (error) => {
             console.error("Error loading events:", error);
-            document.getElementById('recent-events-list').innerHTML = '<p style="color: var(--pink); text-align: center; padding: 16px 0;"><i class="fas fa-exclamation-triangle"></i> Could not load events.</p>';
+            document.getElementById('recent-events-list').innerHTML = `
+                <p style="color: var(--pink); text-align: center; padding: 16px 0;">
+                    <i class="fas fa-exclamation-triangle"></i> Could not load events. 
+                    <br><small style="color: #999;">${error.message}</small>
+                </p>`;
         });
     }
 
-    // ========== UPDATE DASHBOARD UI ==========
+    // ==============================================================
+    // UPDATE DASHBOARD UI
+    // ==============================================================
     function updateDashboard(events) {
         // 1. Stats
         const totalEvents = events.length;
@@ -569,7 +587,9 @@
         document.getElementById('notif-count').textContent = events.length;
     }
 
-    // ========== HELPERS ==========
+    // ==============================================================
+    // HELPERS
+    // ==============================================================
     function formatDate(dateField) {
         if (!dateField) return '—';
         try {
@@ -591,7 +611,9 @@
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
-    // ========== SIDEBAR TOGGLE (Mobile) ==========
+    // ==============================================================
+    // SIDEBAR TOGGLE (Mobile)
+    // ==============================================================
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
     menuToggle.addEventListener('click', () => {

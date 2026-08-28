@@ -3,393 +3,1023 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zone21 – Service Provider Directory</title>
+    <title>Provider Dashboard | Zone21</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Firebase Compat SDKs -->
+    <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
         :root {
             --navy: #102838;
             --lime: #C0C800;
             --pink: #F80070;
+            --white: #F8F8F8;
+            --grey: #E0E0E8;
+            --black: #101010;
+            --sidebar-width: 260px;
+            --topbar-height: 60px;
             --bg: #f5f7fa;
             --card: #ffffff;
             --text: #1a1a2e;
             --muted: #6c757d;
             --border: #e0e0e8;
-            --radius: 16px;
-            --radius-sm: 10px;
-            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
-            --transition: 0.25s;
+            --radius: 12px;
+            --shadow: 0 4px 12px rgba(16, 40, 56, 0.06), 0 8px 30px rgba(16, 40, 56, 0.08);
+            --transition: 0.3s ease;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        
-        /* Header */
-        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 28px; }
-        .header h1 { font-size: 1.8rem; font-weight: 800; color: var(--navy); display: flex; align-items: center; gap: 10px; }
-        .header h1 i { color: var(--pink); }
-        .header-actions { display: flex; gap: 10px; align-items: center; }
-        
-        .btn { padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: var(--transition); display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
-        .btn-primary { background: var(--navy); color: var(--lime); }
-        .btn-primary:hover { background: #1a3a4a; transform: translateY(-2px); }
-        .btn-lime { background: var(--lime); color: var(--navy); }
-        .btn-lime:hover { background: #d0d800; }
-        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
-        .btn-outline:hover { background: #f0f0f0; }
 
-        /* Featured Zone21 Card */
-        .zone21-featured { background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%); border-radius: var(--radius); padding: 24px; margin-bottom: 28px; color: white; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; box-shadow: 0 12px 35px rgba(16, 40, 56, 0.25); }
-        .zone21-featured .logo { font-size: 2.5rem; color: var(--lime); }
-        .zone21-featured .content { flex: 1; min-width: 220px; }
-        .zone21-featured h2 { font-size: 1.5rem; font-weight: 700; color: var(--lime); margin-bottom: 6px; }
-        .zone21-featured p { font-size: 0.9rem; opacity: 0.9; margin-bottom: 8px; }
-        .zone21-featured .badge-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-        .zone21-featured .badge { background: rgba(255, 255, 255, 0.15); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-        .zone21-featured .cta { display: flex; gap: 10px; flex-wrap: wrap; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
 
-        /* Filters */
-        .filter-bar { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
-        .filter-group { display: flex; flex-direction: column; gap: 4px; }
-        .filter-group label { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-        .filter-group select, .filter-group input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 20px; font-size: 0.85rem; background: white; min-width: 140px; outline: none; }
-        .search-box { flex: 1; min-width: 200px; display: flex; align-items: center; background: white; border: 1px solid var(--border); border-radius: 30px; padding: 8px 16px; gap: 8px; }
-        .search-box i { color: var(--muted); }
-        .search-box input { border: none; outline: none; flex: 1; font-size: 0.9rem; background: transparent; }
-        .filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        body {
+            background: var(--bg);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-        /* Provider Grid */
-        .providers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-        .provider-card { background: var(--card); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 16px; transition: var(--transition); display: flex; flex-direction: column; border: 1px solid transparent; animation: fadeIn 0.4s ease forwards; }
-        .provider-card:hover { transform: translateY(-4px); box-shadow: 0 12px 35px rgba(16, 40, 56, 0.12); border-color: var(--lime); }
-        
-        .provider-card .top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-        .provider-card .avatar { width: 55px; height: 55px; border-radius: 12px; background: var(--navy); color: var(--lime); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; flex-shrink: 0; overflow: hidden; }
-        .provider-card .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .provider-card .info { flex: 1; }
-        .provider-card .name { font-weight: 700; font-size: 1.1rem; color: var(--navy); margin-bottom: 4px; }
-        .provider-card .category { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-        .provider-card .rating { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: #ffb400; margin-top: 4px; }
-        .provider-card .rating span { color: var(--muted); font-size: 0.75rem; margin-left: 2px; }
-        
-        .provider-card .service-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-        .provider-card .service-tags span { background: #f0f4f8; color: var(--navy); padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
-        
-        .provider-card .description { font-size: 0.85rem; color: var(--text); margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .provider-card .details { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 15px; font-size: 0.8rem; color: var(--muted); font-weight: 600; }
-        .provider-card .details span { display: flex; align-items: center; gap: 4px; }
-        
-        .provider-card .actions { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        
-        .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); grid-column: 1/-1; }
-        .loading { text-align: center; padding: 60px 20px; color: var(--muted); grid-column: 1/-1; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--navy);
+            color: var(--white);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 30px rgba(16, 40, 56, 0.15);
+        }
+        .sidebar .logo {
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--lime);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar .logo i {
+            font-size: 1.8rem;
+            color: var(--lime);
+        }
+        .sidebar .nav-links {
+            flex: 1;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+        .sidebar .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: var(--white);
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+        .sidebar .nav-links a:hover,
+        .sidebar .nav-links a.active {
+            background: rgba(192, 200, 0, 0.1);
+            border-left-color: var(--lime);
+            color: var(--lime);
+            opacity: 1;
+        }
+        .sidebar .nav-links a i {
+            width: 20px;
+            text-align: center;
+        }
+        .sidebar .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.6);
+        }
 
+        /* ===== MAIN WRAPPER ===== */
+        .main-wrapper {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== TOP BAR ===== */
+        .topbar {
+            height: var(--topbar-height);
+            background: var(--white);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+        .topbar .menu-toggle {
+            display: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--navy);
+            background: none;
+            border: none;
+        }
+        .topbar .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--grey);
+            border-radius: 20px;
+            padding: 8px 15px;
+            width: 300px;
+        }
+        .topbar .search-bar input {
+            border: none;
+            background: transparent;
+            outline: none;
+            flex: 1;
+            font-size: 0.9rem;
+            color: var(--black);
+        }
+        .topbar .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .topbar .notifications {
+            position: relative;
+            cursor: pointer;
+            color: var(--navy);
+        }
+        .topbar .notifications .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--pink);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .topbar .profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--navy);
+        }
+        .profile-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--navy);
+            overflow: hidden;
+        }
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .topbar .profile .logout-btn {
+            background: none;
+            border: none;
+            color: var(--navy);
+            cursor: pointer;
+            font-size: 1rem;
+            margin-left: 5px;
+        }
+
+        /* ===== CONTENT AREA ===== */
+        .content {
+            flex: 1;
+            padding: 20px;
+        }
+
+        /* ===== CARDS & COMPONENTS ===== */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy) 0%, var(--lime) 40%, var(--pink) 80%, var(--navy) 100%);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .card-header h3 {
+            color: var(--navy);
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--navy);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1a3f52;
+        }
+        .btn-lime {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .btn-lime:hover {
+            background: #d4dc00;
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: white;
+        }
+        .btn-pink:hover {
+            background: #d90063;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--navy);
+            color: var(--navy);
+        }
+        .btn-outline:hover {
+            background: var(--navy);
+            color: white;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        .stat-card .stat-icon {
+            font-size: 1.8rem;
+            color: var(--lime);
+            margin-bottom: 10px;
+        }
+        .stat-card .stat-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--navy);
+        }
+        .stat-card .stat-label {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%);
+            border-radius: var(--radius);
+            padding: 25px;
+            margin-bottom: 20px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: var(--shadow);
+        }
+        .welcome-banner .welcome-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .welcome-banner .welcome-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .welcome-banner h2 {
+            font-size: 1.4rem;
+            color: var(--lime);
+            margin-bottom: 5px;
+        }
+        .welcome-banner p {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9rem;
+        }
+
+        .profile-summary {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            overflow: hidden;
+        }
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-summary .info h3 {
+            font-size: 1.3rem;
+            color: var(--navy);
+        }
+        .profile-summary .info p {
+            margin: 2px 0;
+            color: var(--muted);
+        }
+
+        .rating-breakdown {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: var(--radius);
+        }
+        .rating-breakdown h4 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: var(--navy);
+        }
+        .rating-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        .rating-bar-label {
+            width: 25px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-align: right;
+            color: var(--navy);
+        }
+        .rating-bar-bg {
+            flex: 1;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .rating-bar-fill {
+            height: 100%;
+            background: var(--lime);
+            border-radius: 10px;
+        }
+        .rating-bar-count {
+            width: 30px;
+            font-size: 0.7rem;
+            color: var(--muted);
+        }
+
+        /* Tips Slider */
+        .tips-container {
+            margin-top: 20px;
+            background: #f9fafb;
+            border-radius: var(--radius);
+            padding: 15px;
+            position: relative;
+        }
+        .tips-container h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--navy);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tips-container h3 i {
+            color: var(--lime);
+        }
+        .tips-slider {
+            position: relative;
+            overflow: hidden;
+            min-height: 80px;
+        }
+        .tip-slide {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .tip-slide.active {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tip-slide i {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .tip-slide.warning i { color: #ff9800; }
+        .tip-slide.info i { color: #2196F3; }
+        .tip-slide.success i { color: #28a745; }
+        .slider-dots {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .slider-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+            cursor: pointer;
+        }
+        .slider-dot.active {
+            background: var(--navy);
+        }
+
+        .subscription-card {
+            background: #f8f9fa;
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--lime);
+        }
+        .subscription-card.premium {
+            border-left-color: var(--pink);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
-            .filter-bar { flex-direction: column; align-items: stretch; }
-            .search-box { width: 100%; }
-            .providers-grid { grid-template-columns: 1fr; }
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-wrapper {
+                margin-left: 0;
+                width: 100%;
+            }
+            .topbar .menu-toggle {
+                display: block;
+            }
+            .topbar .search-bar {
+                display: none;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .content {
+                padding: 15px 10px;
+            }
+            .card {
+                padding: 15px;
+            }
+            .welcome-banner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+        @media (max-width: 400px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1><i class="fas fa-concierge-bell"></i> Zone21 Service Directory</h1>
-            <div class="header-actions">
-                <button class="btn btn-outline" onclick="window.location.reload()"><i class="fas fa-sync"></i> Refresh Data</button>
-            </div>
-        </div>
 
-        <!-- Zone21 Featured Card (Planning & Security) -->
-        <div class="zone21-featured" id="zone21-featured">
-            <div class="logo"><i class="fas fa-crown"></i></div>
-            <div class="content">
-                <h2>Zone21 Official Services</h2>
-                <p>We are your one-stop partner for event planning, management, and exclusive security. Trust our experienced team for seamless execution and uncompromised safety.</p>
-                <div class="badge-list">
-                    <span class="badge">Event Planning</span>
-                    <span class="badge">Event Management</span>
-                    <span class="badge">Coordination</span>
-                    <span class="badge">Zone21 Security</span>
-                    <span class="badge">Crowd Control</span>
-                    <span class="badge">VIP Protection</span>
-                </div>
-                <div class="cta">
-                    <button class="btn btn-lime"><i class="fas fa-envelope"></i> Contact Us</button>
-                    <button class="btn btn-outline" style="background:transparent;border-color:rgba(255,255,255,0.4);color:white;"><i class="fas fa-phone"></i> +263 77 000 0000</button>
-                </div>
-            </div>
-        </div>
+<!-- ========== SIDEBAR ========== -->
+<div class="sidebar" id="sidebar">
+    <div class="logo"><i class="fas fa-briefcase"></i> Zone21 Provider</div>
+    <div class="nav-links">
+        <a href="#" class="active" data-page="profile"><i class="fas fa-user"></i> My Profile</a>
+        <a href="#" data-page="subscriptions"><i class="fas fa-credit-card"></i> Subscriptions</a>
+        <a href="#" data-page="settings"><i class="fas fa-cog"></i> Account Settings</a>
+        <a href="contactadmin.html"><i class="fas fa-envelope"></i> Contact Admin</a>
+        <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+    <div class="sidebar-footer">
+        <p>Provider Hub v1.0</p>
+    </div>
+</div>
 
-        <!-- Filter Bar -->
-        <div class="filter-bar">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="search-input" placeholder="Search by name, category, or tags...">
-            </div>
-            <div class="filter-group">
-                <label>Category</label>
-                <select id="category-filter">
-                    <option value="all">All Categories</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Location</label>
-                <select id="location-filter">
-                    <option value="all">All Locations</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Max Base Price</label>
-                <select id="price-filter">
-                    <option value="all">Any Price</option>
-                    <option value="100">Under $100</option>
-                    <option value="300">Under $300</option>
-                    <option value="500">Under $500</option>
-                    <option value="1000">Under $1000</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>Min Rating</label>
-                <select id="rating-filter">
-                    <option value="0">Any Rating</option>
-                    <option value="4">4.0+ Stars</option>
-                    <option value="4.5">4.5+ Stars</option>
-                </select>
-            </div>
-            <div class="filter-actions">
-                <button class="btn btn-primary" onclick="applyFilters()"><i class="fas fa-filter"></i> Apply</button>
-                <button class="btn btn-outline" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
-            </div>
+<!-- ========== MAIN WRAPPER ========== -->
+<div class="main-wrapper">
+    <!-- Top Bar -->
+    <div class="topbar">
+        <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+        <div class="search-bar">
+            <i class="fas fa-search" style="color: #666;"></i>
+            <input type="text" placeholder="Search...">
         </div>
-
-        <!-- Providers Grid -->
-        <div id="providers-grid" class="providers-grid">
-            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading all service providers...</div>
-        </div>
-        <div id="empty-state" class="empty-state" style="display:none;">
-            <i class="fas fa-search" style="font-size:3rem; margin-bottom:15px; color:var(--border);"></i>
-            <h3>No providers found</h3>
-            <p style="margin-top:5px;">Try adjusting your filters or search terms.</p>
+        <div class="topbar-right">
+            <div class="notifications">
+                <i class="fas fa-bell"></i>
+                <span class="badge" id="notif-badge" style="display:none;">0</span>
+            </div>
+            <div class="profile">
+                <div class="profile-avatar" id="topbar-avatar">SP</div>
+                <span id="profile-name">Loading...</span>
+                <button class="logout-btn" id="logout-btn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
         </div>
     </div>
 
-    <script>
-        // ========== FIREBASE CONFIG ==========
-        const firebaseConfig = {
-            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-            authDomain: "zone21.firebaseapp.com",
-            projectId: "zone21",
-            storageBucket: "zone21.firebasestorage.app",
-            messagingSenderId: "405963057292",
-            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-            measurementId: "G-KE007Y89F1"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+    <!-- Content Area -->
+    <div class="content">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner" id="welcome-banner">
+            <div class="welcome-avatar" id="welcome-avatar">SP</div>
+            <div>
+                <h2>Welcome back, <span id="welcome-name">Provider</span>!</h2>
+                <p id="welcome-category">Your provider dashboard</p>
+            </div>
+        </div>
 
-        // ========== STATE ==========
-        let allProviders = [];
-        let filteredProviders = [];
-        let availableCategories = new Set();
-        let availableLocations = new Set();
+        <!-- Stats Row (Example, can be filled later) -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-star"></i></div>
+                <div class="stat-value" id="stat-rating">0.0</div>
+                <div class="stat-label">Average Rating</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-comment-dots"></i></div>
+                <div class="stat-value" id="stat-reviews">0</div>
+                <div class="stat-label">Total Reviews</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-images"></i></div>
+                <div class="stat-value" id="stat-images">0</div>
+                <div class="stat-label">Gallery Images</div>
+            </div>
+        </div>
 
-        // DOM elements
-        const grid = document.getElementById('providers-grid');
-        const emptyState = document.getElementById('empty-state');
-        const categoryFilter = document.getElementById('category-filter');
-        const locationFilter = document.getElementById('location-filter');
-        const searchInput = document.getElementById('search-input');
-        const priceFilter = document.getElementById('price-filter');
-        const ratingFilter = document.getElementById('rating-filter');
+        <!-- Profile Section -->
+        <div class="card" id="profile-section">
+            <div class="card-header">
+                <h3><i class="fas fa-id-badge" style="color:var(--lime);"></i> Profile Overview</h3>
+                <a href="vendorprofile.html" class="btn btn-primary btn-sm" id="edit-profile-link"><i class="fas fa-edit"></i> Edit Profile</a>
+            </div>
+            <div id="profile-summary-container">
+                <div style="padding:20px; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading data...</div>
+            </div>
+            <div style="margin-top:20px;">
+                <h4 style="color:var(--navy); margin-bottom:10px;"><i class="fas fa-star" style="color:var(--pink);"></i> Rating Distribution</h4>
+                <div class="rating-breakdown" id="rating-bars"></div>
+            </div>
+            <div class="tips-container">
+                <h3><i class="fas fa-lightbulb"></i> Pro Tips to Get Noticed</h3>
+                <div class="tips-slider" id="tips-slider"></div>
+                <div class="slider-dots" id="slider-dots"></div>
+            </div>
+        </div>
 
-        // ========== LIVE DATA LISTENER ==========
-        function startListening() {
-            // Fetching ALL providers, regardless of status for full visibility
-            db.collection('serviceProviders').onSnapshot(snapshot => {
-                    allProviders = [];
-                    availableCategories.clear();
-                    availableLocations.clear();
+        <!-- Subscriptions Section -->
+        <div class="card hidden" id="subscriptions-section">
+            <div class="card-header">
+                <h3><i class="fas fa-credit-card" style="color:var(--lime);"></i> Your Subscription</h3>
+            </div>
+            <div id="subscription-details"></div>
+            <button class="btn btn-lime" onclick="alert('Upgrade functionality coming soon.')"><i class="fas fa-arrow-up"></i> Upgrade to Premium</button>
+        </div>
 
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        allProviders.push({ id: doc.id, ...data });
-                        
-                        // Populate sets for dropdowns
-                        if (data.category) availableCategories.add(data.category);
-                        if (data.location) availableLocations.add(data.location);
-                        if (data.services && Array.isArray(data.services)) {
-                            data.services.forEach(svc => availableCategories.add(svc));
-                        }
-                    });
+        <!-- Settings Section -->
+        <div class="card hidden" id="settings-section">
+            <div class="card-header">
+                <h3><i class="fas fa-cog" style="color:var(--lime);"></i> Account Settings</h3>
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="font-weight:600; display:block; margin-bottom:5px;">Change Email</label>
+                <input type="email" id="new-email" placeholder="New email address" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                <button class="btn btn-outline btn-sm" onclick="changeEmail()" style="margin-top:8px;">Update Email</button>
+            </div>
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="font-weight:600; display:block; margin-bottom:5px;">Change Password</label>
+                <input type="password" id="new-password" placeholder="New password" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;">
+                <button class="btn btn-outline btn-sm" onclick="changePassword()" style="margin-top:8px;">Update Password</button>
+            </div>
+            <div class="form-group">
+                <label style="font-weight:600; display:block; margin-bottom:5px;">Notification Preferences</label>
+                <label><input type="checkbox" id="notif-email" checked> Email notifications</label><br>
+                <label><input type="checkbox" id="notif-whatsapp"> WhatsApp notifications</label>
+            </div>
+        </div>
+    </div>
+</div>
 
-                    populateFilters();
-                    applyFilters();
-                }, err => {
-                    console.error('Error fetching providers:', err);
-                    grid.innerHTML = '<div class="loading" style="color:var(--pink);">Failed to load providers. Check database permissions.</div>';
-                });
+<script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+        authDomain: "zone21.firebaseapp.com",
+        projectId: "zone21",
+        storageBucket: "zone21.firebasestorage.app",
+        messagingSenderId: "405963057292",
+        appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+        measurementId: "G-KE007Y89F1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUser = null;
+    let providerDocId = null;
+    let providerData = null;
+    let tipSlides = [];
+    let currentSlideIndex = 0;
+    let slideInterval;
+
+    // ========== AUTH ==========
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('profile-name').textContent = user.email || 'Provider';
+            updateTopbarAvatar(user, null); // initially just initials
+            await loadProviderData(user);
+            switchSection('profile');
+        } else {
+            window.location.href = 'login.html';
         }
+    });
 
-        // ========== POPULATE FILTER OPTIONS ==========
-        function populateFilters() {
-            // Category filter
-            const currentCat = categoryFilter.value;
-            categoryFilter.innerHTML = '<option value="all">All Categories & Services</option>';
-            const sortedCategories = Array.from(availableCategories).sort();
-            sortedCategories.forEach(cat => {
-                const opt = document.createElement('option');
-                opt.value = cat;
-                opt.textContent = cat;
-                categoryFilter.appendChild(opt);
-            });
-            categoryFilter.value = currentCat; // Retain selection
-
-            // Location filter
-            const currentLoc = locationFilter.value;
-            locationFilter.innerHTML = '<option value="all">All Locations</option>';
-            const sortedLocations = Array.from(availableLocations).sort();
-            sortedLocations.forEach(loc => {
-                const opt = document.createElement('option');
-                opt.value = loc;
-                opt.textContent = loc;
-                locationFilter.appendChild(opt);
-            });
-            locationFilter.value = currentLoc; // Retain selection
+    // Helper to update top bar avatar with image or initials
+    function updateTopbarAvatar(user, providerData) {
+        const topAvatar = document.getElementById('topbar-avatar');
+        const welcomeAvatar = document.getElementById('welcome-avatar');
+        const initials = user.email ? user.email.charAt(0).toUpperCase() : 'SP';
+        if (providerData && providerData.avatar) {
+            topAvatar.innerHTML = `<img src="${providerData.avatar}" alt="Avatar">`;
+            welcomeAvatar.innerHTML = `<img src="${providerData.avatar}" alt="Avatar">`;
+        } else {
+            topAvatar.textContent = initials;
+            welcomeAvatar.textContent = initials;
         }
+    }
 
-        // ========== APPLY FILTERS ==========
-        function applyFilters() {
-            const searchTerm = searchInput.value.trim().toLowerCase();
-            const selectedCategory = categoryFilter.value;
-            const selectedLocation = locationFilter.value;
-            const maxPrice = priceFilter.value;
-            const minRating = parseFloat(ratingFilter.value) || 0;
-
-            filteredProviders = allProviders.filter(provider => {
-                // Search
-                if (searchTerm) {
-                    const searchable = `${provider.name || ''} ${provider.category || ''} ${provider.description || ''} ${(provider.services || []).join(' ')}`.toLowerCase();
-                    if (!searchable.includes(searchTerm)) return false;
+    // ========== LOAD PROVIDER DATA ==========
+    async function loadProviderData(user) {
+        try {
+            let docSnap = await db.collection('serviceProviders').doc(user.uid).get();
+            if (docSnap.exists) {
+                providerDocId = docSnap.id;
+                providerData = docSnap.data();
+            } else {
+                const snapshot = await db.collection('serviceProviders')
+                    .where('email', '==', user.email)
+                    .limit(1)
+                    .get();
+                if (!snapshot.empty) {
+                    providerDocId = snapshot.docs[0].id;
+                    providerData = snapshot.docs[0].data();
                 }
-                // Category (Checks main category OR services array)
-                if (selectedCategory !== 'all') {
-                    const matchesCategory = provider.category === selectedCategory;
-                    const matchesService = provider.services && provider.services.includes(selectedCategory);
-                    if (!matchesCategory && !matchesService) return false;
+            }
+
+            if (providerData) {
+                updateTopbarAvatar(user, providerData);
+                populateWelcomeBanner(providerData);
+                populateProfileSummary(providerData);
+                populateSubscription(providerData);
+                generateTips(providerData);
+                loadRatingBreakdown(providerDocId);
+                document.getElementById('edit-profile-link').href = `vendorprofile.html?id=${providerDocId}`;
+                // Update stats grid values
+                document.getElementById('stat-rating').textContent = (providerData.rating || 0).toFixed(1);
+                document.getElementById('stat-reviews').textContent = providerData.reviewsCount || 0;
+                document.getElementById('stat-images').textContent = providerData.images ? providerData.images.length : 0;
+            } else {
+                document.getElementById('profile-summary-container').innerHTML = 
+                    '<p style="color:var(--muted); padding:10px;">No provider profile found. Please complete your registration or contact support.</p>';
+                generateDefaultTips();
+                document.getElementById('welcome-name').textContent = user.email || 'Provider';
+                document.getElementById('welcome-category').textContent = 'Complete your profile to get started';
+            }
+        } catch (error) {
+            console.error('Error loading provider data:', error);
+            document.getElementById('profile-summary-container').innerHTML = 
+                `<p style="color:var(--pink); padding:10px;">Failed to load data from Firestore: ${error.message}</p>`;
+            generateDefaultTips();
+        }
+    }
+
+    function populateWelcomeBanner(data) {
+        document.getElementById('welcome-name').textContent = data.name || currentUser.email;
+        document.getElementById('welcome-category').textContent = data.category || 'Service Provider';
+    }
+
+    function populateProfileSummary(data) {
+        const initials = (data.name || '?')
+            .split(' ')
+            .map(w => w.charAt(0))
+            .join('')
+            .substring(0, 2)
+            .toUpperCase();
+        const avatarHtml = data.avatar 
+            ? `<img src="${data.avatar}" alt="Avatar">` 
+            : initials;
+        const html = `
+            <div class="profile-summary">
+                <div class="avatar">${avatarHtml}</div>
+                <div class="info">
+                    <h3>${data.name || 'Unnamed'}</h3>
+                    <p>${data.category || 'General'}</p>
+                    <p>${data.location || 'Location not set'}</p>
+                    <p><i class="fas fa-star" style="color:#ffb400;"></i> ${(data.rating || 0).toFixed(1)} (${data.reviewsCount || 0} reviews)</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('profile-summary-container').innerHTML = html;
+    }
+
+    function populateSubscription(data) {
+        const plan = data.subscriptionPlan || 'basic';
+        const planName = plan === 'premium' ? 'Premium' : 'Basic';
+        const price = plan === 'premium' ? '$15/month' : '$5/month';
+        const renewal = data.subscriptionRenewal ? new Date(data.subscriptionRenewal).toLocaleDateString() : 'N/A';
+        const status = data.subscriptionStatus || 'Active';
+        const html = `
+            <div class="subscription-card ${plan === 'premium' ? 'premium' : ''}">
+                <h3>${planName} Plan</h3>
+                <p><strong>Price:</strong> ${price}</p>
+                <p><strong>Renewal Date:</strong> ${renewal}</p>
+                <p><strong>Status:</strong> ${status}</p>
+            </div>
+        `;
+        document.getElementById('subscription-details').innerHTML = html;
+    }
+
+    async function loadRatingBreakdown(providerId) {
+        const container = document.getElementById('rating-bars');
+        try {
+            const reviewsSnapshot = await db.collection('serviceProviders').doc(providerId)
+                .collection('reviews').get();
+            const distribution = {1:0,2:0,3:0,4:0,5:0};
+            let total = 0;
+            reviewsSnapshot.forEach(doc => {
+                const r = doc.data().rating;
+                if (r >= 1 && r <= 5) {
+                    distribution[r]++;
+                    total++;
                 }
-                // Location
-                if (selectedLocation !== 'all' && provider.location !== selectedLocation) return false;
-                // Price (Using basePrice defined in vendorprofile.html)
-                if (maxPrice !== 'all') {
-                    const pPrice = provider.basePrice || 0;
-                    if (pPrice > parseInt(maxPrice)) return false;
-                }
-                // Rating
-                if (minRating > 0 && (provider.rating || 0) < minRating) return false;
-                
-                return true;
             });
-
-            renderProviders();
-        }
-
-        function resetFilters() {
-            searchInput.value = '';
-            categoryFilter.value = 'all';
-            locationFilter.value = 'all';
-            priceFilter.value = 'all';
-            ratingFilter.value = '0';
-            applyFilters();
-        }
-
-        // ========== RENDER PROVIDERS ==========
-        function renderProviders() {
-            if (filteredProviders.length === 0) {
-                grid.innerHTML = '';
-                emptyState.style.display = 'block';
+            if (total === 0) {
+                container.innerHTML = '<p style="color:var(--muted); font-size:0.85rem;">No ratings yet.</p>';
                 return;
             }
-            emptyState.style.display = 'none';
-            grid.innerHTML = '';
-
-            filteredProviders.forEach(provider => {
-                const card = document.createElement('div');
-                card.className = 'provider-card';
-
-                // Determine Avatar
-                const initials = (provider.name || '?').split(' ').map(word => word.charAt(0)).join('').substring(0, 2).toUpperCase();
-                const avatarHtml = provider.avatar 
-                    ? `<img src="${provider.avatar}" alt="Avatar">`
-                    : initials;
-
-                // Ratings
-                const ratingNum = provider.rating || 0;
-                const reviewsCount = provider.reviewsCount || 0;
-                const ratingStars = ratingNum > 0 ?
-                    `<span class="rating"><i class="fas fa-star"></i> ${ratingNum.toFixed(1)} <span>(${reviewsCount})</span></span>` :
-                    '<span class="rating" style="color:var(--muted);"><i class="far fa-star"></i> New</span>';
-
-                // Tags limit to 3 to keep card clean
-                let tagsHtml = '';
-                if (provider.services && provider.services.length > 0) {
-                    const displayTags = provider.services.slice(0, 3);
-                    tagsHtml = displayTags.map(tag => `<span>${tag}</span>`).join('');
-                    if (provider.services.length > 3) tagsHtml += `<span>+${provider.services.length - 3} more</span>`;
-                }
-
-                const waLink = provider.phone ? `https://wa.me/${provider.phone.replace(/[^0-9]/g, '')}` : '#';
-
-                card.innerHTML = `
-                    <div class="top">
-                        <div class="avatar">${avatarHtml}</div>
-                        <div class="info">
-                            <div class="name">${provider.name || 'Unnamed Business'}</div>
-                            <div class="category">${provider.category || 'Service Provider'}</div>
-                            ${ratingStars}
+            let barsHtml = '';
+            for (let i = 5; i >= 1; i--) {
+                const count = distribution[i];
+                const percent = (count / total) * 100;
+                barsHtml += `
+                    <div class="rating-bar-row">
+                        <span class="rating-bar-label">${i}★</span>
+                        <div class="rating-bar-bg">
+                            <div class="rating-bar-fill" style="width:${percent}%;"></div>
                         </div>
-                    </div>
-                    
-                    ${tagsHtml ? `<div class="service-tags">${tagsHtml}</div>` : ''}
-                    
-                    <div class="description">${provider.description || 'No description provided by this vendor.'}</div>
-                    
-                    <div class="details">
-                        <span style="color:var(--pink);"><i class="fas fa-map-marker-alt"></i> ${provider.location || 'Location Not Set'}</span>
-                        <span style="color:var(--lime);"><i class="fas fa-tag"></i> Starts at $${provider.basePrice || 0}</span>
-                    </div>
-                    
-                    <div class="actions">
-                        <a href="vendorprofile.html?id=${provider.id}" class="btn btn-primary"><i class="fas fa-eye"></i> View Profile</a>
-                        ${provider.phone 
-                            ? `<a href="${waLink}" target="_blank" class="btn btn-outline" style="background:#25D366; color:white; border:none;"><i class="fab fa-whatsapp"></i> Chat</a>` 
-                            : `<button class="btn btn-outline" disabled style="opacity:0.5;">No Contact</button>`
-                        }
+                        <span class="rating-bar-count">${count}</span>
                     </div>
                 `;
-                grid.appendChild(card);
-            });
+            }
+            container.innerHTML = barsHtml;
+        } catch (error) {
+            console.error('Error loading rating breakdown:', error);
+            container.innerHTML = '<p style="color:var(--pink); font-size:0.85rem;">Failed to load ratings.</p>';
         }
+    }
 
-        // ========== EVENT LISTENERS ==========
-        searchInput.addEventListener('input', applyFilters);
-        categoryFilter.addEventListener('change', applyFilters);
-        locationFilter.addEventListener('change', applyFilters);
-        priceFilter.addEventListener('change', applyFilters);
-        ratingFilter.addEventListener('change', applyFilters);
+    function generateTips(provider) {
+        let tips = [];
+        if (!provider.description || provider.description.trim() === '') {
+            tips.push({ type: 'warning', text: 'Add a compelling description about your services to attract more clients.' });
+        }
+        if (!provider.phone || provider.phone.trim() === '') {
+            tips.push({ type: 'warning', text: 'Add your phone number so clients can easily reach you.' });
+        }
+        if (!provider.email || provider.email.trim() === '') {
+            tips.push({ type: 'warning', text: 'Add your email address for professional inquiries.' });
+        }
+        if (!provider.location || provider.location.trim() === '') {
+            tips.push({ type: 'warning', text: 'Specify your location so you appear in local searches.' });
+        }
+        if (!provider.facebook && !provider.instagram && !provider.tiktok && !provider.youtube) {
+            tips.push({ type: 'warning', text: 'Add at least one social media handle to build trust.' });
+        }
+        if (!provider.youtube) {
+            tips.push({ type: 'info', text: 'Upload a YouTube video showcasing your work – videos help clients see your skills in action.' });
+        }
+        if (!provider.images || provider.images.length < 3) {
+            tips.push({ type: 'info', text: 'Add at least 3 high-quality images to your gallery. Visuals greatly increase engagement.' });
+        }
+        tips.push({ type: 'info', text: 'Respond to client inquiries within 1 hour – fast response times dramatically improve booking rates.' });
+        tips.push({ type: 'info', text: 'Keep your pricing transparent. Clients are more likely to book when they see clear rates.' });
+        tips.push({ type: 'success', text: 'Encourage satisfied clients to leave reviews. A higher rating increases visibility in search results.' });
+        tips.push({ type: 'info', text: 'Use specific keywords in your description (e.g., "wedding DJ in Harare") to appear in more searches.' });
+        tips.push({ type: 'warning', text: 'Regularly update your availability calendar to avoid double-booking and missed opportunities.' });
+        renderTipsSlider(tips);
+    }
 
-        // ========== INIT ==========
-        startListening();
-    </script>
+    function generateDefaultTips() {
+        const defaultTips = [
+            { type: 'warning', text: 'Complete your service provider profile to appear in search results and attract clients.' },
+            { type: 'info', text: 'Add high-quality images showcasing your previous work to build trust with potential clients.' },
+            { type: 'info', text: 'Provide multiple contact methods (phone, email, WhatsApp) to make it easy for clients to reach you.' },
+            { type: 'success', text: 'Encourage satisfied clients to leave reviews - a higher rating boosts your visibility.' }
+        ];
+        renderTipsSlider(defaultTips);
+    }
+
+    function renderTipsSlider(tips) {
+        const slider = document.getElementById('tips-slider');
+        const dotsContainer = document.getElementById('slider-dots');
+        slider.innerHTML = '';
+        dotsContainer.innerHTML = '';
+        tipSlides = [];
+
+        tips.forEach((tip, index) => {
+            const slideDiv = document.createElement('div');
+            slideDiv.className = `tip-slide ${index === 0 ? 'active' : ''} ${tip.type}`;
+            slideDiv.innerHTML = `
+                <i class="fas ${tip.type === 'warning' ? 'fa-exclamation-circle' : tip.type === 'info' ? 'fa-lightbulb' : 'fa-check-circle'}"></i>
+                <span>${tip.text}</span>
+            `;
+            slider.appendChild(slideDiv);
+
+            const dot = document.createElement('div');
+            dot.className = `slider-dot ${index === 0 ? 'active' : ''}`;
+            dot.dataset.index = index;
+            dot.addEventListener('click', () => goToSlide(index));
+            dotsContainer.appendChild(dot);
+
+            tipSlides.push(slideDiv);
+        });
+
+        currentSlideIndex = 0;
+        startAutoSlide();
+    }
+
+    function goToSlide(index) {
+        if (index < 0 || index >= tipSlides.length) return;
+        tipSlides.forEach(slide => slide.classList.remove('active'));
+        document.querySelectorAll('.slider-dot').forEach(dot => dot.classList.remove('active'));
+        tipSlides[index].classList.add('active');
+        document.querySelectorAll('.slider-dot')[index].classList.add('active');
+        currentSlideIndex = index;
+    }
+
+    function startAutoSlide() {
+        if (slideInterval) clearInterval(slideInterval);
+        slideInterval = setInterval(() => {
+            if (tipSlides.length === 0) return;
+            let next = (currentSlideIndex + 1) % tipSlides.length;
+            goToSlide(next);
+        }, 5000);
+    }
+
+    // ========== NAVIGATION ==========
+    function switchSection(page) {
+        document.querySelectorAll('.content > .card').forEach(card => card.classList.add('hidden'));
+        const target = document.getElementById(page + '-section');
+        if (target) target.classList.remove('hidden');
+        document.querySelectorAll('.sidebar .nav-links a').forEach(link => link.classList.remove('active'));
+        const activeLink = document.querySelector(`.sidebar .nav-links a[data-page="${page}"]`);
+        if (activeLink) activeLink.classList.add('active');
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('open');
+        }
+    }
+
+    document.getElementById('menuToggle').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+    });
+
+    document.querySelectorAll('.sidebar .nav-links a[data-page]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchSection(link.dataset.page);
+        });
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        auth.signOut().then(() => window.location.href = 'login.html');
+    });
+    document.getElementById('logout-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        auth.signOut().then(() => window.location.href = 'login.html');
+    });
+
+    // ========== ACCOUNT SETTINGS ==========
+    async function changeEmail() {
+        const newEmail = document.getElementById('new-email').value;
+        if (!newEmail) { alert('Please enter a new email.'); return; }
+        try {
+            await currentUser.updateEmail(newEmail);
+            alert('Email updated! Please re-login.');
+            await auth.signOut();
+        } catch (error) {
+            alert('Failed to update email: ' + error.message);
+        }
+    }
+
+    async function changePassword() {
+        const newPassword = document.getElementById('new-password').value;
+        if (!newPassword) { alert('Please enter a new password.'); return; }
+        try {
+            await currentUser.updatePassword(newPassword);
+            alert('Password updated!');
+            document.getElementById('new-password').value = '';
+        } catch (error) {
+            alert('Failed to update password: ' + error.message);
+        }
+    }
+
+    window.switchSection = switchSection;
+    window.changeEmail = changeEmail;
+    window.changePassword = changePassword;
+</script>
 </body>
 </html>

@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Provider Profile | Zone21</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 20px;
+            --shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .header .logo span {
+            color: var(--pink);
+        }
+        .profile-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .profile-cover {
+            height: 180px;
+            background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%);
+            position: relative;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--navy);
+            border: 4px solid white;
+            margin-top: -60px;
+            margin-left: 30px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .profile-info {
+            padding: 20px 30px 30px;
+        }
+        .name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .category {
+            color: var(--muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+        }
+        .rating-summary {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .stars {
+            color: #ffb400;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+        }
+        .rating-number {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .reviews-count {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        .services-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .service-tag {
+            background: #f0f4f8;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .description {
+            margin: 15px 0;
+            line-height: 1.6;
+            color: #444;
+        }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--navy);
+            font-size: 0.9rem;
+            transition: 0.2s;
+            border: 1px solid transparent;
+        }
+        .contact-item:hover {
+            background: #e9ecef;
+            border-color: var(--border);
+        }
+        .contact-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+        .whatsapp-btn {
+            background: #25D366;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: 0.2s;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .whatsapp-btn:hover {
+            background: #1da851;
+            transform: translateY(-2px);
+        }
+        .social-links {
+            display: flex;
+            gap: 12px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        .social-link {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        .social-link:hover {
+            transform: scale(1.1);
+        }
+        .social-facebook { background: #1877F2; }
+        .social-instagram { background: #E4405F; }
+        .social-tiktok { background: #000; }
+        .social-youtube { background: #FF0000; }
+        .social-website { background: var(--navy); }
+        .social-email { background: #EA4335; }
+
+        .gallery-section {
+            margin: 25px 0;
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .gallery-item {
+            border-radius: 12px;
+            overflow: hidden;
+            height: 180px;
+            background: #e9ecef;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid var(--border);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .gallery-item:hover {
+            transform: scale(1.02);
+        }
+        .review-section {
+            margin: 25px 0;
+        }
+        .review-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .review-form h3 {
+            margin-bottom: 10px;
+        }
+        .star-rating-input {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+        .star-rating-input i {
+            cursor: pointer;
+            color: #ccc;
+        }
+        .star-rating-input i.active {
+            color: #ffb400;
+        }
+        .review-form input, .review-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .review-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .review-item {
+            padding: 15px;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .reviewer-name {
+            font-weight: 700;
+        }
+        .review-date {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .review-stars {
+            color: #ffb400;
+        }
+        .review-comment {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .share-btn {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+            margin-left: 10px;
+        }
+        .loading, .error {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: var(--muted);
+        }
+        @media (max-width: 600px) {
+            .profile-info {
+                padding: 15px;
+            }
+            .profile-avatar {
+                margin-left: 20px;
+                width: 90px;
+                height: 90px;
+                font-size: 1.8rem;
+                margin-top: -45px;
+            }
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Zone<span>21</span> Provider</div>
+        </div>
+
+        <div id="profile-content">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading profile...</div>
+        </div>
+    </div>
+
+    <!-- Hidden template for review list item -->
+    <template id="review-template">
+        <div class="review-item">
+            <div class="review-header">
+                <span class="reviewer-name"></span>
+                <span class="review-date"></span>
+            </div>
+            <div class="review-stars"></div>
+            <div class="review-comment"></div>
+        </div>
+    </template>
+
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Get provider ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const providerId = urlParams.get('id');
+
+        if (!providerId) {
+            document.getElementById('profile-content').innerHTML = '<div class="error">No provider ID specified. Please access via a valid link.</div>';
+        } else {
+            loadProviderProfile(providerId);
+        }
+
+        async function loadProviderProfile(providerId) {
+            try {
+                const docRef = db.collection('serviceProviders').doc(providerId);
+                const doc = await docRef.get();
+                if (!doc.exists) {
+                    document.getElementById('profile-content').innerHTML = '<div class="error">Provider not found.</div>';
+                    return;
+                }
+                const provider = doc.data();
+                renderProfile(provider, providerId, docRef);
+                loadReviews(providerId);
+            } catch (error) {
+                console.error('Error loading provider:', error);
+                document.getElementById('profile-content').innerHTML = '<div class="error">Failed to load profile. Please try again later.</div>';
+            }
+        }
+
+        function renderProfile(provider, providerId, docRef) {
+            // Determine avatar initials
+            const initials = (provider.name || '?')
+                .split(' ')
+                .map(word => word.charAt(0))
+                .join('')
+                .substring(0, 2)
+                .toUpperCase();
+
+            // Social links
+            const socialLinks = [];
+            if (provider.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: provider.facebook, label: 'Facebook' });
+            if (provider.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: provider.instagram, label: 'Instagram' });
+            if (provider.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: provider.tiktok, label: 'TikTok' });
+            if (provider.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: provider.youtube, label: 'YouTube' });
+            if (provider.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: provider.website, label: 'Website' });
+            if (provider.email) socialLinks.push({ class: 'social-email', icon: 'fas fa-envelope', url: `mailto:${provider.email}`, label: 'Email' });
+
+            // Services
+            const services = provider.services || [];
+            const servicesHtml = services.map(s => `<span class="service-tag">${s}</span>`).join('');
+
+            // Images
+            const images = provider.images || [];
+            const galleryHtml = images.length > 0 ? images.map(img => `
+                <div class="gallery-item" onclick="window.open('${img}', '_blank')">
+                    <img src="${img}" alt="Provider image">
+                </div>
+            `).join('') : '<p style="color:var(--muted);">No images available</p>';
+
+            // Contact items
+            const phoneLink = provider.phone ? `tel:${provider.phone}` : '#';
+            const whatsappLink = provider.phone ? `https://wa.me/${provider.phone.replace(/[^0-9]/g, '')}` : '#';
+
+            // Rating average
+            const rating = provider.rating || 0;
+            const reviewsCount = provider.reviewsCount || 0;
+
+            // Star display
+            const fullStars = Math.floor(rating);
+            const halfStar = rating % 1 >= 0.5;
+            let starsHtml = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= fullStars) starsHtml += '<i class="fas fa-star"></i>';
+                else if (i === fullStars + 1 && halfStar) starsHtml += '<i class="fas fa-star-half-alt"></i>';
+                else starsHtml += '<i class="far fa-star"></i>';
+            }
+
+            const html = `
+                <div class="profile-card">
+                    <div class="profile-cover"></div>
+                    <div class="profile-avatar">${initials}</div>
+                    <div class="profile-info">
+                        <div class="name">${provider.name || 'Unnamed Provider'}</div>
+                        <div class="category">${provider.category || 'General Service'}</div>
+                        
+                        <div class="rating-summary">
+                            <span class="stars">${starsHtml}</span>
+                            <span class="rating-number">${rating.toFixed(1)}</span>
+                            <span class="reviews-count">(${reviewsCount} review${reviewsCount !== 1 ? 's' : ''})</span>
+                        </div>
+
+                        ${services ? `<div class="services-tags">${servicesHtml}</div>` : ''}
+                        
+                        ${provider.description ? `<div class="description">${provider.description}</div>` : ''}
+
+                        <div class="contact-grid">
+                            ${provider.phone ? `
+                                <a href="${phoneLink}" class="contact-item">
+                                    <i class="fas fa-phone" style="color:var(--navy);"></i> ${provider.phone}
+                                </a>` : ''}
+                            ${provider.email ? `
+                                <a href="mailto:${provider.email}" class="contact-item">
+                                    <i class="fas fa-envelope" style="color:var(--pink);"></i> ${provider.email}
+                                </a>` : ''}
+                            ${provider.location ? `
+                                <div class="contact-item">
+                                    <i class="fas fa-map-marker-alt" style="color:var(--lime);"></i> ${provider.location}
+                                </div>` : ''}
+                        </div>
+
+                        <div class="social-links">
+                            ${socialLinks.map(link => `
+                                <a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}">
+                                    <i class="${link.icon}"></i>
+                                </a>`).join('')}
+                        </div>
+
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                            <a href="${whatsappLink}" target="_blank" class="whatsapp-btn">
+                                <i class="fab fa-whatsapp"></i> WhatsApp Direct
+                            </a>
+                            <button class="share-btn" onclick="copyProfileLink('${providerId}')">
+                                <i class="fas fa-share-alt"></i> Share Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-card" style="margin-top:20px; padding:20px;">
+                    <div class="gallery-section">
+                        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;">
+                            <i class="fas fa-images" style="color:var(--pink);"></i> Gallery
+                        </h2>
+                        <div class="gallery-grid">${galleryHtml}</div>
+                    </div>
+                </div>
+
+                <div class="profile-card" style="margin-top:20px; padding:20px;">
+                    <div class="review-section">
+                        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;">
+                            <i class="fas fa-star" style="color:var(--pink);"></i> Ratings & Reviews
+                        </h2>
+                        <div class="review-form">
+                            <h3>Rate this provider</h3>
+                            <div class="star-rating-input" id="star-input">
+                                <i class="far fa-star" data-value="1"></i>
+                                <i class="far fa-star" data-value="2"></i>
+                                <i class="far fa-star" data-value="3"></i>
+                                <i class="far fa-star" data-value="4"></i>
+                                <i class="far fa-star" data-value="5"></i>
+                            </div>
+                            <input type="text" id="reviewer-name" placeholder="Your name (optional)">
+                            <textarea id="review-comment" placeholder="Write your review..."></textarea>
+                            <button class="whatsapp-btn" style="background:var(--navy); color:var(--lime);" onclick="submitReview('${providerId}')">
+                                <i class="fas fa-paper-plane"></i> Submit Review
+                            </button>
+                        </div>
+                        <div class="review-list" id="review-list">
+                            <!-- Reviews loaded dynamically -->
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('profile-content').innerHTML = html;
+            setupStarRating();
+        }
+
+        // ========== STAR RATING INPUT ==========
+        let selectedRating = 0;
+        function setupStarRating() {
+            const stars = document.querySelectorAll('#star-input i');
+            stars.forEach(star => {
+                star.addEventListener('mouseover', () => {
+                    const value = parseInt(star.dataset.value);
+                    updateStarInputUI(value);
+                });
+                star.addEventListener('mouseleave', () => {
+                    updateStarInputUI(selectedRating);
+                });
+                star.addEventListener('click', () => {
+                    selectedRating = parseInt(star.dataset.value);
+                    updateStarInputUI(selectedRating);
+                });
+            });
+        }
+
+        function updateStarInputUI(value) {
+            const stars = document.querySelectorAll('#star-input i');
+            stars.forEach(star => {
+                const starValue = parseInt(star.dataset.value);
+                if (starValue <= value) {
+                    star.className = 'fas fa-star active';
+                } else {
+                    star.className = 'far fa-star';
+                }
+            });
+        }
+
+        // ========== REVIEWS ==========
+        async function loadReviews(providerId) {
+            const reviewList = document.getElementById('review-list');
+            reviewList.innerHTML = '<p style="color:var(--muted);">Loading reviews...</p>';
+            try {
+                const reviewsSnapshot = await db.collection('serviceProviders').doc(providerId)
+                    .collection('reviews')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                reviewList.innerHTML = '';
+                if (reviewsSnapshot.empty) {
+                    reviewList.innerHTML = '<p style="color:var(--muted);">No reviews yet. Be the first to review!</p>';
+                    return;
+                }
+
+                const template = document.getElementById('review-template');
+                reviewsSnapshot.forEach(doc => {
+                    const review = doc.data();
+                    const clone = template.content.cloneNode(true);
+                    clone.querySelector('.reviewer-name').textContent = review.reviewerName || 'Anonymous';
+                    clone.querySelector('.review-date').textContent = review.createdAt ? new Date(review.createdAt.toDate()).toLocaleDateString() : '';
+                    
+                    const starsHtml = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+                    clone.querySelector('.review-stars').textContent = starsHtml;
+                    clone.querySelector('.review-comment').textContent = review.comment || '';
+                    reviewList.appendChild(clone);
+                });
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+                reviewList.innerHTML = '<p style="color:var(--pink);">Failed to load reviews.</p>';
+            }
+        }
+
+        async function submitReview(providerId) {
+            if (selectedRating === 0) {
+                alert('Please select a star rating.');
+                return;
+            }
+            const reviewerName = document.getElementById('reviewer-name').value.trim() || 'Anonymous';
+            const comment = document.getElementById('review-comment').value.trim();
+            if (!comment) {
+                alert('Please write a review comment.');
+                return;
+            }
+
+            try {
+                await db.collection('serviceProviders').doc(providerId).collection('reviews').add({
+                    rating: selectedRating,
+                    reviewerName: reviewerName,
+                    comment: comment,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Update provider's average rating & count
+                const docRef = db.collection('serviceProviders').doc(providerId);
+                await firebase.firestore().runTransaction(async (transaction) => {
+                    const doc = await transaction.get(docRef);
+                    if (!doc.exists) return;
+                    const data = doc.data();
+                    const oldCount = data.reviewsCount || 0;
+                    const oldSum = (data.rating || 0) * oldCount;
+                    const newCount = oldCount + 1;
+                    const newAvg = (oldSum + selectedRating) / newCount;
+                    transaction.update(docRef, { rating: newAvg, reviewsCount: newCount });
+                });
+
+                // Reload reviews and profile
+                loadReviews(providerId);
+                loadProviderProfile(providerId);
+                // Reset form
+                selectedRating = 0;
+                updateStarInputUI(0);
+                document.getElementById('reviewer-name').value = '';
+                document.getElementById('review-comment').value = '';
+                alert('Review submitted successfully!');
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                alert('Failed to submit review. Please try again.');
+            }
+        }
+
+        // ========== SHARE PROFILE ==========
+        function copyProfileLink(providerId) {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Profile link copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy link. Please copy manually: ' + url);
+            });
+        }
+    </script>
+</body>
+</html>

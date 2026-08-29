@@ -6,10 +6,6 @@
     <title>Zone21 System | Event Blueprint Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- Firebase SDK (Keep your credentials here if needed) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
     <style>
         :root {
             --navy: #102838;
@@ -72,10 +68,13 @@
             flex: 1; background: white; border-radius: var(--radius-xl);
             box-shadow: 0 20px 60px rgba(16,40,56,0.15); display: flex; flex-direction: column; overflow: hidden; position: relative;
         }
-        .workspace-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); z-index: 10; }
+        .workspace-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid var(--lime); z-index: 10; }
+        .header-left { display: flex; align-items: center; gap: 15px; }
         .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
         .workspace-header h1 { font-size: 1.3rem; color: var(--lime); margin: 0; }
         .workspace-header p { font-size: 0.8rem; color: rgba(255,255,255,0.8); margin: 0; }
+        
+        .plan-badge { background: rgba(192, 200, 0, 0.15); border: 1px solid var(--lime); color: var(--lime); padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; gap: 6px; }
 
         .workspace-content { flex: 1; overflow-y: auto; padding: 20px; background: #fafbfc; scroll-behavior: smooth; }
         
@@ -90,7 +89,7 @@
         .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--navy); background: white; }
         .input-group textarea { resize: vertical; min-height: 80px; }
         
-        /* Services Checkboxes (Granular) */
+        /* Services Checkboxes */
         .services-wrapper { margin-top: 15px; }
         .services-wrapper > label { font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; display: block; border-bottom: 2px solid var(--lime); padding-bottom: 5px; }
         .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
@@ -102,7 +101,7 @@
         .submit-btn:hover { background: var(--lime); color: var(--navy); }
         .submit-btn:disabled { background: var(--grey); color: #888; cursor: not-allowed; }
         
-        /* Loading & Blueprint Styling (From Original Neat Code) */
+        /* Loading & Blueprint Styling */
         #loading { display: none; text-align: center; padding: 40px; }
         .spinner { border: 4px solid rgba(0,0,0,0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -147,6 +146,7 @@
             .workspace-content { padding: 15px 10px; }
             .form-section { padding: 15px; border-radius: 12px; }
             .blueprint-result { padding: 15px; border-radius: 12px; }
+            .plan-badge span { display: none; } /* Hide text on mobile, just show icon */
         }
 
         @media print {
@@ -169,7 +169,7 @@
         <div><h2>Past Events</h2></div>
     </div>
     <div style="padding: 0 20px;">
-        <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
+        <button class="new-chat-btn" onclick="window.startNewSession()"><i class="fas fa-plus"></i> New Event</button>
     </div>
     <div class="history-list" id="history-list"></div>
 </div>
@@ -177,10 +177,16 @@
 <!-- Main Workspace -->
 <div class="workspace">
     <div class="workspace-header">
-        <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
-        <div>
-            <h1>Zone21 System</h1>
-            <p>Event Allocation & Blueprint Generation</p>
+        <div class="header-left">
+            <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
+            <div>
+                <h1>Zone21 System</h1>
+                <p>Event Allocation & Blueprint Generation</p>
+            </div>
+        </div>
+        <!-- Plan Badge (Dynamically populated by Firebase) -->
+        <div class="plan-badge" id="plan-display">
+            <i class="fa-solid fa-spinner fa-spin"></i> <span>Checking Plan...</span>
         </div>
     </div>
 
@@ -221,8 +227,9 @@
                         <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50">
                     </div>
                     <div class="input-group">
-                        <label>6. Expected Attendees <span id="attendeeLimitNote" style="font-weight:normal; font-size: 0.8rem; color:var(--pink);"></span></label>
-                        <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1">
+                        <label>6. Expected Attendees</label>
+                        <!-- Constraints set dynamically by JS based on user's active plan -->
+                        <input type="number" id="eventAttendees" required placeholder="Fetching package limits...">
                     </div>
                 </div>
 
@@ -240,7 +247,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="submit-btn" id="generateBtn">
+                <button type="submit" class="submit-btn" id="generateBtn" disabled>
                     <i class="fas fa-magic"></i> Generate System Blueprint
                 </button>
             </form>
@@ -250,7 +257,7 @@
         <div id="loading">
             <div class="spinner"></div>
             <h3 style="color: var(--navy);">Zone21 System is processing your allocation...</h3>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Analyzing budget, matching local vendors, and drafting blueprint.</p>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Analyzing budget, enforcing package limits, and drafting blueprint.</p>
         </div>
 
         <!-- Blueprint Result -->
@@ -264,7 +271,7 @@
                     <button class="action-btn btn-download" onclick="window.print()">
                         <i class="fas fa-file-pdf"></i> Download Blueprint
                     </button>
-                    <button class="action-btn btn-regen" onclick="generateBlueprint(true)">
+                    <button class="action-btn btn-regen" onclick="window.generateBlueprint(true)">
                         <i class="fas fa-rotate"></i> Regenerate Allocations
                     </button>
                 </div>
@@ -274,53 +281,40 @@
     </div>
 </div>
 
-<script>
-    // ==========================================
-    // 1. SUBSCRIPTION PACKAGE CONFIGURATION
-    // ==========================================
-    // In the future, this will read from your Subscription page's saved data
-    // For now, it defaults to 'small' if nothing is found.
-    // To test other limits, change 'small' to 'medium' or 'enterprise' locally.
-    const currentUserPackage = localStorage.getItem('zone21_package') || 'small';
+<!-- ============================================== -->
+<!-- FIREBASE & CORE SYSTEM LOGIC -->
+<!-- ============================================== -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    const packageConfig = {
-        'small': { maxAttendees: 29, label: "Small Event Package" },
-        'medium': { maxAttendees: 349, label: "Medium Event Package" },
-        'enterprise': { maxAttendees: Infinity, label: "Enterprise/Large Package" }
+    // Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+        authDomain: "zone21.firebaseapp.com",
+        projectId: "zone21",
+        storageBucket: "zone21.firebasestorage.app",
+        messagingSenderId: "405963057292",
+        appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+        measurementId: "G-KE007Y89F1"
     };
 
-    const activePackage = packageConfig[currentUserPackage];
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    // ==========================================
-    // 2. ENFORCE ATTENDEE LIMITS
-    // ==========================================
-    const attendeesInput = document.getElementById('eventAttendees');
-    const attendeeLimitNote = document.getElementById('attendeeLimitNote');
-
-    if (activePackage.maxAttendees !== Infinity) {
-        // Enforce HTML max attribute
-        attendeesInput.max = activePackage.maxAttendees;
-        attendeeLimitNote.innerText = `(Max ${activePackage.maxAttendees} based on your plan)`;
-        
-        // Prevent typing numbers higher than limit
-        attendeesInput.addEventListener('input', function(e) {
-            let val = parseInt(e.target.value);
-            if (val > activePackage.maxAttendees) {
-                e.target.value = activePackage.maxAttendees;
-                alert(`Your current subscription (${activePackage.label}) is limited to a maximum of${activePackage.maxAttendees} attendees. Please upgrade to support larger events.`);
-            }
-        });
-    } else {
-        attendeeLimitNote.innerText = `(Unlimited attendees)`;
-    }
-
-
-    // ==========================================
-    // 3. CORE SYSTEM SCRIPT
-    // ==========================================
+    // AI Config
     const OPENROUTER_API_KEY = "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"; 
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+    // State Variables
+    let currentUserPlan = null;
+    let maxAllowedAttendees = 0;
+    let currentSessionId = null;
+    let currentEventData = null;
+
+    // Services
     const granularServices = [
         "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs", 
         "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting", 
@@ -331,18 +325,7 @@
         "Cleaning Services", "Ushers & Hostesses"
     ];
 
-    let currentSessionId = null;
-    let currentEventData = null; 
-
-    // Sidebar Mobile Toggle
-    const menuBtn = document.getElementById('menu-btn');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
-    if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
-    if (overlay) overlay.addEventListener('click', closeSidebar);
-
-    // Populate the checkboxes
+    // Build checkboxes
     const container = document.getElementById('servicesContainer');
     granularServices.forEach(service => {
         container.innerHTML += `
@@ -353,7 +336,76 @@
         `;
     });
 
-    // Handle Form Submit
+    // ==========================================
+    // 1. FIREBASE AUTH & PLAN ENFORCEMENT
+    // ==========================================
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    
+                    if (userData.subscriptionStatus === 'active' && userData.activePlan) {
+                        currentUserPlan = userData.activePlan;
+                        applyPackageLimits(currentUserPlan);
+                        document.getElementById('generateBtn').disabled = false; // Enable form
+                    } else {
+                        alert("You need an active subscription package to use the Generator.");
+                        window.location.href = "subscriptions.html"; 
+                    }
+                } else {
+                    window.location.href = "index.html"; // Invalid user doc
+                }
+            } catch(e) {
+                console.error("Error fetching user data:", e);
+                alert("Failed to verify subscription. Please sign in again.");
+            }
+        } else {
+            // Not logged in
+            window.location.href = "index.html"; 
+        }
+    });
+
+    // Apply specific limits based on plan string
+    function applyPackageLimits(planName) {
+        const attendeesInput = document.getElementById('eventAttendees');
+        const planDisplay = document.getElementById('plan-display');
+        
+        let planIcon = '<i class="fa-solid fa-crown"></i>';
+        
+        if (planName.toLowerCase().includes('small')) {
+            maxAllowedAttendees = 35;
+            attendeesInput.max = 35;
+            attendeesInput.placeholder = "Max 35 attendees allowed";
+            planDisplay.innerHTML = `${planIcon} <span>Small Package</span>`;
+        } 
+        else if (planName.toLowerCase().includes('medium')) {
+            maxAllowedAttendees = 355;
+            attendeesInput.max = 355;
+            attendeesInput.placeholder = "Max 355 attendees allowed";
+            planDisplay.innerHTML = `${planIcon} <span>Medium Package</span>`;
+        } 
+        else {
+            maxAllowedAttendees = 999999; // Essentially unlimited
+            attendeesInput.removeAttribute('max');
+            attendeesInput.placeholder = "Unlimited attendees";
+            planDisplay.innerHTML = `${planIcon} <span>Large / Enterprise</span>`;
+        }
+    }
+
+    // Sidebar Mobile Toggle
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
+    if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
+    if (overlay) overlay.addEventListener('click', closeSidebar);
+
+
+    // ==========================================
+    // 2. FORM SUBMISSION & VALIDATION
+    // ==========================================
     document.getElementById('eventForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -363,27 +415,36 @@
             return;
         }
 
+        const requestedAttendees = parseInt(document.getElementById('eventAttendees').value);
+        
+        // Strict Validation Check
+        if (requestedAttendees > maxAllowedAttendees) {
+            alert(`Your current subscription (${currentUserPlan}) only allows up to${maxAllowedAttendees} attendees.\n\nPlease reduce the number or upgrade your package.`);
+            return;
+        }
+
         currentEventData = {
             name: document.getElementById('eventName').value,
             location: document.getElementById('eventLocation').value,
             type: document.getElementById('eventType').value,
             contact: document.getElementById('eventContact').value,
             budget: document.getElementById('eventBudget').value,
-            attendees: document.getElementById('eventAttendees').value,
+            attendees: requestedAttendees,
             notes: document.getElementById('eventNotes').value,
             services: selectedServices.join(", ")
         };
 
-        generateBlueprint(false);
+        window.generateBlueprint(false);
     });
 
-    // Core Generation Logic
-    async function generateBlueprint(isRegenerating) {
+    // ==========================================
+    // 3. AI GENERATION LOGIC (EXPOSED TO WINDOW)
+    // ==========================================
+    window.generateBlueprint = async function(isRegenerating) {
         document.getElementById('form-section').style.display = 'none';
         document.getElementById('blueprint-container').style.display = 'none';
         document.getElementById('loading').style.display = 'block';
         
-        // Ensure we have a session ID
         if (!currentSessionId || !isRegenerating) {
             currentSessionId = 'evt_' + Date.now();
         }
@@ -395,12 +456,14 @@ EVENT DETAILS:
 - Event Name: ${currentEventData.name}
 - Location: ${currentEventData.location}
 - Event Type: ${currentEventData.type}  - Total Budget: $${currentEventData.budget}
-- Expected Attendees: ${currentEventData.attendees}
-- User Subscription Tier: ${activePackage.label} (Keep service suggestions appropriate for this scale)
+- Expected Attendees: ${currentEventData.attendees} (User Subscription Limit:${maxAllowedAttendees === 999999 ? 'Unlimited' : maxAllowedAttendees} people)
 - Additional Notes: ${currentEventData.notes || 'None'}
-- Specific Services Required: ${currentEventData.services}    CRITICAL INSTRUCTIONS:  1. BUDGET ANALYSIS & WARNING (Crucial): Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}. 
+- Specific Services Required: ${currentEventData.services}
+
+CRITICAL INSTRUCTIONS: 
+1. PACKAGE & BUDGET ANALYSIS (Crucial): The user is operating under the Zone21 "${currentUserPlan}". Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}. 
    - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section. Clearly explain why it's not enough, suggest what the ideal budget should be, and specifically recommend which minor services to remove to make the current budget work.
-2. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}. 
+2. VENDOR ALLOCATION: Allocate the budget across the requested services strictly observing the attendee size scale. Suggest REAL, popular local vendors for ${currentEventData.location}. 
 3. CONTACT DETAILS: You MUST include realistic or actual contact details (phone, email, or social media handles) for the suggested vendors if available.
 4. ZONE21 SECURITY RULE: If "Zone21 Security - EXCLUSIVE" was selected, allocate the security budget strictly to "Zone21 Security Team".
 5. FORMAT: Output strictly in clean HTML format. Use <h2> for main sections, <h3> for sub-sections, and <ul>/<li> for lists. Do NOT include markdown blocks like \`\`\`html. 
@@ -443,10 +506,11 @@ EVENT DETAILS:
         }
     }
 
-    // ====== STORAGE & HISTORY ======
+    // ==========================================
+    // 4. STORAGE & HISTORY LOGIC
+    // ==========================================
     function saveBlueprintState(htmlOutput) {
         const title = currentEventData.name || `${currentEventData.location} Event`;
-        
         const chatData = {
             id: currentSessionId,
             title: title,
@@ -454,18 +518,15 @@ EVENT DETAILS:
             blueprintHtml: htmlOutput,
             updatedAt: new Date().toISOString()
         };
-
         let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
         localSessions[currentSessionId] = chatData;
         localStorage.setItem('zone21_events', JSON.stringify(localSessions));
-
         renderHistorySidebar();
     }
 
     function renderHistorySidebar() {
         const historyList = document.getElementById('history-list');
         historyList.innerHTML = '';
-
         let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
         
         Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
@@ -476,14 +537,14 @@ EVENT DETAILS:
                     <i class="fas fa-clipboard-list" style="color: var(--lime);"></i>
                     <span class="item-title">${session.title}</span>
                 </div>
-                <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteBlueprintSession('${session.id}', event)"></i>
+                <i class="fas fa-trash delete-btn" title="Delete" onclick="window.deleteBlueprintSession('${session.id}', event)"></i>
             `;
-            item.onclick = () => loadBlueprintSession(session.id);
+            item.onclick = () => window.loadBlueprintSession(session.id);
             historyList.appendChild(item);
         });
     }
 
-    function loadBlueprintSession(sessionId) {
+    window.loadBlueprintSession = function(sessionId) {
         closeSidebar();
         let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
         const session = localSessions[sessionId];
@@ -500,7 +561,7 @@ EVENT DETAILS:
         renderHistorySidebar();
     }
 
-    function deleteBlueprintSession(sessionId, event) {
+    window.deleteBlueprintSession = function(sessionId, event) {
         if (event) event.stopPropagation(); 
         if (!confirm("Delete this event blueprint?")) return;
 
@@ -509,13 +570,13 @@ EVENT DETAILS:
         localStorage.setItem('zone21_events', JSON.stringify(localSessions));
 
         if (currentSessionId === sessionId) {
-            startNewSession();
+            window.startNewSession();
         } else {
             renderHistorySidebar();
         }
     }
 
-    function startNewSession() {
+    window.startNewSession = function() {
         closeSidebar();
         currentSessionId = null;
         currentEventData = null;

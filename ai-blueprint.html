@@ -102,7 +102,7 @@
         .submit-btn:hover { background: var(--lime); color: var(--navy); }
         .submit-btn:disabled { background: var(--grey); color: #888; cursor: not-allowed; }
         
-        /* Loading & Blueprint Styling */
+        /* Loading & Blueprint Styling (From Original Neat Code) */
         #loading { display: none; text-align: center; padding: 40px; }
         .spinner { border: 4px solid rgba(0,0,0,0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -221,8 +221,8 @@
                         <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50">
                     </div>
                     <div class="input-group">
-                        <label>6. Expected Attendees</label>
-                        <input type="number" id="eventAttendees" required placeholder="Loading limits...">
+                        <label>6. Expected Attendees <span id="attendeeLimitNote" style="font-weight:normal; font-size: 0.8rem; color:var(--pink);"></span></label>
+                        <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1">
                     </div>
                 </div>
 
@@ -275,54 +275,51 @@
 </div>
 
 <script>
-    // Config
-    const OPENROUTER_API_KEY = "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"; 
-    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    // ==========================================
+    // 1. SUBSCRIPTION PACKAGE CONFIGURATION
+    // ==========================================
+    // In the future, this will read from your Subscription page's saved data
+    // For now, it defaults to 'small' if nothing is found.
+    // To test other limits, change 'small' to 'medium' or 'enterprise' locally.
+    const currentUserPackage = localStorage.getItem('zone21_package') || 'small';
 
-    // ====== SUBSCRIPTION PACKAGE LOGIC ======
     const packageConfig = {
-        'small': { maxAttendees: 30, name: "Small Event Package", description: "Budget and services scaled strictly for under 30 people." },
-        'medium': { maxAttendees: 350, name: "Medium Event Package", description: "Budget and services scaled for up to 350 people." },
-        'enterprise': { maxAttendees: Infinity, name: "Enterprise Event Package", description: "Unlimited scale and high-end enterprise allocation." }
+        'small': { maxAttendees: 29, label: "Small Event Package" },
+        'medium': { maxAttendees: 349, label: "Medium Event Package" },
+        'enterprise': { maxAttendees: Infinity, label: "Enterprise/Large Package" }
     };
 
-    // Bulletproof Subscription Checker
-    function getUserSubscription() {
-        const savedSub = localStorage.getItem('zone21_subscription');
-        // Check if the saved value actually exists in our config. If not, force 'small'.
-        if (savedSub && packageConfig[savedSub]) {
-            return savedSub;
-        }
-        return 'small';
-    }
+    const activePackage = packageConfig[currentUserPackage];
 
-    function enforcePackageLimits() {
-        try {
-            const userSub = getUserSubscription();
-            const activePackage = packageConfig[userSub];
-            const attendeeInput = document.getElementById('eventAttendees');
+    // ==========================================
+    // 2. ENFORCE ATTENDEE LIMITS
+    // ==========================================
+    const attendeesInput = document.getElementById('eventAttendees');
+    const attendeeLimitNote = document.getElementById('attendeeLimitNote');
 
-            if (activePackage.maxAttendees !== Infinity) {
-                attendeeInput.max = activePackage.maxAttendees;
-                attendeeInput.placeholder = `e.g. 20 (Max ${activePackage.maxAttendees})`;
-                
-                attendeeInput.addEventListener('input', function() {
-                    const val = parseInt(this.value);
-                    if (!isNaN(val) && val > activePackage.maxAttendees) {
-                        this.value = activePackage.maxAttendees;
-                        alert(`Notice: Your current Zone21 subscription (${activePackage.name}) has a maximum limit of ${activePackage.maxAttendees} attendees. Upgrade your package for larger events.`);
-                    }
-                });
-            } else {
-                attendeeInput.removeAttribute('max');
-                attendeeInput.placeholder = "e.g. 500 (Unlimited Attendees)";
+    if (activePackage.maxAttendees !== Infinity) {
+        // Enforce HTML max attribute
+        attendeesInput.max = activePackage.maxAttendees;
+        attendeeLimitNote.innerText = `(Max ${activePackage.maxAttendees} based on your plan)`;
+        
+        // Prevent typing numbers higher than limit
+        attendeesInput.addEventListener('input', function(e) {
+            let val = parseInt(e.target.value);
+            if (val > activePackage.maxAttendees) {
+                e.target.value = activePackage.maxAttendees;
+                alert(`Your current subscription (${activePackage.label}) is limited to a maximum of${activePackage.maxAttendees} attendees. Please upgrade to support larger events.`);
             }
-        } catch (e) {
-            console.error("Error enforcing limits:", e);
-        }
+        });
+    } else {
+        attendeeLimitNote.innerText = `(Unlimited attendees)`;
     }
 
-    // ========================================
+
+    // ==========================================
+    // 3. CORE SYSTEM SCRIPT
+    // ==========================================
+    const OPENROUTER_API_KEY = "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"; 
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
     const granularServices = [
         "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs", 
@@ -386,12 +383,10 @@
         document.getElementById('blueprint-container').style.display = 'none';
         document.getElementById('loading').style.display = 'block';
         
+        // Ensure we have a session ID
         if (!currentSessionId || !isRegenerating) {
             currentSessionId = 'evt_' + Date.now();
         }
-
-        const userSub = getUserSubscription();
-        const activePackage = packageConfig[userSub];
 
         const prompt = `
 You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
@@ -399,20 +394,16 @@ You are the Zone21 Event System. Generate a formal, highly detailed Event Bluepr
 EVENT DETAILS:
 - Event Name: ${currentEventData.name}
 - Location: ${currentEventData.location}
-- Event Type: ${currentEventData.type} - Total Budget:$${currentEventData.budget}
+- Event Type: ${currentEventData.type}  - Total Budget: $${currentEventData.budget}
 - Expected Attendees: ${currentEventData.attendees}
+- User Subscription Tier: ${activePackage.label} (Keep service suggestions appropriate for this scale)
 - Additional Notes: ${currentEventData.notes || 'None'}
-- Specific Services Required: ${currentEventData.services}
-- Active Subscription Package: ${activePackage.name}
-
-CRITICAL INSTRUCTIONS: 
-1. PACKAGE ENFORCEMENT: The user is on the ${activePackage.name}. Strictly align all vendor recommendations and allocations with the ${activePackage.description}. If they are on the small package, aggressively constrain services so they do not exceed the budget for their small group.
-2. BUDGET ANALYSIS & WARNING (Crucial): Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}. 
+- Specific Services Required: ${currentEventData.services}    CRITICAL INSTRUCTIONS:  1. BUDGET ANALYSIS & WARNING (Crucial): Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}. 
    - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section. Clearly explain why it's not enough, suggest what the ideal budget should be, and specifically recommend which minor services to remove to make the current budget work.
-3. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}. 
-4. CONTACT DETAILS: You MUST include realistic or actual contact details (phone, email, or social media handles) for the suggested vendors if available.
-5. ZONE21 SECURITY RULE: If "Zone21 Security - EXCLUSIVE" was selected, allocate the security budget strictly to "Zone21 Security Team".
-6. FORMAT: Output strictly in clean HTML format. Use <h2> for main sections, <h3> for sub-sections, and <ul>/<li> for lists. Do NOT include markdown blocks like \`\`\`html. 
+2. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}. 
+3. CONTACT DETAILS: You MUST include realistic or actual contact details (phone, email, or social media handles) for the suggested vendors if available.
+4. ZONE21 SECURITY RULE: If "Zone21 Security - EXCLUSIVE" was selected, allocate the security budget strictly to "Zone21 Security Team".
+5. FORMAT: Output strictly in clean HTML format. Use <h2> for main sections, <h3> for sub-sections, and <ul>/<li> for lists. Do NOT include markdown blocks like \`\`\`html. 
 `;
 
         try {
@@ -431,8 +422,115 @@ CRITICAL INSTRUCTIONS:
             });
             
             const data = await response.json();
-            
             if (data.error) throw new Error(data.error.message);
-            if (!data.choices || !data.choices[0]) throw new Error("API returned empty response.");
             
-            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^
+            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
+            
+            // Format Warnings
+            htmlOutput = htmlOutput.replace(/(<h[23]>.*?Budget (Analysis|Warning).*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i, '<div class="budget-warning">$1</div>');
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('blueprint-container').style.display = 'block';
+            document.getElementById('final-blueprint').innerHTML = htmlOutput;
+            
+            saveBlueprintState(htmlOutput);
+
+        } catch (error) {
+            console.error("System Error:", error);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('form-section').style.display = 'block';
+            alert("The system encountered an error generating the blueprint. Please try again.");
+        }
+    }
+
+    // ====== STORAGE & HISTORY ======
+    function saveBlueprintState(htmlOutput) {
+        const title = currentEventData.name || `${currentEventData.location} Event`;
+        
+        const chatData = {
+            id: currentSessionId,
+            title: title,
+            formData: currentEventData,
+            blueprintHtml: htmlOutput,
+            updatedAt: new Date().toISOString()
+        };
+
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        localSessions[currentSessionId] = chatData;
+        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+
+        renderHistorySidebar();
+    }
+
+    function renderHistorySidebar() {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        
+        Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
+            const item = document.createElement('div');
+            item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+            item.innerHTML = `
+                <div class="item-info">
+                    <i class="fas fa-clipboard-list" style="color: var(--lime);"></i>
+                    <span class="item-title">${session.title}</span>
+                </div>
+                <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteBlueprintSession('${session.id}', event)"></i>
+            `;
+            item.onclick = () => loadBlueprintSession(session.id);
+            historyList.appendChild(item);
+        });
+    }
+
+    function loadBlueprintSession(sessionId) {
+        closeSidebar();
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        const session = localSessions[sessionId];
+        if (!session) return;
+
+        currentSessionId = session.id;
+        currentEventData = session.formData;
+        
+        document.getElementById('form-section').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('blueprint-container').style.display = 'block';
+        document.getElementById('final-blueprint').innerHTML = session.blueprintHtml;
+        
+        renderHistorySidebar();
+    }
+
+    function deleteBlueprintSession(sessionId, event) {
+        if (event) event.stopPropagation(); 
+        if (!confirm("Delete this event blueprint?")) return;
+
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        delete localSessions[sessionId];
+        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+
+        if (currentSessionId === sessionId) {
+            startNewSession();
+        } else {
+            renderHistorySidebar();
+        }
+    }
+
+    function startNewSession() {
+        closeSidebar();
+        currentSessionId = null;
+        currentEventData = null;
+        
+        document.getElementById('eventForm').reset();
+        document.getElementById('blueprint-container').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('form-section').style.display = 'block';
+        
+        renderHistorySidebar();
+    }
+
+    // Init Sidebar on load
+    document.addEventListener('DOMContentLoaded', renderHistorySidebar);
+</script>
+
+</body>
+</html>

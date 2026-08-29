@@ -68,7 +68,7 @@
     /* Badges */
     .status-badge { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
     .status-pending { background: var(--grey); color: var(--navy); }
-    .status-approved { background: var(--lime); color: var(--navy); }
+    .status-approved, .status-active { background: var(--lime); color: var(--navy); }
     .status-rejected { background: var(--pink); color: white; }
     .status-cancelled { background: var(--pink); color: white; }
 
@@ -150,9 +150,8 @@
       <select id="status-filter" onchange="filterAndSearch()">
         <option value="all">All Statuses</option>
         <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
+        <option value="active">Active (Approved)</option>
         <option value="rejected">Rejected</option>
-        <option value="cancelled">Cancelled</option>
       </select>
       <input type="text" id="search-input" placeholder="Search by name, email or invoice..." oninput="filterAndSearch()" style="flex:1; max-width: 400px;">
     </div>
@@ -164,6 +163,7 @@
           <tr>
             <th>Invoice</th>
             <th>Customer</th>
+            <th>Package</th>
             <th>Amount</th>
             <th>Status</th>
             <th>Date</th>
@@ -171,7 +171,7 @@
           </tr>
         </thead>
         <tbody id="payments-tbody">
-          <tr><td colspan="6" class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Fetching Zone21 Invoices...</td></tr>
+          <tr><td colspan="7" class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Fetching Zone21 Invoices...</td></tr>
         </tbody>
       </table>
     </div>
@@ -189,12 +189,10 @@
     </div>
   </div>
 
-  <!-- Note: We are using the Modular Firebase SDK to match modern Javascript module conventions, 
-       but configured with your Zone21 project credentials! -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, setDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     // ============ ZONE21 FIREBASE CONFIG ============
     const firebaseConfig = {
@@ -212,15 +210,8 @@
     const db = getFirestore(app);
 
     let currentAdmin = null;
-    let allPayments = [];
+    let allSubscriptions = [];
     let userCache = {}; 
-
-    // Zone21 Package Definitions
-    const packageMap = { 
-        small: 'Small Event Package', 
-        medium: 'Medium Event Package', 
-        enterprise: 'Large / Enterprise Package' 
-    };
 
     // Toast Notification System
     function showToast(msg, type = 'info') {
@@ -243,11 +234,10 @@
     // Auth check
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = 'admin.html'; // Redirect to login if not authenticated
+        window.location.href = 'admin.html';
         return;
       }
       
-      // Verify Admin permissions against 'admins' collection
       const adminDoc = await getDoc(doc(db, 'admins', user.uid));
       if (!adminDoc.exists()) {
         showToast('Access denied. Zone21 Admins only.', 'error');
@@ -259,24 +249,25 @@
       currentAdmin = user;
       document.getElementById('admin-name').textContent = user.email.split('@')[0];
       
-      // Optional: Get admin avatar if you store it in a 'users' or 'admins' profile
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists() && userDoc.data().avatarUrl) {
         document.getElementById('admin-avatar').src = userDoc.data().avatarUrl;
       }
       
-      loadPayments();
+      loadSubscriptions();
     });
 
-    async function loadPayments() {
+    async function loadSubscriptions() {
       try {
-        const q = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+        // Fetching from the SUBSCRIPTIONS collection now!
+        const q = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
-        allPayments = [];
+        allSubscriptions = [];
         const userIds = new Set();
+        
         snap.forEach(doc => {
           const data = doc.data();
-          allPayments.push({ id: doc.id, ...data });
+          allSubscriptions.push({ id: doc.id, ...data });
           if (data.userId) userIds.add(data.userId);
         });
 
@@ -291,18 +282,23 @@
           }
         }
         
-        window.filterAndSearch(); // Initial render
+        window.filterAndSearch();
       } catch (e) {
         console.error(e);
-        document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--pink);"></i> Failed to load Zone21 payments. Check console.</td></tr>';
+        document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--pink);"></i> Failed to load Zone21 subscriptions. Check console.</td></tr>';
       }
     }
 
-    function getCustomerInfo(payment) {
-      const cust = payment.customer || {};
-      const user = userCache[payment.userId] || {};
+    function getCustomerInfo(sub) {
+      const cust = sub.customerInfo || {};
+      const user = userCache[sub.userId] || {};
+      // Construct name from first and last, fallback to user name
+      const fullName = (cust.firstName || cust.lastName) 
+          ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() 
+          : null;
+
       return {
-        name: cust.name || user.name || 'Unknown Client',
+        name: fullName || user.name || 'Unknown Client',
         email: cust.email || user.email || '',
         avatar: user.avatarUrl || null 
       };
@@ -311,36 +307,43 @@
     window.filterAndSearch = () => {
       const status = document.getElementById('status-filter').value;
       const search = document.getElementById('search-input').value.toLowerCase();
-      let filtered = allPayments;
+      let filtered = allSubscriptions;
+      
       if (status !== 'all') filtered = filtered.filter(p => p.status === status);
+      
       if (search) {
         filtered = filtered.filter(p => {
           const info = getCustomerInfo(p);
+          const invNum = p.invoiceNumber || p.id;
           return (info.name || '').toLowerCase().includes(search) ||
                  (info.email || '').toLowerCase().includes(search) ||
-                 (p.id || '').toLowerCase().includes(search);
+                 invNum.toLowerCase().includes(search);
         });
       }
       renderTable(filtered);
       renderMobileCards(filtered);
     }
 
-    function renderTable(payments) {
+    function renderTable(subscriptions) {
       const tbody = document.getElementById('payments-tbody');
-      if (payments.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-folder-open"></i> No invoices match your criteria.</td></tr>';
+      if (subscriptions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-folder-open"></i> No invoices match your criteria.</td></tr>';
         return;
       }
-      tbody.innerHTML = payments.map(p => {
+      tbody.innerHTML = subscriptions.map(p => {
         const info = getCustomerInfo(p);
-        const invId = p.id.substring(0,8).toUpperCase();
+        const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'}) : '—';
+        const price = p.packageDetails ? p.packageDetails.price : 0;
+        const packageName = p.packageDetails ? p.packageDetails.name : (p.planId || 'Unknown');
+        
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
           : `<div class="avatar">${(info.name.charAt(0) || '?').toUpperCase()}</div>`;
+          
         return `
           <tr>
-            <td style="font-weight:bold; color:var(--pink);">#INV-${invId}</td>
+            <td style="font-weight:bold; color:var(--pink);">${escapeHTML(invId)}</td>
             <td>
               <div class="customer-cell">
                 ${avatarHtml}
@@ -350,7 +353,8 @@
                 </div>
               </div>
             </td>
-            <td style="font-weight:bold; font-size:1.1rem;">$${p.amount || 0}</td>
+            <td><strong>${escapeHTML(packageName)}</strong></td>
+            <td style="font-weight:bold; font-size:1.1rem;">$${price}</td>
             <td><span class="status-badge status-${p.status || 'pending'}">${p.status || 'pending'}</span></td>
             <td>${date}</td>
             <td class="action-btns">
@@ -366,19 +370,22 @@
       }).join('');
     }
 
-    function renderMobileCards(payments) {
+    function renderMobileCards(subscriptions) {
       const container = document.getElementById('mobile-payments');
-      if (payments.length === 0) {
+      if (subscriptions.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-folder-open"></i> No invoices found.</div>';
         return;
       }
-      container.innerHTML = payments.map(p => {
+      container.innerHTML = subscriptions.map(p => {
         const info = getCustomerInfo(p);
-        const invId = p.id.substring(0,8).toUpperCase();
+        const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
+        const price = p.packageDetails ? p.packageDetails.price : 0;
+        
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
           : `<div class="avatar">${(info.name.charAt(0) || '?').toUpperCase()}</div>`;
+          
         return `
           <div class="payment-card">
             <div class="flex-row">
@@ -392,8 +399,9 @@
               <span class="status-badge status-${p.status || 'pending'}">${p.status || 'pending'}</span>
             </div>
             <div class="details-row">
-              <span><strong>Invoice:</strong> <span style="color:var(--pink);">#INV-${invId}</span></span>
-              <span><strong>Amount:</strong> $${p.amount || 0}</span>
+              <span><strong>Invoice:</strong> <span style="color:var(--pink);">${escapeHTML(invId)}</span></span>
+              <span><strong>Package:</strong> ${p.packageDetails?.name || 'Unknown'}</span>
+              <span><strong>Amount:</strong> $${price}</span>
               <span><strong>Date:</strong> ${date}</span>
             </div>
             <div class="actions">
@@ -409,14 +417,22 @@
       }).join('');
     }
 
-    window.viewDetails = async (paymentId) => {
-      const payment = allPayments.find(p => p.id === paymentId);
-      if (!payment) return;
-      const cust = payment.customer || {};
-      const user = userCache[payment.userId] || {};
+    window.viewDetails = async (docId) => {
+      const sub = allSubscriptions.find(p => p.id === docId);
+      if (!sub) return;
       
-      const planId = payment.plan || payment.billingPeriod || 'unknown';
-      const created = payment.createdAt ? new Date(payment.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
+      const cust = sub.customerInfo || {};
+      const user = userCache[sub.userId] || {};
+      const created = sub.createdAt ? new Date(sub.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
+      const packageName = sub.packageDetails ? sub.packageDetails.name : 'Unknown';
+      const price = sub.packageDetails ? sub.packageDetails.price : 0;
+      const invNum = sub.invoiceNumber || docId;
+      const fullName = (cust.firstName || cust.lastName) ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() : '—';
+      
+      let addressHtml = '—';
+      if(cust.address) {
+        addressHtml = `${cust.address.street || ''}, ${cust.address.city || ''}, ${cust.address.country || ''}`.replace(/^[,\s]+|[,\s]+$/g, '');
+      }
       
       let userProfileHtml = '';
       if (user.name) {
@@ -435,25 +451,26 @@
 
       document.getElementById('modal-body').innerHTML = `
         <div class="detail-grid">
-          <div class="detail-item"><span class="detail-label">Invoice #</span><span class="detail-value" style="color:var(--pink);">#INV-${payment.id.substring(0,8).toUpperCase()}</span></div>
+          <div class="detail-item"><span class="detail-label">Invoice #</span><span class="detail-value" style="color:var(--pink);">${escapeHTML(invNum)}</span></div>
           <div class="detail-item"><span class="detail-label">Date Submitted</span><span class="detail-value">${created}</span></div>
-          <div class="detail-item"><span class="detail-label">Customer Name</span><span class="detail-value">${escapeHTML(cust.name || user.name || '—')}</span></div>
-          <div class="detail-item"><span class="detail-label">Contact Email</span><span class="detail-value">${escapeHTML(cust.email || user.email || '—')}</span></div>
+          <div class="detail-item"><span class="detail-label">Customer Name</span><span class="detail-value">${escapeHTML(fullName)}</span></div>
+          <div class="detail-item"><span class="detail-label">Contact Email</span><span class="detail-value">${escapeHTML(cust.email || '—')}</span></div>
           <div class="detail-item"><span class="detail-label">Phone Number</span><span class="detail-value">${escapeHTML(cust.phone || '—')}</span></div>
+          <div class="detail-item"><span class="detail-label">Billing Address</span><span class="detail-value">${escapeHTML(addressHtml)}</span></div>
         </div>
         
         <div style="background: var(--surface-alt); border: 1px solid var(--grey); padding: 1.5rem; border-radius: var(--radius-sm); margin: 1.5rem 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <span style="display:block; font-size:0.8rem; text-transform:uppercase; font-weight:bold; color:var(--text-muted); margin-bottom:5px;">Selected Package</span>
-            <strong style="font-size: 1.2rem; color: var(--navy);">${packageMap[planId] || planId.toUpperCase()}</strong>
+            <strong style="font-size: 1.2rem; color: var(--navy);">${escapeHTML(packageName)}</strong>
           </div>
           <div style="text-align: right;">
             <span style="display:block; font-size:0.8rem; text-transform:uppercase; font-weight:bold; color:var(--text-muted); margin-bottom:5px;">Total Amount</span>
-            <strong style="font-size: 1.5rem; color: var(--lime); background: var(--navy); padding: 5px 15px; border-radius: 8px;">$${payment.amount || 0}.00</strong>
+            <strong style="font-size: 1.5rem; color: var(--lime); background: var(--navy); padding: 5px 15px; border-radius: 8px;">$${price}.00</strong>
           </div>
         </div>
         
-        <div><strong>Current Status:</strong> <span class="status-badge status-${payment.status}" style="margin-left:10px;">${payment.status}</span></div>
+        <div><strong>Current Status:</strong> <span class="status-badge status-${sub.status}" style="margin-left:10px;">${sub.status}</span></div>
         
         ${userProfileHtml}
       `;
@@ -462,73 +479,76 @@
 
     window.closeModal = () => document.getElementById('detail-modal').classList.remove('active');
 
-    window.approvePayment = async (paymentId) => {
+    window.approvePayment = async (docId) => {
       if (!confirm('Approve payment and activate this Zone21 package?')) return;
       try {
-        const payment = allPayments.find(p => p.id === paymentId);
-        if (!payment) return;
+        const sub = allSubscriptions.find(p => p.id === docId);
+        if (!sub) return;
         
-        const now = new Date();
-        const planId = payment.plan || payment.billingPeriod || 'small'; // Fallback to small
-
-        // Mark invoice as approved
-        await updateDoc(doc(db, 'payments', paymentId), {
-          status: 'approved',
+        // Mark the existing subscription document as active
+        await updateDoc(doc(db, 'subscriptions', docId), {
+          status: 'active',
           approvedBy: currentAdmin.uid,
           approvedAt: serverTimestamp()
         });
 
-        // Activate the Zone21 Package in their profile
-        await setDoc(doc(db, 'subscriptions', payment.userId), {
-          userId: payment.userId,
-          plan: planId, // small, medium, or enterprise
-          amount: payment.amount,
-          status: 'active',
-          startDate: Timestamp.fromDate(now),
-          approvedBy: currentAdmin.uid,
-          approvedAt: serverTimestamp(),
-          paymentId: paymentId,
-          customer: payment.customer
-        }, { merge: true });
+        // Update the global user document so their dashboard unlocks
+        if (sub.userId) {
+          await updateDoc(doc(db, 'users', sub.userId), {
+            subscriptionStatus: 'active',
+            activePlan: sub.packageDetails ? sub.packageDetails.name : (sub.planId || 'Unknown')
+          });
+        }
 
         showToast('Payment verified! Zone21 Blueprint package activated.', 'success');
-        loadPayments();
+        loadSubscriptions();
       } catch (e) {
         console.error(e);
         showToast('Error approving payment.', 'error');
       }
     };
 
-    window.rejectPayment = async (paymentId) => {
+    window.rejectPayment = async (docId) => {
       if (!confirm('Reject this invoice? This will cancel their pending package request.')) return;
       try {
-        await updateDoc(doc(db, 'payments', paymentId), {
+        const sub = allSubscriptions.find(p => p.id === docId);
+        
+        // Mark subscription document as rejected
+        await updateDoc(doc(db, 'subscriptions', docId), {
           status: 'rejected',
           rejectedBy: currentAdmin.uid,
           rejectedAt: serverTimestamp()
         });
-        const payment = allPayments.find(p => p.id === paymentId);
-        if (payment) {
-          await setDoc(doc(db, 'subscriptions', payment.userId), {
-            status: 'cancelled',
-            cancelledAt: serverTimestamp()
-          }, { merge: true });
+        
+        // Update user document
+        if (sub && sub.userId) {
+          await updateDoc(doc(db, 'users', sub.userId), {
+            subscriptionStatus: 'rejected'
+          });
         }
+        
         showToast('Invoice rejected.', 'info');
-        loadPayments();
-      } catch (e) { showToast('Error rejecting invoice.', 'error'); }
+        loadSubscriptions();
+      } catch (e) { 
+        console.error(e);
+        showToast('Error rejecting invoice.', 'error'); 
+      }
     };
 
-    window.deletePayment = async (paymentId) => {
+    window.deletePayment = async (docId) => {
       if (!confirm('Permanently delete this invoice from the system?')) return;
       try {
-        await deleteDoc(doc(db, 'payments', paymentId));
+        await deleteDoc(doc(db, 'subscriptions', docId));
         showToast('Invoice permanently deleted.', 'success');
-        loadPayments();
-      } catch (e) { showToast('Error deleting invoice.', 'error'); }
+        loadSubscriptions();
+      } catch (e) { 
+        console.error(e);
+        showToast('Error deleting invoice.', 'error'); 
+      }
     };
 
     function escapeHTML(str) {
+      if (!str) return '';
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;

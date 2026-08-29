@@ -10,8 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <!-- QRCode.js for generating QR codes -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- html5-qrcode for scanning -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -32,7 +30,7 @@
         .container { max-width: 1400px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
-        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
         .btn-primary { background: var(--navy); color: var(--lime); }
         .btn-primary:hover { background: #1a3a4a; }
         .btn-lime { background: var(--lime); color: var(--navy); }
@@ -61,7 +59,7 @@
         .ticket-stats { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.9rem; }
         .ticket-stats span { background: white; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); }
         
-        /* Updated Invoice List defaults to hidden */
+        /* Invoice List Defaults to Hidden */
         .invoice-list { margin-top: 15px; display: none; border-top: 1px dashed var(--border); padding-top: 15px; }
         
         .invoice-item { background: white; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
@@ -148,7 +146,6 @@
 
     <!-- Scanner Modal -->
     <div class="modal" id="scanner-modal">
-        <!-- Kept exactly as original -->
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Scan Ticket QR Code</h2>
@@ -302,7 +299,6 @@
             ticketTypes.forEach(ticketType => {
                 const section = document.createElement('div');
                 section.className = 'ticket-type-section';
-                // CHANGED: Removed Create Invoice, Added Show Invoices toggle
                 section.innerHTML = `
                     <div class="ticket-type-header">
                         <h3>${ticketType.name}</h3>
@@ -504,83 +500,78 @@
         }
 
         async function generateTicketCanvas(ticket, ticketId) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 600;
-            canvas.height = 1000;
-            const ctx = canvas.getContext('2d');
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 600;
+                canvas.height = 1000;
+                const ctx = canvas.getContext('2d');
 
-            // 1. Draw sleek Zone21 Event Background Gradient
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, '#102838'); 
-            gradient.addColorStop(1, '#0a1924');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // 1. Background
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#102838'); 
+                gradient.addColorStop(1, '#0a1924');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Top Color Bars
-            ctx.fillStyle = '#C0C800'; // lime
-            ctx.fillRect(0, 0, canvas.width, 15);
-            ctx.fillStyle = '#F80070'; // pink
-            ctx.fillRect(0, 15, canvas.width, 10);
+                // 2. Bars
+                ctx.fillStyle = '#C0C800'; ctx.fillRect(0, 0, canvas.width, 15);
+                ctx.fillStyle = '#F80070'; ctx.fillRect(0, 15, canvas.width, 10);
 
-            // 2. Draw Text Content
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 42px Inter, sans-serif';
-            ctx.fillText(currentEvent ? currentEvent.eventName : 'Zone21 Event', canvas.width/2, 110);
+                // 3. Text
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 42px Inter, sans-serif';
+                ctx.fillText(currentEvent ? currentEvent.eventName : 'Zone21 Event', canvas.width/2, 110);
 
-            ctx.font = 'bold 30px Inter, sans-serif';
-            ctx.fillStyle = '#C0C800'; 
-            ctx.fillText((ticket.ticketTypeName + ' TICKET').toUpperCase(), canvas.width/2, 170);
+                ctx.font = 'bold 30px Inter, sans-serif';
+                ctx.fillStyle = '#C0C800'; 
+                ctx.fillText((ticket.ticketTypeName + ' TICKET').toUpperCase(), canvas.width/2, 170);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '22px Inter, sans-serif';
-            ctx.fillText('Admit One: ' + ticket.buyerName, canvas.width/2, 220);
-            ctx.font = '18px Inter, sans-serif';
-            ctx.fillText('Ticket ID: ' + ticketId, canvas.width/2, 255);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '22px Inter, sans-serif';
+                ctx.fillText('Admit One: ' + ticket.buyerName, canvas.width/2, 220);
+                ctx.font = '18px Inter, sans-serif';
+                ctx.fillText('Ticket ID: ' + ticketId, canvas.width/2, 255);
 
-            // 3. Draw white ticket box to embed the QR
-            const boxWidth = 460;
-            const boxHeight = 540;
-            const boxX = (canvas.width - boxWidth) / 2;
-            const boxY = 300;
-            
-            ctx.fillStyle = '#ffffff';
-            drawRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, 24);
+                // 4. White box for QR
+                const boxWidth = 460;
+                const boxHeight = 540;
+                const boxX = (canvas.width - boxWidth) / 2;
+                const boxY = 300;
+                
+                ctx.fillStyle = '#ffffff';
+                drawRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, 24);
 
-            // 4. Generate QR code onto a temporary invisible element
-            const qrTempDiv = document.createElement('div');
-            const qrCode = new QRCode(qrTempDiv, {
-                text: ticket.qrCodeData || ticketId,
-                width: 360,
-                height: 360,
-                colorDark : "#102838",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+                // Text inside box
+                ctx.fillStyle = '#102838';
+                ctx.font = 'bold 24px Inter, sans-serif';
+                ctx.fillText('SCAN AT ENTRANCE', canvas.width/2, boxY + 460);
+                ctx.font = '16px Inter, sans-serif';
+                ctx.fillText('Powered by Zone21 Management', canvas.width/2, boxY + 495);
+
+                // 5. Date
+                if(currentEvent && currentEvent.startDate) {
+                     ctx.fillStyle = '#ffffff';
+                     ctx.font = '20px Inter, sans-serif';
+                     ctx.fillText(new Date(currentEvent.startDate).toLocaleString(), canvas.width/2, 920);
+                }
+
+                // 6. Direct QR Code Image Fetch (Highly Reliable)
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(ticket.qrCodeData || ticketId)}&color=102838&bgcolor=ffffff`;
+                const qrImg = new Image();
+                qrImg.crossOrigin = "Anonymous";
+                qrImg.onload = () => {
+                    // Paint the QR code directly onto the white box on the canvas
+                    ctx.drawImage(qrImg, boxX + 50, boxY + 50, 360, 360);
+                    resolve(canvas);
+                };
+                qrImg.onerror = () => {
+                    ctx.fillStyle = 'red';
+                    ctx.fillText('Failed to load QR Image', canvas.width/2, boxY + 200);
+                    resolve(canvas); // Resolve anyway to show the text
+                }
+                qrImg.src = qrUrl;
             });
-
-            // Wait a brief moment for QRCode.js to inject the canvas
-            await new Promise(res => setTimeout(res, 250)); 
-            const qrCanvasElement = qrTempDiv.querySelector('canvas');
-            
-            if(qrCanvasElement) {
-                ctx.drawImage(qrCanvasElement, boxX + 50, boxY + 50, 360, 360);
-            }
-
-            // Text below QR inside the white box
-            ctx.fillStyle = '#102838';
-            ctx.font = 'bold 24px Inter, sans-serif';
-            ctx.fillText('SCAN AT ENTRANCE', canvas.width/2, boxY + 460);
-            ctx.font = '16px Inter, sans-serif';
-            ctx.fillText('Powered by Zone21 Management', canvas.width/2, boxY + 495);
-
-            // 5. Draw Event Date at the bottom
-            if(currentEvent && currentEvent.startDate) {
-                 ctx.fillStyle = '#ffffff';
-                 ctx.font = '20px Inter, sans-serif';
-                 ctx.fillText(new Date(currentEvent.startDate).toLocaleString(), canvas.width/2, 920);
-            }
-
-            return canvas;
         }
 
         async function openShareModal(ticketId) {
@@ -603,26 +594,41 @@
                 }
                 const ticket = doc.data();
 
-                // Generate composite ticket
+                // Setup plain text for Direct Link buttons
+                const whatsappText = `🎟️ *Zone21 Event Ticket*%0A%0A*Event:* ${currentEvent ? currentEvent.eventName : 'Event'}%0A*Ticket Type:* ${ticket.ticketTypeName}%0A*Buyer:* ${ticket.buyerName}%0A*Ticket ID:* ${ticketId}%0A%0A Please present the QR code at the entrance.`;
+                const emailSubject = `Your Zone21 Ticket - ${currentEvent ? currentEvent.eventName : 'Event'}`;
+                const emailBody = `Dear ${ticket.buyerName},%0D%0A%0D%0AHere is your ticket for ${currentEvent ? currentEvent.eventName : 'Event'}.%0D%0A%0D%0ATicket Type: ${ticket.ticketTypeName}%0D%0ATicket ID: ${ticketId}%0D%0A%0D%0APlease present the QR code at the entrance.`;
+
+                // Generate composite ticket image
                 const canvas = await generateTicketCanvas(ticket, ticketId);
                 const dataUrl = canvas.toDataURL('image/png');
-                window.currentTicketCanvas = canvas; // Save for share function
+                window.currentTicketCanvas = canvas; 
 
                 content.innerHTML = `
                     <div style="text-align:center;">
                         <img src="${dataUrl}" style="max-width:100%; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15); max-height:450px; object-fit:contain;">
                         
-                        <div class="button-group" style="margin-top:20px; justify-content:center; gap: 15px;">
-                            <button class="btn btn-primary" onclick="shareTicketFile('${ticketId}')" style="padding: 10px 20px; font-size:1rem;">
-                                <i class="fas fa-share-alt"></i> Share to WhatsApp / Email
-                            </button>
-                            <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g, '_')}.png" class="btn btn-lime" style="padding: 10px 20px; font-size:1rem; text-decoration:none;">
-                                <i class="fas fa-download"></i> Download Image
-                            </a>
+                        <div style="margin-top:20px; display:flex; flex-direction:column; gap: 15px; align-items:center;">
+                            
+                            <!-- 1. Direct Links (Text Based) -->
+                            <div class="button-group" style="justify-content:center;">
+                                <a href="https://wa.me/${ticket.buyerPhone.replace(/[^0-9]/g,'')}?text=${whatsappText}" target="_blank" class="btn btn-lime"><i class="fab fa-whatsapp"></i> WhatsApp Text</a>
+                                <a href="mailto:${ticket.buyerEmail}?subject=${emailSubject}&body=${emailBody}" target="_blank" class="btn btn-outline"><i class="fas fa-envelope"></i> Email Text</a>
+                            </div>
+
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Or share the actual ticket image:</p>
+
+                            <!-- 2. Image File Sharing -->
+                            <div class="button-group" style="justify-content:center;">
+                                <button class="btn btn-primary" onclick="shareTicketFile('${ticketId}')">
+                                    <i class="fas fa-share-alt"></i> Share Image
+                                </button>
+                                <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g, '_')}.png" class="btn btn-pink">
+                                    <i class="fas fa-download"></i> Download Image
+                                </a>
+                            </div>
+
                         </div>
-                        <p style="font-size:0.85rem; margin-top:15px; color:var(--text-muted);">
-                            The share button will send this ticket as an image file. If unsupported on this device, use Download.
-                        </p>
                     </div>
                 `;
             } catch (err) {
@@ -646,7 +652,6 @@
                         });
                     } catch (error) {
                         console.log('Sharing failed or was aborted', error);
-                        // AbortError is typical if the user closes the share sheet
                         if (error.name !== 'AbortError') {
                              alert('Failed to share directly. Please use the Download button instead.');
                         }
@@ -690,7 +695,7 @@
                 });
         }
 
-        // ============ QR SCANNER (Unchanged logic) ============
+        // ============ QR SCANNER ============
         function openScanner() {
             const modal = document.getElementById('scanner-modal');
             modal.style.display = 'flex';

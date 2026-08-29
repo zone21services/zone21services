@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- QRCode.js for generating QR codes directly -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- html5-qrcode for scanning -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -30,7 +32,7 @@
         .container { max-width: 1400px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
-        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
+        .btn { padding: 10px 18px; border-radius: 30px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
         .btn-primary { background: var(--navy); color: var(--lime); }
         .btn-primary:hover { background: #1a3a4a; }
         .btn-lime { background: var(--lime); color: var(--navy); }
@@ -39,20 +41,13 @@
         .btn-pink:hover { background: #d0005e; }
         .btn-green { background: #28a745; color: white; }
         .btn-green:hover { background: #218838; }
-        .btn-amber { background: #ffc107; color: var(--navy); }
-        .btn-amber:hover { background: #e0a800; }
         .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
         .btn-outline:hover { background: #f0f0f0; }
         .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
         .card h2 { font-size: 1.3rem; font-weight: 700; color: var(--navy); margin-bottom: 15px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
-        .card h3 { font-size: 1.1rem; font-weight: 600; color: var(--navy); margin: 15px 0 10px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; color: var(--navy); font-size: 0.9rem; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
-        .form-group input:focus, .form-group select:focus { border-color: var(--lime); }
-        .ticket-type-section { border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 20px; background: #fafbfc; transition: 0.2s; }
-        .ticket-type-section:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .form-group select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; }
+        .ticket-type-section { border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 20px; background: #fafbfc; }
         .ticket-type-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
         .ticket-type-header h3 { margin: 0; font-size: 1.2rem; }
         .ticket-type-header .price { font-weight: 700; color: var(--pink); font-size: 1.1rem; }
@@ -62,82 +57,68 @@
         /* Invoice List Defaults to Hidden */
         .invoice-list { margin-top: 15px; display: none; border-top: 1px dashed var(--border); padding-top: 15px; }
         
-        .invoice-item { background: white; border-radius: 8px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .invoice-item .info { flex: 1; }
-        .invoice-item .status { font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+        .invoice-item { background: white; border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .invoice-item .info { flex: 1; min-width: 200px; }
+        .invoice-item .status { font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
         .status-pending { background: #fff3cd; color: #856404; }
         .status-paid { background: #d4edda; color: #155724; }
-        .status-scanned { background: #cce5ff; color: #004085; }
         .status-void { background: #e2e3e5; color: #383d41; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 16px; padding: 20px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; border-radius: 16px; padding: 25px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .modal-header h2 { font-size: 1.5rem; color: var(--navy); }
-        .modal-close { background: none; border: none; font-size: 1.8rem; cursor: pointer; }
-        .scan-result { padding: 20px; border-radius: 12px; text-align: center; margin-top: 15px; }
-        .scan-valid { background: #d4edda; color: #155724; }
-        .scan-invalid { background: #f8d7da; color: #721c24; }
-        .scan-warning { background: #fff3cd; color: #856404; }
-        .countdown-timer { font-size: 3rem; font-weight: 800; color: var(--pink); }
-        .hidden { display: none; }
-        .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        .qr-scanner-container { width: 100%; max-width: 400px; margin: 0 auto; }
-        @media (max-width: 768px) {
-            .form-row { grid-template-columns: 1fr; }
-            .header { flex-direction: column; align-items: flex-start; }
-            .ticket-type-header { flex-direction: column; align-items: flex-start; }
-        }
+        .modal-close { background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-muted); }
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-ticket-alt" style="color:var(--pink);"></i> Zone21 Ticket Management</h1>
+            <h1><i class="fas fa-ticket-alt" style="color:var(--pink);"></i> Zone21 Ticket Admin</h1>
             <div class="button-group">
                 <button class="btn btn-primary" onclick="openScanner()"><i class="fas fa-qrcode"></i> Scan Ticket</button>
                 <button class="btn btn-outline" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
             </div>
         </div>
 
-        <!-- Event Selector -->
         <div class="card">
             <h2>Select Event</h2>
-            <select id="event-select" class="form-group" style="width:100%; padding:10px;">
+            <select id="event-select" class="form-group">
                 <option value="">-- Choose an approved event --</option>
             </select>
-            <div id="event-details" class="hidden" style="margin-top:15px;">
+            <div id="event-details" class="hidden" style="margin-top:15px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
                 <p><strong>Name:</strong> <span id="ev-name"></span></p>
                 <p><strong>Date:</strong> <span id="ev-date"></span></p>
                 <p><strong>Location:</strong> <span id="ev-location"></span></p>
             </div>
         </div>
 
-        <!-- Ticket Types Container -->
         <div id="ticket-types-container"></div>
 
-        <!-- All Tickets List -->
         <div class="card">
-            <h2>All Tickets</h2>
+            <h2>Generated Tickets Overview</h2>
             <div id="all-tickets-list">Select an event to view tickets.</div>
         </div>
     </div>
 
-    <!-- Payment Verification / Ticket Generation Modal -->
+    <!-- Verify Payment Modal -->
     <div class="modal" id="verify-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Verify Payment & Generate Ticket</h2>
+                <h2>Verify Payment & Generate</h2>
                 <button class="modal-close" onclick="closeModal('verify-modal')">&times;</button>
             </div>
             <div id="verify-content"></div>
         </div>
     </div>
 
-    <!-- Dynamic Share Ticket Modal -->
+    <!-- Share Ticket Modal -->
     <div class="modal" id="share-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Generated Event Ticket</h2>
+                <h2>Your Event Ticket</h2>
                 <button class="modal-close" onclick="closeModal('share-modal')">&times;</button>
             </div>
             <div id="share-content"></div>
@@ -148,44 +129,20 @@
     <div class="modal" id="scanner-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Scan Ticket QR Code</h2>
+                <h2>Scan Ticket QR</h2>
                 <button class="modal-close" onclick="closeScanner()">&times;</button>
             </div>
-            <div class="qr-scanner-container">
-                <div id="qr-reader" style="width:100%; max-width:400px; margin:0 auto;"></div>
-                <div id="scan-result" class="scan-result hidden"></div>
-                <div id="camera-permission-section" class="hidden" style="text-align:center; margin-top:15px;">
-                    <p style="color:#6c757d;">Camera access is required to scan tickets.</p>
-                    <button class="btn btn-lime" onclick="requestCameraAndScan()">
-                        <i class="fas fa-camera"></i> Allow Camera Access
-                    </button>
-                    <p style="font-size:0.8rem; margin-top:8px;">
-                        If you're on a non-HTTPS page, camera may not work.<br>
-                        Use the "Scan from Image" button below instead.
-                    </p>
+            <div id="qr-reader" style="width:100%; max-width:400px; margin:0 auto;"></div>
+            <div id="scan-result" style="text-align:center; padding: 15px; margin-top: 15px; border-radius: 8px;" class="hidden"></div>
+            
+            <div style="margin-top:20px; text-align:center; border-top: 1px solid #eee; padding-top: 15px;">
+                <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">Camera not working?</p>
+                <div class="button-group" style="justify-content:center;">
+                    <button class="btn btn-lime" onclick="document.getElementById('qr-image-input').click()"><i class="fas fa-image"></i> Scan Image File</button>
+                    <button class="btn btn-outline" onclick="manualScanEntry()">Enter ID</button>
                 </div>
-                <div style="margin-top:15px; text-align:center;">
-                    <button class="btn btn-outline" onclick="document.getElementById('qr-image-input').click()">
-                        <i class="fas fa-image"></i> Scan from Image
-                    </button>
-                    <input type="file" id="qr-image-input" accept="image/*" style="display:none;" onchange="scanFromFile(this.files[0])">
-                </div>
-                <div class="button-group" style="margin-top:15px; justify-content:center;">
-                    <button class="btn btn-outline" onclick="manualScanEntry()">Manual Entry</button>
-                    <button class="btn btn-outline" onclick="restartScanner()">Restart Camera</button>
-                </div>
+                <input type="file" id="qr-image-input" accept="image/*" style="display:none;" onchange="scanFromFile(this.files[0])">
             </div>
-        </div>
-    </div>
-
-    <!-- Early Scan Warning Overlay -->
-    <div class="modal" id="early-warning-modal">
-        <div class="modal-content text-center" style="max-width:400px; text-align:center;">
-            <h2 style="color:var(--pink);">⚠️ Early Scan Detected</h2>
-            <p>This ticket cannot be scanned yet. Gate opens</p>
-            <div class="countdown-timer" id="countdown-timer">--:--:--</div>
-            <p id="gate-open-message">Please wait until the event starts.</p>
-            <button class="btn btn-pink" onclick="closeEarlyWarning()">Close</button>
         </div>
     </div>
 
@@ -204,19 +161,12 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ============ STATE ============
         let currentEvent = null;
         let currentEventTicketTypes = [];
-        let allTicketsListener = null;
         let html5QrCode = null;
+        let currentTicketCanvas = null; // Store canvas for sharing
 
-        // ============ DOM ELEMENTS ============
-        const eventSelect = document.getElementById('event-select');
-        const eventDetailsDiv = document.getElementById('event-details');
-        const ticketTypesContainer = document.getElementById('ticket-types-container');
-        const allTicketsList = document.getElementById('all-tickets-list');
-
-        // ============ AUTHENTICATION & INITIAL LOAD ============
+        // ============ AUTHENTICATION ============
         auth.onAuthStateChanged((user) => {
             if (user) {
                 loadApprovedEvents();
@@ -224,22 +174,18 @@
                 const email = prompt("Admin Login - Enter your email:");
                 if (email) {
                     const password = prompt("Enter your password:");
-                    if (password) {
-                        auth.signInWithEmailAndPassword(email, password)
-                            .then(() => alert("Login successful!"))
-                            .catch((err) => {
-                                alert("Login failed: " + err.message);
-                                document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Please refresh to try again.</h2>";
-                            });
-                    }
-                } else {
-                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                    auth.signInWithEmailAndPassword(email, password)
+                        .catch((err) => {
+                            alert("Login failed: " + err.message);
+                            document.body.innerHTML = "<h2 style='padding:20px;'>Access Denied. Refresh to try again.</h2>";
+                        });
                 }
             }
         });
 
+        // ============ LOAD EVENTS ============
         async function loadApprovedEvents() {
-            eventSelect.innerHTML = '<option value="">Loading...</option>';
+            const eventSelect = document.getElementById('event-select');
             try {
                 const snapshot = await db.collection('events').where('status', '==', 'approved').get();
                 let events = [];
@@ -250,121 +196,98 @@
                 events.forEach(ev => {
                     const option = document.createElement('option');
                     option.value = ev.id;
-                    option.textContent = ev.eventName + ' (' + new Date(ev.startDate).toLocaleDateString() + ')';
+                    option.textContent = `${ev.eventName} (${new Date(ev.startDate).toLocaleDateString()})`;
                     eventSelect.appendChild(option);
                 });
             } catch (err) {
-                console.error('Error loading events:', err);
-                eventSelect.innerHTML = '<option value="">Failed to load events. Check permissions.</option>';
+                console.error(err);
             }
         }
 
-        eventSelect.addEventListener('change', async function() {
+        document.getElementById('event-select').addEventListener('change', async function() {
             const eventId = this.value;
-            if (!eventId) {
-                currentEvent = null;
-                currentEventTicketTypes = [];
-                eventDetailsDiv.classList.add('hidden');
-                ticketTypesContainer.innerHTML = '';
-                allTicketsList.innerHTML = 'Select an event to view tickets.';
-                return;
-            }
+            if (!eventId) return;
             try {
                 const doc = await db.collection('events').doc(eventId).get();
                 if (doc.exists) {
                     currentEvent = { id: doc.id, ...doc.data() };
                     currentEventTicketTypes = currentEvent.ticketTypes || [];
-                    displayEventDetails(currentEvent);
+                    
+                    document.getElementById('event-details').classList.remove('hidden');
+                    document.getElementById('ev-name').textContent = currentEvent.eventName;
+                    document.getElementById('ev-date').textContent = new Date(currentEvent.startDate).toLocaleString();
+                    document.getElementById('ev-location').textContent = currentEvent.location;
+                    
                     displayTicketTypes(currentEventTicketTypes);
                     loadAllTickets(eventId);
                 }
-            } catch (err) {
-                console.error('Error fetching event:', err);
-            }
+            } catch (err) { console.error(err); }
         });
 
-        function displayEventDetails(ev) {
-            eventDetailsDiv.classList.remove('hidden');
-            document.getElementById('ev-name').textContent = ev.eventName;
-            document.getElementById('ev-date').textContent = new Date(ev.startDate).toLocaleString();
-            document.getElementById('ev-location').textContent = ev.location;
-        }
-
         function displayTicketTypes(ticketTypes) {
-            ticketTypesContainer.innerHTML = '';
-            if (!ticketTypes || ticketTypes.length === 0) {
-                ticketTypesContainer.innerHTML = '<div class="card">No ticket types defined for this event.</div>';
-                return;
-            }
+            const container = document.getElementById('ticket-types-container');
+            container.innerHTML = '';
             ticketTypes.forEach(ticketType => {
+                const safeId = ticketType.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
                 const section = document.createElement('div');
                 section.className = 'ticket-type-section';
                 section.innerHTML = `
                     <div class="ticket-type-header">
                         <h3>${ticketType.name}</h3>
                         <span class="price">$${ticketType.price}</span>
-                        <button class="btn btn-lime" onclick="toggleInvoices('${ticketType.name}')">
-                            <i class="fas fa-eye"></i> Show Invoices
+                        <button class="btn btn-lime" onclick="toggleInvoices('${safeId}')">
+                            <i class="fas fa-list"></i> Show Invoices
                         </button>
                     </div>
-                    <div class="ticket-stats" id="stats-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">
+                    <div class="ticket-stats">
                         <span>Total: ${ticketType.quantity}</span>
-                        <span>Sold: <span id="sold-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">0</span></span>
-                        <span>Remaining: <span id="remaining-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">${ticketType.quantity}</span></span>
+                        <span>Sold: <span id="sold-${safeId}">0</span></span>
                     </div>
-                    <div class="invoice-list" id="invoices-${ticketType.name.replace(/\s+/g, '-').toLowerCase()}">
+                    <div class="invoice-list" id="invoices-${safeId}">
                         Loading invoices...
                     </div>
                 `;
-                ticketTypesContainer.appendChild(section);
-                loadInvoicesForTicketType(currentEvent.id, ticketType.name);
-                loadSoldCount(currentEvent.id, ticketType.name, ticketType.quantity);
+                container.appendChild(section);
+                loadInvoicesForTicketType(currentEvent.id, ticketType.name, safeId);
             });
         }
 
-        function toggleInvoices(ticketTypeName) {
-            const containerId = 'invoices-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase();
-            const container = document.getElementById(containerId);
-            if(container) {
+        function toggleInvoices(safeId) {
+            const container = document.getElementById(`invoices-${safeId}`);
+            if (container) {
                 container.style.display = container.style.display === 'block' ? 'none' : 'block';
             }
         }
 
-        async function loadSoldCount(eventId, ticketTypeName, totalQuantity) {
-            const soldSpan = document.getElementById('sold-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
-            const remainingSpan = document.getElementById('remaining-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase());
-            try {
-                const snapshot = await db.collection('tickets')
-                    .where('eventId', '==', eventId)
-                    .where('ticketTypeName', '==', ticketTypeName)
-                    .get();
-                const sold = snapshot.size;
-                if (soldSpan) soldSpan.textContent = sold;
-                if (remainingSpan) remainingSpan.textContent = totalQuantity - sold;
-            } catch (err) {
-                console.error('Error loading sold count:', err);
-            }
-        }
-
-        async function loadInvoicesForTicketType(eventId, ticketTypeName) {
-            const containerId = 'invoices-' + ticketTypeName.replace(/\s+/g, '-').toLowerCase();
-            const container = document.getElementById(containerId);
+        // ============ LOAD INVOICES (FIXED TO AVOID INDEX ERROR) ============
+        async function loadInvoicesForTicketType(eventId, ticketTypeName, safeId) {
+            const container = document.getElementById(`invoices-${safeId}`);
             if (!container) return;
+            
             try {
-                const snapshot = await db.collection('invoices')
-                    .where('eventId', '==', eventId)
-                    .where('ticketTypeName', '==', ticketTypeName)
-                    .get();
-                    
+                // Fetch ALL invoices for this event first to avoid composite index requirements
+                const snapshot = await db.collection('invoices').where('eventId', '==', eventId).get();
+                let invoices = [];
+                
+                // Filter locally by ticketTypeName
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.ticketTypeName === ticketTypeName) {
+                        invoices.push({ id: doc.id, ...data });
+                    }
+                });
+
                 container.innerHTML = '';
-                if (snapshot.empty) {
-                    container.innerHTML = '<p>No invoices found.</p>';
+                if (invoices.length === 0) {
+                    container.innerHTML = '<p style="padding:10px; color:#666;">No invoices found yet.</p>';
                     return;
                 }
-                
-                let invoices = [];
-                snapshot.forEach(doc => { invoices.push({ id: doc.id, ...doc.data() }); });
+
                 invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
+                // Update sold count
+                const soldCount = invoices.filter(i => i.status === 'paid').length;
+                document.getElementById(`sold-${safeId}`).textContent = soldCount;
 
                 invoices.forEach(inv => {
                     const div = document.createElement('div');
@@ -372,72 +295,55 @@
                     const statusClass = inv.status === 'paid' ? 'status-paid' : (inv.status === 'pending' ? 'status-pending' : 'status-void');
                     div.innerHTML = `
                         <div class="info">
-                            <strong>${inv.buyerName}</strong> (${inv.buyerEmail})<br>
-                            <small>Amount: $${inv.amount.toFixed(2)} | ${inv.buyerPhone}</small>
-                            ${inv.paymentProofBase64 ? `<br><a href="${inv.paymentProofBase64}" target="_blank" style="color:var(--pink); font-size:0.85rem;">View Payment Proof</a>` : ''}
+                            <strong>${inv.buyerName}</strong> <br>
+                            <span style="font-size:0.85rem; color:#666;">${inv.buyerEmail} | ${inv.buyerPhone}</span><br>
+                            <strong>$${inv.amount.toFixed(2)}</strong>
+                            ${inv.paymentProofBase64 ? `<br><a href="${inv.paymentProofBase64}" target="_blank" style="color:var(--pink); font-size:0.85rem; font-weight:bold;">View Payment Proof Image</a>` : ''}
                         </div>
                         <span class="status ${statusClass}">${inv.status.toUpperCase()}</span>
-                        <div class="button-group">
-                            ${inv.status === 'pending' ? `
-                                <button class="btn btn-green" onclick="verifyPayment('${inv.id}')"><i class="fas fa-check"></i> Verify & Generate</button>
-                            ` : ''}
-                            ${inv.status === 'paid' && inv.ticketId ? `
-                                <button class="btn btn-primary" onclick="openShareModal('${inv.ticketId}')"><i class="fas fa-share"></i> Share Ticket</button>
-                            ` : ''}
+                        <div class="button-group" style="margin-top:5px;">
+                            ${inv.status === 'pending' ? `<button class="btn btn-green" onclick="verifyPayment('${inv.id}')">Verify & Generate</button>` : ''}
+                            ${inv.status === 'paid' && inv.ticketId ? `<button class="btn btn-primary" onclick="openShareModal('${inv.ticketId}')"><i class="fas fa-share"></i> View Ticket</button>` : ''}
                         </div>
                     `;
                     container.appendChild(div);
                 });
             } catch (err) {
-                console.error('Error loading invoices:', err);
-                container.innerHTML = 'Failed to load invoices.';
+                console.error(err);
+                container.innerHTML = '<p style="color:red;">Error loading invoices.</p>';
             }
         }
 
-        // ============ PAYMENT VERIFICATION & TICKET GENERATION ============
+        // ============ PAYMENT VERIFICATION ============
         async function verifyPayment(invoiceId) {
             const modal = document.getElementById('verify-modal');
             const content = document.getElementById('verify-content');
-            content.innerHTML = 'Loading invoice...';
             modal.style.display = 'flex';
+            content.innerHTML = 'Loading...';
 
             try {
-                const invDoc = await db.collection('invoices').doc(invoiceId).get();
-                if (!invDoc.exists) {
-                    content.innerHTML = 'Invoice not found.';
-                    return;
-                }
-                const inv = invDoc.data();
-                inv.id = invDoc.id;
+                const doc = await db.collection('invoices').doc(invoiceId).get();
+                const inv = doc.data();
                 
-                if (inv.ticketId) {
-                    content.innerHTML = 'Ticket already generated.';
-                    return;
-                }
-
                 content.innerHTML = `
-                    <p><strong>Buyer:</strong> ${inv.buyerName} (${inv.buyerEmail})</p>
-                    <p><strong>Ticket Type:</strong> ${inv.ticketTypeName}</p>
-                    <p><strong>Amount:</strong> $${inv.amount.toFixed(2)}</p>
-                    ${inv.paymentProofBase64 ? `<img src="${inv.paymentProofBase64}" style="max-width:100%; max-height:250px; border-radius:8px; margin-top:10px; display:block;">` : '<p style="color:var(--text-muted); margin-top:10px;">No payment proof uploaded.</p>'}
-                    <div class="button-group" style="margin-top:20px; justify-content:center;">
-                        <button class="btn btn-green" onclick="confirmGenerateTicket('${inv.id}')"><i class="fas fa-check-circle"></i> Confirm Payment & Generate Ticket</button>
-                        <button class="btn btn-pink" onclick="voidInvoice('${inv.id}')"><i class="fas fa-ban"></i> Void Invoice</button>
+                    <p><strong>Buyer:</strong> ${inv.buyerName}</p>
+                    <p><strong>Amount:</strong> $${inv.amount}</p>
+                    ${inv.paymentProofBase64 ? `<img src="${inv.paymentProofBase64}" style="width:100%; border-radius:8px; margin: 10px 0;">` : '<p>No proof uploaded.</p>'}
+                    <div class="button-group" style="justify-content:center; margin-top:15px;">
+                        <button class="btn btn-green" onclick="confirmGenerateTicket('${doc.id}')">Approve & Generate</button>
+                        <button class="btn btn-pink" onclick="voidInvoice('${doc.id}')">Reject (Void)</button>
                     </div>
                 `;
-            } catch (err) {
-                console.error(err);
-                content.innerHTML = 'Error loading invoice.';
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function confirmGenerateTicket(invoiceId) {
             try {
                 const invDoc = await db.collection('invoices').doc(invoiceId).get();
-                if (!invDoc.exists) return alert('Invoice not found.');
                 const inv = invDoc.data();
-                const ticketId = generateUUID();
-                const ticketData = {
+                const ticketId = 'tkt_' + Date.now() + Math.random().toString(36).substr(2, 5);
+                
+                await db.collection('tickets').doc(ticketId).set({
                     eventId: inv.eventId,
                     ticketTypeName: inv.ticketTypeName,
                     buyerName: inv.buyerName,
@@ -446,44 +352,28 @@
                     invoiceId: invoiceId,
                     status: 'approved',
                     createdAt: new Date().toISOString(),
-                    approvedAt: new Date().toISOString(),
-                    scannedAt: null,
-                    scannerId: null,
                     qrCodeData: ticketId
-                };
+                });
 
-                await db.collection('tickets').doc(ticketId).set(ticketData);
                 await db.collection('invoices').doc(invoiceId).update({ status: 'paid', ticketId: ticketId });
 
                 alert('Ticket generated successfully!');
                 closeModal('verify-modal');
-                loadInvoicesForTicketType(inv.eventId, inv.ticketTypeName);
-                loadSoldCount(inv.eventId, inv.ticketTypeName, getTicketTypeQuantity(inv.ticketTypeName));
-            } catch (err) {
-                console.error('Error generating ticket:', err);
-                alert('Failed to generate ticket.');
-            }
-        }
-
-        function getTicketTypeQuantity(ticketTypeName) {
-            const type = currentEventTicketTypes.find(t => t.name === ticketTypeName);
-            return type ? type.quantity : 0;
+                
+                // Refresh specific ticket list
+                const safeId = inv.ticketTypeName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+                loadInvoicesForTicketType(inv.eventId, inv.ticketTypeName, safeId);
+            } catch (err) { console.error(err); alert('Failed'); }
         }
 
         async function voidInvoice(invoiceId) {
-            if (!confirm('Void this invoice? This action cannot be undone.')) return;
-            try {
-                await db.collection('invoices').doc(invoiceId).update({ status: 'void' });
-                closeModal('verify-modal');
-                const invDoc = await db.collection('invoices').doc(invoiceId).get();
-                if (invDoc.exists) loadInvoicesForTicketType(invDoc.data().eventId, invDoc.data().ticketTypeName);
-            } catch (err) {
-                console.error(err);
-                alert('Failed to void invoice.');
-            }
+            if (!confirm('Reject this invoice?')) return;
+            await db.collection('invoices').doc(invoiceId).update({ status: 'void' });
+            closeModal('verify-modal');
+            document.getElementById('event-select').dispatchEvent(new Event('change')); // Refresh UI
         }
 
-        // ============ ADVANCED TICKET COMPOSITION & SHARING ============
+        // ============ TICKET COMPOSITION & SHARING ============
         function drawRoundRect(ctx, x, y, width, height, radius) {
             ctx.beginPath();
             ctx.moveTo(x + radius, y);
@@ -500,387 +390,238 @@
         }
 
         async function generateTicketCanvas(ticket, ticketId) {
-            return new Promise((resolve, reject) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 600;
-                canvas.height = 1000;
-                const ctx = canvas.getContext('2d');
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 1000;
+            const ctx = canvas.getContext('2d');
 
-                // 1. Background
-                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                gradient.addColorStop(0, '#102838'); 
-                gradient.addColorStop(1, '#0a1924');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 1. Background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#102838'); 
+            gradient.addColorStop(1, '#0a1924');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // 2. Bars
-                ctx.fillStyle = '#C0C800'; ctx.fillRect(0, 0, canvas.width, 15);
-                ctx.fillStyle = '#F80070'; ctx.fillRect(0, 15, canvas.width, 10);
+            // 2. Branding Bars
+            ctx.fillStyle = '#C0C800'; ctx.fillRect(0, 0, canvas.width, 15);
+            ctx.fillStyle = '#F80070'; ctx.fillRect(0, 15, canvas.width, 10);
 
-                // 3. Text
-                ctx.fillStyle = '#ffffff';
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 42px Inter, sans-serif';
-                ctx.fillText(currentEvent ? currentEvent.eventName : 'Zone21 Event', canvas.width/2, 110);
+            // 3. Text Details
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 42px Inter, sans-serif';
+            ctx.fillText(currentEvent ? currentEvent.eventName : 'Zone21 Event', canvas.width/2, 110);
 
-                ctx.font = 'bold 30px Inter, sans-serif';
-                ctx.fillStyle = '#C0C800'; 
-                ctx.fillText((ticket.ticketTypeName + ' TICKET').toUpperCase(), canvas.width/2, 170);
+            ctx.font = 'bold 30px Inter, sans-serif';
+            ctx.fillStyle = '#C0C800'; 
+            ctx.fillText((ticket.ticketTypeName + ' TICKET').toUpperCase(), canvas.width/2, 170);
 
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '22px Inter, sans-serif';
-                ctx.fillText('Admit One: ' + ticket.buyerName, canvas.width/2, 220);
-                ctx.font = '18px Inter, sans-serif';
-                ctx.fillText('Ticket ID: ' + ticketId, canvas.width/2, 255);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '22px Inter, sans-serif';
+            ctx.fillText('Name: ' + ticket.buyerName, canvas.width/2, 220);
+            ctx.font = '18px Inter, sans-serif';
+            ctx.fillText('Ticket ID: ' + ticketId, canvas.width/2, 255);
 
-                // 4. White box for QR
-                const boxWidth = 460;
-                const boxHeight = 540;
-                const boxX = (canvas.width - boxWidth) / 2;
-                const boxY = 300;
-                
-                ctx.fillStyle = '#ffffff';
-                drawRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, 24);
+            // 4. White box for QR
+            const boxWidth = 460;
+            const boxHeight = 540;
+            const boxX = (canvas.width - boxWidth) / 2;
+            const boxY = 300;
+            ctx.fillStyle = '#ffffff';
+            drawRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, 24);
 
-                // Text inside box
-                ctx.fillStyle = '#102838';
-                ctx.font = 'bold 24px Inter, sans-serif';
-                ctx.fillText('SCAN AT ENTRANCE', canvas.width/2, boxY + 460);
-                ctx.font = '16px Inter, sans-serif';
-                ctx.fillText('Powered by Zone21 Management', canvas.width/2, boxY + 495);
-
-                // 5. Date
-                if(currentEvent && currentEvent.startDate) {
-                     ctx.fillStyle = '#ffffff';
-                     ctx.font = '20px Inter, sans-serif';
-                     ctx.fillText(new Date(currentEvent.startDate).toLocaleString(), canvas.width/2, 920);
-                }
-
-                // 6. Direct QR Code Image Fetch (Highly Reliable)
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(ticket.qrCodeData || ticketId)}&color=102838&bgcolor=ffffff`;
-                const qrImg = new Image();
-                qrImg.crossOrigin = "Anonymous";
-                qrImg.onload = () => {
-                    // Paint the QR code directly onto the white box on the canvas
-                    ctx.drawImage(qrImg, boxX + 50, boxY + 50, 360, 360);
-                    resolve(canvas);
-                };
-                qrImg.onerror = () => {
-                    ctx.fillStyle = 'red';
-                    ctx.fillText('Failed to load QR Image', canvas.width/2, boxY + 200);
-                    resolve(canvas); // Resolve anyway to show the text
-                }
-                qrImg.src = qrUrl;
+            // 5. Generate QR using Local Library (Reliable)
+            const qrTempDiv = document.createElement('div');
+            new QRCode(qrTempDiv, {
+                text: ticket.qrCodeData || ticketId,
+                width: 360, height: 360,
+                colorDark : "#102838",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
             });
+
+            // Wait for QRCode.js to draw to its canvas
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const qrCanvas = qrTempDiv.querySelector('canvas');
+            if(qrCanvas) {
+                ctx.drawImage(qrCanvas, boxX + 50, boxY + 50, 360, 360);
+            }
+
+            // QR bottom text
+            ctx.fillStyle = '#102838';
+            ctx.font = 'bold 24px Inter, sans-serif';
+            ctx.fillText('SCAN AT ENTRANCE', canvas.width/2, boxY + 460);
+            ctx.font = '16px Inter, sans-serif';
+            ctx.fillText('Powered by Zone21', canvas.width/2, boxY + 495);
+
+            return canvas;
         }
 
         async function openShareModal(ticketId) {
             const modal = document.getElementById('share-modal');
             const content = document.getElementById('share-content');
-            
-            content.innerHTML = `
-                <div style="text-align:center; padding:40px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size:3rem; color:var(--pink); margin-bottom:15px;"></i>
-                    <p style="font-weight:600; color:var(--navy);">Composing Ticket Image...</p>
-                </div>
-            `;
             modal.style.display = 'flex';
+            content.innerHTML = '<p style="text-align:center;">Generating Ticket Image...</p>';
 
             try {
                 const doc = await db.collection('tickets').doc(ticketId).get();
-                if (!doc.exists) {
-                    content.innerHTML = 'Ticket not found.';
-                    return;
-                }
                 const ticket = doc.data();
 
-                // Setup plain text for Direct Link buttons
-                const whatsappText = `🎟️ *Zone21 Event Ticket*%0A%0A*Event:* ${currentEvent ? currentEvent.eventName : 'Event'}%0A*Ticket Type:* ${ticket.ticketTypeName}%0A*Buyer:* ${ticket.buyerName}%0A*Ticket ID:* ${ticketId}%0A%0A Please present the QR code at the entrance.`;
-                const emailSubject = `Your Zone21 Ticket - ${currentEvent ? currentEvent.eventName : 'Event'}`;
-                const emailBody = `Dear ${ticket.buyerName},%0D%0A%0D%0AHere is your ticket for ${currentEvent ? currentEvent.eventName : 'Event'}.%0D%0A%0D%0ATicket Type: ${ticket.ticketTypeName}%0D%0ATicket ID: ${ticketId}%0D%0A%0D%0APlease present the QR code at the entrance.`;
-
-                // Generate composite ticket image
+                // Draw canvas
                 const canvas = await generateTicketCanvas(ticket, ticketId);
                 const dataUrl = canvas.toDataURL('image/png');
-                window.currentTicketCanvas = canvas; 
+                currentTicketCanvas = canvas; // Save globally for sharing function
 
                 content.innerHTML = `
                     <div style="text-align:center;">
-                        <img src="${dataUrl}" style="max-width:100%; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15); max-height:450px; object-fit:contain;">
+                        <img src="${dataUrl}" style="max-width:100%; border-radius:12px; box-shadow:0 5px 15px rgba(0,0,0,0.2); max-height:400px; object-fit:contain;">
                         
-                        <div style="margin-top:20px; display:flex; flex-direction:column; gap: 15px; align-items:center;">
+                        <div style="margin-top:20px; padding:15px; background:#f5f7fa; border-radius:12px;">
+                            <h3 style="margin-bottom: 10px; font-size:1rem;">Send Image to Buyer</h3>
+                            <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Use the button below to open your phone's share menu and attach the image directly to WhatsApp or Email.</p>
                             
-                            <!-- 1. Direct Links (Text Based) -->
                             <div class="button-group" style="justify-content:center;">
-                                <a href="https://wa.me/${ticket.buyerPhone.replace(/[^0-9]/g,'')}?text=${whatsappText}" target="_blank" class="btn btn-lime"><i class="fab fa-whatsapp"></i> WhatsApp Text</a>
-                                <a href="mailto:${ticket.buyerEmail}?subject=${emailSubject}&body=${emailBody}" target="_blank" class="btn btn-outline"><i class="fas fa-envelope"></i> Email Text</a>
-                            </div>
-
-                            <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Or share the actual ticket image:</p>
-
-                            <!-- 2. Image File Sharing -->
-                            <div class="button-group" style="justify-content:center;">
-                                <button class="btn btn-primary" onclick="shareTicketFile('${ticketId}')">
-                                    <i class="fas fa-share-alt"></i> Share Image
+                                <button class="btn btn-lime" onclick="shareTicketNative('${ticketId}', '${ticket.buyerName}')" style="font-size:1rem; padding: 12px 20px;">
+                                    <i class="fas fa-share-alt"></i> Share Image via App
                                 </button>
-                                <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g, '_')}.png" class="btn btn-pink">
-                                    <i class="fas fa-download"></i> Download Image
+                                
+                                <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g,'_')}.png" class="btn btn-outline" style="font-size:1rem; padding: 12px 20px;">
+                                    <i class="fas fa-download"></i> Save to Device
                                 </a>
                             </div>
-
                         </div>
                     </div>
                 `;
             } catch (err) {
                 console.error(err);
-                content.innerHTML = 'Error generating ticket preview.';
+                content.innerHTML = '<p style="color:red; text-align:center;">Failed to generate ticket.</p>';
             }
         }
 
-        async function shareTicketFile(ticketId) {
-            if (!window.currentTicketCanvas) return;
-
-            window.currentTicketCanvas.toBlob(async (blob) => {
-                const file = new File([blob], `Zone21_Ticket_${ticketId}.png`, { type: 'image/png' });
-
+        async function shareTicketNative(ticketId, buyerName) {
+            if (!currentTicketCanvas) return;
+            
+            currentTicketCanvas.toBlob(async (blob) => {
+                const file = new File([blob], `Zone21_Ticket_${buyerName}.png`, { type: 'image/png' });
+                
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
                         await navigator.share({
                             title: 'Zone21 Event Ticket',
-                            text: 'Here is your official event ticket! Please present the QR code at the entrance.',
+                            text: `Hi ${buyerName}, attached is your official event ticket! Present the QR code at the entrance.`,
                             files: [file]
                         });
-                    } catch (error) {
-                        console.log('Sharing failed or was aborted', error);
-                        if (error.name !== 'AbortError') {
-                             alert('Failed to share directly. Please use the Download button instead.');
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            alert('Native sharing failed. Please use the Save/Download button instead.');
                         }
                     }
                 } else {
-                    alert('Direct image sharing is not supported on this browser. Please click "Download Image" and send it manually.');
+                    alert('Direct image sharing is not supported on this browser. Click "Save to Device" and send it manually.');
                 }
             }, 'image/png');
         }
 
-        // ============ ALL TICKETS LIST ============
+        // ============ TICKET OVERVIEW LIST ============
         function loadAllTickets(eventId) {
-            if (allTicketsListener) allTicketsListener(); 
-            allTicketsList.innerHTML = 'Loading tickets...';
-            allTicketsListener = db.collection('tickets')
-                .where('eventId', '==', eventId)
-                .onSnapshot(snapshot => {
-                    allTicketsList.innerHTML = '';
-                    if (snapshot.empty) return allTicketsList.innerHTML = '<p style="color:var(--text-muted);">No tickets generated yet.</p>';
-                    let tickets = [];
-                    snapshot.forEach(doc => tickets.push({id: doc.id, ...doc.data()}));
-                    tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                    tickets.forEach(ticket => {
-                        const div = document.createElement('div');
-                        div.className = 'invoice-item';
-                        const statusClass = ticket.status === 'approved' ? 'status-paid' : (ticket.status === 'scanned' ? 'status-scanned' : 'status-void');
-                        div.innerHTML = `
-                            <div class="info">
-                                <strong>${ticket.buyerName}</strong> (${ticket.ticketTypeName})<br>
-                                <small>Ticket ID: ${ticket.id}</small>
-                                ${ticket.scannedAt ? `<br><small style="color:var(--pink);">Scanned: ${new Date(ticket.scannedAt).toLocaleString()}</small>` : ''}
-                            </div>
-                            <span class="status ${statusClass}">${ticket.status.toUpperCase()}</span>
-                            <button class="btn btn-outline" onclick="openShareModal('${ticket.id}')"><i class="fas fa-ticket-alt"></i> View Ticket</button>
-                        `;
-                        allTicketsList.appendChild(div);
-                    });
-                }, err => {
-                    console.error('Error loading tickets:', err);
-                    allTicketsList.innerHTML = 'Failed to load tickets.';
+            const list = document.getElementById('all-tickets-list');
+            list.innerHTML = 'Loading...';
+            db.collection('tickets').where('eventId', '==', eventId).onSnapshot(snapshot => {
+                list.innerHTML = '';
+                if (snapshot.empty) return list.innerHTML = 'No tickets yet.';
+                
+                let tickets = [];
+                snapshot.forEach(doc => tickets.push({id: doc.id, ...doc.data()}));
+                tickets.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
+                tickets.forEach(ticket => {
+                    const div = document.createElement('div');
+                    div.className = 'invoice-item';
+                    div.innerHTML = `
+                        <div class="info">
+                            <strong>${ticket.buyerName}</strong> - ${ticket.ticketTypeName}
+                        </div>
+                        <button class="btn btn-outline" onclick="openShareModal('${ticket.id}')">View Ticket</button>
+                    `;
+                    list.appendChild(div);
                 });
+            });
         }
 
-        // ============ QR SCANNER ============
+        // ============ SCANNER ============
         function openScanner() {
-            const modal = document.getElementById('scanner-modal');
-            modal.style.display = 'flex';
+            document.getElementById('scanner-modal').style.display = 'flex';
             document.getElementById('scan-result').classList.add('hidden');
-            document.getElementById('qr-reader').innerHTML = '';
-            document.getElementById('camera-permission-section').classList.add('hidden');
             startScanner();
         }
 
-        async function startScanner() {
-            const qrReader = document.getElementById('qr-reader');
-            qrReader.innerHTML = '';
-            const permissionSection = document.getElementById('camera-permission-section');
-            permissionSection.classList.add('hidden');
-            if (html5QrCode) { try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {} html5QrCode = null; }
-
-            if (!window.isSecureContext) {
-                permissionSection.classList.remove('hidden');
-                permissionSection.innerHTML = `
-                    <p style="color:#dc3545;">⚠️ Camera access requires a secure (HTTPS) connection.</p>
-                    <button class="btn btn-lime" onclick="document.getElementById('qr-image-input').click()">Scan from Image</button>
-                `;
-                return;
-            }
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                stream.getTracks().forEach(track => track.stop());
-                html5QrCode = new Html5Qrcode("qr-reader");
-                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
-            } catch (err) {
-                permissionSection.classList.remove('hidden');
-                permissionSection.innerHTML = `
-                    <p style="color:#856404;">Unable to access camera.</p>
-                    <button class="btn btn-lime" onclick="requestCameraAndScan()"><i class="fas fa-camera"></i> Allow Camera Access</button>
-                `;
-            }
+        function startScanner() {
+            if (html5QrCode) html5QrCode.clear();
+            html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    html5QrCode.stop().then(() => validateTicket(decodedText));
+                },
+                (err) => {}
+            ).catch(err => {
+                console.error("Camera error", err);
+            });
         }
-
-        async function requestCameraAndScan() {
-            const permissionSection = document.getElementById('camera-permission-section');
-            permissionSection.classList.add('hidden');
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                stream.getTracks().forEach(track => track.stop());
-                startScanner();
-            } catch (err) {
-                permissionSection.classList.remove('hidden');
-                permissionSection.innerHTML = `
-                    <p style="color:#dc3545;">Permission denied. Please click "Restart Camera".</p>
-                    <button class="btn btn-outline" onclick="restartScanner()">Restart Camera</button>
-                `;
-            }
-        }
-
-        function restartScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; startScanner(); }).catch(() => startScanner());
-            } else startScanner();
-        }
-
-        function onScanSuccess(decodedText) {
-            if (html5QrCode) { html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; validateTicket(decodedText); }).catch(e => console.error(e)); }
-        }
-
-        function onScanFailure(err) {}
 
         async function scanFromFile(file) {
             if (!file) return;
-            const resultDiv = document.getElementById('scan-result');
-            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
-            resultDiv.innerHTML = 'Processing image...';
+            const tempScanner = new Html5Qrcode("qr-reader");
             try {
-                const tempScanner = new Html5Qrcode("qr-reader");
                 const result = await tempScanner.scanFile(file, false);
-                await tempScanner.clear();
                 validateTicket(result);
-            } catch (err) {
-                resultDiv.classList.add('scan-invalid');
-                resultDiv.innerHTML = '<h3>❌ Could not read QR code from image</h3>';
+            } catch(e) {
+                alert("Could not read QR code from image.");
             }
         }
-
+        
         function manualScanEntry() {
-            const ticketId = prompt('Enter Ticket ID (from QR code):');
-            if (ticketId) validateTicket(ticketId.trim());
+            const id = prompt("Enter Ticket ID:");
+            if(id) validateTicket(id);
         }
 
         function closeScanner() {
-            const modal = document.getElementById('scanner-modal');
-            modal.style.display = 'none';
-            if (html5QrCode) { try { html5QrCode.stop().then(() => html5QrCode.clear()); } catch (e) {} html5QrCode = null; }
+            document.getElementById('scanner-modal').style.display = 'none';
+            if (html5QrCode) html5QrCode.stop().catch(e=>console.log(e));
         }
 
         async function validateTicket(ticketId) {
             const resultDiv = document.getElementById('scan-result');
-            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
+            resultDiv.className = 'scan-result';
             resultDiv.innerHTML = 'Validating...';
 
             try {
                 const ticketDoc = await db.collection('tickets').doc(ticketId).get();
                 if (!ticketDoc.exists) {
-                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.className = 'scan-result scan-invalid';
                     resultDiv.innerHTML = '<h3>❌ Ticket Not Found</h3>';
                     return;
                 }
                 const ticket = ticketDoc.data();
 
                 if (ticket.status === 'scanned') {
-                    resultDiv.classList.add('scan-invalid');
-                    resultDiv.innerHTML = `<h3>❌ Already Scanned</h3><p>Scanned at: ${ticket.scannedAt ? new Date(ticket.scannedAt).toLocaleString() : 'Unknown'}</p>`;
-                    return;
-                }
-                if (ticket.status !== 'approved') {
-                    resultDiv.classList.add('scan-invalid');
-                    resultDiv.innerHTML = '<h3>❌ Ticket Not Valid</h3>';
+                    resultDiv.className = 'scan-result scan-invalid';
+                    resultDiv.innerHTML = `<h3>❌ Already Scanned</h3>`;
                     return;
                 }
 
-                const eventDoc = await db.collection('events').doc(ticket.eventId).get();
-                if (!eventDoc.exists) {
-                    resultDiv.classList.add('scan-invalid');
-                    resultDiv.innerHTML = '<h3>❌ Event Not Found</h3>';
-                    return;
-                }
-                const event = eventDoc.data();
-                const eventStart = new Date(event.startDate);
-                const diffHours = (eventStart - new Date()) / (1000 * 60 * 60);
-
-                if (diffHours > 5) {
-                    showEarlyWarning(eventStart);
-                    resultDiv.classList.add('scan-warning');
-                    resultDiv.innerHTML = '<h3>⚠️ Too Early to Scan</h3>';
-                    return;
-                } else if (diffHours > 0) {
-                    resultDiv.classList.add('scan-warning');
-                    resultDiv.innerHTML = `<h3>⚠️ Gate Not Open Yet</h3><p>Gate opens in ${Math.ceil(diffHours)} hours.</p>`;
-                    return;
-                }
-
-                const ticketRef = db.collection('tickets').doc(ticketId);
-                await db.runTransaction(async (transaction) => {
-                    const freshDoc = await transaction.get(ticketRef);
-                    if (freshDoc.data().status === 'scanned') throw new Error('Already scanned');
-                    transaction.update(ticketRef, { status: 'scanned', scannedAt: new Date().toISOString(), scannerId: 'admin' });
-                });
-
-                resultDiv.classList.add('scan-valid');
-                resultDiv.innerHTML = `<h3>✅ Valid Ticket</h3><p>Buyer: ${ticket.buyerName}</p><p>Type: ${ticket.ticketTypeName}</p><p>Entry Granted!</p>`;
+                await db.collection('tickets').doc(ticketId).update({ status: 'scanned', scannedAt: new Date().toISOString() });
+                resultDiv.className = 'scan-result scan-valid';
+                resultDiv.innerHTML = `<h3>✅ Valid Ticket</h3><p>Entry Granted: ${ticket.buyerName}</p>`;
             } catch (err) {
-                resultDiv.classList.add('scan-invalid');
-                resultDiv.innerHTML = `<h3>❌ Error</h3><p>${err.message || 'Failed to validate ticket'}</p>`;
+                resultDiv.className = 'scan-result scan-invalid';
+                resultDiv.innerHTML = `<h3>❌ Error</h3>`;
             }
         }
 
-        function showEarlyWarning(eventStart) {
-            const modal = document.getElementById('early-warning-modal');
-            modal.style.display = 'flex';
-            const countdownElement = document.getElementById('countdown-timer');
-            const gateOpenTime = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
-            const updateCountdown = () => {
-                const diff = gateOpenTime - new Date();
-                if (diff <= 0) {
-                    countdownElement.textContent = '00:00:00';
-                    return clearInterval(window._earlyCountdownInterval);
-                }
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                countdownElement.textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-            };
-            updateCountdown();
-            window._earlyCountdownInterval = setInterval(updateCountdown, 1000);
-        }
-
-        function closeEarlyWarning() {
-            document.getElementById('early-warning-modal').style.display = 'none';
-            if (window._earlyCountdownInterval) clearInterval(window._earlyCountdownInterval);
-            startScanner();
-        }
-
-        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-        function generateUUID() { return 'ticket_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); }
-        window.onclick = function(event) { document.querySelectorAll('.modal').forEach(modal => { if (event.target === modal) modal.style.display = 'none'; }); };
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        window.onclick = function(e) { if(e.target.classList.contains('modal')) e.target.style.display = 'none'; }
     </script>
 </body>
 </html>

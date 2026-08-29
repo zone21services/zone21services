@@ -67,7 +67,7 @@
 
     /* Badges */
     .status-badge { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-    .status-pending { background: var(--grey); color: var(--navy); }
+    .status-pending_payment { background: var(--grey); color: var(--navy); }
     .status-approved, .status-active { background: var(--lime); color: var(--navy); }
     .status-rejected { background: var(--pink); color: white; }
     .status-cancelled { background: var(--pink); color: white; }
@@ -149,7 +149,7 @@
     <div class="filters">
       <select id="status-filter" onchange="filterAndSearch()">
         <option value="all">All Statuses</option>
-        <option value="pending">Pending</option>
+        <option value="pending_payment">Pending Payment</option>
         <option value="active">Active (Approved)</option>
         <option value="rejected">Rejected</option>
       </select>
@@ -190,9 +190,9 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ============ ZONE21 FIREBASE CONFIG ============
     const firebaseConfig = {
@@ -259,7 +259,6 @@
 
     async function loadSubscriptions() {
       try {
-        // Fetching from the SUBSCRIPTIONS collection now!
         const q = query(collection(db, 'subscriptions'), orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
         allSubscriptions = [];
@@ -292,7 +291,6 @@
     function getCustomerInfo(sub) {
       const cust = sub.customerInfo || {};
       const user = userCache[sub.userId] || {};
-      // Construct name from first and last, fallback to user name
       const fullName = (cust.firstName || cust.lastName) 
           ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() 
           : null;
@@ -334,8 +332,10 @@
         const info = getCustomerInfo(p);
         const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'}) : '—';
-        const price = p.packageDetails ? p.packageDetails.price : 0;
-        const packageName = p.packageDetails ? p.packageDetails.name : (p.planId || 'Unknown');
+        
+        // FIX: Look at the top level fields instead of packageDetails
+        const price = p.price || 0;
+        const packageName = p.planName || 'Unknown';
         
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
@@ -355,11 +355,11 @@
             </td>
             <td><strong>${escapeHTML(packageName)}</strong></td>
             <td style="font-weight:bold; font-size:1.1rem;">$${price}</td>
-            <td><span class="status-badge status-${p.status || 'pending'}">${p.status || 'pending'}</span></td>
+            <td><span class="status-badge status-${p.status || 'pending_payment'}">${p.status === 'pending_payment' ? 'Pending' : p.status}</span></td>
             <td>${date}</td>
             <td class="action-btns">
               <button class="btn btn-outline btn-small" onclick="viewDetails('${p.id}')" title="View"><i class="fa-solid fa-eye"></i></button>
-              ${p.status === 'pending' ? `
+              ${p.status === 'pending_payment' ? `
                 <button class="btn btn-accent btn-small" onclick="approvePayment('${p.id}')" title="Approve"><i class="fa-solid fa-check"></i></button>
                 <button class="btn btn-danger-outline btn-small" onclick="rejectPayment('${p.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
               ` : ''}
@@ -380,7 +380,9 @@
         const info = getCustomerInfo(p);
         const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
-        const price = p.packageDetails ? p.packageDetails.price : 0;
+        
+        // FIX: Look at the top level fields instead of packageDetails
+        const price = p.price || 0;
         
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
@@ -396,17 +398,17 @@
                   <small style="display:block; color:var(--text-muted)">${escapeHTML(info.email)}</small>
                 </div>
               </div>
-              <span class="status-badge status-${p.status || 'pending'}">${p.status || 'pending'}</span>
+              <span class="status-badge status-${p.status || 'pending_payment'}">${p.status === 'pending_payment' ? 'Pending' : p.status}</span>
             </div>
             <div class="details-row">
               <span><strong>Invoice:</strong> <span style="color:var(--pink);">${escapeHTML(invId)}</span></span>
-              <span><strong>Package:</strong> ${p.packageDetails?.name || 'Unknown'}</span>
+              <span><strong>Package:</strong> ${p.planName || 'Unknown'}</span>
               <span><strong>Amount:</strong> $${price}</span>
               <span><strong>Date:</strong> ${date}</span>
             </div>
             <div class="actions">
               <button class="btn btn-outline btn-small" onclick="viewDetails('${p.id}')"><i class="fa-solid fa-eye"></i> View</button>
-              ${p.status === 'pending' ? `
+              ${p.status === 'pending_payment' ? `
                 <button class="btn btn-accent btn-small" onclick="approvePayment('${p.id}')"><i class="fa-solid fa-check"></i> Approve</button>
                 <button class="btn btn-danger-outline btn-small" onclick="rejectPayment('${p.id}')"><i class="fa-solid fa-xmark"></i></button>
               ` : ''}
@@ -424,8 +426,11 @@
       const cust = sub.customerInfo || {};
       const user = userCache[sub.userId] || {};
       const created = sub.createdAt ? new Date(sub.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
-      const packageName = sub.packageDetails ? sub.packageDetails.name : 'Unknown';
-      const price = sub.packageDetails ? sub.packageDetails.price : 0;
+      
+      // FIX: Look at the top level fields instead of packageDetails
+      const packageName = sub.planName || 'Unknown';
+      const price = sub.price || 0;
+      
       const invNum = sub.invoiceNumber || docId;
       const fullName = (cust.firstName || cust.lastName) ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() : '—';
       
@@ -470,7 +475,7 @@
           </div>
         </div>
         
-        <div><strong>Current Status:</strong> <span class="status-badge status-${sub.status}" style="margin-left:10px;">${sub.status}</span></div>
+        <div><strong>Current Status:</strong> <span class="status-badge status-${sub.status || 'pending_payment'}" style="margin-left:10px;">${sub.status === 'pending_payment' ? 'Pending' : sub.status}</span></div>
         
         ${userProfileHtml}
       `;
@@ -492,11 +497,22 @@
           approvedAt: serverTimestamp()
         });
 
+        // Also update the original invoice document in the `invoices` collection to match statuses
+        if (sub.invoiceNumber) {
+            try {
+                await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
+                    paymentStatus: 'approved'
+                });
+            } catch(e) {
+                console.warn("Could not sync invoice doc status", e);
+            }
+        }
+
         // Update the global user document so their dashboard unlocks
         if (sub.userId) {
           await updateDoc(doc(db, 'users', sub.userId), {
             subscriptionStatus: 'active',
-            activePlan: sub.packageDetails ? sub.packageDetails.name : (sub.planId || 'Unknown')
+            activePlan: sub.planName || 'Unknown'
           });
         }
 
@@ -513,14 +529,20 @@
       try {
         const sub = allSubscriptions.find(p => p.id === docId);
         
-        // Mark subscription document as rejected
         await updateDoc(doc(db, 'subscriptions', docId), {
           status: 'rejected',
           rejectedBy: currentAdmin.uid,
           rejectedAt: serverTimestamp()
         });
+
+        if (sub && sub.invoiceNumber) {
+            try {
+                await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
+                    paymentStatus: 'rejected'
+                });
+            } catch(e) {}
+        }
         
-        // Update user document
         if (sub && sub.userId) {
           await updateDoc(doc(db, 'users', sub.userId), {
             subscriptionStatus: 'rejected'
@@ -538,7 +560,16 @@
     window.deletePayment = async (docId) => {
       if (!confirm('Permanently delete this invoice from the system?')) return;
       try {
+        const sub = allSubscriptions.find(p => p.id === docId);
+        
         await deleteDoc(doc(db, 'subscriptions', docId));
+
+        if (sub && sub.invoiceNumber) {
+            try {
+                await deleteDoc(doc(db, 'invoices', sub.invoiceNumber));
+            } catch(e){}
+        }
+
         showToast('Invoice permanently deleted.', 'success');
         loadSubscriptions();
       } catch (e) { 

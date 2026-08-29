@@ -286,13 +286,76 @@
 
             <div class="action-buttons">
                 <button class="btn btn-outline" onclick="window.print()" style="margin:0;"><i class="fas fa-print"></i> Print / Save PDF</button>
-                <button class="btn btn-accent" onclick="finishAndRedirect()" style="margin:0;"><i class="fas fa-rocket"></i> Go To System Dashboard</button>
+                <button id="btn-finish" class="btn btn-accent" onclick="finishAndRedirect()" style="margin:0;"><i class="fas fa-rocket"></i> Go To System Dashboard</button>
             </div>
         </div>
     </div>
 
+    <!-- ================= FIREBASE CONFIGURATION ================= -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, getDoc, updateDoc, collection, setDoc, serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Expose Firebase tools to the global window object for the logic script
+        window.auth = auth;
+        window.db = db;
+        window.fb = {
+            onAuthStateChanged, doc, getDoc, updateDoc, collection, setDoc, serverTimestamp
+        };
+    </script>
+
+    <!-- ================= APPLICATION LOGIC ================= -->
     <script>
         let orderData = { id: '', price: 0, name: '', cName: '', cEmail: '', cPhone: '' };
+        window.currentUser = null;
+
+        // Ensure user is logged in, and fetch their details to prepopulate the form
+        window.addEventListener('load', () => {
+            // Need a slight delay to ensure Firebase module is loaded
+            setTimeout(() => {
+                if (window.fb && window.auth) {
+                    window.fb.onAuthStateChanged(window.auth, async (user) => {
+                        if (user) {
+                            try {
+                                const userDoc = await window.fb.getDoc(window.fb.doc(window.db, "users", user.uid));
+                                if (userDoc.exists()) {
+                                    window.currentUser = { uid: user.uid, ...userDoc.data() };
+                                    
+                                    // Auto-fill Billing Details (Stage 2)
+                                    document.getElementById('custName').value = window.currentUser.name || '';
+                                    document.getElementById('custEmail').value = window.currentUser.email || '';
+                                    document.getElementById('custPhone').value = window.currentUser.phone || '';
+                                }
+                            } catch(err) {
+                                console.error("Error fetching user data:", err);
+                            }
+                        } else {
+                            // If they aren't logged in, redirect them to the index/login page
+                            alert("You need to be logged in to subscribe to a package.");
+                            window.location.href = "index.html";
+                        }
+                    });
+                }
+            }, 500);
+        });
 
         function updateStepper(stage) {
             document.getElementById('stepper').style.display = stage > 1 ? 'flex' : 'none';
@@ -326,9 +389,9 @@
         }
 
         function validateDetails() {
-            let n = document.getElementById('custName').value;
-            let e = document.getElementById('custEmail').value;
-            let p = document.getElementById('custPhone').value;
+            let n = document.getElementById('custName').value.trim();
+            let e = document.getElementById('custEmail').value.trim();
+            let p = document.getElementById('custPhone').value.trim();
             
             if(!n || !e || !p) {
                 alert("Please fill in all billing details.");
@@ -360,12 +423,55 @@
             changeStage(4);
         }
 
-        function finishAndRedirect() {
-            // 1. Save chosen package to unlock the actual Blueprint Generator limits
-            localStorage.setItem('zone21_package', orderData.id);
+        // Modified: Saves data to Firestore before redirecting
+        async function finishAndRedirect() {
+            const finishBtn = document.getElementById('btn-finish');
+            const originalText = finishBtn.innerHTML;
             
-            // 2. Redirect to the Generator App
-            window.location.href = "index.html"; 
+            // Basic loader state to prevent double clicking
+            finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            finishBtn.disabled = true;
+
+            try {
+                // 1. Update the User's document with their subscription status
+                const userRef = window.fb.doc(window.db, "users", window.currentUser.uid);
+                await window.fb.updateDoc(userRef, {
+                    subscriptionPlanId: orderData.id,
+                    subscriptionPlanName: orderData.name,
+                    subscriptionStatus: 'pending_payment', // Admins can manually verify payments and change to 'active'
+                    subscriptionUpdatedAt: window.fb.serverTimestamp()
+                });
+
+                // 2. Create a separate Invoice/Order document in a new "invoices" collection
+                const invoiceId = document.getElementById('invNumber').innerText;
+                const invoiceRef = window.fb.doc(window.fb.collection(window.db, "invoices"), invoiceId);
+                await window.fb.setDoc(invoiceRef, {
+                    userId: window.currentUser.uid,
+                    invoiceNumber: invoiceId,
+                    customerName: orderData.cName,
+                    customerEmail: orderData.cEmail,
+                    customerPhone: orderData.cPhone,
+                    planId: orderData.id,
+                    planName: orderData.name,
+                    amount: orderData.price,
+                    paymentStatus: 'pending',
+                    createdAt: window.fb.serverTimestamp()
+                });
+
+                // 3. Keep local storage fallback
+                localStorage.setItem('zone21_package', orderData.id);
+                
+                // 4. Redirect to the User Dashboard (instead of the login page)
+                window.location.href = "dashboard.html"; 
+
+            } catch (error) {
+                console.error("Error saving subscription:", error);
+                alert("Failed to process your subscription. Please check your connection and try again.");
+                
+                // Reset button if there's an error
+                finishBtn.innerHTML = originalText;
+                finishBtn.disabled = false;
+            }
         }
     </script>
 </body>

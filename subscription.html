@@ -107,11 +107,20 @@
         .payment-method h5 { color: var(--pink); margin-bottom: 5px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
         .payment-method p { font-size: 1.1rem; font-weight: 800; color: var(--navy); }
         .payment-method .name { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 3px; }
+        
+        /* Toast Notifications */
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99998; display: flex; flex-direction: column; gap: 8px; width: max-content; max-width: 90%; pointer-events: none; }
+        .toast { padding: 0.75rem 1.3rem; border-radius: 8px; font-weight: 600; font-size: 0.88rem; color: #fff; animation: slideDown 0.35s ease; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.2); pointer-events: auto; }
+        @keyframes slideDown { from { transform: translateY(-24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
         .hidden { display: none !important; }
         @media (max-width: 600px) { .form-row { flex-direction: column; gap: 0; } .card { padding: 1.5rem; } .steps::after { display: none; } }
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
     <div class="app-container">
         <div class="header" id="main-header">
             <h1>Zone21 <span>System</span></h1>
@@ -121,6 +130,7 @@
         <!-- VIEW 1: PRICING PLANS -->
         <div class="view active" id="view-pricing">
             <div class="pricing-grid">
+                <!-- Small Plan -->
                 <div class="plan-card">
                     <div class="plan-title">Small Event</div>
                     <div class="plan-price">$10 <span>/ event</span></div>
@@ -130,10 +140,12 @@
                         <li><i class="fas fa-check-circle"></i> AI Vendor Matching</li>
                         <li><i class="fas fa-check-circle"></i> Standard Blueprint Export</li>
                     </ul>
-                    <div id="btn-container-small">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('small', 'Small Event Package', 10)"><i class="fa-solid fa-spinner fa-spin"></i></button>
+                    <div id="action-small">
+                        <button class="btn btn-primary btn-block" onclick="startCheckout('Small Event Package', 10, 'small')">Select Plan</button>
                     </div>
                 </div>
+                
+                <!-- Medium Plan -->
                 <div class="plan-card popular">
                     <div class="popular-badge">Most Popular</div>
                     <div class="plan-title">Medium Event</div>
@@ -144,10 +156,12 @@
                         <li><i class="fas fa-check-circle"></i> Advanced Budget Analysis</li>
                         <li><i class="fas fa-check-circle"></i> Detailed Blueprint Export</li>
                     </ul>
-                    <div id="btn-container-medium">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('medium', 'Medium Event Package', 125)"><i class="fa-solid fa-spinner fa-spin"></i></button>
+                    <div id="action-medium">
+                        <button class="btn btn-primary btn-block" onclick="startCheckout('Medium Event Package', 125, 'medium')">Select Plan</button>
                     </div>
                 </div>
+                
+                <!-- Large Plan -->
                 <div class="plan-card">
                     <div class="plan-title">Large / Enterprise</div>
                     <div class="plan-price">$300 <span>/ event</span></div>
@@ -157,8 +171,8 @@
                         <li><i class="fas fa-check-circle"></i> Premium Vendor Sourcing</li>
                         <li><i class="fas fa-check-circle"></i> Zone21 Exclusive Security Focus</li>
                     </ul>
-                    <div id="btn-container-large">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('large', 'Large / Enterprise Package', 300)"><i class="fa-solid fa-spinner fa-spin"></i></button>
+                    <div id="action-large">
+                        <button class="btn btn-primary btn-block" onclick="startCheckout('Large / Enterprise Package', 300, 'large')">Select Plan</button>
                     </div>
                 </div>
             </div>
@@ -306,9 +320,11 @@
                         </div>
                     </div>
                 </div>
+                
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button class="btn btn-outline btn-block" onclick="goBackToPricing()"><i class="fa-solid fa-arrow-left"></i> Back to Packages</button>
                     <button class="btn btn-outline btn-block" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Invoice</button>
-                    <button class="btn btn-primary btn-block" onclick="goBackToPricing()"><i class="fa-solid fa-arrow-left"></i> Return to Plans</button>
+                    <button class="btn btn-primary btn-block" onclick="finishProcess()"><i class="fa-solid fa-rocket"></i> I Have Paid -> Go to Generator</button>
                 </div>
             </div>
         </div>
@@ -330,6 +346,7 @@
             measurementId: "G-KE007Y89F1"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -337,15 +354,9 @@
         // State Variables
         let currentUser = null;
         let selectedPlan = { id: '', name: '', price: 0 };
-        let activeSubscriptions = {}; // Holds fetched subscription data
 
-        const availablePlans = [
-            { id: 'small', name: 'Small Event Package', price: 10 },
-            { id: 'medium', name: 'Medium Event Package', price: 125 },
-            { id: 'large', name: 'Large / Enterprise Package', price: 300 }
-        ];
-
-        onAuthStateChanged(auth, async (user) => {
+        // Authentication Listener
+        onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 const emailInput = document.getElementById('cust-email');
@@ -353,7 +364,8 @@
                     emailInput.value = user.email;
                     emailInput.readOnly = true; 
                 }
-                await fetchUserSubscriptions();
+                // Check active & pending subscriptions to update buttons
+                updatePlanButtons();
             } else {
                 alert("Please log in to purchase a subscription package.");
                 window.location.href = "login.html"; 
@@ -361,65 +373,87 @@
         });
 
         // ==========================================
-        // Data & UI Functions
+        // Helper: Toast Notifications
         // ==========================================
-        
-        async function fetchUserSubscriptions() {
-            if (!currentUser) return;
-            for (const plan of availablePlans) {
-                try {
-                    const docRef = doc(db, "subscriptions", `${currentUser.uid}_${plan.id}`);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        activeSubscriptions[plan.id] = docSnap.data();
-                    }
-                } catch (e) {
-                    console.error("Error fetching plan status:", e);
-                }
-            }
-            window.updatePlanButtons();
-        }
-
-        window.updatePlanButtons = function() {
-            availablePlans.forEach(plan => {
-                const container = document.getElementById(`btn-container-${plan.id}`);
-                if (!container) return;
-
-                const sub = activeSubscriptions[plan.id];
-                
-                if (!sub) {
-                    // No subscription
-                    container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.id}', '${plan.name}', ${plan.price})">Select Plan</button>`;
-                } else if (sub.status === 'pending') {
-                    // Pending approval
-                    container.innerHTML = `
-                        <button class="btn btn-outline btn-block" disabled style="color: var(--text-muted); border-color: var(--border);">Payment Pending</button>
-                        <button class="btn btn-primary btn-block" style="margin-top: 10px;" onclick="viewInvoice('${plan.id}')">View Invoice</button>
-                    `;
-                } else if (sub.status === 'active') {
-                    // Active subscription
-                    container.innerHTML = `<button class="btn btn-primary btn-block" onclick="window.location.href='manageevent.html'">Manage Event</button>`;
-                } else {
-                    // Fallback
-                    container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.id}', '${plan.name}', ${plan.price})">Select Plan</button>`;
-                }
-            });
+        window.showToast = function(msg, type='info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div'); t.className = 'toast';
+            t.style.background = { error:'#DC2626', success:'#10B981', info:'#102838' }[type] || '#102838';
+            t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity='0'; t.style.transition='0.3s'; setTimeout(()=>t.remove(),300); }, 4500);
         };
 
+        // ==========================================
+        // 5. Dynamic Plan Buttons logic
+        // ==========================================
+        async function updatePlanButtons() {
+            if (!currentUser) return;
+            
+            const plans = [
+                { id: 'small', name: 'Small Event Package', price: 10 },
+                { id: 'medium', name: 'Medium Event Package', price: 125 },
+                { id: 'large', name: 'Large / Enterprise Package', price: 300 }
+            ];
+
+            for (const plan of plans) {
+                const container = document.getElementById(`action-${plan.id}`);
+                if (!container) continue;
+
+                try {
+                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
+                    if (subSnap.exists()) {
+                        const subData = subSnap.data();
+                        
+                        if (subData.status === 'pending_payment') {
+                            container.innerHTML = `
+                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                    <button class="btn btn-outline btn-block" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Payment Pending</button>
+                                    <button class="btn btn-outline btn-block" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
+                                </div>
+                            `;
+                        } else if (subData.status === 'active') {
+                            container.innerHTML = `
+                                <button class="btn btn-primary btn-block" onclick="window.location.href='manageevent.html'"><i class="fa-solid fa-gear"></i> Manage Event</button>
+                            `;
+                        } else {
+                            // If status is cancelled, expired or other, allow new checkout
+                            container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
+                        }
+                    } else {
+                        // No subscription found
+                        container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
+                    }
+                } catch (error) {
+                    console.error("Error fetching plan status:", error);
+                }
+            }
+        }
+
+        // ==========================================
+        // Expose Functions to Window for HTML Inline Calls
+        // ==========================================
         window.showView = function(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        window.startCheckout = function(planId, planName, price) {
-            // Duplicate Check
-            if (activeSubscriptions[planId] && (activeSubscriptions[planId].status === 'pending' || activeSubscriptions[planId].status === 'active')) {
-                alert("You already have a pending or active subscription for this plan.");
-                return;
+        window.startCheckout = async function(planName, price, planId) {
+            // 6. Duplicate Prevention Check before starting
+            if (currentUser) {
+                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                if (subSnap.exists()) {
+                    const status = subSnap.data().status;
+                    if (status === 'pending_payment' || status === 'active') {
+                        showToast(`You already have a ${status.replace('_', ' ')} subscription for this plan.`, 'error');
+                        return;
+                    }
+                }
             }
 
-            selectedPlan = { id: planId, name: planName, price: price };
+            selectedPlan.id = planId;
+            selectedPlan.name = planName;
+            selectedPlan.price = price;
             document.getElementById('main-header').style.display = 'none';
             document.getElementById('display-plan-name').innerText = planName;
             window.showView('view-checkout');
@@ -466,51 +500,11 @@
             if(currentStep === 2) {
                 const checkbox = document.getElementById('agreement');
                 if(!checkbox.checked) {
-                    alert("Please agree to the manual payment terms to proceed.");
+                    showToast("Please agree to the manual payment terms to proceed.", "error");
                     valid = false;
                 }
             }
             if (valid) window.goToStep(nextStep);
-        };
-
-        window.renderInvoiceData = function(data) {
-            let dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-                dateStr = data.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-            }
-            
-            document.getElementById('inv-number').innerText = data.invoiceNumber;
-            document.getElementById('inv-name').innerText = `${data.customerInfo.firstName} ${data.customerInfo.lastName}`;
-            document.getElementById('inv-email').innerText = data.customerInfo.email;
-            document.getElementById('inv-date').innerText = dateStr;
-            document.getElementById('inv-item').innerText = data.packageDetails.name;
-            document.getElementById('inv-item-price').innerText = `$${data.packageDetails.price}.00`;
-            document.getElementById('inv-total').innerText = `$${data.packageDetails.price}.00`;
-        };
-
-        window.viewInvoice = async function(planId) {
-            let subData = activeSubscriptions[planId];
-            
-            // Fallback fetch if state dropped
-            if (!subData) {
-                try {
-                    const docSnap = await getDoc(doc(db, "subscriptions", `${currentUser.uid}_${planId}`));
-                    if (docSnap.exists()) {
-                        subData = docSnap.data();
-                        activeSubscriptions[planId] = subData; 
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch invoice", e);
-                }
-            }
-
-            if (subData) {
-                window.renderInvoiceData(subData);
-                document.getElementById('main-header').style.display = 'none';
-                window.showView('view-invoice');
-            } else {
-                alert("Invoice could not be found.");
-            }
         };
 
         window.generateInvoice = async function() {
@@ -519,68 +513,95 @@
                 return;
             }
 
-            // Duplicate check right before db write
-            if (activeSubscriptions[selectedPlan.id] && (activeSubscriptions[selectedPlan.id].status === 'pending' || activeSubscriptions[selectedPlan.id].status === 'active')) {
-                alert("You already have an invoice for this plan. Please check your dashboard.");
-                return;
+            // Secondary Duplicate check at checkout submit
+            const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
+            const subSnap = await getDoc(subRef);
+            if (subSnap.exists()) {
+                const status = subSnap.data().status;
+                if (status === 'pending_payment' || status === 'active') {
+                    showToast(`You already have an active or pending invoice for this plan.`, 'error');
+                    return;
+                }
             }
 
+            // Disable button to prevent double-clicks
             const btn = document.getElementById('btn-generate-invoice');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
             btn.disabled = true;
 
+            // Gather Data
             const fName = document.getElementById('cust-fname').value;
             const lName = document.getElementById('cust-lname').value;
             const email = document.getElementById('cust-email').value;
             const phone = document.getElementById('cust-phone').value;
             
+            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
-            const documentId = `${currentUser.uid}_${selectedPlan.id}`;
-
-            const invoiceData = {
-                userId: currentUser.uid,
-                planId: selectedPlan.id,
-                invoiceNumber: invNumber,
-                packageDetails: {
-                    name: selectedPlan.name,
-                    price: selectedPlan.price
-                },
-                customerInfo: {
-                    firstName: fName,
-                    lastName: lName,
-                    email: email,
-                    phone: phone,
-                    address: {
-                        street: document.getElementById('cust-street').value,
-                        city: document.getElementById('cust-city').value,
-                        country: document.getElementById('cust-country').value
-                    }
-                },
-                status: 'pending',
-                createdAt: serverTimestamp()
-            };
 
             try {
-                // 1. Save to unique subscription doc
-                await setDoc(doc(db, "subscriptions", documentId), invoiceData);
+                // 1. Maintain your original logic perfectly
+                await setDoc(doc(db, "invoices", invNumber), {
+                    userId: currentUser.uid,
+                    invoiceNumber: invNumber,
+                    packageDetails: {
+                        name: selectedPlan.name,
+                        price: selectedPlan.price
+                    },
+                    customerInfo: {
+                        firstName: fName,
+                        lastName: lName,
+                        email: email,
+                        phone: phone,
+                        address: {
+                            street: document.getElementById('cust-street').value,
+                            city: document.getElementById('cust-city').value,
+                            country: document.getElementById('cust-country').value
+                        }
+                    },
+                    paymentStatus: 'pending_manual_transfer',
+                    createdAt: serverTimestamp()
+                });
 
-                // 2. Update existing User Document with current plan status
                 await setDoc(doc(db, "users", currentUser.uid), {
-                    latestPlanId: selectedPlan.id,
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
                     latestInvoiceId: invNumber
                 }, { merge: true });
 
-                // 3. Update local state and trigger button refresh
-                activeSubscriptions[selectedPlan.id] = invoiceData;
-                window.updatePlanButtons();
+                // 2. 7. Invoice Creation into 'subscriptions' (Number 7)
+                await setDoc(subRef, {
+                    userId: currentUser.uid,
+                    planId: selectedPlan.id,
+                    planName: selectedPlan.name,
+                    price: selectedPlan.price,
+                    invoiceNumber: invNumber,
+                    status: 'pending_payment',
+                    createdAt: serverTimestamp(),
+                    customerInfo: {
+                        firstName: fName,
+                        lastName: lName,
+                        email: email,
+                        phone: phone
+                    }
+                });
 
-                // 4. Update UI View
-                window.renderInvoiceData(invoiceData);
+                // Update UI Invoice View
+                document.getElementById('inv-number').innerText = invNumber;
+                document.getElementById('inv-name').innerText = `${fName} ${lName}`;
+                document.getElementById('inv-email').innerText = email;
+                document.getElementById('inv-date').innerText = dateStr;
+                document.getElementById('inv-item').innerText = selectedPlan.name;
+                document.getElementById('inv-item-price').innerText = `$${selectedPlan.price}.00`;
+                document.getElementById('inv-total').innerText = `$${selectedPlan.price}.00`;
+
+                localStorage.setItem('zone21_package', selectedPlan.name);
+                localStorage.setItem('zone21_invoice', invNumber);
+
                 window.showView('view-invoice');
-                alert("Invoice Generated! The plan button has now been updated to Pending.");
+                
+                // Immediately refresh the grid buttons
+                updatePlanButtons();
 
             } catch (error) {
                 console.error("Database Error:", error);
@@ -589,6 +610,49 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
+        };
+
+        // ==========================================
+        // 8. View Invoice Later logic
+        // ==========================================
+        window.viewExistingInvoice = async function(planId) {
+            if (!currentUser) return;
+            
+            try {
+                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                if (!subSnap.exists()) return;
+                const subData = subSnap.data();
+
+                // Fetch the original full invoice to populate view
+                const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
+                if (!invSnap.exists()) {
+                    showToast('Invoice details could not be found.', 'error');
+                    return;
+                }
+                const invData = invSnap.data();
+
+                // Set View 3 parameters
+                const dateStr = invData.createdAt ? invData.createdAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date().toLocaleDateString();
+
+                document.getElementById('inv-number').innerText = invData.invoiceNumber;
+                document.getElementById('inv-name').innerText = `${invData.customerInfo.firstName} ${invData.customerInfo.lastName}`;
+                document.getElementById('inv-email').innerText = invData.customerInfo.email;
+                document.getElementById('inv-date').innerText = dateStr;
+                document.getElementById('inv-item').innerText = invData.packageDetails.name;
+                document.getElementById('inv-item-price').innerText = `$${invData.packageDetails.price}.00`;
+                document.getElementById('inv-total').innerText = `$${invData.packageDetails.price}.00`;
+
+                document.getElementById('main-header').style.display = 'none';
+                window.showView('view-invoice');
+            } catch (error) {
+                console.error("Error viewing invoice:", error);
+                showToast("Failed to load invoice.", "error");
+            }
+        };
+
+        window.finishProcess = function() {
+            alert("Payment recorded! Your subscription is now pending admin approval. You will be redirected to the Generator.");
+            window.location.href = "index.html"; 
         };
     </script>
 </body>

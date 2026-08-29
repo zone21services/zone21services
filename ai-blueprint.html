@@ -7,12 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Firebase SDK (Compat) v10.8.0 -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
@@ -817,8 +814,8 @@
         // ============================================================
         const OPENROUTER_API_KEY = "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";
         const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-        // ✅ FIX: Use a confirmed free model that is available
-        const FREE_MODEL = "microsoft/phi-3-mini-128k-instruct:free";
+        // ✅ FIX: Use Google's Gemma 2 9B model which is reliably free and formats HTML perfectly
+        const FREE_MODEL = "google/gemma-2-9b-it:free";
 
         const granularServices = [
             "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
@@ -1020,7 +1017,7 @@
                     const val = parseInt(this.value);
                     if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
                         this.value = pkg.maxAttendees;
-                        showToast(`Attendees limited to ${pkg.maxAttendees} for your ${pkg.name} package.`, 'info');
+                        showToast(`Attendees limited to ${pkg.maxAttendees} for your${pkg.name} package.`, 'info');
                     }
                 });
 
@@ -1043,7 +1040,7 @@
                 const t = document.createElement('div');
                 t.className = `toast ${type}`;
                 const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-                t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
+                t.innerHTML = `<i class="fa-solid ${iconMap[type] \vert{}\vert{} 'fa-circle-info'}"></i> ${msg}`;
                 container.appendChild(t);
                 setTimeout(() => { t.style.opacity = '0';
                     setTimeout(() => t.remove(), 300); }, 4800);
@@ -1148,17 +1145,13 @@
                     EVENT DETAILS:
                     - Event Name: ${currentEventData.name}
                     - Location: ${currentEventData.location}
-                    - Event Type: ${currentEventData.type}
-                    - Total Budget: $${currentEventData.budget}
+                    - Event Type: ${currentEventData.type}                     - Total Budget: $${currentEventData.budget}
                     - Expected Attendees: ${currentEventData.attendees}
                     - Additional Notes: ${currentEventData.notes || 'None'}
-                    - Specific Services Required: ${currentEventData.services}
-
-                    CRITICAL INSTRUCTIONS:
-                    1. BUDGET ANALYSIS & WARNING: Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}.
+                    - Specific Services Required: ${currentEventData.services}                      CRITICAL INSTRUCTIONS:                     1. BUDGET ANALYSIS & WARNING: Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}.
                        - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section.
                        - Explain why it's not enough, suggest what the ideal budget should be, and recommend which services to adjust.
-                       - For ${pkg.name} package, the budget should be appropriate for ${limitText}.
+                       - For ${pkg.name} package, the budget should be appropriate for${limitText}.
 
                     2. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
                        - For ${pkg.name} package, recommend vendors that match the scale.
@@ -1182,10 +1175,8 @@
                         'X-Title': 'Zone21 System'
                     },
                     body: JSON.stringify({
-                        model: FREE_MODEL, // ✅ Fixed free model
-                        messages: [{ role: "user", content: prompt }],
-                        max_tokens: 4096,
-                        temperature: 0.7
+                        model: FREE_MODEL, // ✅ Fixed free model utilizing Gemma 2 9B
+                        messages: [{ role: "user", content: prompt }]
                     })
                 });
 
@@ -1195,7 +1186,11 @@
                 }
 
                 const data = await response.json();
-                if (data.error) throw new Error(data.error.message || 'API returned an error');
+                
+                // Display specific model error if API blocks it again
+                if (data.error) {
+                    throw new Error(data.error.message || 'API returned an error');
+                }
 
                 let htmlOutput = data.choices[0].message.content.trim()
                     .replace(/^```html/i, '')
@@ -1218,10 +1213,10 @@
                 console.error('Generation Error:', error);
                 loadingDiv.style.display = 'none';
                 formSection.style.display = 'block';
-                // User-friendly error message
+                // User-friendly error message exposing API details directly for diagnosis
                 let msg = error.message;
                 if (msg.includes('404') || msg.includes('unavailable')) {
-                    msg = 'The AI model is temporarily unavailable. Please try again later.';
+                    msg = 'The AI model is temporarily unavailable for free routing on OpenRouter. Please try again later.';
                 }
                 showToast('System error: ' + msg, 'error');
             }

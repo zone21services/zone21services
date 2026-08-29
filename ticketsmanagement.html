@@ -422,7 +422,7 @@
             ctx.font = '18px Inter, sans-serif';
             ctx.fillText('Ticket ID: ' + ticketId, canvas.width/2, 255);
 
-            // 4. White box for QR (This acts as the base container)
+            // 4. White box for QR
             const boxWidth = 460;
             const boxHeight = 540;
             const boxX = (canvas.width - boxWidth) / 2;
@@ -444,12 +444,11 @@
             await new Promise(resolve => setTimeout(resolve, 300));
             const qrCanvas = qrTempDiv.querySelector('canvas');
             if(qrCanvas) {
-                // FIXED: Draw a permanent solid white safe zone specifically for the QR code
-                // This ensures NOTHING (no text, no overlays) can ever overlap the QR pattern
+                // FIXED: Explicitly draw a permanent pure white protective box beneath the QR code
+                // This ensures NOTHING can ever overlap the QR pattern
                 ctx.fillStyle = '#ffffff';
-                ctx.fillRect(boxX + 40, boxY + 40, 380, 380);
+                ctx.fillRect(boxX + 45, boxY + 45, 370, 370);
                 
-                // Draw the QR Code safely inside the isolated white block
                 ctx.drawImage(qrCanvas, boxX + 50, boxY + 50, 360, 360);
             }
 
@@ -484,18 +483,18 @@
                         
                         <div style="margin-top:20px; padding:15px; background:#f5f7fa; border-radius:12px;">
                             <h3 style="margin-bottom: 10px; font-size:1rem;">Send Image to Buyer</h3>
-                            <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Use the buttons below to open your phone's native share menu and attach the image directly to WhatsApp or Email.</p>
+                            <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Use the buttons below to open your phone's share menu and attach the image directly to WhatsApp or Email.</p>
                             
                             <div class="button-group" style="justify-content:center;">
-                                <button class="btn btn-lime" onclick="shareToWhatsApp('${ticket.buyerName}', '${ticket.id}')" style="font-size:1rem; padding: 12px 20px;">
-                                    <i class="fab fa-whatsapp"></i> WhatsApp Share
+                                <button class="btn btn-lime" onclick="shareTicketWhatsApp('${ticket.buyerName}')" style="font-size:1rem; padding: 12px 20px;">
+                                    <i class="fab fa-whatsapp"></i> Share to WhatsApp
                                 </button>
                                 
-                                <button class="btn btn-primary" onclick="shareToEmail('${ticket.buyerName}', '${ticket.buyerEmail}')" style="font-size:1rem; padding: 12px 20px;">
-                                    <i class="fas fa-envelope"></i> Email Share
+                                <button class="btn btn-primary" onclick="shareTicketEmail('${ticket.buyerName}', '${ticket.buyerEmail}')" style="font-size:1rem; padding: 12px 20px;">
+                                    <i class="fas fa-envelope"></i> Share via Email App
                                 </button>
-
-                                <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g,'_')}.png" class="btn btn-outline" style="font-size:1rem; padding: 12px 20px; width: 100%;">
+                                
+                                <a href="${dataUrl}" download="Zone21_Ticket_${ticket.buyerName.replace(/\s+/g,'_')}.png" class="btn btn-outline" style="font-size:1rem; padding: 12px 20px;">
                                     <i class="fas fa-download"></i> Save to Device
                                 </a>
                             </div>
@@ -508,7 +507,7 @@
             }
         }
 
-        async function shareToWhatsApp(buyerName, ticketId) {
+        async function shareTicketWhatsApp(buyerName) {
             if (!currentTicketCanvas) return;
             
             currentTicketCanvas.toBlob(async (blob) => {
@@ -518,12 +517,12 @@
                     try {
                         await navigator.share({
                             title: 'Zone21 Event Ticket',
-                            text: `🎟️ *Zone21 Event Ticket*\nHi ${buyerName}, attached is your official event ticket!\nTicket ID: ${ticketId}\n\nPresent the QR code at the entrance.`,
+                            text: `Hi ${buyerName}, attached is your official event ticket! Present the QR code at the entrance.`,
                             files: [file]
                         });
                     } catch (err) {
                         if (err.name !== 'AbortError') {
-                            alert('Native sharing failed. Please use the Save to Device button instead.');
+                            alert('Native sharing failed. Please use the Save/Download button instead.');
                         }
                     }
                 } else {
@@ -532,7 +531,7 @@
             }, 'image/png');
         }
 
-        async function shareToEmail(buyerName, buyerEmail) {
+        async function shareTicketEmail(buyerName, buyerEmail) {
             if (!currentTicketCanvas) return;
             
             currentTicketCanvas.toBlob(async (blob) => {
@@ -548,7 +547,7 @@
                         });
                     } catch (err) {
                         if (err.name !== 'AbortError') {
-                            alert('Native sharing failed. Please use the Save to Device button instead.');
+                            alert('Native sharing failed. Please use the Save/Download button instead.');
                         }
                     }
                 } else {
@@ -622,7 +621,7 @@
                 const result = await tempScanner.scanFile(file, false);
                 await tempScanner.clear();
                 validateTicket(result);
-            } catch (err) {
+            } catch(e) {
                 resultDiv.innerHTML = '<h3>❌ Could not read QR code from image</h3>';
             }
         }

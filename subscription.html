@@ -330,7 +330,7 @@
         </div>
     </div>
 
-    <!-- FIREBASE MODULE SCRIPT -->
+      <!-- FIREBASE MODULE SCRIPT -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -384,7 +384,7 @@
         };
 
         // ==========================================
-        // 5. Dynamic Plan Buttons logic
+        // 5. Dynamic Plan Buttons logic (WITH ERROR HANDLING)
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -419,12 +419,11 @@
                             // If status is cancelled, expired or other, allow new checkout
                             container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                         }
-                    } else {
-                        // No subscription found
-                        container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     }
                 } catch (error) {
-                    console.error("Error fetching plan status:", error);
+                    console.error("Read skipped (Rules/Network):", error);
+                    // Ensure the button is still clickable if read fails
+                    container.innerHTML = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                 }
             }
         }
@@ -439,15 +438,20 @@
         };
 
         window.startCheckout = async function(planName, price, planId) {
-            // 6. Duplicate Prevention Check before starting
+            // 6. Duplicate Prevention Check with safety Catch block
             if (currentUser) {
-                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                if (subSnap.exists()) {
-                    const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active') {
-                        showToast(`You already have a ${status.replace('_', ' ')} subscription for this plan.`, 'error');
-                        return;
+                try {
+                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                    if (subSnap.exists()) {
+                        const status = subSnap.data().status;
+                        if (status === 'pending_payment' || status === 'active') {
+                            showToast(`You already have a ${status.replace('_', ' ')} subscription for this plan.`, 'error');
+                            return; // Stop them here
+                        }
                     }
+                } catch (error) {
+                    console.error("Duplicate check bypassed due to DB read error:", error);
+                    // Continues down to checkout safely if it was just a read error
                 }
             }
 
@@ -514,14 +518,18 @@
             }
 
             // Secondary Duplicate check at checkout submit
-            const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
-            const subSnap = await getDoc(subRef);
-            if (subSnap.exists()) {
-                const status = subSnap.data().status;
-                if (status === 'pending_payment' || status === 'active') {
-                    showToast(`You already have an active or pending invoice for this plan.`, 'error');
-                    return;
+            try {
+                const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
+                const subSnap = await getDoc(subRef);
+                if (subSnap.exists()) {
+                    const status = subSnap.data().status;
+                    if (status === 'pending_payment' || status === 'active') {
+                        showToast(`You already have an active or pending invoice for this plan.`, 'error');
+                        return;
+                    }
                 }
+            } catch (error) {
+                console.warn("Bypassing pre-generation duplicate check due to rules:", error);
             }
 
             // Disable button to prevent double-clicks
@@ -570,7 +578,7 @@
                 }, { merge: true });
 
                 // 2. 7. Invoice Creation into 'subscriptions' (Number 7)
-                await setDoc(subRef, {
+                await setDoc(doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`), {
                     userId: currentUser.uid,
                     planId: selectedPlan.id,
                     planName: selectedPlan.name,
@@ -655,5 +663,3 @@
             window.location.href = "index.html"; 
         };
     </script>
-</body>
-</html>

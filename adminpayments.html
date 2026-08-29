@@ -189,19 +189,22 @@
     </div>
   </div>
 
+  <!-- Note: We are using the Modular Firebase SDK to match modern Javascript module conventions, 
+       but configured with your Zone21 project credentials! -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc, deleteDoc, setDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, setDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Your Firebase Config (Retained from original)
+    // ============ ZONE21 FIREBASE CONFIG ============
     const firebaseConfig = {
-      apiKey: "AIzaSyBMKjt1RUZXVxTmadiCqKhNbzSPsNUDxV8",
-      authDomain: "teacherbee-connect.firebaseapp.com",
-      projectId: "teacherbee-connect",
-      storageBucket: "teacherbee-connect.firebasestorage.app",
-      messagingSenderId: "345613317767",
-      appId: "1:345613317767:web:555713e479f9837e84aa22"
+      apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+      authDomain: "zone21.firebaseapp.com",
+      projectId: "zone21",
+      storageBucket: "zone21.firebasestorage.app",
+      messagingSenderId: "405963057292",
+      appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+      measurementId: "G-KE007Y89F1"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -231,7 +234,7 @@
       setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = '0.3s'; setTimeout(() => toast.remove(), 300); }, 3500);
     }
 
-    // Sign out
+    // Sign out (Redirects to admin login page)
     window.signOut = async () => {
       await signOut(auth);
       window.location.href = 'admin.html';
@@ -240,9 +243,11 @@
     // Auth check
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = 'admin.html';
+        window.location.href = 'admin.html'; // Redirect to login if not authenticated
         return;
       }
+      
+      // Verify Admin permissions against 'admins' collection
       const adminDoc = await getDoc(doc(db, 'admins', user.uid));
       if (!adminDoc.exists()) {
         showToast('Access denied. Zone21 Admins only.', 'error');
@@ -250,13 +255,16 @@
         window.location.href = 'admin.html';
         return;
       }
+      
       currentAdmin = user;
       document.getElementById('admin-name').textContent = user.email.split('@')[0];
       
+      // Optional: Get admin avatar if you store it in a 'users' or 'admins' profile
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists() && userDoc.data().avatarUrl) {
         document.getElementById('admin-avatar').src = userDoc.data().avatarUrl;
       }
+      
       loadPayments();
     });
 
@@ -282,10 +290,11 @@
             }
           }
         }
-        renderAll();
+        
+        window.filterAndSearch(); // Initial render
       } catch (e) {
         console.error(e);
-        document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--pink);"></i> Failed to load Zone21 payments.</td></tr>';
+        document.getElementById('payments-tbody').innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--pink);"></i> Failed to load Zone21 payments. Check console.</td></tr>';
       }
     }
 
@@ -299,7 +308,7 @@
       };
     }
 
-    function renderAll() {
+    window.filterAndSearch = () => {
       const status = document.getElementById('status-filter').value;
       const search = document.getElementById('search-input').value.toLowerCase();
       let filtered = allPayments;

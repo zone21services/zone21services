@@ -419,7 +419,7 @@
         
         // Strict Validation Check
         if (requestedAttendees > maxAllowedAttendees) {
-            alert(`Your current subscription (${currentUserPlan}) only allows up to ${maxAllowedAttendees} attendees.\n\nPlease reduce the number or upgrade your package.`);
+            alert(`Your current subscription (${currentUserPlan}) only allows up to${maxAllowedAttendees} attendees.\n\nPlease reduce the number or upgrade your package.`);
             return;
         }
 
@@ -456,12 +456,12 @@ EVENT DETAILS:
 - Event Name: ${currentEventData.name}
 - Location: ${currentEventData.location}
 - Event Type: ${currentEventData.type}  - Total Budget: $${currentEventData.budget}
-- Expected Attendees: ${currentEventData.attendees} (User Subscription Limit: ${maxAllowedAttendees === 999999 ? 'Unlimited' : maxAllowedAttendees} people)
+- Expected Attendees: ${currentEventData.attendees} (User Subscription Limit:${maxAllowedAttendees === 999999 ? 'Unlimited' : maxAllowedAttendees} people)
 - Additional Notes: ${currentEventData.notes || 'None'}
 - Specific Services Required: ${currentEventData.services}
 
 CRITICAL INSTRUCTIONS: 
-1. PACKAGE & BUDGET ANALYSIS (Crucial): The user is operating under the Zone21 "${currentUserPlan}". Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}. 
+1. PACKAGE & BUDGET ANALYSIS (Crucial): The user is operating under the Zone21 "${currentUserPlan}". Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}. 
    - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section. Clearly explain why it's not enough, suggest what the ideal budget should be, and specifically recommend which minor services to remove to make the current budget work.
 2. VENDOR ALLOCATION: Allocate the budget across the requested services strictly observing the attendee size scale. Suggest REAL, popular local vendors for ${currentEventData.location}. 
 3. CONTACT DETAILS: You MUST include realistic or actual contact details (phone, email, or social media handles) for the suggested vendors if available.
@@ -487,4 +487,111 @@ CRITICAL INSTRUCTIONS:
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
             
-            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^
+            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
+            
+            // Format Warnings
+            htmlOutput = htmlOutput.replace(/(<h[23]>.*?Budget (Analysis|Warning).*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i, '<div class="budget-warning">$1</div>');
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('blueprint-container').style.display = 'block';
+            document.getElementById('final-blueprint').innerHTML = htmlOutput;
+            
+            saveBlueprintState(htmlOutput);
+
+        } catch (error) {
+            console.error("System Error:", error);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('form-section').style.display = 'block';
+            alert("The system encountered an error generating the blueprint. Please try again.");
+        }
+    }
+
+    // ==========================================
+    // 4. STORAGE & HISTORY LOGIC
+    // ==========================================
+    function saveBlueprintState(htmlOutput) {
+        const title = currentEventData.name || `${currentEventData.location} Event`;
+        const chatData = {
+            id: currentSessionId,
+            title: title,
+            formData: currentEventData,
+            blueprintHtml: htmlOutput,
+            updatedAt: new Date().toISOString()
+        };
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        localSessions[currentSessionId] = chatData;
+        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+        renderHistorySidebar();
+    }
+
+    function renderHistorySidebar() {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        
+        Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
+            const item = document.createElement('div');
+            item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+            item.innerHTML = `
+                <div class="item-info">
+                    <i class="fas fa-clipboard-list" style="color: var(--lime);"></i>
+                    <span class="item-title">${session.title}</span>
+                </div>
+                <i class="fas fa-trash delete-btn" title="Delete" onclick="window.deleteBlueprintSession('${session.id}', event)"></i>
+            `;
+            item.onclick = () => window.loadBlueprintSession(session.id);
+            historyList.appendChild(item);
+        });
+    }
+
+    window.loadBlueprintSession = function(sessionId) {
+        closeSidebar();
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        const session = localSessions[sessionId];
+        if (!session) return;
+
+        currentSessionId = session.id;
+        currentEventData = session.formData;
+        
+        document.getElementById('form-section').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('blueprint-container').style.display = 'block';
+        document.getElementById('final-blueprint').innerHTML = session.blueprintHtml;
+        
+        renderHistorySidebar();
+    }
+
+    window.deleteBlueprintSession = function(sessionId, event) {
+        if (event) event.stopPropagation(); 
+        if (!confirm("Delete this event blueprint?")) return;
+
+        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+        delete localSessions[sessionId];
+        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+
+        if (currentSessionId === sessionId) {
+            window.startNewSession();
+        } else {
+            renderHistorySidebar();
+        }
+    }
+
+    window.startNewSession = function() {
+        closeSidebar();
+        currentSessionId = null;
+        currentEventData = null;
+        
+        document.getElementById('eventForm').reset();
+        document.getElementById('blueprint-container').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('form-section').style.display = 'block';
+        
+        renderHistorySidebar();
+    }
+
+    // Init Sidebar on load
+    document.addEventListener('DOMContentLoaded', renderHistorySidebar);
+</script>
+
+</body>
+</html>

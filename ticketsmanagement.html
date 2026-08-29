@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <!-- ADDED: Firebase Storage to host ticket images for 1-tap sharing -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <!-- QRCode.js for generating QR codes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- html5-qrcode for scanning -->
@@ -32,11 +34,11 @@
         .container { max-width: 1400px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         .header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
-        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; }
         .btn-primary { background: var(--navy); color: var(--lime); }
-        .btn-primary:hover { background: #1a3a4a; }
+        .btn-primary:hover { background: #1a3a4a; color: var(--lime); }
         .btn-lime { background: var(--lime); color: var(--navy); }
-        .btn-lime:hover { background: #d0d800; }
+        .btn-lime:hover { background: #d0d800; color: var(--navy); }
         .btn-pink { background: var(--pink); color: white; }
         .btn-pink:hover { background: #d0005e; }
         .btn-green { background: #28a745; color: white; }
@@ -165,6 +167,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const storage = firebase.storage();
 
         let currentEvent = null;
         let currentEventTicketTypes = [];
@@ -368,7 +371,7 @@
                     eventId: inv.eventId, ticketTypeName: inv.ticketTypeName,
                     buyerName: inv.buyerName, buyerEmail: inv.buyerEmail, buyerPhone: inv.buyerPhone,
                     invoiceId: invoiceId, status: 'approved', createdAt: new Date().toISOString(),
-                    scannedAt: null, qrCodeData: ticketId
+                    scannedAt: null, qrCodeData: ticketId, ticketImageUrl: null
                 };
 
                 await db.collection('tickets').doc(ticketId).set(ticketData);
@@ -389,7 +392,20 @@
             } catch (err) {}
         }
 
-        // ============ TICKET COMPOSITION & SHARING ============
+        // ============ TICKET COMPOSITION & 1-TAP SHARING ============
+        
+        // Helper to convert base64 to Blob for storage upload
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {type: mimeString});
+        }
+
         async function openShareModal(ticketId) {
             const modal = document.getElementById('share-modal');
             const content = document.getElementById('share-content');
@@ -397,7 +413,7 @@
             content.innerHTML = `
                 <div style="text-align:center; padding: 30px;">
                     <i class="fas fa-spinner fa-spin fa-2x" style="color:var(--lime);"></i>
-                    <p style="margin-top:15px; color:var(--navy); font-weight:600;">Composing Ticket Image...</p>
+                    <p style="margin-top:15px; color:var(--navy); font-weight:600;">Composing & Hosting Ticket Image...</p>
                 </div>
             `;
             modal.style.display = 'flex';
@@ -409,24 +425,63 @@
                 ticket.id = doc.id;
                 
                 const ticketTypeConfig = currentEventTicketTypes.find(t => t.name === ticket.ticketTypeName);
+                
+                // 1. Generate the Base64 image
                 const ticketDataUrl = await generateTicketCanvas(ticket, ticketTypeConfig);
+                
+                // 2. Upload to Firebase Storage to get a public URL for 1-Tap sharing
+                let hostedImageUrl = ticket.ticketImageUrl;
+                if (!hostedImageUrl) {
+                    try {
+                        const blob = dataURItoBlob(ticketDataUrl);
+                        const storageRef = storage.ref('tickets/' + ticket.id + '.jpg');
+                        await storageRef.put(blob);
+                        hostedImageUrl = await storageRef.getDownloadURL();
+                        // Save URL to firestore for future use
+                        await db.collection('tickets').doc(ticket.id).update({ ticketImageUrl: hostedImageUrl });
+                    } catch (e) {
+                        console.error('Failed to upload image to storage', e);
+                        hostedImageUrl = ""; // Fallback if storage fails
+                    }
+                }
+
                 const fileName = `Zone21_Ticket_${ticket.id}.jpg`;
 
-                const whatsappText = encodeURIComponent(`🎟️ *Your Zone21 Event Ticket*\n\n*Buyer:* ${ticket.buyerName}\n*Type:* ${ticket.ticketTypeName}\n*ID:* ${ticket.id}\n\nPlease find your ticket image attached or present the QR code at the entrance.`);
-                const emailSubject = encodeURIComponent(`Your Zone21 Ticket - ${ticket.ticketTypeName}`);
-                const emailBody = encodeURIComponent(`Dear ${ticket.buyerName},\n\nHere is your official event ticket. Please find the attached ticket image to present at the entrance.\n\nTicket ID: ${ticket.id}`);
+                // 3. Prepare the exact 1-tap links, appending the Image URL to the text!
+                const cleanPhone = ticket.buyerPhone.replace(/[^0-9]/g, '');
+                let eventName = currentEvent ? currentEvent.eventName : 'Event';
+                
+                let whatsappTextRaw = `🎟️ *Zone21 Event Ticket*\n\n*Event:* ${eventName}\n*Ticket Type:* ${ticket.ticketTypeName}\n*Buyer:* ${ticket.buyerName}\n*Ticket ID:* ${ticket.id}\n\nPlease present the QR code at the entrance.`;
+                let emailBodyRaw = `Dear ${ticket.buyerName},\n\nHere is your ticket for ${eventName}.\n\nTicket Type: ${ticket.ticketTypeName}\nTicket ID: ${ticket.id}\n\nPlease present the QR code at the entrance.`;
+                
+                if (hostedImageUrl) {
+                    whatsappTextRaw += `\n\n*Click to view & download your ticket image:*\n${hostedImageUrl}`;
+                    emailBodyRaw += `\n\nView and download your ticket image here:\n${hostedImageUrl}`;
+                }
+
+                const whatsappText = encodeURIComponent(whatsappTextRaw);
+                const emailSubject = encodeURIComponent(`Your Zone21 Ticket - ${eventName}`);
+                const emailBody = encodeURIComponent(emailBodyRaw);
 
                 content.innerHTML = `
                     <div class="ticket-preview-container">
                         <img src="${ticketDataUrl}" class="ticket-preview-img" alt="Your Event Ticket">
                     </div>
                     <div class="button-group" style="justify-content:center; margin-top:15px;">
-                        <button class="btn btn-green" onclick="directWhatsAppShare('${ticket.buyerPhone}', '${whatsappText}', '${ticketDataUrl}', '${fileName}')"><i class="fab fa-whatsapp"></i> WhatsApp Direct</button>
-                        <button class="btn btn-primary" onclick="directEmailShare('${ticket.buyerEmail}', '${emailSubject}', '${emailBody}', '${ticketDataUrl}', '${fileName}')"><i class="fas fa-envelope"></i> Email Direct</button>
-                        <button class="btn btn-outline" onclick="shareTicketFile('${ticketDataUrl}', '${fileName}')"><i class="fas fa-share-nodes"></i> Native Share (Mobile)</button>
+                        <!-- The Exact 1-Tap links you requested -->
+                        <a href="https://wa.me/${cleanPhone}?text=${whatsappText}" target="_blank" class="btn btn-lime">
+                            <i class="fab fa-whatsapp"></i> Share via WhatsApp
+                        </a>
+                        <a href="mailto:${ticket.buyerEmail}?subject=${emailSubject}&body=${emailBody}" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-envelope"></i> Send Email
+                        </a>
+                        <button class="btn btn-outline" onclick="downloadTicketImage('${ticketDataUrl}', '${fileName}')">
+                            <i class="fas fa-download"></i> Download Image
+                        </button>
                     </div>
                 `;
             } catch(err) {
+                console.error(err);
                 content.innerHTML = 'Error loading or generating ticket.';
             }
         }
@@ -458,14 +513,12 @@
                     setTimeout(() => {
                         const qrCanvas = qrDiv.querySelector('canvas');
                         if (qrCanvas) {
-                            // Reduced QR size to allow more text room
+                            // Shrink QR to prevent overlap
                             const qrSize = Math.min(width, height) * 0.28;
                             const padding = width * 0.05;
-                            
                             const qrX = width - qrSize - padding;
                             const qrY = height - qrSize - padding;
 
-                            // White border behind QR
                             ctx.fillStyle = '#ffffff';
                             ctx.shadowColor = "rgba(0,0,0,0.3)";
                             ctx.shadowBlur = 15;
@@ -474,14 +527,13 @@
                             
                             ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-                            // Calculate maximum text width to prevent overlap with QR code
+                            // Calculate available width for text
                             const maxTextWidth = (width - qrSize) - (padding * 2.5);
 
-                            // Overlay Box
                             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                             ctx.fillRect(padding, height - 120 - padding, maxTextWidth + 20, 120);
 
-                            // Text details with maxWidth parameter applied
+                            // Apply maxTextWidth to prevent overlapping with QR code
                             ctx.fillStyle = '#102838';
                             ctx.font = `bold ${Math.max(20, height * 0.045)}px Inter, Arial`;
                             ctx.fillText(`Buyer: ${ticket.buyerName}`, padding + 20, height - padding - 80, maxTextWidth - 20);
@@ -507,40 +559,6 @@
                     renderCanvas();
                 }
             });
-        }
-
-        window.directWhatsAppShare = function(phone, text, dataUrl, fileName) {
-            const cleanPhone = phone.replace(/[^0-9]/g, '');
-            downloadTicketImage(dataUrl, fileName);
-            alert("The ticket has been downloaded to your device. WhatsApp will open now—simply hit 'Attach' to send the downloaded image with the message!");
-            window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
-        };
-
-        window.directEmailShare = function(email, subject, body, dataUrl, fileName) {
-            downloadTicketImage(dataUrl, fileName);
-            alert("The ticket has been downloaded. Your email client will open now—simply attach the image file to the email!");
-            window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
-        };
-
-        async function shareTicketFile(dataUrl, fileName) {
-            try {
-                const res = await fetch(dataUrl);
-                const blob = await res.blob();
-                const file = new File([blob], fileName, { type: 'image/jpeg' });
-
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: 'Your Zone21 Event Ticket',
-                        text: 'Here is your official event ticket! Please present the QR code at the entrance.',
-                        files: [file]
-                    });
-                } else {
-                    alert('Direct sharing is not supported on this browser. Downloading the image instead.');
-                    downloadTicketImage(dataUrl, fileName);
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') alert('Could not open share menu. Please try direct buttons.');
-            }
         }
 
         function downloadTicketImage(dataUrl, fileName) {

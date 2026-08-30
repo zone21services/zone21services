@@ -556,6 +556,9 @@
         let currentUser = null;
         let selectedPlan = { id: '', name: '', price: 0 };
 
+        // ==========================================
+        // AUTH: SILENT REDIRECT if not logged in
+        // ==========================================
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -585,6 +588,9 @@
             }, 4500);
         };
 
+        // ==========================================
+        // Render User's Events with robust timestamp parser
+        // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
             if (!currentUser) {
@@ -627,6 +633,8 @@
 
                 grid.innerHTML = events.map(event => {
                     const packageName = event.package || 'Unknown Package';
+                    
+                    // As requested, forcing draft visually to 'approved'
                     let status = event.status || 'approved';
                     if (status.toLowerCase() === 'draft') {
                         status = 'approved';
@@ -650,17 +658,27 @@
 
             } catch (error) {
                 console.error('Error loading events:', error);
+                let errorMsg = 'Could not load events. Please refresh.';
+                let detail = '';
+                if (error.code === 'permission-denied') {
+                    errorMsg = 'Permission denied. Check your Firestore rules.';
+                } else if (error.message) {
+                    errorMsg = `Error: ${error.message}`;
+                }
                 grid.innerHTML = `
                     <div class="error-state" style="grid-column:1/-1;">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <h4>Could not load events.</h4>
-                        <p>Try refreshing the page.</p>
+                        <h4>${errorMsg}</h4>
+                        <p>${detail || 'Try refreshing the page.'}</p>
                         <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
                     </div>
                 `;
             }
         }
 
+        // ==========================================
+        // Plan Buttons – status-aware check
+        // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
             const plans = [
@@ -682,39 +700,19 @@
                         if (subData.status === 'pending_payment') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Payment Pending</button>
+                                    <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Pending Payment</button>
                                     <button class="btn btn-outline" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
-                            
-                            // Check if this specific payment (invoice) has actually generated an event yet
-                            let isRedeemed = true; // Default true for older subscriptions without invoices
-                            if (subData.invoiceNumber) {
-                                const evQ = query(collection(db, 'events'), 
-                                    where('organizerId', '==', currentUser.uid), 
-                                    where('invoiceNumber', '==', subData.invoiceNumber));
-                                const evSnap = await getDocs(evQ);
-                                isRedeemed = !evSnap.empty; // If empty, they haven't claimed this event!
-                            }
-
-                            if (!isRedeemed) {
-                                buttonHtml = `
-                                    <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                        <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Payment Approved!</button>
-                                        <button class="btn btn-primary" onclick="claimEvent(this, '${plan.name}', '${plan.id}', '${subData.invoiceNumber}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Event Now</button>
-                                    </div>
-                                `;
-                            } else {
-                                buttonHtml = `
-                                    <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                        <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                        <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
-                                        <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another Event</button>
-                                    </div>
-                                `;
-                            }
-
+                            // Exact 3 buttons you requested on the approved state
+                            buttonHtml = `
+                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                    <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
+                                    <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another Event</button>
+                                </div>
+                            `;
                         } else if (subData.status === 'rejected') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
@@ -726,12 +724,15 @@
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
-                    console.error("Read skipped:", error);
+                    console.error("Read skipped (Rules/Network):", error);
                     container.innerHTML = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                 }
             }
         }
 
+        // ==========================================
+        // Expose Functions to Window
+        // ==========================================
         window.showView = function(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
@@ -739,7 +740,10 @@
         };
 
         window.startCheckout = async function(planName, price, planId) {
-            if (!currentUser) return;
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
+            }
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists()) {
@@ -750,7 +754,7 @@
                     }
                 }
             } catch (error) {
-                console.error("Duplicate check bypassed:", error);
+                console.error("Duplicate check bypassed due to DB read error:", error);
             }
 
             selectedPlan.id = planId;
@@ -765,7 +769,7 @@
         window.goBackToPricing = function() {
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
-            renderUserEvents(); 
+            renderUserEvents(); // refresh events
         };
 
         window.goToStep = function(stepNum) {
@@ -809,7 +813,10 @@
         };
 
         window.generateInvoice = async function() {
-            if (!currentUser) return;
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
+            }
             try {
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 const subSnap = await getDoc(subRef);
@@ -820,7 +827,9 @@
                         return;
                     }
                 }
-            } catch (error) { }
+            } catch (error) {
+                console.warn("Bypassing pre-generation duplicate check due to rules:", error);
+            }
 
             const btn = document.getElementById('btn-generate-invoice');
             const originalText = btn.innerHTML;
@@ -871,6 +880,30 @@
                     customerInfo: { firstName: fName, lastName: lName, email: email, phone: phone }
                 });
 
+                // FIX FOR MISSING EVENTS: Create the event document immediately during checkout
+                // This ensures it populates the dashboard right away even if you close the site.
+                const eventsRef = collection(db, 'events');
+                const newEventRef = await addDoc(eventsRef, {
+                    organizerId: currentUser.uid,
+                    name: `My ${selectedPlan.name}`,
+                    package: selectedPlan.name,
+                    packageId: selectedPlan.id,
+                    status: 'approved', // visually forces it to approved as requested
+                    createdAt: serverTimestamp(),
+                    location: '',
+                    date: null,
+                    budget: 0,
+                    attendees: 0,
+                    notes: '',
+                    ticketsSold: 0,
+                    grossRevenue: 0,
+                    blueprint: null,
+                    invoiceNumber: invNumber
+                });
+                
+                // Save the new event ID temporarily so 'finishProcess' knows where to send you
+                localStorage.setItem('zone21_latest_event', newEventRef.id);
+
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
                 document.getElementById('inv-email').innerText = email;
@@ -895,7 +928,10 @@
         };
 
         window.viewExistingInvoice = async function(planId) {
-            if (!currentUser) return;
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
+            }
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (!subSnap.exists()) return;
@@ -906,14 +942,6 @@
                     return;
                 }
                 const invData = invSnap.data();
-                
-                // Repopulate selectedPlan in case page was refreshed before claiming
-                selectedPlan = {
-                    id: planId,
-                    name: invData.packageDetails.name,
-                    price: invData.packageDetails.price
-                };
-                localStorage.setItem('zone21_invoice', invData.invoiceNumber);
                 
                 const getSafeDate = (ts) => {
                     if (!ts) return new Date();
@@ -940,85 +968,56 @@
             }
         };
 
-        // NEW: Allows a user to generate their event directly if admin approved it behind the scenes
-        window.claimEvent = async function(btnElement, planName, planId, invoiceNumber) {
-            if (!currentUser) return;
-            const originalText = btnElement.innerHTML;
-            btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-            btnElement.disabled = true;
-
-            try {
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
-                    organizerId: currentUser.uid,
-                    name: `My ${planName}`,
-                    package: planName,
-                    packageId: planId,
-                    invoiceNumber: invoiceNumber,
-                    status: 'approved', 
-                    createdAt: serverTimestamp(),
-                    location: '',
-                    date: null,
-                    budget: 0,
-                    attendees: 0,
-                    notes: '',
-                    ticketsSold: 0,
-                    grossRevenue: 0,
-                    blueprint: null
-                });
-
-                window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
-            } catch (error) {
-                console.error('Error claiming event:', error);
-                showToast('Failed to generate event. Try again.', 'error');
-                btnElement.innerHTML = originalText;
-                btnElement.disabled = false;
-            }
-        };
-
+        // ============================================================
+        // finishProcess – Redirects to the event we generated earlier
+        // ============================================================
         window.finishProcess = async function() {
-            if (!currentUser) return;
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
+            }
 
             const btn = document.getElementById('btn-finish');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating your event...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
             btn.disabled = true;
 
             try {
-                const invNumber = localStorage.getItem('zone21_invoice') || 'unknown';
-                
+                // 1. Update subscription status to 'active'
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
-                await setDoc(subRef, { status: 'approved' }, { merge: true });
+                await setDoc(subRef, { status: 'active' }, { merge: true });
 
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
-                    organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
-                    package: selectedPlan.name,
-                    packageId: selectedPlan.id,
-                    invoiceNumber: invNumber,
-                    status: 'approved', 
-                    createdAt: serverTimestamp(),
-                    location: '',
-                    date: null,
-                    budget: 0,
-                    attendees: 0,
-                    notes: '',
-                    ticketsSold: 0,
-                    grossRevenue: 0,
-                    blueprint: null
-                });
-
-                window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
+                // 2. Fetch the ID of the event we made during the generateInvoice stage
+                const eventId = localStorage.getItem('zone21_latest_event');
+                
+                // 3. Redirect to manageevent.html
+                if (eventId) {
+                    window.location.href = `manageevent.html?eventId=${eventId}`;
+                } else {
+                    // Fallback self-healing just in case it was somehow lost
+                    const eventsRef = collection(db, 'events');
+                    const newEventRef = await addDoc(eventsRef, {
+                        organizerId: currentUser.uid,
+                        name: `My ${selectedPlan.name}`,
+                        package: selectedPlan.name,
+                        packageId: selectedPlan.id,
+                        status: 'approved',
+                        createdAt: serverTimestamp()
+                    });
+                    window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
+                }
 
             } catch (error) {
                 console.error('Error during finish process:', error);
-                showToast('Failed to create event. Please try again.', 'error');
+                showToast('Failed to process. Please try again.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         };
 
+        // ==========================================
+        // Expose renderUserEvents globally for retry
+        // ==========================================
         window.renderUserEvents = renderUserEvents;
     </script>
 </body>

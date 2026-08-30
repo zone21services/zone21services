@@ -20,6 +20,7 @@
             --border: #E2E8F0;
             --danger: #DC2626;
             --success: #10B981;
+            --gold: #F59E0B;
             --radius-xl: 20px;
             --radius-lg: 14px;
             --radius-md: 10px;
@@ -102,39 +103,116 @@
         .plan-features li { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #444; font-weight: 500; }
         .plan-features li i { color: var(--lime); font-size: 1rem; }
 
+        /* ===== EVENT CARD ===== */
         .event-card {
             border-color: var(--lime);
             background: linear-gradient(135deg, #fafff0 0%, #ffffff 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--lime), var(--success));
+        }
+        .event-card .event-package-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 12px;
+            border-radius: 20px;
+            background: var(--navy);
+            color: var(--lime);
+            margin-bottom: 8px;
         }
         .event-card .event-name {
-            font-size: 1.1rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: 800;
             color: var(--navy);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
-        .event-card .event-package {
-            font-size: 0.85rem;
+        .event-card .event-subtitle {
+            font-size: 0.8rem;
             color: var(--text-muted);
-            font-weight: 600;
             margin-bottom: 12px;
         }
-        .event-card .event-status {
+        .event-card .event-meta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .event-card .event-meta .meta-item {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,0,0,0.03);
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+        .event-card .event-meta .meta-item i { font-size: 0.7rem; color: var(--lime); }
+        .event-card .event-status-badge {
+            display: inline-block;
             font-size: 0.7rem;
-            text-transform: uppercase;
             font-weight: 700;
-            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+        }
+        .event-status-badge.approved { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .event-status-badge.draft { background: rgba(245, 158, 11, 0.15); color: var(--gold); }
+        .event-status-badge.live { background: rgba(192, 200, 0, 0.15); color: var(--navy); }
+        .event-status-badge.ended { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+
+        .event-card .event-paid-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
             color: var(--success);
             background: rgba(16, 185, 129, 0.1);
             padding: 2px 12px;
             border-radius: 20px;
-            display: inline-block;
-            margin-bottom: 12px;
+            margin-left: 6px;
         }
-        .event-card .event-date {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 16px;
+        .event-card .event-paid-badge i { font-size: 0.6rem; }
+
+        .event-card .btn-event {
+            background: linear-gradient(135deg, var(--navy) 0%, #1a3f52 100%);
+            color: white;
+            border: none;
+            padding: 0.9rem 1.2rem;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            text-align: center;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
+        .event-card .btn-event:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 40, 56, 0.25);
+            background: linear-gradient(135deg, var(--lime) 0%, #d4dc00 100%);
+            color: var(--navy);
+        }
+        .event-card .btn-event i { font-size: 0.9rem; }
 
         .btn {
             display: inline-flex;
@@ -306,6 +384,7 @@
             .card { padding: 1.5rem; }
             .steps::after { display: none; }
             .pricing-grid { grid-template-columns: 1fr; }
+            .event-card .event-meta { flex-direction: column; gap: 4px; }
         }
         .empty-state {
             text-align: center;
@@ -602,7 +681,7 @@
         };
 
         // ==========================================
-        // Render User's Events with robust timestamp parser
+        // Render User's Events with improved design
         // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
@@ -611,7 +690,6 @@
                 return;
             }
 
-            // Robust timestamp parser for Firestore dates
             const getSafeDate = (timestamp) => {
                 if (!timestamp) return new Date(0);
                 if (typeof timestamp.toDate === 'function') return timestamp.toDate();
@@ -639,28 +717,86 @@
                     return;
                 }
 
-                // Sort by createdAt descending
                 events.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
                     return db2 - da;
                 });
 
+                // Package emoji mapping
+                const packageEmojis = {
+                    'Small Event Package': '🟢',
+                    'Medium Event Package': '🟡',
+                    'Large / Enterprise Package': '🔴',
+                    'Small Event': '🟢',
+                    'Medium Event': '🟡',
+                    'Large / Enterprise': '🔴'
+                };
+
+                // Button text options (cycling based on event status)
+                const getButtonText = (status, eventName) => {
+                    const name = eventName || 'Untitled Event';
+                    if (status === 'live' || status === 'active') {
+                        return '🎯 Manage Live Event';
+                    } else if (status === 'completed') {
+                        return '📊 View Report';
+                    } else if (status === 'draft' || !status || status === '') {
+                        return '🚀 Build Your Event';
+                    }
+                    return '📋 Manage Event';
+                };
+
                 grid.innerHTML = events.map(event => {
-                    const packageName = event.package || 'Unknown Package';
+                    // Get package name - fallback to 'Unknown Package' if not set
+                    let packageName = event.package || 'Unknown Package';
+                    
+                    // Clean up package name for display
+                    const displayPackage = packageName.replace(' Package', '').trim();
+                    
+                    // Get emoji
+                    const emoji = packageEmojis[packageName] || packageEmojis[displayPackage] || '📌';
+                    
                     const status = event.status || 'draft';
+                    const statusDisplay = status.charAt(0).toUpperCase() + status.slice(1);
+                    
                     const dateObj = getSafeDate(event.createdAt);
                     const dateStr = dateObj.getTime() > 0 
                         ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : '—';
 
+                    // Generate a better event name if it's "Untitled Event" or empty
+                    let eventName = event.name || 'Untitled Event';
+                    if (eventName === 'Untitled Event' || eventName === '' || eventName === 'My Untitled Event') {
+                        const packageShort = displayPackage.replace('/ Enterprise', '').trim();
+                        eventName = `🎉 My ${packageShort} Event`;
+                    }
+
+                    // Status badge class
+                    let statusClass = 'draft';
+                    if (status === 'approved' || status === 'active' || status === 'live') statusClass = 'approved';
+                    else if (status === 'completed' || status === 'ended') statusClass = 'ended';
+
+                    const buttonText = getButtonText(status, eventName);
+
                     return `
                         <div class="event-card">
-                            <div class="event-name">${event.name || 'Untitled Event'}</div>
-                            <div class="event-package"><i class="fas fa-tag" style="color:var(--lime);"></i> ${packageName}</div>
-                            <div class="event-status"><i class="fas fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> ${status.toUpperCase()}</div>
-                            <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
-                            <a href="manageevent.html?eventId=${event.id}" class="btn btn-success"><i class="fas fa-arrow-right"></i> Manage Event</a>
+                            <div class="event-package-badge">
+                                ${emoji} ${displayPackage}
+                                <span class="event-paid-badge"><i class="fas fa-check-circle"></i> PAID</span>
+                            </div>
+                            <div class="event-name">${eventName}</div>
+                            <div class="event-subtitle">Your ${displayPackage} event is ready to build</div>
+                            <div class="event-meta">
+                                <span class="meta-item"><i class="fas fa-calendar-alt"></i> ${dateStr}</span>
+                                <span class="meta-item"><i class="fas fa-tag"></i> ${displayPackage}</span>
+                                <span class="meta-item"><i class="fas fa-users"></i> ${event.attendees || 0} attendees</span>
+                            </div>
+                            <span class="event-status-badge ${statusClass}">
+                                ${statusDisplay}
+                            </span>
+                            <a href="manageevent.html?eventId=${event.id}" class="btn-event">
+                                <i class="fas fa-arrow-right"></i> ${buttonText}
+                            </a>
                         </div>
                     `;
                 }).join('');
@@ -668,7 +804,6 @@
             } catch (error) {
                 console.error('Error loading events:', error);
                 let errorMsg = 'Could not load events. Please refresh.';
-                let detail = '';
                 if (error.code === 'permission-denied') {
                     errorMsg = 'Permission denied. Check your Firestore rules.';
                 } else if (error.message) {
@@ -678,7 +813,6 @@
                     <div class="error-state" style="grid-column:1/-1;">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h4>${errorMsg}</h4>
-                        <p>${detail || 'Try refreshing the page.'}</p>
                         <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
                     </div>
                 `;
@@ -721,7 +855,7 @@
                                 </div>
                             `;
                         }
-                        // For 'active' or 'approved' we simply keep the "Select Plan" button (no change)
+                        // For 'active' or 'approved' we simply keep the "Select Plan" button
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
@@ -770,7 +904,7 @@
         window.goBackToPricing = function() {
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
-            renderUserEvents(); // refresh events
+            renderUserEvents();
         };
 
         window.goToStep = function(stepNum) {
@@ -920,7 +1054,6 @@
                 }
                 const invData = invSnap.data();
                 
-                // Safe timestamp extraction
                 const getSafeDate = (ts) => {
                     if (!ts) return new Date();
                     if (typeof ts.toDate === 'function') return ts.toDate();
@@ -961,15 +1094,16 @@
             btn.disabled = true;
 
             try {
-                // 1. Update subscription status to 'active'
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 await setDoc(subRef, { status: 'active' }, { merge: true });
 
-                // 2. Create a new event document
+                // Generate a nice event name based on the package
+                let eventName = `My ${selectedPlan.name.replace(' Package', '')}`;
+                
                 const eventsRef = collection(db, 'events');
                 const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
+                    name: eventName,
                     package: selectedPlan.name,
                     packageId: selectedPlan.id,
                     status: 'draft',
@@ -984,7 +1118,6 @@
                     blueprint: null
                 });
 
-                // 3. Redirect to manageevent.html with the new event ID
                 window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
 
             } catch (error) {

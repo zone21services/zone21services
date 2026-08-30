@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* ====== STYLES (unchanged – same as before) ====== */
+        /* ====== SAME STYLES AS BEFORE – condensed for brevity ====== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -643,7 +643,7 @@
         };
 
         // ==========================================
-        // Render User's Events – ONLY approved/paid events
+        // Render User's Events – ONLY approved/paid
         // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
@@ -668,7 +668,7 @@
                     allEvents.push({ id: doc.id, ...doc.data() });
                 });
 
-                // 🔥 FILTER: only events that are approved AND paid (or just approved)
+                // Filter: only events that are approved OR paid
                 const approvedEvents = allEvents.filter(event => 
                     event.status === 'approved' || event.isPaid === true
                 );
@@ -684,7 +684,6 @@
                     return;
                 }
 
-                // Sort by createdAt descending
                 approvedEvents.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
@@ -737,7 +736,7 @@
         }
 
         // ==========================================
-        // Plan Buttons – always show "Select Plan" unless pending
+        // Plan Buttons – detect pending invoice properly
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -751,20 +750,22 @@
                 const container = document.getElementById(`action-${plan.id}`);
                 if (!container) continue;
                 try {
-                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
+                    const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`);
+                    const subSnap = await getDoc(subRef);
                     let buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     
                     if (subSnap.exists()) {
                         const subData = subSnap.data();
+                        const status = subData.status;
                         
-                        if (subData.status === 'pending_payment') {
+                        if (status === 'pending_payment') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Payment Pending</button>
                                     <button class="btn btn-outline" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                                 </div>
                             `;
-                        } else if (subData.status === 'rejected') {
+                        } else if (status === 'rejected') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);"><i class="fa-solid fa-xmark"></i> Payment Rejected</button>
@@ -772,7 +773,7 @@
                                 </div>
                             `;
                         }
-                        // For 'active' or 'approved' we simply keep the "Select Plan" button (no change)
+                        // For 'active' or 'approved' we keep "Select Plan" to allow multiple events
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
@@ -797,7 +798,8 @@
                 return;
             }
             try {
-                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${planId}`);
+                const subSnap = await getDoc(subRef);
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
                     if (status === 'pending_payment') {
@@ -821,7 +823,8 @@
         window.goBackToPricing = function() {
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
-            renderUserEvents(); // refresh events
+            renderUserEvents();      // refresh events
+            updatePlanButtons();    // refresh buttons (important!)
         };
 
         window.goToStep = function(stepNum) {
@@ -921,6 +924,7 @@
                     latestInvoiceId: invNumber
                 }, { merge: true });
 
+                // Create subscription with pending status
                 await setDoc(doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`), {
                     userId: currentUser.uid,
                     planId: selectedPlan.id,
@@ -944,11 +948,12 @@
                 localStorage.setItem('zone21_invoice', invNumber);
 
                 window.showView('view-invoice');
+                // Update buttons immediately to show pending state
                 updatePlanButtons();
 
             } catch (error) {
                 console.error("Database Error:", error);
-                alert("Failed to generate invoice in database. Please check your connection.");
+                alert("Failed to generate invoice. Please check your connection.");
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;

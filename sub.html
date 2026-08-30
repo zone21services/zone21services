@@ -159,6 +159,8 @@
         .btn-outline:hover { background: var(--bg); border-color: var(--navy); color: var(--navy); }
         .btn-success { background: var(--success); color: white; }
         .btn-success:hover { background: #059669; transform: translateY(-2px); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #b91c1c; transform: translateY(-2px); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
         /* Checkout form (unchanged) */
@@ -315,8 +317,33 @@
             padding: 2rem;
             color: var(--text-muted);
             font-size: 0.95rem;
+            background: white;
+            border-radius: var(--radius-xl);
+            border: 2px dashed var(--border);
+            grid-column: 1 / -1;
         }
-        .empty-state i { font-size: 2rem; color: var(--grey); margin-bottom: 10px; display: block; }
+        .empty-state i { font-size: 2.5rem; color: var(--grey); margin-bottom: 12px; display: block; }
+        .empty-state h4 { color: var(--navy); margin-bottom: 4px; }
+        .error-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--danger);
+            background: #fff5f5;
+            border-radius: var(--radius-xl);
+            border: 2px solid var(--danger);
+            grid-column: 1 / -1;
+        }
+        .error-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+        .error-state .error-detail {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 8px;
+            word-break: break-all;
+            background: #f0f0f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -335,6 +362,7 @@
                 <div class="section-label"><i class="fas fa-calendar-check"></i> Your Events <small>— Manage your existing events</small></div>
                 <div class="pricing-grid" id="user-events-grid">
                     <!-- Injected by JS -->
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading your events...</div>
                 </div>
             </div>
 
@@ -545,7 +573,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -597,7 +625,7 @@
         };
 
         // ==========================================
-        // Render User's Events
+        // Render User's Events - IMPROVED with better error handling
         // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
@@ -605,6 +633,9 @@
                 grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
                 return;
             }
+
+            // Show loading state
+            grid.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading your events...</div>`;
 
             try {
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
@@ -616,7 +647,7 @@
 
                 if (events.length === 0) {
                     grid.innerHTML = `
-                        <div class="empty-state" style="grid-column:1/-1;">
+                        <div class="empty-state">
                             <i class="fas fa-calendar-plus"></i>
                             <h4 style="margin: 8px 0 4px; color: var(--navy);">No events yet</h4>
                             <p style="font-size:0.9rem;">Purchase a package below to create your first event.</p>
@@ -649,7 +680,19 @@
 
             } catch (error) {
                 console.error('Error loading events:', error);
-                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle" style="color:var(--pink);"></i> Could not load events. Please refresh.</div>`;
+                // Show detailed error in UI for debugging
+                const errorMsg = error.message || 'Unknown error';
+                grid.innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4 style="color: var(--danger);">Could not load events</h4>
+                        <p style="font-size:0.9rem; margin-top:4px;">Please refresh the page to try again.</p>
+                        <div class="error-detail">${errorMsg}</div>
+                        <button class="btn btn-primary" style="margin-top:12px; width:auto; padding:8px 24px;" onclick="renderUserEvents()">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                    </div>
+                `;
             }
         }
 
@@ -950,9 +993,17 @@
         // ==========================================
         // Refresh events when returning to pricing view
         // ==========================================
-        // We already call renderUserEvents in goBackToPricing
-        // Also call on initial load
         window.renderUserEvents = renderUserEvents;
+        window.updatePlanButtons = updatePlanButtons;
+
+        // Make renderUserEvents available globally for the retry button
+        window.renderUserEvents = renderUserEvents;
+
+        console.log('🔥 Zone21 Subscription page loaded');
+        console.log('ℹ️ If you see "Could not load events", check:');
+        console.log('  1. Firestore rules allow reading events with organizerId == request.auth.uid');
+        console.log('  2. The events collection exists and has documents');
+        console.log('  3. The user is signed in with uid:', currentUser?.uid || 'not signed in');
     </script>
 </body>
 </html>

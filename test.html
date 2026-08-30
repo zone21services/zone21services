@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Zone21 System | Event Blueprint Generator</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
     <!-- Firebase SDK (Compat) v10.8.0 -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
@@ -45,6 +45,7 @@
             color: var(--navy);
             margin: 0;
         }
+
         /* Sidebar */
         .sidebar-overlay {
             display: none;
@@ -301,7 +302,6 @@
             resize: vertical;
             min-height: 80px;
         }
-        /* package limit badge */
         .limit-badge {
             display: inline-block;
             font-size: 0.7rem;
@@ -519,7 +519,6 @@
             color: white;
         }
 
-        /* Package notification banner */
         .package-banner {
             background: var(--navy);
             color: white;
@@ -662,9 +661,69 @@
                 overflow: visible;
             }
         }
+
+        /* Toast styles */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            width: 100%;
+        }
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            background: var(--navy);
+            color: white;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease forwards;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: opacity 0.3s ease;
+        }
+        .toast.success {
+            border-left: 4px solid var(--lime);
+        }
+        .toast.error {
+            border-left: 4px solid var(--pink);
+        }
+        .toast.info {
+            border-left: 4px solid #4a9eff;
+        }
+        .toast i {
+            font-size: 1.2rem;
+        }
+        .toast.success i {
+            color: var(--lime);
+        }
+        .toast.error i {
+            color: var(--pink);
+        }
+        .toast.info i {
+            color: #4a9eff;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
 
     <!-- Sidebar -->
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -698,7 +757,7 @@
 
         <div class="workspace-content" id="workspace-content">
 
-            <!-- Package Banner (silent but visible) -->
+            <!-- Package Banner -->
             <div class="package-banner" id="package-banner" style="display:none;">
                 <div>
                     <div class="pkg-label">Your Active Package</div>
@@ -714,11 +773,11 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>1. Event Name</label>
-                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding">
+                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" />
                         </div>
                         <div class="input-group">
                             <label>2. Location (City/Area)</label>
-                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe">
+                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
                         </div>
                         <div class="input-group">
                             <label>3. Event Type</label>
@@ -736,16 +795,16 @@
                         </div>
                         <div class="input-group">
                             <label>4. Contact Details</label>
-                            <input type="text" id="eventContact" required placeholder="Email or Phone">
+                            <input type="text" id="eventContact" required placeholder="Email or Phone" />
                         </div>
                         <div class="input-group">
                             <label>5. Total Budget (USD)</label>
-                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50">
+                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" />
                             <span class="hint" id="budget-hint">Recommended range for your package</span>
                         </div>
                         <div class="input-group">
                             <label>6. Expected Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label>
-                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1">
+                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" />
                             <span class="hint" id="attendee-hint">Maximum allowed for your package</span>
                         </div>
                     </div>
@@ -795,7 +854,7 @@
 
     <script>
         // ============================================================
-        //  FIREBASE CONFIG — same as subscriptions + index
+        //  FIREBASE CONFIG
         // ============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -807,18 +866,17 @@
             measurementId: "G-KE007Y89F1"
         };
 
-        // Initialize Firebase (Compat)
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
 
         // ============================================================
-        //  DEEPSEEK API CONFIGURATION
-        //  Replace the key below with your actual DeepSeek API key.
+        //  OPENROUTER API CONFIGURATION
+        //  Using the provided OpenRouter API key.
         // ============================================================
-        const DEEPSEEK_API_KEY = "sk-34977ed08e744e0a84c75c999bd03576"; // 👈 replace with your key
-        const API_URL = "https://api.deepseek.com/v1/chat/completions";
-        const MODEL = "deepseek-chat"; // or "deepseek-reasoner" if you prefer
+        const OPENROUTER_API_KEY = "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";
+        const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+        const MODEL = "openai/gpt-4o-mini"; // reliable & cost-effective model via OpenRouter
 
         const granularServices = [
             "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
@@ -834,7 +892,7 @@
         let currentEventData = null;
 
         // Package state
-        let userPackage = null; // 'small' | 'medium' | 'large' | null
+        let userPackage = null;
         let userPackageName = null;
         let userPackageLimit = Infinity;
         let currentUser = null;
@@ -912,16 +970,32 @@
         });
 
         // ============================================================
-        //  AUTH & SUBSCRIPTION — check user + package
+        //  TOAST SYSTEM
+        // ============================================================
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) {
+                alert(msg);
+                return;
+            }
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+            t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
+            container.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0';
+                setTimeout(() => t.remove(), 300); }, 4800);
+        }
+
+        // ============================================================
+        //  AUTH & SUBSCRIPTION
         // ============================================================
         async function loadUserAndPackage() {
             try {
                 const user = auth.currentUser;
                 if (!user) {
                     showToast('Please log in to access the blueprint generator.', 'error');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1500);
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
                     return false;
                 }
 
@@ -934,7 +1008,6 @@
                     return false;
                 }
 
-                // Find active subscription
                 const subSnapshot = await db.collection('subscriptions')
                     .where('userId', '==', user.uid)
                     .where('status', '==', 'active')
@@ -952,7 +1025,6 @@
                     }
                 }
 
-                // If no active, check pending
                 if (!foundPackage) {
                     const pendingSnap = await db.collection('subscriptions')
                         .where('userId', '==', user.uid)
@@ -1007,7 +1079,8 @@
                 const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
                 attendeeLimitBadge.textContent = limitDisplay;
                 attendeeLimitBadge.className = 'limit-badge';
-                attendeeHint.textContent = `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees for your package.`;
+                attendeeHint.textContent =
+                `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees for your package.`;
                 eventAttendees.disabled = false;
                 eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
 
@@ -1032,24 +1105,6 @@
                 showToast('Failed to load subscription data. Please refresh.', 'error');
                 return false;
             }
-        }
-
-        // ============================================================
-        //  TOAST SYSTEM (re-usable)
-        // ============================================================
-        function showToast(msg, type = 'info') {
-            const container = document.getElementById('toast-container');
-            if (container) {
-                const t = document.createElement('div');
-                t.className = `toast ${type}`;
-                const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-                t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
-                container.appendChild(t);
-                setTimeout(() => { t.style.opacity = '0';
-                    setTimeout(() => t.remove(), 300); }, 4800);
-                return;
-            }
-            alert(msg);
         }
 
         // ============================================================
@@ -1124,7 +1179,7 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — DeepSeek API
+        //  GENERATE BLUEPRINT — OpenRouter API
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
@@ -1176,25 +1231,30 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-                        // No HTTP-Referer needed for DeepSeek
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Zone21 Event Blueprint Generator'
                     },
                     body: JSON.stringify({
                         model: MODEL,
                         messages: [{ role: "user", content: prompt }],
                         max_tokens: 4096,
                         temperature: 0.7,
-                        // DeepSeek supports the same OpenAI-compatible format
                     })
                 });
 
                 if (!response.ok) {
                     const errText = await response.text();
-                    throw new Error(`API Error ${response.status}: ${errText}`);
+                    let errMsg = `API Error ${response.status}`;
+                    try {
+                        const errJson = JSON.parse(errText);
+                        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+                    } catch (_) { /* ignore */ }
+                    throw new Error(`${errMsg} (${response.status})`);
                 }
 
                 const data = await response.json();
-                if (data.error) throw new Error(data.error.message || 'API returned an error');
+                if (data.error) throw new Error(data.error.message || 'OpenRouter returned an error');
 
                 let htmlOutput = data.choices[0].message.content.trim()
                     .replace(/^```html/i, '')
@@ -1218,7 +1278,7 @@
                 loadingDiv.style.display = 'none';
                 formSection.style.display = 'block';
                 let msg = error.message;
-                if (msg.includes('404') || msg.includes('unavailable')) {
+                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('not found')) {
                     msg = 'The AI service is temporarily unavailable. Please try again later.';
                 }
                 showToast('System error: ' + msg, 'error');
@@ -1303,7 +1363,7 @@
         }
 
         // ============================================================
-        //  INIT — on page load
+        //  INIT
         // ============================================================
         document.addEventListener('DOMContentLoaded', async function() {
             auth.onAuthStateChanged(async (user) => {
@@ -1328,8 +1388,4 @@
     </script>
 
 </body>
-</html>
-
-
-
- 
+    </html>

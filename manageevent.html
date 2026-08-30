@@ -14,11 +14,9 @@
             --pink: #F80070;
             --white: #F8F8F8;
             --grey: #E0E0E8;
-            --black: #101010;
             --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
             --shadow-hover: 0 8px 30px rgba(0,0,0,0.08);
             --radius: 16px;
-            --radius-sm: 10px;
             --transition: 0.25s ease;
         }
 
@@ -159,7 +157,7 @@
             border-bottom: 2px solid var(--grey);
         }
 
-        /* ===== 3 COLUMNS DESKTOP ===== */
+        /* ===== 3 COLUMNS (fixed) ===== */
         .tools-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -232,25 +230,6 @@
         }
         .tool-card .tool-badge i { font-size: 0.5rem; }
 
-        /* Special card: Publish Event */
-        .tool-card.publish {
-            background: linear-gradient(135deg, var(--navy) 0%, #1a3f52 100%);
-            border-color: var(--navy);
-            color: white;
-        }
-        .tool-card.publish .icon-wrap {
-            background: rgba(192, 200, 0, 0.15);
-            color: var(--lime);
-        }
-        .tool-card.publish:hover .icon-wrap {
-            background: var(--lime);
-            color: var(--navy);
-        }
-        .tool-card.publish .tool-title { color: white; }
-        .tool-card.publish .tool-desc { color: rgba(255,255,255,0.6); }
-        .tool-card.publish .tool-badge { color: var(--lime); }
-        .tool-card.publish:hover { border-color: var(--lime); transform: translateY(-6px); box-shadow: 0 8px 30px rgba(16,40,56,0.25); }
-
         /* ========== RESPONSIVE ========== */
         @media (max-width: 992px) {
             .tools-grid {
@@ -279,7 +258,7 @@
             .tools-grid { grid-template-columns: 1fr; }
         }
 
-        /* ========== TOAST (static, minimal) ========== */
+        /* ========== TOAST ========== */
         #toast-container {
             position: fixed;
             top: 20px;
@@ -362,69 +341,56 @@
 
     <script>
         // ==============================================================
-        // STATIC TOOLS DATA (no Firebase, no live data)
+        // TOOLS DATA – removed 'overview'
         // ==============================================================
         const tools = [{
-            id: 'overview',
-            icon: 'fa-th-large',
-            title: 'Overview',
-            desc: 'Event summary, stats & activity feed',
-            link: 'manage-event.html?tool=overview'
-        }, {
             id: 'blueprint',
             icon: 'fa-brain',
             title: 'AI Blueprint',
             desc: 'Generate smart event plan with AI',
-            link: 'manage-event.html?tool=blueprint'
+            link: 'ai-blueprint.html'
         }, {
             id: 'edit',
             icon: 'fa-pen-to-square',
             title: 'Edit Event',
             desc: 'Update details, date, budget & more',
-            link: 'manage-event.html?tool=edit'
+            link: 'createevent.html'
         }, {
             id: 'vendors',
             icon: 'fa-store',
             title: 'Vendors',
             desc: 'Manage service providers & contacts',
-            link: 'manage-event.html?tool=vendors'
+            link: 'vendors.html'
         }, {
             id: 'security',
             icon: 'fa-shield-alt',
             title: 'Security',
             desc: 'Request Zone21 security team',
-            link: 'manage-event.html?tool=security'
+            link: 'zone21security.html'
         }, {
             id: 'guests',
             icon: 'fa-envelope',
             title: 'Guests & Cards',
             desc: 'Invitations, RSVPs & guest list',
-            link: 'manage-event.html?tool=guests'
+            link: 'invitations.html'
         }, {
             id: 'revenue',
             icon: 'fa-dollar-sign',
             title: 'Revenue',
             desc: 'Track earnings, fees & payouts',
-            link: 'manage-event.html?tool=revenue'
+            link: 'revenue.html'
         }, {
             id: 'analytics',
             icon: 'fa-chart-bar',
             title: 'Analytics',
             desc: 'Views, conversions & insights',
-            link: 'manage-event.html?tool=analytics'
+            link: 'analytics.html'
         }, {
-            id: 'profile',
-            icon: 'fa-user',
-            title: 'Profile',
-            desc: 'Organizer account settings',
-            link: 'manage-event.html?tool=profile'
-        }, {
-            id: 'publish',
-            icon: 'fa-rocket',
-            title: 'Publish Event',
-            desc: 'Launch your event to the world',
-            link: '#',
-            isPublish: true
+            id: 'support',
+            icon: 'fa-headset',
+            title: 'Support',
+            desc: 'Get help & contact support',
+            link: 'support.html'
         }, ];
 
         // ==============================================================
@@ -433,22 +399,15 @@
         function renderTools() {
             const grid = document.getElementById('tools-grid');
             grid.innerHTML = tools.map(tool => {
-                const isPublish = tool.isPublish || false;
-                const iconBg = isPublish ? 'rgba(192,200,0,0.15)' : 'rgba(192,200,0,0.08)';
-                const iconColor = isPublish ? 'var(--lime)' : 'var(--lime)';
-
                 return `
-                    <a class="tool-card ${isPublish ? 'publish' : ''}" 
-                       href="${tool.link}" 
-                       data-tool="${tool.id}"
-                       onclick="${isPublish ? `publishEvent(event)` : ''}">
-                        <div class="icon-wrap" style="background:${iconBg}; color:${iconColor};">
+                    <a class="tool-card" href="${tool.link}" data-tool="${tool.id}">
+                        <div class="icon-wrap">
                             <i class="fas ${tool.icon}"></i>
                         </div>
                         <div class="tool-title">${tool.title}</div>
                         <div class="tool-desc">${tool.desc}</div>
                         <div class="tool-badge">
-                            <i class="fas fa-arrow-right"></i> ${isPublish ? 'Launch Now' : 'Open Tool'}
+                            <i class="fas fa-arrow-right"></i> Open Tool
                         </div>
                     </a>
                 `;
@@ -456,15 +415,7 @@
         }
 
         // ==============================================================
-        // PUBLISH EVENT (simple toast)
-        // ==============================================================
-        function publishEvent(e) {
-            e.preventDefault();
-            showToast('🎉 Your event is now live! Share the link with your audience.', 'success');
-        }
-
-        // ==============================================================
-        // TOAST SYSTEM
+        // TOAST SYSTEM (for any future use)
         // ==============================================================
         function showToast(msg, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -479,7 +430,7 @@
         }
 
         // ==============================================================
-        // LOGOUT (just redirect)
+        // LOGOUT
         // ==============================================================
         document.getElementById('logout-btn').addEventListener('click', () => {
             window.location.href = 'index.html';

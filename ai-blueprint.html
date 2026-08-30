@@ -1,38 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Zone21 System | Event Blueprint Generator</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <!-- Firebase SDK (Keep your credentials here if needed) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <!-- Firebase SDK (Compat) v10.8.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
 
     <style>
         :root {
             --navy: #102838;
-            --lime: #C0C800; 
+            --lime: #C0C800;
             --pink: #F80070;
             --white: #F8F8F8;
             --grey: #E0E0E8;
             --radius: 16px;
             --radius-xl: 24px;
         }
-        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        /* Apply webkit-fill to HTML for iOS Safari compatibility */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
         html {
             height: -webkit-fill-available;
         }
-
         body {
             background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f5f3f1 100%);
-            /* Fallback stack to ensure it works on every device */
             min-height: 100vh;
             min-height: -webkit-fill-available;
-            height: 100dvh; 
+            height: 100dvh;
             display: flex;
             padding: 20px;
             gap: 20px;
@@ -41,454 +46,1492 @@
             margin: 0;
         }
 
-        /* Sidebar & History Layout */
+        /* Sidebar */
         .sidebar-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
-            background: rgba(0,0,0,0.4); z-index: 999; opacity: 0; transition: opacity 0.3s ease;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
         .sidebar {
-            width: 300px; background: var(--navy); border-radius: var(--radius-xl); color: white;
-            display: flex; flex-direction: column; overflow: hidden;
-            box-shadow: 0 20px 60px rgba(16,40,56,0.15); transition: transform 0.3s ease; z-index: 1000;
+            width: 300px;
+            background: var(--navy);
+            border-radius: var(--radius-xl);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(16, 40, 56, 0.15);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            flex-shrink: 0;
         }
-        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .new-chat-btn { background: var(--lime); color: var(--navy); border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.2s; }
-        .new-chat-btn:hover { background: white; }
-        .history-list { flex: 1; overflow-y: auto; padding: 10px; }
-        
-        .history-item { 
-            padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; 
-            cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; transition: 0.2s; gap: 8px;
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .history-item:hover { background: rgba(255,255,255,0.15); }
-        .history-item.active { border-left: 4px solid var(--lime); background: rgba(255,255,255,0.1); }
-        .history-item .item-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex: 1; }
-        .history-item .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: white; }
-        .history-item .delete-btn { color: rgba(255,255,255,0.4); padding: 4px; border-radius: 4px; transition: 0.2s; }
-        .history-item .delete-btn:hover { color: var(--pink); background: rgba(248, 0, 112, 0.15); }
+        .sidebar-header .badge-package {
+            font-size: 0.65rem;
+            background: var(--lime);
+            color: var(--navy);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .new-chat-btn {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+            padding: 12px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 15px;
+            transition: 0.2s;
+        }
+        .new-chat-btn:hover {
+            background: white;
+        }
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .history-item {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            transition: 0.2s;
+            gap: 8px;
+        }
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .history-item.active {
+            border-left: 4px solid var(--lime);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .history-item .item-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+            flex: 1;
+        }
+        .history-item .item-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: white;
+        }
+        .history-item .delete-btn {
+            color: rgba(255, 255, 255, 0.4);
+            padding: 4px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .history-item .delete-btn:hover {
+            color: var(--pink);
+            background: rgba(248, 0, 112, 0.15);
+        }
 
-        /* Main Workspace Container */
+        /* Workspace */
         .workspace {
-            flex: 1; background: white; border-radius: var(--radius-xl);
-            box-shadow: 0 20px 60px rgba(16,40,56,0.15); display: flex; flex-direction: column; overflow: hidden; position: relative;
+            flex: 1;
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 20px 60px rgba(16, 40, 56, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            min-width: 0;
         }
-        .workspace-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); z-index: 10; }
-        .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
-        .workspace-header h1 { font-size: 1.3rem; color: var(--lime); margin: 0; }
-        .workspace-header p { font-size: 0.8rem; color: rgba(255,255,255,0.8); margin: 0; }
-
-        .workspace-content { flex: 1; overflow-y: auto; padding: 20px; background: #fafbfc; scroll-behavior: smooth; }
-        
-        /* Form Styling */
-        .form-section { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--grey); box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-        @media(max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
-        
-        .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .input-group label { font-weight: bold; font-size: 0.9rem; }
-        .input-group input, .input-group select, .input-group textarea { padding: 12px; border: 1px solid var(--grey); border-radius: 8px; outline: none; transition: 0.3s; font-size: 0.95rem; background: #f9fafb; }
-        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--navy); background: white; }
-        .input-group textarea { resize: vertical; min-height: 80px; }
-        
-        /* Services Checkboxes (Granular) */
-        .services-wrapper { margin-top: 15px; }
-        .services-wrapper > label { font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; display: block; border-bottom: 2px solid var(--lime); padding-bottom: 5px; }
-        .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-        .service-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; background: #f0f4f8; padding: 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; transition: 0.2s; }
-        .service-item:hover { background: #e8eef4; border-color: var(--grey); }
-        .service-item input { accent-color: var(--pink); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
-        
-        .submit-btn { width: 100%; background: var(--navy); color: var(--lime); border: none; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-top: 25px; display: flex; justify-content: center; align-items: center; gap: 10px; }
-        .submit-btn:hover { background: var(--lime); color: var(--navy); }
-        .submit-btn:disabled { background: var(--grey); color: #888; cursor: not-allowed; }
-        
-        /* Loading & Blueprint Styling (From Original Neat Code) */
-        #loading { display: none; text-align: center; padding: 40px; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #blueprint-container { display: none; }
-        .blueprint-wrapper { width: 100%; margin-top: 10px; animation: fadeInUp 0.3s ease forwards; }
-        
-        .blueprint-result { 
-            background: white; padding: 30px; border-radius: 16px; 
-            border: 1px solid var(--grey); width: 100%; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-            word-wrap: break-word; overflow-x: auto;
+        .workspace-header {
+            background: var(--navy);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 4px solid var(--lime);
+            z-index: 10;
+            flex-wrap: wrap;
         }
-        .blueprint-result h2 { color: var(--navy); font-size: 1.4rem; border-bottom: 3px solid var(--lime); padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; }
-        .blueprint-result h2:first-child { margin-top: 0; }
-        .blueprint-result h3 { color: var(--pink); font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
-        .blueprint-result ul { list-style: none; padding-left: 0; margin-bottom: 20px; }
-        .blueprint-result li { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.6; color: #333; display: flex; align-items: flex-start; gap: 10px; }
-        .blueprint-result li:before { content: "▪"; color: var(--lime); font-size: 1.2rem; line-height: 1; }
-        .blueprint-result p { margin-bottom: 15px; line-height: 1.6; color: #444; font-size: 0.95rem; }
-        
-        /* Warning Box */
-        .budget-warning { background: rgba(248, 0, 112, 0.05); border-left: 4px solid var(--pink); padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-        .budget-warning h2, .budget-warning h3 { border-bottom: none; color: var(--pink); margin-top: 0; }
-
-        .blueprint-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; border-top: 1px solid var(--grey); padding-top: 20px; }
-        .action-btn { padding: 10px 18px; border-radius: 30px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: 0.2s; }
-        .btn-download { background: #28a745; color: white; }
-        .btn-regen { background: #f0f4f8; color: var(--navy); border: 1px solid var(--grey); }
-        .btn-regen:hover { background: var(--navy); color: white; }
-
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Responsive & Print */
-        @media (max-width: 768px) {
-            body { padding: 0; gap: 0; }
-            .workspace { border-radius: 0; box-shadow: none; }
-            .menu-btn { display: block; }
-            .sidebar { position: fixed; top: 0; left: -320px; height: 100dvh; width: 280px; border-radius: 0 24px 24px 0; }
-            .sidebar.active { transform: translateX(320px); }
-            .sidebar-overlay.active { display: block; opacity: 1; }
-            .workspace-content { padding: 15px 10px; }
-            .form-section { padding: 15px; border-radius: 12px; }
-            .blueprint-result { padding: 15px; border-radius: 12px; }
+        .menu-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            font-size: 1.4rem;
+            color: white;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .workspace-header h1 {
+            font-size: 1.3rem;
+            color: var(--lime);
+            margin: 0;
+        }
+        .workspace-header p {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 0;
+        }
+        .header-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-right .package-tag {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .header-right .user-email {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .header-right .logout-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .header-right .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--pink);
         }
 
+        .workspace-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafbfc;
+            scroll-behavior: smooth;
+        }
+
+        /* Form */
+        .form-section {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid var(--grey);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        @media(max-width:768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .input-group label {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .input-group .hint {
+            font-size: 0.7rem;
+            color: #888;
+            font-weight: 400;
+            margin-top: 2px;
+        }
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            padding: 12px;
+            border: 1px solid var(--grey);
+            border-radius: 8px;
+            outline: none;
+            transition: 0.3s;
+            font-size: 0.95rem;
+            background: #f9fafb;
+        }
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            border-color: var(--navy);
+            background: white;
+        }
+        .input-group input:disabled {
+            background: #f0f0f0;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .input-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .limit-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            background: var(--lime);
+            color: var(--navy);
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-left: 6px;
+        }
+        .limit-badge.warn {
+            background: var(--pink);
+            color: white;
+        }
+
+        .services-wrapper {
+            margin-top: 15px;
+        }
+        .services-wrapper>label {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            display: block;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 5px;
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .service-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            background: #f0f4f8;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .service-item:hover {
+            background: #e8eef4;
+            border-color: var(--grey);
+        }
+        .service-item input {
+            accent-color: var(--pink);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .service-item.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Model selector row */
+        .model-selector-row {
+            margin-top: 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            background: #f0f4f8;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--grey);
+        }
+        .model-selector-row label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--navy);
+        }
+        .model-selector-row select {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--grey);
+            background: white;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            min-width: 200px;
+        }
+        .model-selector-row select:focus {
+            border-color: var(--navy);
+        }
+        /* Removed .model-badge styles to eliminate "FREE" mentions */
+        .model-selector-row .model-note {
+            font-size: 0.7rem;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: var(--navy);
+            color: var(--lime);
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .submit-btn:hover {
+            background: var(--lime);
+            color: var(--navy);
+        }
+        .submit-btn:disabled {
+            background: var(--grey);
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: var(--pink);
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #blueprint-container {
+            display: none;
+        }
+        .blueprint-wrapper {
+            width: 100%;
+            margin-top: 10px;
+            animation: fadeInUp 0.3s ease forwards;
+        }
+        .blueprint-result {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid var(--grey);
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            word-wrap: break-word;
+            overflow-x: auto;
+        }
+        .blueprint-result h2 {
+            color: var(--navy);
+            font-size: 1.4rem;
+            border-bottom: 3px solid var(--lime);
+            padding-bottom: 8px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        .blueprint-result h2:first-child {
+            margin-top: 0;
+        }
+        .blueprint-result h3 {
+            color: var(--pink);
+            font-size: 1.1rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .blueprint-result ul {
+            list-style: none;
+            padding-left: 0;
+            margin-bottom: 20px;
+        }
+        .blueprint-result li {
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #333;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .blueprint-result li:before {
+            content: "▪";
+            color: var(--lime);
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .blueprint-result p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #444;
+            font-size: 0.95rem;
+        }
+        .budget-warning {
+            background: rgba(248, 0, 112, 0.05);
+            border-left: 4px solid var(--pink);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .budget-warning h2,
+        .budget-warning h3 {
+            border-bottom: none;
+            color: var(--pink);
+            margin-top: 0;
+        }
+        .budget-success {
+            background: rgba(192, 200, 0, 0.08);
+            border-left: 4px solid var(--lime);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .budget-success h2,
+        .budget-success h3 {
+            border-bottom: none;
+            color: var(--navy);
+            margin-top: 0;
+        }
+        .budget-success h2 {
+            color: var(--navy);
+        }
+        .budget-neutral {
+            background: rgba(16, 40, 56, 0.04);
+            border-left: 4px solid var(--navy);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .budget-neutral h2,
+        .budget-neutral h3 {
+            border-bottom: none;
+            color: var(--navy);
+            margin-top: 0;
+        }
+
+        .blueprint-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            border-top: 1px solid var(--grey);
+            padding-top: 20px;
+        }
+        .action-btn {
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .btn-download {
+            background: #28a745;
+            color: white;
+        }
+        .btn-regen {
+            background: #f0f4f8;
+            color: var(--navy);
+            border: 1px solid var(--grey);
+        }
+        .btn-regen:hover {
+            background: var(--navy);
+            color: white;
+        }
+
+        .package-banner {
+            background: var(--navy);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .package-banner .pkg-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .package-banner .pkg-name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--lime);
+        }
+        .package-banner .pkg-limit {
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 14px;
+            border-radius: 20px;
+            color: white;
+        }
+        .package-banner .pkg-limit span {
+            color: var(--lime);
+            font-weight: 700;
+        }
+        .package-banner .pkg-action {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+        }
+        .package-banner .pkg-action:hover {
+            background: white;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media(max-width:768px) {
+            body {
+                padding: 0;
+                gap: 0;
+            }
+            .workspace {
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .menu-btn {
+                display: block;
+            }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -320px;
+                height: 100dvh;
+                width: 280px;
+                border-radius: 0 24px 24px 0;
+            }
+            .sidebar.active {
+                transform: translateX(320px);
+            }
+            .sidebar-overlay.active {
+                display: block;
+                opacity: 1;
+            }
+            .workspace-content {
+                padding: 15px 10px;
+            }
+            .form-section {
+                padding: 15px;
+                border-radius: 12px;
+            }
+            .blueprint-result {
+                padding: 15px;
+                border-radius: 12px;
+            }
+            .header-right .user-email {
+                display: none;
+            }
+            .package-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            .model-selector-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .model-selector-row select {
+                min-width: unset;
+                width: 100%;
+            }
+            .model-selector-row .model-note {
+                margin-left: 0;
+                text-align: center;
+            }
+        }
         @media print {
-            @page { size: A4; margin: 20mm; }
-            body * { visibility: hidden; }
-            .blueprint-wrapper, .blueprint-wrapper * { visibility: visible; }
-            .blueprint-wrapper { position: absolute; left: 0; top: 0; width: 100%; margin: 0; }
-            .blueprint-result { border: none; box-shadow: none; padding: 0; max-width: 100%; }
-            .blueprint-controls { display: none !important; }
-            .workspace { box-shadow: none; overflow: visible; }
+            @page {
+                size: A4;
+                margin: 20mm;
+            }
+            body * {
+                visibility: hidden;
+            }
+            .blueprint-wrapper,
+            .blueprint-wrapper * {
+                visibility: visible;
+            }
+            .blueprint-wrapper {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+            }
+            .blueprint-result {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                max-width: 100%;
+            }
+            .blueprint-controls {
+                display: none !important;
+            }
+            .workspace {
+                box-shadow: none;
+                overflow: visible;
+            }
+        }
+
+        /* Toast styles */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            width: 100%;
+        }
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            background: var(--navy);
+            color: white;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease forwards;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: opacity 0.3s ease;
+        }
+        .toast.success {
+            border-left: 4px solid var(--lime);
+        }
+        .toast.error {
+            border-left: 4px solid var(--pink);
+        }
+        .toast.info {
+            border-left: 4px solid #4a9eff;
+        }
+        .toast i {
+            font-size: 1.2rem;
+        }
+        .toast.success i {
+            color: var(--lime);
+        }
+        .toast.error i {
+            color: var(--pink);
+        }
+        .toast.info i {
+            color: #4a9eff;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
     </style>
 </head>
 <body>
 
-<!-- Sidebar Setup -->
-<div class="sidebar-overlay" id="sidebar-overlay"></div>
-<div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <div><h2>Past Events</h2></div>
-    </div>
-    <div style="padding: 0 20px;">
-        <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
-    </div>
-    <div class="history-list" id="history-list"></div>
-</div>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
 
-<!-- Main Workspace -->
-<div class="workspace">
-    <div class="workspace-header">
-        <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
-        <div>
-            <h1>Zone21 System</h1>
-            <p>Event Allocation & Blueprint Generation</p>
-        </div>
-    </div>
-
-    <div class="workspace-content" id="workspace-content">
-        
-        <!-- The Questionnaire -->
-        <div class="form-section" id="form-section">
-            <form id="eventForm">
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>1. Event Name</label>
-                        <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding">
-                    </div>
-                    <div class="input-group">
-                        <label>2. Location (City/Area)</label>
-                        <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe">
-                    </div>
-                    <div class="input-group">
-                        <label>3. Event Type</label>
-                        <select id="eventType" required>
-                            <option value="" disabled selected>Select Event Type...</option>
-                            <option value="Social & Private Events">Social & Private Events</option>
-                            <option value="Weddings & Traditional">Weddings & Traditional</option>
-                            <option value="Entertainment Events">Entertainment (Concerts/Shows)</option>
-                            <option value="Business & Corporate">Business & Corporate</option>
-                            <option value="School & University">School & University</option>
-                            <option value="Religious Events">Religious Events</option>
-                            <option value="Community & Cultural">Community & Cultural</option>
-                            <option value="Sports Events">Sports Events</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>4. Contact Details</label>
-                        <input type="text" id="eventContact" required placeholder="Email or Phone">
-                    </div>
-                    <div class="input-group">
-                        <label>5. Total Budget (USD)</label>
-                        <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50">
-                    </div>
-                    <div class="input-group">
-                        <label>6. Expected Attendees</label>
-                        <input type="number" id="eventAttendees" required placeholder="e.g. 50">
-                    </div>
-                </div>
-
-                <!-- Optional Notes -->
-                <div class="input-group" style="margin-bottom: 15px;">
-                    <label>7. Additional Notes or Requests (Optional)</label>
-                    <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system over decorations..."></textarea>
-                </div>
-
-                <!-- Granular Services -->
-                <div class="services-wrapper">
-                    <label>8. Select Required Service Providers</label>
-                    <div class="services-grid" id="servicesContainer">
-                        <!-- Checkboxes injected via JS -->
-                    </div>
-                </div>
-
-                <button type="submit" class="submit-btn" id="generateBtn">
-                    <i class="fas fa-magic"></i> Generate System Blueprint
-                </button>
-            </form>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loading">
-            <div class="spinner"></div>
-            <h3 style="color: var(--navy);">Zone21 System is processing your allocation...</h3>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Analyzing budget, matching local vendors, and drafting blueprint.</p>
-        </div>
-
-        <!-- Blueprint Result -->
-        <div id="blueprint-container">
-            <div class="blueprint-wrapper">
-                <div class="blueprint-result" id="final-blueprint">
-                    <!-- AI Generated HTML injected here -->
-                </div>
-                
-                <div class="blueprint-controls">
-                    <button class="action-btn btn-download" onclick="window.print()">
-                        <i class="fas fa-file-pdf"></i> Download Blueprint
-                    </button>
-                    <button class="action-btn btn-regen" onclick="generateBlueprint(true)">
-                        <i class="fas fa-rotate"></i> Regenerate Allocations
-                    </button>
-                </div>
+    <!-- Sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <h2>Past Events</h2>
+                <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;" id="sidebar-package-label">Package: —</div>
             </div>
         </div>
-        
+        <div style="padding:0 20px;">
+            <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
+        </div>
+        <div class="history-list" id="history-list"></div>
     </div>
-</div>
 
-<script>
-    // Config
-    const OPENROUTER_API_KEY = "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"; 
-    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <div class="workspace-header">
+            <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
+            <div>
+                <h1>Zone21 System</h1>
+                <p>Event Allocation &amp; Blueprint Generator</p>
+            </div>
+            <div class="header-right">
+                <span class="package-tag" id="header-package-tag">—</span>
+                <span class="user-email" id="header-user-email">user@example.com</span>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
 
-    // Granular, Budget-Friendly Categories
-    const granularServices = [
-        "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs", 
-        "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting", 
-        "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar", 
-        "Cake Designer / Baker", "Photographer", "Videographer", 
-        "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist", 
-        "Zone21 Security - EXCLUSIVE", "Transport / Car Hire", 
-        "Cleaning Services", "Ushers & Hostesses"
-    ];
+        <div class="workspace-content" id="workspace-content">
 
-    let currentSessionId = null;
-    let currentEventData = null; // Stores form data for regeneration
-
-    // Sidebar Mobile Toggle
-    const menuBtn = document.getElementById('menu-btn');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
-    if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
-    if (overlay) overlay.addEventListener('click', closeSidebar);
-
-    // Populate the checkboxes
-    const container = document.getElementById('servicesContainer');
-    granularServices.forEach(service => {
-        container.innerHTML += `
-            <label class="service-item">
-                <input type="checkbox" name="services" value="${service}">
-                ${service}
-            </label>
-        `;
-    });
-
-    // Handle Form Submit
-    document.getElementById('eventForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb.value);
-        if(selectedServices.length === 0) {
-            alert("Please select at least one service provider.");
-            return;
-        }
-
-        currentEventData = {
-            name: document.getElementById('eventName').value,
-            location: document.getElementById('eventLocation').value,
-            type: document.getElementById('eventType').value,
-            contact: document.getElementById('eventContact').value,
-            budget: document.getElementById('eventBudget').value,
-            attendees: document.getElementById('eventAttendees').value,
-            notes: document.getElementById('eventNotes').value,
-            services: selectedServices.join(", ")
-        };
-
-        generateBlueprint(false);
-    });
-
-    // Core Generation Logic
-    async function generateBlueprint(isRegenerating) {
-        document.getElementById('form-section').style.display = 'none';
-        document.getElementById('blueprint-container').style.display = 'none';
-        document.getElementById('loading').style.display = 'block';
-        
-        // Ensure we have a session ID
-        if (!currentSessionId || !isRegenerating) {
-            currentSessionId = 'evt_' + Date.now();
-        }
-
-        const prompt = `
-You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
-
-EVENT DETAILS:
-- Event Name: ${currentEventData.name}
-- Location: ${currentEventData.location}
-- Event Type: ${currentEventData.type} - Total Budget:$${currentEventData.budget}
-- Expected Attendees: ${currentEventData.attendees}
-- Additional Notes: ${currentEventData.notes || 'None'}
-- Specific Services Required: ${currentEventData.services}  CRITICAL INSTRUCTIONS: 1. BUDGET ANALYSIS & WARNING (Crucial): Evaluate if$${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}. 
-   - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section. Clearly explain why it's not enough, suggest what the ideal budget should be, and specifically recommend which minor services to remove to make the current budget work.
-2. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}. 
-3. CONTACT DETAILS: You MUST include realistic or actual contact details (phone, email, or social media handles) for the suggested vendors if available.
-4. ZONE21 SECURITY RULE: If "Zone21 Security - EXCLUSIVE" was selected, allocate the security budget strictly to "Zone21 Security Team".
-5. FORMAT: Output strictly in clean HTML format. Use <h2> for main sections, <h3> for sub-sections, and <ul>/<li> for lists. Do NOT include markdown blocks like \`\`\`html. 
-`;
-
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': 'https://zone21-ai.local',
-                    'X-Title': 'Zone21 System'
-                },
-                body: JSON.stringify({ 
-                    model: "openrouter/auto", 
-                    messages: [{ role: "user", content: prompt }] 
-                })
-            });
-            
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            
-            let htmlOutput = data.choices[0].message.content.trim().replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
-            
-            // Format Warnings
-            htmlOutput = htmlOutput.replace(/(<h[23]>.*?Budget (Analysis|Warning).*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i, '<div class="budget-warning">$1</div>');
-            
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('blueprint-container').style.display = 'block';
-            document.getElementById('final-blueprint').innerHTML = htmlOutput;
-            
-            saveBlueprintState(htmlOutput);
-
-        } catch (error) {
-            console.error("System Error:", error);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('form-section').style.display = 'block';
-            alert("The system encountered an error generating the blueprint. Please try again.");
-        }
-    }
-
-    // ====== STORAGE & HISTORY ======
-    function saveBlueprintState(htmlOutput) {
-        const title = currentEventData.name || `${currentEventData.location} Event`;
-        
-        const chatData = {
-            id: currentSessionId,
-            title: title,
-            formData: currentEventData,
-            blueprintHtml: htmlOutput,
-            updatedAt: new Date().toISOString()
-        };
-
-        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-        localSessions[currentSessionId] = chatData;
-        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
-
-        renderHistorySidebar();
-    }
-
-    function renderHistorySidebar() {
-        const historyList = document.getElementById('history-list');
-        historyList.innerHTML = '';
-
-        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-        
-        Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
-            const item = document.createElement('div');
-            item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `
-                <div class="item-info">
-                    <i class="fas fa-clipboard-list" style="color: var(--lime);"></i>
-                    <span class="item-title">${session.title}</span>
+            <!-- Package Banner -->
+            <div class="package-banner" id="package-banner" style="display:none;">
+                <div>
+                    <div class="pkg-label">Your Active Package</div>
+                    <div class="pkg-name" id="pkg-banner-name">—</div>
                 </div>
-                <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteBlueprintSession('${session.id}', event)"></i>
-            `;
-            item.onclick = () => loadBlueprintSession(session.id);
-            historyList.appendChild(item);
+                <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
+                <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage Subscription</a>
+            </div>
+
+            <!-- Form -->
+            <div class="form-section" id="form-section">
+                <form id="eventForm">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>1. Event Name</label>
+                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" />
+                        </div>
+                        <div class="input-group">
+                            <label>2. Location (City/Area)</label>
+                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
+                        </div>
+                        <div class="input-group">
+                            <label>3. Event Type</label>
+                            <select id="eventType" required>
+                                <option value="" disabled selected>Select Event Type...</option>
+                                <option value="Social & Private Events">Social & Private Events</option>
+                                <option value="Weddings & Traditional">Weddings & Traditional</option>
+                                <option value="Entertainment Events">Entertainment (Concerts/Shows)</option>
+                                <option value="Business & Corporate">Business & Corporate</option>
+                                <option value="School & University">School & University</option>
+                                <option value="Religious Events">Religious Events</option>
+                                <option value="Community & Cultural">Community & Cultural</option>
+                                <option value="Sports Events">Sports Events</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>4. Contact Details</label>
+                            <input type="text" id="eventContact" required placeholder="Email or Phone" />
+                        </div>
+                        <div class="input-group">
+                            <label>5. Total Budget (USD)</label>
+                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" />
+                            <span class="hint" id="budget-hint">Recommended range for your package</span>
+                        </div>
+                        <div class="input-group">
+                            <label>6. Expected Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label>
+                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" />
+                            <span class="hint" id="attendee-hint">Maximum allowed for your package</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom:15px;">
+                        <label>7. Additional Notes or Requests (Optional)</label>
+                        <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system over decorations..."></textarea>
+                    </div>
+
+                    <div class="services-wrapper">
+                        <label>8. Select Required Service Providers</label>
+                        <div class="services-grid" id="servicesContainer">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Model Selector — no "free" mentions -->
+                    <div class="model-selector-row">
+                        <label for="modelSelect"><i class="fas fa-brain"></i> AI Model</label>
+                        <select id="modelSelect">
+                            <option value="openrouter/auto" selected>Auto-Router (Recommended • Zero Maintenance)</option>
+                            <option value="google/gemma-2-9b-it">Gemma 2 (9B Instruct)</option>
+                            <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 (8B Instruct)</option>
+                        </select>
+                        <span class="model-note">Select the preferred AI engine</span>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="generateBtn">
+                        <i class="fas fa-magic"></i> Generate System Blueprint
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading">
+                <div class="spinner"></div>
+                <h3 style="color:var(--navy);">Zone21 System is processing your allocation...</h3>
+                <p style="color:#666;font-size:0.9rem;margin-top:5px;">Analyzing budget, matching local vendors, and drafting blueprint.</p>
+            </div>
+
+            <!-- Blueprint -->
+            <div id="blueprint-container">
+                <div class="blueprint-wrapper">
+                    <div class="blueprint-result" id="final-blueprint"></div>
+                    <div class="blueprint-controls">
+                        <button class="action-btn btn-download" onclick="window.print()">
+                            <i class="fas fa-file-pdf"></i> Download Blueprint
+                        </button>
+                        <button class="action-btn btn-regen" onclick="generateBlueprint(true)">
+                            <i class="fas fa-rotate"></i> Regenerate Allocations
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  FIREBASE CONFIG
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ============================================================
+        //  OPENROUTER API CONFIGURATION — Free models only
+        // ============================================================
+        const OPENROUTER_API_KEY = "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";
+        const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+        // Free models available via OpenRouter (no UI mention of "free")
+        const FREE_MODELS = {
+            auto: "openrouter/auto",
+            gemma: "google/gemma-2-9b-it",
+            llama: "meta-llama/llama-3.1-8b-instruct"
+        };
+
+        const granularServices = [
+            "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
+            "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting",
+            "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar",
+            "Cake Designer / Baker", "Photographer", "Videographer",
+            "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist",
+            "Zone21 Security - EXCLUSIVE", "Transport / Car Hire",
+            "Cleaning Services", "Ushers & Hostesses"
+        ];
+
+        let currentSessionId = null;
+        let currentEventData = null;
+
+        // Package state
+        let userPackage = null;
+        let userPackageName = null;
+        let userPackageLimit = Infinity;
+        let currentUser = null;
+
+        // ============================================================
+        //  PACKAGE DEFINITIONS
+        // ============================================================
+        const PACKAGES = {
+            small: {
+                id: 'small',
+                name: 'Small Event',
+                maxAttendees: 35,
+                label: 'Small',
+                budgetHint: 'Recommended budget: $100 – $1,500',
+                limitDisplay: '≤ 35'
+            },
+            medium: {
+                id: 'medium',
+                name: 'Medium Event',
+                maxAttendees: 355,
+                label: 'Medium',
+                budgetHint: 'Recommended budget: $1,500 – $15,000',
+                limitDisplay: '≤ 355'
+            },
+            large: {
+                id: 'large',
+                name: 'Large / Enterprise',
+                maxAttendees: Infinity,
+                label: 'Enterprise',
+                budgetHint: 'Unlimited budget (enterprise tier)',
+                limitDisplay: '∞'
+            }
+        };
+
+        // ============================================================
+        //  DOM REFS
+        // ============================================================
+        const container = document.getElementById('servicesContainer');
+        const form = document.getElementById('eventForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const formSection = document.getElementById('form-section');
+        const loadingDiv = document.getElementById('loading');
+        const blueprintContainer = document.getElementById('blueprint-container');
+        const finalBlueprint = document.getElementById('final-blueprint');
+        const modelSelect = document.getElementById('modelSelect');
+
+        const eventName = document.getElementById('eventName');
+        const eventLocation = document.getElementById('eventLocation');
+        const eventType = document.getElementById('eventType');
+        const eventContact = document.getElementById('eventContact');
+        const eventBudget = document.getElementById('eventBudget');
+        const eventAttendees = document.getElementById('eventAttendees');
+        const eventNotes = document.getElementById('eventNotes');
+
+        const attendeeLimitBadge = document.getElementById('attendee-limit-badge');
+        const attendeeHint = document.getElementById('attendee-hint');
+        const budgetHint = document.getElementById('budget-hint');
+        const headerPackageTag = document.getElementById('header-package-tag');
+        const headerUserEmail = document.getElementById('header-user-email');
+        const sidebarPackageLabel = document.getElementById('sidebar-package-label');
+        const pkgBanner = document.getElementById('package-banner');
+        const pkgBannerName = document.getElementById('pkg-banner-name');
+        const pkgBannerLimit = document.getElementById('pkg-banner-limit');
+        const pkgBannerAction = document.getElementById('pkg-banner-action');
+
+        // ============================================================
+        //  POPULATE SERVICES CHECKBOXES
+        // ============================================================
+        granularServices.forEach(service => {
+            container.innerHTML += `
+                    <label class="service-item">
+                        <input type="checkbox" name="services" value="${service}">
+                        ${service}
+                    </label>
+                `;
         });
-    }
 
-    function loadBlueprintSession(sessionId) {
-        closeSidebar();
-        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-        const session = localSessions[sessionId];
-        if (!session) return;
+        // ============================================================
+        //  TOAST SYSTEM
+        // ============================================================
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) {
+                alert(msg);
+                return;
+            }
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+            t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
+            container.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0';
+                setTimeout(() => t.remove(), 300); }, 4800);
+        }
 
-        currentSessionId = session.id;
-        currentEventData = session.formData;
-        
-        document.getElementById('form-section').style.display = 'none';
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('blueprint-container').style.display = 'block';
-        document.getElementById('final-blueprint').innerHTML = session.blueprintHtml;
-        
-        renderHistorySidebar();
-    }
+        // ============================================================
+        //  AUTH & SUBSCRIPTION
+        // ============================================================
+        async function loadUserAndPackage() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    showToast('Please log in to access the blueprint generator.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                    return false;
+                }
 
-    function deleteBlueprintSession(sessionId, event) {
-        if (event) event.stopPropagation(); 
-        if (!confirm("Delete this event blueprint?")) return;
+                currentUser = user;
+                headerUserEmail.textContent = user.email || 'user@example.com';
 
-        let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-        delete localSessions[sessionId];
-        localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists) {
+                    showToast('User profile not found. Please complete registration.', 'error');
+                    return false;
+                }
 
-        if (currentSessionId === sessionId) {
-            startNewSession();
-        } else {
+                const subSnapshot = await db.collection('subscriptions')
+                    .where('userId', '==', user.uid)
+                    .where('status', '==', 'active')
+                    .limit(1)
+                    .get();
+
+                let foundPackage = null;
+
+                if (!subSnapshot.empty) {
+                    const subDoc = subSnapshot.docs[0];
+                    const subData = subDoc.data();
+                    const planId = subData.planId || subData.plan;
+                    if (planId && PACKAGES[planId]) {
+                        foundPackage = planId;
+                    }
+                }
+
+                if (!foundPackage) {
+                    const pendingSnap = await db.collection('subscriptions')
+                        .where('userId', '==', user.uid)
+                        .where('status', '==', 'pending_payment')
+                        .limit(1)
+                        .get();
+                    if (!pendingSnap.empty) {
+                        const pDoc = pendingSnap.docs[0];
+                        const pData = pDoc.data();
+                        const planId = pData.planId || pData.plan;
+                        if (planId && PACKAGES[planId]) {
+                            foundPackage = planId;
+                            showToast('Your payment is pending. You can still generate blueprints.', 'info');
+                        }
+                    }
+                }
+
+                if (!foundPackage) {
+                    pkgBanner.style.display = 'flex';
+                    pkgBannerName.textContent = 'No active package';
+                    pkgBannerLimit.textContent = '—';
+                    pkgBannerAction.textContent = 'Subscribe Now';
+                    pkgBannerAction.href = 'subscription.html';
+                    headerPackageTag.textContent = 'No Plan';
+                    headerPackageTag.style.background = '#888';
+                    sidebarPackageLabel.textContent = 'Package: No active plan';
+                    attendeeLimitBadge.textContent = '—';
+                    attendeeHint.textContent = 'Please subscribe to a package to generate blueprints.';
+                    eventAttendees.disabled = true;
+                    generateBtn.disabled = true;
+                    generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe to Generate';
+                    showToast('Please subscribe to a package first.', 'info');
+                    return false;
+                }
+
+                userPackage = foundPackage;
+                const pkg = PACKAGES[foundPackage];
+                userPackageName = pkg.name;
+                userPackageLimit = pkg.maxAttendees;
+
+                headerPackageTag.textContent = pkg.label;
+                headerPackageTag.style.background = 'var(--lime)';
+                headerPackageTag.style.color = 'var(--navy)';
+                sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay})`;
+
+                pkgBanner.style.display = 'flex';
+                pkgBannerName.textContent = pkg.name;
+                pkgBannerLimit.textContent = pkg.limitDisplay;
+                pkgBannerAction.textContent = 'Manage';
+                pkgBannerAction.href = 'subscription.html';
+
+                const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
+                attendeeLimitBadge.textContent = limitDisplay;
+                attendeeLimitBadge.className = 'limit-badge';
+                attendeeHint.textContent =
+                    `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees for your package.`;
+                eventAttendees.disabled = false;
+                eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
+
+                budgetHint.textContent = pkg.budgetHint || 'Set your total budget.';
+
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate System Blueprint';
+
+                eventAttendees.addEventListener('input', function() {
+                    const val = parseInt(this.value);
+                    if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
+                        this.value = pkg.maxAttendees;
+                        showToast(`Attendees limited to ${pkg.maxAttendees} for your ${pkg.name} package.`, 'info');
+                    }
+                });
+
+                showToast(`Welcome! You're on the ${pkg.name} package.`, 'success');
+                return true;
+
+            } catch (err) {
+                console.error('Package load error:', err);
+                showToast('Failed to load subscription data. Please refresh.', 'error');
+                return false;
+            }
+        }
+
+        // ============================================================
+        //  LOGOUT
+        // ============================================================
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (e) {
+                showToast('Logout failed', 'error');
+            }
+        }
+
+        // ============================================================
+        //  SIDEBAR TOGGLE
+        // ============================================================
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        function closeSidebar() { sidebar.classList.remove('active');
+            overlay.classList.remove('active'); }
+        if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active');
+            overlay.classList.add('active'); });
+        if (overlay) overlay.addEventListener('click', closeSidebar);
+
+        // ============================================================
+        //  FORM SUBMIT
+        // ============================================================
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!currentUser) {
+                showToast('Please log in first.', 'error');
+                return;
+            }
+            if (!userPackage) {
+                showToast('Please subscribe to a package first.', 'error');
+                return;
+            }
+
+            const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb
+                .value);
+            if (selectedServices.length === 0) {
+                showToast('Please select at least one service provider.', 'error');
+                return;
+            }
+
+            const attendees = parseInt(eventAttendees.value);
+            if (userPackageLimit !== Infinity && attendees > userPackageLimit) {
+                eventAttendees.value = userPackageLimit;
+                showToast(`Attendees limited to ${userPackageLimit} for your package.`, 'info');
+                return;
+            }
+
+            currentEventData = {
+                name: eventName.value,
+                location: eventLocation.value,
+                type: eventType.value,
+                contact: eventContact.value,
+                budget: eventBudget.value,
+                attendees: eventAttendees.value,
+                notes: eventNotes.value,
+                services: selectedServices.join(", "),
+                package: userPackage,
+                packageName: userPackageName,
+                packageLimit: userPackageLimit
+            };
+
+            generateBlueprint(false);
+        });
+
+        // ============================================================
+        //  GENERATE BLUEPRINT — OpenRouter API (free models only)
+        // ============================================================
+        async function generateBlueprint(isRegenerating) {
+            formSection.style.display = 'none';
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            if (!currentSessionId || !isRegenerating) {
+                currentSessionId = 'evt_' + Date.now();
+            }
+
+            const pkg = PACKAGES[userPackage] || PACKAGES.small;
+            const limitText = pkg.maxAttendees === Infinity ? 'unlimited' : `up to ${pkg.maxAttendees} people`;
+
+            // Get selected model — free only (UI does not show "free")
+            const selectedModel = modelSelect.value || FREE_MODELS.auto;
+
+            // ============================================================
+            //  REVISED PROMPT — balanced budget analysis (no negative bias)
+            // ============================================================
+            const prompt = `
+                    You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
+
+                    USER'S SUBSCRIPTION PACKAGE: ${pkg.name} (${limitText})
+                    This means the event size is capped at ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.
+                    Allocate budget and services appropriately for this package size.
+
+                    EVENT DETAILS:
+                    - Event Name: ${currentEventData.name}
+                    - Location: ${currentEventData.location}
+                    - Event Type: ${currentEventData.type}
+                    - Total Budget: $${currentEventData.budget}
+                    - Expected Attendees: ${currentEventData.attendees}
+                    - Additional Notes: ${currentEventData.notes || 'None'}
+                    - Specific Services Required: ${currentEventData.services}
+
+                    CRITICAL INSTRUCTIONS — BUDGET ASSESSMENT (MUST BE BALANCED AND OBJECTIVE):
+
+                    You MUST evaluate the budget fairly and realistically. DO NOT automatically say the budget is insufficient.
+                    Instead, follow this structured approach:
+
+                    1. FIRST, assess if $${currentEventData.budget} is REASONABLE for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}.
+                       - Calculate a rough per-person cost: $${currentEventData.budget} / ${currentEventData.attendees} = $${(parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees))).toFixed(2)} per attendee.
+                       - For ${pkg.name} package, typical per-person costs range from $15–$80 depending on services.
+
+                    2. CLASSIFY the budget into ONE of these categories:
+                       - "SUFFICIENT" — The budget comfortably covers all requested services with room for quality vendors.
+                       - "TIGHT BUT WORKABLE" — The budget covers essentials but may require trade-offs or careful vendor selection.
+                       - "INSUFFICIENT" — The budget is clearly below the minimum needed for the requested services.
+
+                    3. For EACH category, provide:
+                       - A clear heading showing the classification (e.g., "✅ Budget Assessment: SUFFICIENT" or "⚠️ Budget Assessment: TIGHT BUT WORKABLE" or "❌ Budget Assessment: INSUFFICIENT")
+                       - A balanced explanation of WHY it falls into that category.
+                       - If SUFFICIENT: highlight what makes it work and suggest areas for possible upgrades.
+                       - If TIGHT BUT WORKABLE: suggest specific trade-offs, which services to prioritize, and which to scale back.
+                       - If INSUFFICIENT: explain the gap and recommend a realistic budget range, but also offer a "bare-bones" version that fits the current budget.
+
+                    4. IMPORTANT — Do NOT default to "insufficient". Most budgets between $500–$5,000 for 50–150 people are workable. Be pragmatic.
+
+                    VENDOR ALLOCATION:
+                    - Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
+                    - For ${pkg.name} package, recommend vendors that match the scale.
+                    - Include realistic contact details (phone, email, or social) for suggested vendors.
+
+                    ZONE21 SECURITY RULE:
+                    - If "Zone21 Security - EXCLUSIVE" was selected, allocate security budget strictly to "Zone21 Security Team".
+
+                    FORMAT:
+                    - Output strictly in clean HTML.
+                    - Use <h2> for main sections, <h3> for sub-sections, <ul>/<li> for lists.
+                    - For the budget assessment section, use these CSS classes on the wrapper div:
+                      - If SUFFICIENT: class="budget-success"
+                      - If TIGHT BUT WORKABLE: class="budget-neutral"
+                      - If INSUFFICIENT: class="budget-warning"
+                    - Do NOT include markdown blocks like \`\`\`html.
+                    `;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Zone21 Event Blueprint Generator'
+                    },
+                    body: JSON.stringify({
+                        model: selectedModel,
+                        messages: [{ role: "user", content: prompt }],
+                        max_tokens: 4096,
+                        temperature: 0.7,
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    let errMsg = `API Error ${response.status}`;
+                    try {
+                        const errJson = JSON.parse(errText);
+                        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+                    } catch (_) { /* ignore */ }
+                    throw new Error(`${errMsg} (${response.status})`);
+                }
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message || 'OpenRouter returned an error');
+
+                let htmlOutput = data.choices[0].message.content.trim()
+                    .replace(/^```html/i, '')
+                    .replace(/^```/i, '')
+                    .replace(/```$/i, '');
+
+                // Auto-wrap budget sections with appropriate classes
+                if (!htmlOutput.includes('budget-success') && !htmlOutput.includes('budget-neutral') && !htmlOutput
+                    .includes('budget-warning')) {
+                    if (htmlOutput.includes('SUFFICIENT') || htmlOutput.includes('sufficient')) {
+                        htmlOutput = htmlOutput.replace(
+                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                            '<div class="budget-success">$1</div>'
+                        );
+                    } else if (htmlOutput.includes('TIGHT') || htmlOutput.includes('tight') || htmlOutput.includes(
+                            'WORKABLE')) {
+                        htmlOutput = htmlOutput.replace(
+                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                            '<div class="budget-neutral">$1</div>'
+                        );
+                    } else {
+                        htmlOutput = htmlOutput.replace(
+                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                            '<div class="budget-neutral">$1</div>'
+                        );
+                    }
+                }
+
+                loadingDiv.style.display = 'none';
+                blueprintContainer.style.display = 'block';
+                finalBlueprint.innerHTML = htmlOutput;
+
+                saveBlueprintState(htmlOutput);
+
+            } catch (error) {
+                console.error('Generation Error:', error);
+                loadingDiv.style.display = 'none';
+                formSection.style.display = 'block';
+                let msg = error.message;
+                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('not found')) {
+                    msg = 'The AI service is temporarily unavailable. Please try again later.';
+                }
+                showToast('System error: ' + msg, 'error');
+            }
+        }
+
+        // ============================================================
+        //  HISTORY (localStorage)
+        // ============================================================
+        function saveBlueprintState(htmlOutput) {
+            const title = currentEventData.name || `${currentEventData.location} Event`;
+            const chatData = {
+                id: currentSessionId,
+                title: title,
+                formData: currentEventData,
+                blueprintHtml: htmlOutput,
+                updatedAt: new Date().toISOString()
+            };
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            localSessions[currentSessionId] = chatData;
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
             renderHistorySidebar();
         }
-    }
 
-    function startNewSession() {
-        closeSidebar();
-        currentSessionId = null;
-        currentEventData = null;
-        
-        document.getElementById('eventForm').reset();
-        document.getElementById('blueprint-container').style.display = 'none';
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('form-section').style.display = 'block';
-        
-        renderHistorySidebar();
-    }
+        function renderHistorySidebar() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            Object.values(localSessions)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .forEach(session => {
+                    const item = document.createElement('div');
+                    item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+                    item.innerHTML = `
+                            <div class="item-info">
+                                <i class="fas fa-clipboard-list" style="color:var(--lime);"></i>
+                                <span class="item-title">${session.title}</span>
+                            </div>
+                            <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteBlueprintSession('${session.id}', event)"></i>
+                        `;
+                    item.onclick = () => loadBlueprintSession(session.id);
+                    historyList.appendChild(item);
+                });
+        }
 
-    // Init Sidebar on load
-    document.addEventListener('DOMContentLoaded', renderHistorySidebar);
-</script>
+        function loadBlueprintSession(sessionId) {
+            closeSidebar();
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            const session = localSessions[sessionId];
+            if (!session) return;
+            currentSessionId = session.id;
+            currentEventData = session.formData;
+            formSection.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            blueprintContainer.style.display = 'block';
+            finalBlueprint.innerHTML = session.blueprintHtml;
+            renderHistorySidebar();
+        }
+
+        function deleteBlueprintSession(sessionId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm('Delete this event blueprint?')) return;
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            delete localSessions[sessionId];
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            if (currentSessionId === sessionId) {
+                startNewSession();
+            } else {
+                renderHistorySidebar();
+            }
+        }
+
+        function startNewSession() {
+            closeSidebar();
+            currentSessionId = null;
+            currentEventData = null;
+            form.reset();
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            formSection.style.display = 'block';
+            renderHistorySidebar();
+        }
+
+        // ============================================================
+        //  INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    headerUserEmail.textContent = user.email || 'user@example.com';
+                    await loadUserAndPackage();
+                    renderHistorySidebar();
+                } else {
+                    showToast('Please log in to continue.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                }
+            });
+
+            if (auth.currentUser) {
+                currentUser = auth.currentUser;
+                headerUserEmail.textContent = auth.currentUser.email || 'user@example.com';
+                await loadUserAndPackage();
+                renderHistorySidebar();
+            }
+        });
+    </script>
 
 </body>
 </html>

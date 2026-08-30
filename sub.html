@@ -607,15 +607,38 @@
             };
 
             try {
+                // 1. Fetch active subscriptions to sync backend approvals
+                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
+                const subsSnapshot = await getDocs(subsQ);
+                const activeInvoices = [];
+                subsSnapshot.forEach(docSnap => {
+                    const sub = docSnap.data();
+                    if (sub.status === 'active' || sub.status === 'approved') {
+                        if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
+                    }
+                });
+
+                // 2. Fetch all user events
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const events = [];
                 
-                querySnapshot.forEach(doc => {
-                    events.push({ id: doc.id, ...doc.data() });
+                querySnapshot.forEach(docSnap => {
+                    let eventData = docSnap.data();
+                    let eventId = docSnap.id;
+
+                    // 💥 SELF HEALING MECHANISM:
+                    // If the admin approved the subscription but forgot the event, we detect the mismatch and fix the event automatically.
+                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
+                        eventData.status = 'approved';
+                        // Silently fix it in Firestore so you never have to worry about this mismatch again
+                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal background sync error:', err));
+                    }
+                    
+                    events.push({ id: eventId, ...eventData });
                 });
 
-                // HIDE EVENTS that are still pending payment from the grid
+                // HIDE EVENTS that are still genuinely pending payment from the grid
                 const validEvents = events.filter(e => e.status !== 'pending_payment');
 
                 if (validEvents.length === 0) {
@@ -638,7 +661,7 @@
                 grid.innerHTML = validEvents.map(event => {
                     const packageName = event.package || 'Unknown Package';
                     
-                    // Force old "draft" events visually to "approved" as requested previously
+                    // Force old "draft" events visually to "approved"
                     let status = event.status || 'approved';
                     if (status.toLowerCase() === 'draft') {
                         status = 'approved';
@@ -709,7 +732,6 @@
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
-                            // Exact 3 buttons you requested on the approved state
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
@@ -884,7 +906,7 @@
                     customerInfo: { firstName: fName, lastName: lName, email: email, phone: phone }
                 });
 
-                // CREATE EVENT AS PENDING: It is safely logged in the DB, but won't rush to appear in the UI
+                // CREATE EVENT AS PENDING
                 const eventsRef = collection(db, 'events');
                 const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
@@ -904,7 +926,6 @@
                     invoiceNumber: invNumber
                 });
                 
-                // Save the new event ID temporarily so 'finishProcess' knows where to send you if clicked
                 localStorage.setItem('zone21_latest_event', newEventRef.id);
 
                 document.getElementById('inv-number').innerText = invNumber;
@@ -992,6 +1013,8 @@
                 const eventId = localStorage.getItem('zone21_latest_event');
                 
                 if (eventId) {
+                    // Update event to approved if user clicks this button
+                    await setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true });
                     window.location.href = `manageevent.html?eventId=${eventId}`;
                 } else {
                     const eventsRef = collection(db, 'events');
@@ -1000,7 +1023,7 @@
                         name: `My ${selectedPlan.name}`,
                         package: selectedPlan.name,
                         packageId: selectedPlan.id,
-                        status: 'pending_payment',
+                        status: 'approved',
                         createdAt: serverTimestamp()
                     });
                     window.location.href = `manageevent.html?eventId=${newEventRef.id}`;

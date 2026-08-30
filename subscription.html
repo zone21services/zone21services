@@ -333,20 +333,15 @@
             <p>Select a blueprint package to unlock your event generation.</p>
         </div>
 
-        <!-- VIEW 1: PRICING PLANS -->
         <div class="view active" id="view-pricing">
-            <!-- YOUR EVENTS SECTION -->
             <div id="user-events-section">
                 <div class="section-label"><i class="fas fa-calendar-check"></i> Your Events <small>— Manage your existing events</small></div>
                 <div class="pricing-grid" id="user-events-grid">
-                    <!-- Injected by JS -->
-                </div>
+                    </div>
             </div>
 
-            <!-- PURCHASE NEW PACKAGE -->
             <div class="section-label" style="margin-top: 2.5rem;"><i class="fas fa-shopping-cart"></i> Purchase a New Package</div>
             <div class="pricing-grid" id="plan-grid">
-                <!-- Small Plan -->
                 <div class="plan-card">
                     <div class="plan-title">Small Event</div>
                     <div class="plan-price">$10 <span>/ event</span></div>
@@ -361,7 +356,6 @@
                     </div>
                 </div>
 
-                <!-- Medium Plan -->
                 <div class="plan-card popular">
                     <div class="popular-badge">Most Popular</div>
                     <div class="plan-title">Medium Event</div>
@@ -377,7 +371,6 @@
                     </div>
                 </div>
 
-                <!-- Large Plan -->
                 <div class="plan-card">
                     <div class="plan-title">Large / Enterprise</div>
                     <div class="plan-price">$300 <span>/ event</span></div>
@@ -394,7 +387,6 @@
             </div>
         </div>
 
-        <!-- VIEW 2: CHECKOUT STEPS -->
         <div class="view" id="view-checkout">
             <div class="card">
                 <div class="steps" id="steps-indicator">
@@ -404,7 +396,6 @@
                 </div>
 
                 <form id="checkout-form" onsubmit="return false;">
-                    <!-- STEP 1: DETAILS -->
                     <div class="step-content" id="step-1">
                         <h2>Your Details</h2>
                         <div style="background: rgba(16,40,56,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -423,7 +414,6 @@
                         <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(1, 2)">Continue to Billing <i class="fa-solid fa-arrow-right"></i></button>
                     </div>
 
-                    <!-- STEP 2: BILLING -->
                     <div class="step-content hidden" id="step-2">
                         <h2>Billing Address</h2>
                         <div class="form-group"><label>Street Address *</label><input type="text" id="cust-street" placeholder="e.g. 45 Samora Machel Ave" required></div>
@@ -448,7 +438,6 @@
                         </div>
                     </div>
 
-                    <!-- STEP 3: SUMMARY -->
                     <div class="step-content hidden" id="step-3">
                         <h2>📋 Review & Confirm</h2>
                         <div style="background:#F8FAFC; padding:1.5rem; border-radius:var(--radius-md); border: 1px solid var(--border); margin:1.5rem 0;">
@@ -475,7 +464,6 @@
             </div>
         </div>
 
-        <!-- VIEW 3: INVOICE GENERATED -->
         <div class="view" id="view-invoice">
             <div class="card" style="max-width: 800px;">
                 <div style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 1rem; border-radius: var(--radius-md); text-align: center; font-weight: 700; margin-bottom: 2rem;">
@@ -546,7 +534,6 @@
         </div>
     </div>
 
-    <!-- FIREBASE MODULE SCRIPT -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -611,7 +598,6 @@
                 return;
             }
 
-            // Robust timestamp parser for Firestore dates
             const getSafeDate = (timestamp) => {
                 if (!timestamp) return new Date(0);
                 if (typeof timestamp.toDate === 'function') return timestamp.toDate();
@@ -621,34 +607,65 @@
             };
 
             try {
+                // 1. Fetch active subscriptions to sync backend approvals
+                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
+                const subsSnapshot = await getDocs(subsQ);
+                const activeInvoices = [];
+                subsSnapshot.forEach(docSnap => {
+                    const sub = docSnap.data();
+                    if (sub.status === 'active' || sub.status === 'approved') {
+                        if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
+                    }
+                });
+
+                // 2. Fetch all user events
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const events = [];
-                querySnapshot.forEach(doc => {
-                    events.push({ id: doc.id, ...doc.data() });
+                
+                querySnapshot.forEach(docSnap => {
+                    let eventData = docSnap.data();
+                    let eventId = docSnap.id;
+
+                    // 💥 SELF HEALING MECHANISM:
+                    // If the admin approved the subscription but forgot the event, we detect the mismatch and fix the event automatically.
+                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
+                        eventData.status = 'approved';
+                        // Silently fix it in Firestore so you never have to worry about this mismatch again
+                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal background sync error:', err));
+                    }
+                    
+                    events.push({ id: eventId, ...eventData });
                 });
 
-                if (events.length === 0) {
+                // HIDE EVENTS that are still genuinely pending payment from the grid
+                const validEvents = events.filter(e => e.status !== 'pending_payment');
+
+                if (validEvents.length === 0) {
                     grid.innerHTML = `
                         <div class="empty-state" style="grid-column:1/-1;">
-                            <i class="fas fa-calendar-plus"></i>
-                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No events yet</h4>
-                            <p style="font-size:0.9rem;">Purchase a package below to create your first event.</p>
+                            <i class="fas fa-clock"></i>
+                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
+                            <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
                         </div>
                     `;
                     return;
                 }
 
-                // Sort by createdAt descending using safe parser
-                events.sort((a, b) => {
+                validEvents.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
                     return db2 - da;
                 });
 
-                grid.innerHTML = events.map(event => {
+                grid.innerHTML = validEvents.map(event => {
                     const packageName = event.package || 'Unknown Package';
-                    const status = event.status || 'draft';
+                    
+                    // Force old "draft" events visually to "approved"
+                    let status = event.status || 'approved';
+                    if (status.toLowerCase() === 'draft') {
+                        status = 'approved';
+                    }
                     
                     const dateObj = getSafeDate(event.createdAt);
                     const dateStr = dateObj.getTime() > 0 
@@ -710,20 +727,19 @@
                         if (subData.status === 'pending_payment') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Payment Pending</button>
+                                    <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Pending Payment</button>
                                     <button class="btn btn-outline" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
-                            // Highlights the approved status dynamically
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                    <button class="btn btn-outline" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><i class="fa-solid fa-arrow-up"></i> Go To Your Events</button>
+                                    <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another Event</button>
                                 </div>
                             `;
                         } else if (subData.status === 'rejected') {
-                            // Allows the user to try again if admin rejects it
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);"><i class="fa-solid fa-xmark"></i> Payment Rejected</button>
@@ -832,8 +848,8 @@
                 const subSnap = await getDoc(subRef);
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active') {
-                        showToast(`You already have an active or pending invoice for this plan.`, 'error');
+                    if (status === 'pending_payment') {
+                        showToast(`You already have a pending invoice for this plan.`, 'error');
                         return;
                     }
                 }
@@ -890,6 +906,28 @@
                     customerInfo: { firstName: fName, lastName: lName, email: email, phone: phone }
                 });
 
+                // CREATE EVENT AS PENDING
+                const eventsRef = collection(db, 'events');
+                const newEventRef = await addDoc(eventsRef, {
+                    organizerId: currentUser.uid,
+                    name: `My ${selectedPlan.name}`,
+                    package: selectedPlan.name,
+                    packageId: selectedPlan.id,
+                    status: 'pending_payment', 
+                    createdAt: serverTimestamp(),
+                    location: '',
+                    date: null,
+                    budget: 0,
+                    attendees: 0,
+                    notes: '',
+                    ticketsSold: 0,
+                    grossRevenue: 0,
+                    blueprint: null,
+                    invoiceNumber: invNumber
+                });
+                
+                localStorage.setItem('zone21_latest_event', newEventRef.id);
+
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
                 document.getElementById('inv-email').innerText = email;
@@ -929,7 +967,6 @@
                 }
                 const invData = invSnap.data();
                 
-                // Safe timestamp extraction
                 const getSafeDate = (ts) => {
                     if (!ts) return new Date();
                     if (typeof ts.toDate === 'function') return ts.toDate();
@@ -956,7 +993,7 @@
         };
 
         // ============================================================
-        // finishProcess – creates event and redirects to manageevent.html
+        // finishProcess – Redirects to the event we generated earlier
         // ============================================================
         window.finishProcess = async function() {
             if (!currentUser) {
@@ -966,39 +1003,35 @@
 
             const btn = document.getElementById('btn-finish');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating your event...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
             btn.disabled = true;
 
             try {
-                // 1. Update subscription status to 'active'
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 await setDoc(subRef, { status: 'active' }, { merge: true });
 
-                // 2. Create a new event document
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
-                    organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
-                    package: selectedPlan.name,
-                    packageId: selectedPlan.id,
-                    status: 'draft',
-                    createdAt: serverTimestamp(),
-                    location: '',
-                    date: null,
-                    budget: 0,
-                    attendees: 0,
-                    notes: '',
-                    ticketsSold: 0,
-                    grossRevenue: 0,
-                    blueprint: null
-                });
-
-                // 3. Redirect to manageevent.html with the new event ID
-                window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
+                const eventId = localStorage.getItem('zone21_latest_event');
+                
+                if (eventId) {
+                    // Update event to approved if user clicks this button
+                    await setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true });
+                    window.location.href = `manageevent.html?eventId=${eventId}`;
+                } else {
+                    const eventsRef = collection(db, 'events');
+                    const newEventRef = await addDoc(eventsRef, {
+                        organizerId: currentUser.uid,
+                        name: `My ${selectedPlan.name}`,
+                        package: selectedPlan.name,
+                        packageId: selectedPlan.id,
+                        status: 'approved',
+                        createdAt: serverTimestamp()
+                    });
+                    window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
+                }
 
             } catch (error) {
                 console.error('Error during finish process:', error);
-                showToast('Failed to create event. Please try again.', 'error');
+                showToast('Failed to process. Please try again.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }

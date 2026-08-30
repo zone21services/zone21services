@@ -570,6 +570,20 @@
         let selectedPlan = { id: '', name: '', price: 0 };
 
         // ==========================================
+        // Helper: safe date parser for Firestore timestamps
+        // ==========================================
+        function getSafeDate(timestamp) {
+            if (!timestamp) return new Date(0);
+            if (typeof timestamp.toDate === 'function') return timestamp.toDate(); // Firestore Timestamp
+            if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis()); // Firestore Timestamp alternative
+            if (timestamp.seconds) return new Date(timestamp.seconds * 1000); // Plain object {seconds, nanoseconds}
+            if (timestamp instanceof Date) return timestamp; // Already a Date
+            if (typeof timestamp === 'number') return new Date(timestamp); // Milliseconds
+            if (typeof timestamp === 'string') return new Date(timestamp); // Date string
+            return new Date(0); // Fallback
+        }
+
+        // ==========================================
         // AUTH: SILENT REDIRECT if not logged in
         // ==========================================
         onAuthStateChanged(auth, async (user) => {
@@ -591,7 +605,7 @@
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
             t.className = 'toast';
-            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
+            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' }[type] || '#102838';
             t.textContent = msg;
             c.appendChild(t);
             setTimeout(() => {
@@ -610,15 +624,6 @@
                 grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
                 return;
             }
-
-            // Robust timestamp parser for Firestore dates
-            const getSafeDate = (timestamp) => {
-                if (!timestamp) return new Date(0);
-                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
-                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
-                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
-                return new Date(timestamp);
-            };
 
             try {
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
@@ -640,16 +645,11 @@
                 }
 
                 // Sort by createdAt descending using safe parser
-                events.sort((a, b) => {
-                    const da = getSafeDate(a.createdAt);
-                    const db2 = getSafeDate(b.createdAt);
-                    return db2 - da;
-                });
+                events.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
 
                 grid.innerHTML = events.map(event => {
                     const packageName = event.package || 'Unknown Package';
                     const status = event.status || 'draft';
-                    
                     const dateObj = getSafeDate(event.createdAt);
                     const dateStr = dateObj.getTime() > 0 
                         ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
@@ -669,7 +669,6 @@
             } catch (error) {
                 console.error('Error loading events:', error);
                 let errorMsg = 'Could not load events. Please refresh.';
-                let detail = '';
                 if (error.code === 'permission-denied') {
                     errorMsg = 'Permission denied. Check your Firestore rules.';
                 } else if (error.message) {
@@ -679,7 +678,7 @@
                     <div class="error-state" style="grid-column:1/-1;">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h4>${errorMsg}</h4>
-                        <p>${detail || 'Try refreshing the page.'}</p>
+                        <p>Try refreshing the page.</p>
                         <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
                     </div>
                 `;
@@ -715,7 +714,6 @@
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
-                            // Highlights the approved status dynamically
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
@@ -723,7 +721,6 @@
                                 </div>
                             `;
                         } else if (subData.status === 'rejected') {
-                            // Allows the user to try again if admin rejects it
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);"><i class="fa-solid fa-xmark"></i> Payment Rejected</button>
@@ -758,8 +755,8 @@
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
-                    if (status === 'pending_payment') {
-                        showToast(`You already have a pending invoice for this plan.`, 'error');
+                    if (status === 'pending_payment' || status === 'active' || status === 'approved') {
+                        showToast(`You already have a subscription for this plan.`, 'error');
                         return;
                     }
                 }
@@ -780,6 +777,7 @@
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
             renderUserEvents(); // refresh events
+            updatePlanButtons(); // refresh buttons
         };
 
         window.goToStep = function(stepNum) {
@@ -832,7 +830,7 @@
                 const subSnap = await getDoc(subRef);
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active') {
+                    if (status === 'pending_payment' || status === 'active' || status === 'approved') {
                         showToast(`You already have an active or pending invoice for this plan.`, 'error');
                         return;
                     }
@@ -920,7 +918,10 @@
             }
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                if (!subSnap.exists()) return;
+                if (!subSnap.exists()) {
+                    showToast('No subscription found.', 'error');
+                    return;
+                }
                 const subData = subSnap.data();
                 const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
                 if (!invSnap.exists()) {
@@ -928,14 +929,6 @@
                     return;
                 }
                 const invData = invSnap.data();
-                
-                // Safe timestamp extraction
-                const getSafeDate = (ts) => {
-                    if (!ts) return new Date();
-                    if (typeof ts.toDate === 'function') return ts.toDate();
-                    if (ts.seconds) return new Date(ts.seconds * 1000);
-                    return new Date(ts);
-                };
                 
                 const dateStr = getSafeDate(invData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 

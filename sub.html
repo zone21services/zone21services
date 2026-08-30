@@ -49,12 +49,44 @@
         .view.active { display: block; }
         @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* Pricing Grid – now with active event card */
         .pricing-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 30px;
             width: 100%;
         }
+        /* Active event card special */
+        .active-event-card {
+            background: linear-gradient(135deg, var(--navy) 0%, #1a3f52 100%);
+            border-color: var(--lime);
+            color: white;
+            border: 3px solid var(--lime);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .active-event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        .active-event-card .plan-title { color: var(--lime); }
+        .active-event-card .plan-price { color: white; }
+        .active-event-card .plan-price span { color: rgba(255,255,255,0.6); }
+        .active-event-card .plan-features li { color: rgba(255,255,255,0.85); }
+        .active-event-card .plan-features li i { color: var(--lime); }
+        .active-event-card .active-badge {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
         .plan-card {
             background: var(--surface);
             border-radius: var(--radius-xl);
@@ -252,6 +284,7 @@
             .form-row { flex-direction: column; gap: 0; }
             .card { padding: 1.5rem; }
             .steps::after { display: none; }
+            .pricing-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -266,52 +299,9 @@
 
         <!-- VIEW 1: PRICING PLANS -->
         <div class="view active" id="view-pricing">
-            <div class="pricing-grid">
-                <!-- Small Plan -->
-                <div class="plan-card">
-                    <div class="plan-title">Small Event</div>
-                    <div class="plan-price">$10 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Support for up to 29 attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Strict budget enforcement</li>
-                        <li><i class="fas fa-check-circle"></i> AI Vendor Matching</li>
-                        <li><i class="fas fa-check-circle"></i> Standard Blueprint Export</li>
-                    </ul>
-                    <div id="action-small">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('Small Event Package', 10, 'small')">Select Plan</button>
-                    </div>
-                </div>
-
-                <!-- Medium Plan -->
-                <div class="plan-card popular">
-                    <div class="popular-badge">Most Popular</div>
-                    <div class="plan-title">Medium Event</div>
-                    <div class="plan-price">$125 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Support for up to 349 attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Priority Vendor Allocations</li>
-                        <li><i class="fas fa-check-circle"></i> Advanced Budget Analysis</li>
-                        <li><i class="fas fa-check-circle"></i> Detailed Blueprint Export</li>
-                    </ul>
-                    <div id="action-medium">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('Medium Event Package', 125, 'medium')">Select Plan</button>
-                    </div>
-                </div>
-
-                <!-- Large Plan -->
-                <div class="plan-card">
-                    <div class="plan-title">Large / Enterprise</div>
-                    <div class="plan-price">$300 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Unlimited attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Unlimited Budgeting</li>
-                        <li><i class="fas fa-check-circle"></i> Premium Vendor Sourcing</li>
-                        <li><i class="fas fa-check-circle"></i> Zone21 Exclusive Security Focus</li>
-                    </ul>
-                    <div id="action-large">
-                        <button class="btn btn-primary btn-block" onclick="startCheckout('Large / Enterprise Package', 300, 'large')">Select Plan</button>
-                    </div>
-                </div>
+            <div class="pricing-grid" id="pricing-grid">
+                <!-- Active Event Card will be injected here by JS -->
+                <!-- Plan Cards injected by JS -->
             </div>
         </div>
 
@@ -471,7 +461,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -489,11 +479,12 @@
 
         let currentUser = null;
         let selectedPlan = { id: '', name: '', price: 0 };
+        let activeEvent = null; // store active event data
 
         // ==========================================
         // AUTH: SILENT REDIRECT if not logged in
         // ==========================================
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 const emailInput = document.getElementById('cust-email');
@@ -501,7 +492,8 @@
                     emailInput.value = user.email;
                     emailInput.readOnly = true;
                 }
-                updatePlanButtons();
+                await updatePlanButtons();
+                await renderActiveEventCard();
             } else {
                 window.location.href = "index.html";
             }
@@ -522,6 +514,77 @@
         };
 
         // ==========================================
+        // Fetch active event (most recent)
+        // ==========================================
+        async function fetchActiveEvent() {
+            if (!currentUser) return null;
+            try {
+                const q = query(
+                    collection(db, 'events'),
+                    where('organizerId', '==', currentUser.uid),
+                    where('status', '==', 'draft'), // or 'active'? We'll use 'draft' for newly created
+                    orderBy('createdAt', 'desc'),
+                    limit(1)
+                );
+                const snapshot = await getDocs(q);
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    return { id: doc.id, ...doc.data() };
+                }
+                return null;
+            } catch (error) {
+                console.warn('Could not fetch active event:', error);
+                return null;
+            }
+        }
+
+        // ==========================================
+        // Render Active Event Card
+        // ==========================================
+        async function renderActiveEventCard() {
+            const grid = document.getElementById('pricing-grid');
+            // Remove existing active card if any
+            const existingCard = document.getElementById('active-event-card-container');
+            if (existingCard) existingCard.remove();
+
+            const event = await fetchActiveEvent();
+            if (!event) return;
+
+            activeEvent = event;
+
+            const cardWrapper = document.createElement('div');
+            cardWrapper.id = 'active-event-card-container';
+            cardWrapper.style.gridColumn = '1 / -1'; // span full width
+
+            const packageNames = {
+                small: 'Small Event',
+                medium: 'Medium Event',
+                large: 'Large / Enterprise'
+            };
+            const packageLabel = packageNames[event.packageId] || event.package || 'Event';
+
+            cardWrapper.innerHTML = `
+                <div class="plan-card active-event-card" onclick="window.location.href='manageevent.html?eventId=${event.id}'" style="cursor:pointer;">
+                    <div class="active-badge"><i class="fas fa-check-circle"></i> Active Event</div>
+                    <div class="plan-title">${event.name || 'My Event'}</div>
+                    <div class="plan-price">${packageLabel}</div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-calendar-alt"></i> Status: ${event.status || 'draft'}</li>
+                        <li><i class="fas fa-users"></i> Attendees: ${event.attendees || 0}</li>
+                        <li><i class="fas fa-dollar-sign"></i> Budget: $${event.budget || 0}</li>
+                        <li><i class="fas fa-map-marker-alt"></i> ${event.location || 'No location set'}</li>
+                    </ul>
+                    <div style="margin-top:auto;">
+                        <div class="btn btn-primary btn-block" style="background:var(--lime);color:var(--navy);">
+                            <i class="fas fa-arrow-right"></i> Manage Event
+                        </div>
+                    </div>
+                </div>
+            `;
+            grid.prepend(cardWrapper);
+        }
+
+        // ==========================================
         // Dynamic Plan Buttons
         // ==========================================
         async function updatePlanButtons() {
@@ -532,34 +595,78 @@
                 { id: 'large', name: 'Large / Enterprise Package', price: 300 }
             ];
 
+            // Build plan cards dynamically
+            const grid = document.getElementById('pricing-grid');
+            // Remove existing plan cards (keep active card if any)
+            const existingCards = grid.querySelectorAll('.plan-card:not(.active-event-card)');
+            existingCards.forEach(c => c.remove());
+
+            // Render plan cards
             for (const plan of plans) {
-                const container = document.getElementById(`action-${plan.id}`);
-                if (!container) continue;
+                const card = document.createElement('div');
+                card.className = `plan-card ${plan.id === 'medium' ? 'popular' : ''}`;
+                const isPopular = plan.id === 'medium';
+                let buttonHtml = '';
+
                 try {
                     const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
                     if (subSnap.exists()) {
                         const subData = subSnap.data();
                         if (subData.status === 'pending_payment') {
-                            container.innerHTML = `
+                            buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-outline btn-block" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Payment Pending</button>
                                     <button class="btn btn-outline btn-block" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                                 </div>
                             `;
                         } else if (subData.status === 'active') {
-                            container.innerHTML = `
+                            buttonHtml = `
                                 <button class="btn btn-primary btn-block" onclick="window.location.href='manageevent.html'"><i class="fa-solid fa-gear"></i> Manage Event</button>
                             `;
                         } else {
-                            container.innerHTML =
-                                `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
+                            buttonHtml = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                         }
+                    } else {
+                        buttonHtml = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     }
                 } catch (error) {
                     console.error("Read skipped (Rules/Network):", error);
-                    container.innerHTML =
-                        `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
+                    buttonHtml = `<button class="btn btn-primary btn-block" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                 }
+
+                const features = {
+                    small: [
+                        '<i class="fas fa-check-circle"></i> Support for up to 29 attendees',
+                        '<i class="fas fa-check-circle"></i> Strict budget enforcement',
+                        '<i class="fas fa-check-circle"></i> AI Vendor Matching',
+                        '<i class="fas fa-check-circle"></i> Standard Blueprint Export'
+                    ],
+                    medium: [
+                        '<i class="fas fa-check-circle"></i> Support for up to 349 attendees',
+                        '<i class="fas fa-check-circle"></i> Priority Vendor Allocations',
+                        '<i class="fas fa-check-circle"></i> Advanced Budget Analysis',
+                        '<i class="fas fa-check-circle"></i> Detailed Blueprint Export'
+                    ],
+                    large: [
+                        '<i class="fas fa-check-circle"></i> Unlimited attendees',
+                        '<i class="fas fa-check-circle"></i> Unlimited Budgeting',
+                        '<i class="fas fa-check-circle"></i> Premium Vendor Sourcing',
+                        '<i class="fas fa-check-circle"></i> Zone21 Exclusive Security Focus'
+                    ]
+                };
+
+                card.innerHTML = `
+                    ${isPopular ? '<div class="popular-badge">Most Popular</div>' : ''}
+                    <div class="plan-title">${plan.id === 'small' ? 'Small Event' : plan.id === 'medium' ? 'Medium Event' : 'Large / Enterprise'}</div>
+                    <div class="plan-price">$${plan.price} <span>/ event</span></div>
+                    <ul class="plan-features">
+                        ${features[plan.id].map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                    <div id="action-${plan.id}">
+                        ${buttonHtml}
+                    </div>
+                `;
+                grid.appendChild(card);
             }
         }
 
@@ -602,6 +709,9 @@
         window.goBackToPricing = function() {
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
+            // Refresh active card and buttons
+            renderActiveEventCard();
+            updatePlanButtons();
         };
 
         window.goToStep = function(stepNum) {
@@ -770,7 +880,7 @@
         };
 
         // ============================================================
-        // UPDATED finishProcess – creates event and redirects
+        // FINISH PROCESS – creates event, updates subscription, redirects
         // ============================================================
         window.finishProcess = async function() {
             if (!currentUser) {
@@ -797,7 +907,6 @@
                     packageId: selectedPlan.id,
                     status: 'draft',
                     createdAt: serverTimestamp(),
-                    // default values
                     location: '',
                     date: null,
                     budget: 0,

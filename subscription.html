@@ -570,20 +570,6 @@
         let selectedPlan = { id: '', name: '', price: 0 };
 
         // ==========================================
-        // Helper: safe date parser for Firestore timestamps
-        // ==========================================
-        function getSafeDate(timestamp) {
-            if (!timestamp) return new Date(0);
-            if (typeof timestamp.toDate === 'function') return timestamp.toDate(); // Firestore Timestamp
-            if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis()); // Firestore Timestamp alternative
-            if (timestamp.seconds) return new Date(timestamp.seconds * 1000); // Plain object {seconds, nanoseconds}
-            if (timestamp instanceof Date) return timestamp; // Already a Date
-            if (typeof timestamp === 'number') return new Date(timestamp); // Milliseconds
-            if (typeof timestamp === 'string') return new Date(timestamp); // Date string
-            return new Date(0); // Fallback
-        }
-
-        // ==========================================
         // AUTH: SILENT REDIRECT if not logged in
         // ==========================================
         onAuthStateChanged(auth, async (user) => {
@@ -605,7 +591,7 @@
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
             t.className = 'toast';
-            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' }[type] || '#102838';
+            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
             t.textContent = msg;
             c.appendChild(t);
             setTimeout(() => {
@@ -624,6 +610,15 @@
                 grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
                 return;
             }
+
+            // Robust timestamp parser for Firestore dates
+            const getSafeDate = (timestamp) => {
+                if (!timestamp) return new Date(0);
+                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
+                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+                return new Date(timestamp);
+            };
 
             try {
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
@@ -644,8 +639,12 @@
                     return;
                 }
 
-                // Sort by createdAt descending using safe parser
-                events.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
+                // Sort by createdAt descending
+                events.sort((a, b) => {
+                    const da = getSafeDate(a.createdAt);
+                    const db2 = getSafeDate(b.createdAt);
+                    return db2 - da;
+                });
 
                 grid.innerHTML = events.map(event => {
                     const packageName = event.package || 'Unknown Package';
@@ -669,6 +668,7 @@
             } catch (error) {
                 console.error('Error loading events:', error);
                 let errorMsg = 'Could not load events. Please refresh.';
+                let detail = '';
                 if (error.code === 'permission-denied') {
                     errorMsg = 'Permission denied. Check your Firestore rules.';
                 } else if (error.message) {
@@ -678,7 +678,7 @@
                     <div class="error-state" style="grid-column:1/-1;">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h4>${errorMsg}</h4>
-                        <p>Try refreshing the page.</p>
+                        <p>${detail || 'Try refreshing the page.'}</p>
                         <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
                     </div>
                 `;
@@ -686,7 +686,7 @@
         }
 
         // ==========================================
-        // Plan Buttons – status-aware check
+        // Plan Buttons – always show "Select Plan" unless pending
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -713,13 +713,6 @@
                                     <button class="btn btn-outline" onclick="viewExistingInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                                 </div>
                             `;
-                        } else if (subData.status === 'active' || subData.status === 'approved') {
-                            buttonHtml = `
-                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                    <button class="btn btn-outline" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"><i class="fa-solid fa-arrow-up"></i> Go To Your Events</button>
-                                </div>
-                            `;
                         } else if (subData.status === 'rejected') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
@@ -728,6 +721,7 @@
                                 </div>
                             `;
                         }
+                        // For 'active' or 'approved' we simply keep the "Select Plan" button (no change)
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
@@ -755,8 +749,8 @@
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active' || status === 'approved') {
-                        showToast(`You already have a subscription for this plan.`, 'error');
+                    if (status === 'pending_payment') {
+                        showToast(`You already have a pending invoice for this plan.`, 'error');
                         return;
                     }
                 }
@@ -777,7 +771,6 @@
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
             renderUserEvents(); // refresh events
-            updatePlanButtons(); // refresh buttons
         };
 
         window.goToStep = function(stepNum) {
@@ -830,7 +823,7 @@
                 const subSnap = await getDoc(subRef);
                 if (subSnap.exists()) {
                     const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active' || status === 'approved') {
+                    if (status === 'pending_payment' || status === 'active') {
                         showToast(`You already have an active or pending invoice for this plan.`, 'error');
                         return;
                     }
@@ -918,10 +911,7 @@
             }
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                if (!subSnap.exists()) {
-                    showToast('No subscription found.', 'error');
-                    return;
-                }
+                if (!subSnap.exists()) return;
                 const subData = subSnap.data();
                 const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
                 if (!invSnap.exists()) {
@@ -929,6 +919,14 @@
                     return;
                 }
                 const invData = invSnap.data();
+                
+                // Safe timestamp extraction
+                const getSafeDate = (ts) => {
+                    if (!ts) return new Date();
+                    if (typeof ts.toDate === 'function') return ts.toDate();
+                    if (ts.seconds) return new Date(ts.seconds * 1000);
+                    return new Date(ts);
+                };
                 
                 const dateStr = getSafeDate(invData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 

@@ -7,12 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Firebase SDK (Compat) v10.8.0 -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
@@ -813,12 +810,10 @@
         const db = firebase.firestore();
 
         // ============================================================
-        //  DEEPSEEK API CONFIGURATION
-        //  Replace the key below with your actual DeepSeek API key.
+        //  SECURE API PROXY CONFIGURATION
         // ============================================================
-        const DEEPSEEK_API_KEY = "sk-34977ed08e744e0a84c75c999bd03576"; // 👈 replace with your key
-        const API_URL = "https://api.deepseek.com/v1/chat/completions";
-        const MODEL = "deepseek-chat"; // or "deepseek-reasoner" if you prefer
+        // Replace this URL with the Cloudflare Worker URL you deploy in the next step
+        const PROXY_URL = "https://your-worker-name.your-username.workers.dev"; 
 
         const granularServices = [
             "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
@@ -834,7 +829,7 @@
         let currentEventData = null;
 
         // Package state
-        let userPackage = null; // 'small' | 'medium' | 'large' | null
+        let userPackage = null; 
         let userPackageName = null;
         let userPackageLimit = Infinity;
         let currentUser = null;
@@ -1020,7 +1015,7 @@
                     const val = parseInt(this.value);
                     if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
                         this.value = pkg.maxAttendees;
-                        showToast(`Attendees limited to ${pkg.maxAttendees} for your ${pkg.name} package.`, 'info');
+                        showToast(`Attendees limited to ${pkg.maxAttendees} for your${pkg.name} package.`, 'info');
                     }
                 });
 
@@ -1043,7 +1038,7 @@
                 const t = document.createElement('div');
                 t.className = `toast ${type}`;
                 const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-                t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
+                t.innerHTML = `<i class="fa-solid ${iconMap[type] \vert{}\vert{} 'fa-circle-info'}"></i> ${msg}`;
                 container.appendChild(t);
                 setTimeout(() => { t.style.opacity = '0';
                     setTimeout(() => t.remove(), 300); }, 4800);
@@ -1124,7 +1119,7 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — DeepSeek API
+        //  GENERATE BLUEPRINT — Routing through Backend Proxy
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
@@ -1148,17 +1143,13 @@
                     EVENT DETAILS:
                     - Event Name: ${currentEventData.name}
                     - Location: ${currentEventData.location}
-                    - Event Type: ${currentEventData.type}
-                    - Total Budget: $${currentEventData.budget}
+                    - Event Type: ${currentEventData.type}                     - Total Budget: $${currentEventData.budget}
                     - Expected Attendees: ${currentEventData.attendees}
                     - Additional Notes: ${currentEventData.notes || 'None'}
-                    - Specific Services Required: ${currentEventData.services}
-
-                    CRITICAL INSTRUCTIONS:
-                    1. BUDGET ANALYSIS & WARNING: Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}.
+                    - Specific Services Required: ${currentEventData.services}                      CRITICAL INSTRUCTIONS:                     1. BUDGET ANALYSIS & WARNING: Evaluate if $${currentEventData.budget} is realistic for ${currentEventData.attendees} people with the requested services in${currentEventData.location}.
                        - If the budget is insufficient, start the blueprint with a highly visible "Budget Analysis" section.
                        - Explain why it's not enough, suggest what the ideal budget should be, and recommend which services to adjust.
-                       - For ${pkg.name} package, the budget should be appropriate for ${limitText}.
+                       - For ${pkg.name} package, the budget should be appropriate for${limitText}.
 
                     2. VENDOR ALLOCATION: Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
                        - For ${pkg.name} package, recommend vendors that match the scale.
@@ -1172,25 +1163,18 @@
                     `;
 
             try {
-                const response = await fetch(API_URL, {
+                // Request is now sent to your proxy instead of DeepSeek directly
+                const response = await fetch(PROXY_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-                        // No HTTP-Referer needed for DeepSeek
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        model: MODEL,
-                        messages: [{ role: "user", content: prompt }],
-                        max_tokens: 4096,
-                        temperature: 0.7,
-                        // DeepSeek supports the same OpenAI-compatible format
-                    })
+                    body: JSON.stringify({ prompt: prompt })
                 });
 
                 if (!response.ok) {
                     const errText = await response.text();
-                    throw new Error(`API Error ${response.status}: ${errText}`);
+                    throw new Error(`Proxy Error ${response.status}: ${errText}`);
                 }
 
                 const data = await response.json();
@@ -1218,8 +1202,8 @@
                 loadingDiv.style.display = 'none';
                 formSection.style.display = 'block';
                 let msg = error.message;
-                if (msg.includes('404') || msg.includes('unavailable')) {
-                    msg = 'The AI service is temporarily unavailable. Please try again later.';
+                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('Failed to fetch')) {
+                    msg = 'Failed to connect to the API Proxy. Please ensure your backend is deployed correctly.';
                 }
                 showToast('System error: ' + msg, 'error');
             }
@@ -1328,4 +1312,4 @@
     </script>
 
 </body>
-    </html>
+</html>

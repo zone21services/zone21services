@@ -6,13 +6,6 @@
     <title>Zone21 · Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <!-- Firebase Compat -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
-    </script>
     <style>
         /* ============================================================
                ROOT & RESET – LIGHT MODE
@@ -175,15 +168,6 @@
             text-align: center;
             font-size: 1rem;
         }
-        .sidebar .nav-item .badge {
-            margin-left: auto;
-            background: var(--pink);
-            color: #fff;
-            font-size: 0.6rem;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 20px;
-        }
 
         .sidebar .sidebar-footer {
             padding-top: 16px;
@@ -300,25 +284,6 @@
             font-size: 0.6rem;
             color: var(--text-muted);
             font-weight: 500;
-        }
-        .top-bar .right .btn-signout {
-            background: transparent;
-            border: 1px solid var(--border-subtle);
-            border-radius: 30px;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .top-bar .right .btn-signout:hover {
-            border-color: var(--pink);
-            color: var(--pink);
-            background: rgba(224, 0, 106, 0.04);
         }
 
         /* ============================================================
@@ -785,12 +750,6 @@
             .top-bar .right .admin-profile .role {
                 display: none;
             }
-            .top-bar .right .btn-signout span {
-                display: none;
-            }
-            .top-bar .right .btn-signout {
-                padding: 8px 12px;
-            }
 
             .content-wrapper {
                 padding: 16px 16px 40px;
@@ -879,20 +838,19 @@
         </div>
 
         <nav class="nav-list">
-            <a class="nav-item active" href="admin-dashboard.html">
+            <a class="nav-item active" href="#">
                 <i class="fas fa-home"></i> Home
             </a>
-            <a class="nav-item" href="manageevents.html">
+            <a class="nav-item" href="#">
                 <i class="fas fa-calendar-alt"></i> My Events
-                <span class="badge" id="pending-badge-sidebar">0</span>
             </a>
-            <a class="nav-item" href="subscription.html">
+            <a class="nav-item" href="#">
                 <i class="fas fa-plus-circle"></i> Create New Event
             </a>
-            <a class="nav-item" href="support.html">
+            <a class="nav-item" href="#">
                 <i class="fas fa-headset"></i> Contact Admin
             </a>
-            <a class="nav-item" href="index.html" onclick="signOut()">
+            <a class="nav-item" href="#">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </a>
         </nav>
@@ -911,21 +869,17 @@
                 </button>
                 <div class="page-title">
                     <h2>Dashboard</h2>
-                    <span class="sub">Welcome back, <span id="greeting-name">Admin</span></span>
+                    <span class="sub">Welcome back, Admin</span>
                 </div>
             </div>
             <div class="right">
                 <div class="admin-profile">
-                    <div class="avatar" id="admin-avatar">AD</div>
+                    <div class="avatar">AD</div>
                     <div>
-                        <div class="name" id="admin-name">Admin</div>
+                        <div class="name">Admin</div>
                         <div class="role">Administrator</div>
                     </div>
                 </div>
-                <button class="btn-signout" onclick="signOut()">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sign Out</span>
-                </button>
             </div>
         </header>
 
@@ -990,7 +944,7 @@
 
             <!-- ===== BIG "CREATE EVENT" BUTTON ===== -->
             <div class="create-event-wrap">
-                <a href="subscription.html" class="btn-create-event">
+                <a href="#" class="btn-create-event">
                     <i class="fas fa-plus-circle"></i> Create Event
                 </a>
             </div>
@@ -1071,72 +1025,6 @@
     </div>
 
     <script>
-        // ================================================================
-        //  FIREBASE
-        // ================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-            authDomain: "zone21.firebaseapp.com",
-            projectId: "zone21",
-            storageBucket: "zone21.firebasestorage.app",
-            messagingSenderId: "405963057292",
-            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-            measurementId: "G-KE007Y89F1"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // ================================================================
-        //  AUTH CHECK
-        // ================================================================
-        auth.onAuthStateChanged(async (user) => {
-            if (!user) {
-                window.location.href = 'admin.html';
-                return;
-            }
-            try {
-                const adminDoc = await db.collection('admins').doc(user.uid).get();
-                if (!adminDoc.exists) {
-                    await auth.signOut();
-                    window.location.href = 'admin.html';
-                    return;
-                }
-                const data = adminDoc.data();
-                const name = data.name || user.email?.split('@')[0] || 'Admin';
-                document.getElementById('admin-name').textContent = name;
-                document.getElementById('greeting-name').textContent = name;
-                document.getElementById('admin-avatar').textContent = name.charAt(0).toUpperCase();
-                loadPendingCount();
-            } catch (err) {
-                console.error('Admin check error:', err);
-                await auth.signOut();
-                window.location.href = 'admin.html';
-            }
-        });
-
-        // ================================================================
-        //  SIGN OUT
-        // ================================================================
-        function signOut() {
-            auth.signOut().then(() => {
-                window.location.href = 'index.html';
-            }).catch(() => {
-                window.location.href = 'index.html';
-            });
-        }
-
-        // ================================================================
-        //  PENDING COUNT
-        // ================================================================
-        function loadPendingCount() {
-            db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
-                const count = snap.size;
-                const badge = document.getElementById('pending-badge-sidebar');
-                if (badge) badge.textContent = count;
-            }, err => console.error('Pending count error:', err));
-        }
-
         // ================================================================
         //  SLIDER – with images, motivational overlay, auto-slide
         // ================================================================
@@ -1258,8 +1146,6 @@
             startAutoSlide();
         });
 
-        // Also stop on hover? not needed.
-
         window.addEventListener('resize', () => {
             const newCards = getCardsPerView();
             if (newCards !== cardsPerView) {
@@ -1330,6 +1216,5 @@
             sidebar.classList.remove('open');
         }
     </script>
-
 </body>
 </html>

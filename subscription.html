@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* ====== SAME STYLES AS BEFORE – condensed for brevity ====== */
+        /* ====== STYLES (unchanged – same as before) ====== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -103,7 +103,6 @@
         .plan-features li { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #444; font-weight: 500; }
         .plan-features li i { color: var(--lime); font-size: 1rem; }
 
-        /* ====== ENHANCED EVENT CARD ====== */
         .event-card {
             border-color: var(--lime);
             background: linear-gradient(135deg, #fafff0 0%, #ffffff 100%);
@@ -166,9 +165,7 @@
             color: var(--text-muted);
             margin-bottom: 16px;
         }
-        .event-card .btn {
-            margin-top: auto;
-        }
+        .event-card .btn { margin-top: auto; }
         .btn-build {
             background: var(--navy);
             color: white;
@@ -181,7 +178,6 @@
         }
         .btn-build i { margin-right: 4px; }
 
-        /* ====== REST OF THE STYLES (unchanged) ====== */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -647,7 +643,7 @@
         };
 
         // ==========================================
-        // Render User's Events with enhanced card
+        // Render User's Events – ONLY approved/paid events
         // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
@@ -667,38 +663,43 @@
             try {
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
-                const events = [];
+                const allEvents = [];
                 querySnapshot.forEach(doc => {
-                    events.push({ id: doc.id, ...doc.data() });
+                    allEvents.push({ id: doc.id, ...doc.data() });
                 });
 
-                if (events.length === 0) {
+                // 🔥 FILTER: only events that are approved AND paid (or just approved)
+                const approvedEvents = allEvents.filter(event => 
+                    event.status === 'approved' || event.isPaid === true
+                );
+
+                if (approvedEvents.length === 0) {
                     grid.innerHTML = `
                         <div class="empty-state" style="grid-column:1/-1;">
                             <i class="fas fa-calendar-plus"></i>
-                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No events yet</h4>
-                            <p style="font-size:0.9rem;">Purchase a package below to create your first event.</p>
+                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No approved events yet</h4>
+                            <p style="font-size:0.9rem;">Purchase a package and complete payment to create your event.</p>
                         </div>
                     `;
                     return;
                 }
 
-                events.sort((a, b) => {
+                // Sort by createdAt descending
+                approvedEvents.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
                     return db2 - da;
                 });
 
-                grid.innerHTML = events.map(event => {
+                grid.innerHTML = approvedEvents.map(event => {
                     const packageName = event.package || 'Unknown Package';
-                    const status = event.status || 'draft';
-                    const isPaid = event.isPaid === true; // we set this in finishProcess
+                    const status = event.status || 'approved';
+                    const isPaid = event.isPaid === true;
                     const dateObj = getSafeDate(event.createdAt);
                     const dateStr = dateObj.getTime() > 0 
                         ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : '—';
 
-                    // Default event name if not set
                     const eventTitle = event.name || `My ${packageName}`;
 
                     return `
@@ -706,7 +707,7 @@
                             <div class="event-name">${eventTitle}</div>
                             <div class="event-package"><i class="fas fa-tag"></i> ${packageName}</div>
                             <div class="event-status-row">
-                                <span class="event-status ${status === 'approved' ? 'approved' : ''}"><i class="fas fa-circle" style="font-size:0.4rem;vertical-align:middle;margin-right:4px;"></i> ${status.toUpperCase()}</span>
+                                <span class="event-status approved"><i class="fas fa-circle" style="font-size:0.4rem;vertical-align:middle;margin-right:4px;"></i> ${status.toUpperCase()}</span>
                                 ${isPaid ? `<span class="paid-badge"><i class="fas fa-check-circle"></i> PAID</span>` : ''}
                             </div>
                             <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
@@ -996,7 +997,7 @@
         };
 
         // ============================================================
-        // finishProcess – creates event and redirects to manageevent.html
+        // finishProcess – creates event with 'approved' status and isPaid: true
         // ============================================================
         window.finishProcess = async function() {
             if (!currentUser) {
@@ -1014,15 +1015,15 @@
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 await setDoc(subRef, { status: 'active' }, { merge: true });
 
-                // 2. Create a new event document with isPaid: true
+                // 2. Create a new event document with 'approved' status and isPaid: true
                 const eventsRef = collection(db, 'events');
                 const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
                     name: `My ${selectedPlan.name}`,
                     package: selectedPlan.name,
                     packageId: selectedPlan.id,
-                    status: 'approved', // set to approved directly
-                    isPaid: true,       // mark as paid
+                    status: 'approved',        // Mark as approved so it appears in "Your Events"
+                    isPaid: true,              // Paid badge will show
                     createdAt: serverTimestamp(),
                     location: '',
                     date: null,

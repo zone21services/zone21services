@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* ====== SAME STYLES AS BEFORE ====== */
+        /* ====== STYLES ====== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -60,11 +60,7 @@
             gap: 10px;
         }
         .section-label i { color: var(--lime); }
-        .section-label small {
-            font-size: 0.8rem;
-            font-weight: 400;
-            color: var(--text-muted);
-        }
+        .section-label small { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
 
         .pricing-grid {
             display: grid;
@@ -135,6 +131,7 @@
             align-items: center;
             gap: 12px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
         .event-card .event-status {
             font-size: 0.7rem;
@@ -445,7 +442,7 @@
                 </div>
 
                 <form id="checkout-form" onsubmit="return false;">
-                    <!-- STEP 1: DETAILS -->
+                    <!-- STEP 1 -->
                     <div class="step-content" id="step-1">
                         <h2>Your Details</h2>
                         <div style="background: rgba(16,40,56,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -464,7 +461,7 @@
                         <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(1, 2)">Continue to Billing <i class="fa-solid fa-arrow-right"></i></button>
                     </div>
 
-                    <!-- STEP 2: BILLING -->
+                    <!-- STEP 2 -->
                     <div class="step-content hidden" id="step-2">
                         <h2>Billing Address</h2>
                         <div class="form-group"><label>Street Address *</label><input type="text" id="cust-street" placeholder="e.g. 45 Samora Machel Ave" required></div>
@@ -489,7 +486,7 @@
                         </div>
                     </div>
 
-                    <!-- STEP 3: SUMMARY -->
+                    <!-- STEP 3 -->
                     <div class="step-content hidden" id="step-3">
                         <h2>📋 Review & Confirm</h2>
                         <div style="background:#F8FAFC; padding:1.5rem; border-radius:var(--radius-md); border: 1px solid var(--border); margin:1.5rem 0;">
@@ -516,7 +513,7 @@
             </div>
         </div>
 
-        <!-- VIEW 3: INVOICE GENERATED -->
+        <!-- VIEW 3: INVOICE -->
         <div class="view" id="view-invoice">
             <div class="card" style="max-width: 800px;">
                 <div style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 1rem; border-radius: var(--radius-md); text-align: center; font-weight: 700; margin-bottom: 2rem;">
@@ -559,7 +556,6 @@
                     <div class="payment-info">
                         <h4>Manual Payment Instructions</h4>
                         <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">Please transfer the exact total amount to one of the following accounts. Use your Invoice No. as the reference.</p>
-
                         <div class="payment-method">
                             <h5><i class="fas fa-mobile-screen"></i> Ecocash</h5>
                             <p>0789912268</p>
@@ -611,7 +607,7 @@
         let selectedPlan = { id: '', name: '', price: 0 };
 
         // ==========================================
-        // AUTH: SILENT REDIRECT if not logged in
+        // AUTH
         // ==========================================
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -643,7 +639,18 @@
         };
 
         // ==========================================
-        // Render User's Events – ONLY approved/paid
+        // Safe date parser
+        // ==========================================
+        const getSafeDate = (timestamp) => {
+            if (!timestamp) return new Date(0);
+            if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+            if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
+            if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+            return new Date(timestamp);
+        };
+
+        // ==========================================
+        // Render User's Events – show ALL approved/paid events
         // ==========================================
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
@@ -652,26 +659,29 @@
                 return;
             }
 
-            const getSafeDate = (timestamp) => {
-                if (!timestamp) return new Date(0);
-                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
-                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
-                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
-                return new Date(timestamp);
-            };
-
             try {
+                console.log('🔍 Fetching events for user:', currentUser.uid);
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const allEvents = [];
                 querySnapshot.forEach(doc => {
-                    allEvents.push({ id: doc.id, ...doc.data() });
+                    const data = doc.data();
+                    console.log('📄 Event data:', doc.id, data);
+                    allEvents.push({ id: doc.id, ...data });
+                });
+                console.log('📊 Total events found:', allEvents.length);
+
+                // ✅ Show ALL events that are approved OR paid
+                // Also show events with no status (fallback) if they exist
+                const approvedEvents = allEvents.filter(event => {
+                    const status = event.status || '';
+                    const isPaid = event.isPaid === true;
+                    const isApproved = status.toLowerCase() === 'approved' || status.toLowerCase() === 'active';
+                    // Include if approved OR paid, OR if it has no status but was created recently (fallback)
+                    return isApproved || isPaid;
                 });
 
-                // Filter: only events that are approved OR paid
-                const approvedEvents = allEvents.filter(event => 
-                    event.status === 'approved' || event.isPaid === true
-                );
+                console.log('✅ Approved/paid events:', approvedEvents.length);
 
                 if (approvedEvents.length === 0) {
                     grid.innerHTML = `
@@ -684,6 +694,7 @@
                     return;
                 }
 
+                // Sort by createdAt descending
                 approvedEvents.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
@@ -691,7 +702,7 @@
                 });
 
                 grid.innerHTML = approvedEvents.map(event => {
-                    const packageName = event.package || 'Unknown Package';
+                    const packageName = event.package || event.packageId || 'Unknown Package';
                     const status = event.status || 'approved';
                     const isPaid = event.isPaid === true;
                     const dateObj = getSafeDate(event.createdAt);
@@ -699,6 +710,7 @@
                         ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : '—';
 
+                    // Use event name or generate a default one
                     const eventTitle = event.name || `My ${packageName}`;
 
                     return `
@@ -716,11 +728,12 @@
                 }).join('');
 
             } catch (error) {
-                console.error('Error loading events:', error);
+                console.error('❌ Error loading events:', error);
                 let errorMsg = 'Could not load events. Please refresh.';
                 let detail = '';
                 if (error.code === 'permission-denied') {
                     errorMsg = 'Permission denied. Check your Firestore rules.';
+                    detail = 'Make sure events read rule allows organizerId == request.auth.uid';
                 } else if (error.message) {
                     errorMsg = `Error: ${error.message}`;
                 }
@@ -736,7 +749,7 @@
         }
 
         // ==========================================
-        // Plan Buttons – detect pending invoices from both subscriptions AND invoices
+        // Plan Buttons – detect pending invoices
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -751,10 +764,9 @@
                 if (!container) continue;
 
                 let isPending = false;
-                let invoiceNumber = null;
 
                 try {
-                    // 1. Check subscription document
+                    // Check subscription document
                     const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`);
                     const subSnap = await getDoc(subRef);
                     
@@ -762,11 +774,10 @@
                         const status = subSnap.data().status;
                         if (status === 'pending_payment') {
                             isPending = true;
-                            invoiceNumber = subSnap.data().invoiceNumber || null;
                         }
                     }
 
-                    // 2. If not found in subscriptions, check invoices collection directly
+                    // If not found in subscriptions, check invoices directly
                     if (!isPending) {
                         const invoicesQuery = query(
                             collection(db, 'invoices'),
@@ -776,15 +787,12 @@
                         const invoicesSnap = await getDocs(invoicesQuery);
                         invoicesSnap.forEach(doc => {
                             const data = doc.data();
-                            // Check if this invoice belongs to the same plan by checking package name
                             if (data.packageDetails && data.packageDetails.name === plan.name) {
                                 isPending = true;
-                                invoiceNumber = data.invoiceNumber || null;
                             }
                         });
                     }
 
-                    // Build the button HTML
                     let buttonHtml;
                     if (isPending) {
                         buttonHtml = `
@@ -799,7 +807,7 @@
                     container.innerHTML = buttonHtml;
 
                 } catch (error) {
-                    console.error("Error checking subscription/invoice:", error);
+                    console.error("Error checking subscription:", error);
                     container.innerHTML = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                 }
             }
@@ -820,20 +828,15 @@
                 return;
             }
 
-            // Double-check for pending invoice before starting
+            // Double-check for pending invoice
             try {
-                // Check subscriptions
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${planId}`);
                 const subSnap = await getDoc(subRef);
-                if (subSnap.exists()) {
-                    const status = subSnap.data().status;
-                    if (status === 'pending_payment') {
-                        showToast(`You already have a pending invoice for this plan.`, 'error');
-                        return;
-                    }
+                if (subSnap.exists() && subSnap.data().status === 'pending_payment') {
+                    showToast(`You already have a pending invoice for this plan.`, 'error');
+                    return;
                 }
 
-                // Check invoices collection
                 const invoicesQuery = query(
                     collection(db, 'invoices'),
                     where('userId', '==', currentUser.uid),
@@ -852,7 +855,7 @@
                     return;
                 }
             } catch (error) {
-                console.warn("Check skipped due to error:", error);
+                console.warn("Check skipped:", error);
             }
 
             selectedPlan.id = planId;
@@ -867,8 +870,8 @@
         window.goBackToPricing = function() {
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
-            renderUserEvents();      // refresh events
-            updatePlanButtons();    // refresh buttons (important!)
+            renderUserEvents();
+            updatePlanButtons();
         };
 
         window.goToStep = function(stepNum) {
@@ -921,15 +924,12 @@
             try {
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 const subSnap = await getDoc(subRef);
-                if (subSnap.exists()) {
-                    const status = subSnap.data().status;
-                    if (status === 'pending_payment' || status === 'active') {
-                        showToast(`You already have an active or pending invoice for this plan.`, 'error');
-                        return;
-                    }
+                if (subSnap.exists() && subSnap.data().status === 'pending_payment') {
+                    showToast(`You already have a pending invoice for this plan.`, 'error');
+                    return;
                 }
             } catch (error) {
-                console.warn("Bypassing pre-generation duplicate check due to rules:", error);
+                console.warn("Duplicate check bypassed:", error);
             }
 
             const btn = document.getElementById('btn-generate-invoice');
@@ -945,7 +945,6 @@
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
             try {
-                // Create invoice
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
@@ -965,14 +964,12 @@
                     createdAt: serverTimestamp()
                 });
 
-                // Update user
                 await setDoc(doc(db, "users", currentUser.uid), {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
                     latestInvoiceId: invNumber
                 }, { merge: true });
 
-                // Create subscription with pending status
                 await setDoc(doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`), {
                     userId: currentUser.uid,
                     planId: selectedPlan.id,
@@ -984,7 +981,6 @@
                     customerInfo: { firstName: fName, lastName: lName, email: email, phone: phone }
                 });
 
-                // Update invoice display
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
                 document.getElementById('inv-email').innerText = email;
@@ -997,7 +993,6 @@
                 localStorage.setItem('zone21_invoice', invNumber);
 
                 window.showView('view-invoice');
-                // Immediately update plan buttons to reflect pending state
                 await updatePlanButtons();
 
             } catch (error) {
@@ -1024,14 +1019,6 @@
                     return;
                 }
                 const invData = invSnap.data();
-                
-                const getSafeDate = (ts) => {
-                    if (!ts) return new Date();
-                    if (typeof ts.toDate === 'function') return ts.toDate();
-                    if (ts.seconds) return new Date(ts.seconds * 1000);
-                    return new Date(ts);
-                };
-                
                 const dateStr = getSafeDate(invData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
                 document.getElementById('inv-number').innerText = invData.invoiceNumber;
@@ -1051,7 +1038,7 @@
         };
 
         // ============================================================
-        // finishProcess – creates event with 'approved' status and isPaid: true
+        // finishProcess – creates event and redirects
         // ============================================================
         window.finishProcess = async function() {
             if (!currentUser) {
@@ -1065,19 +1052,18 @@
             btn.disabled = true;
 
             try {
-                // 1. Update subscription status to 'active'
+                // 1. Update subscription to 'active'
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 await setDoc(subRef, { status: 'active' }, { merge: true });
 
-                // 2. Create a new event document with 'approved' status and isPaid: true
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
+                // 2. Create a new event with ALL required fields
+                const eventData = {
                     organizerId: currentUser.uid,
                     name: `My ${selectedPlan.name}`,
                     package: selectedPlan.name,
                     packageId: selectedPlan.id,
-                    status: 'approved',        // Mark as approved so it appears in "Your Events"
-                    isPaid: true,              // Paid badge will show
+                    status: 'approved',        // ✅ CRITICAL: must be 'approved' to show in list
+                    isPaid: true,              // ✅ Paid badge
                     createdAt: serverTimestamp(),
                     location: '',
                     date: null,
@@ -1087,13 +1073,18 @@
                     ticketsSold: 0,
                     grossRevenue: 0,
                     blueprint: null
-                });
+                };
 
-                // 3. Redirect to manageevent.html with the new event ID
+                console.log('📝 Creating event with data:', eventData);
+                const eventsRef = collection(db, 'events');
+                const newEventRef = await addDoc(eventsRef, eventData);
+                console.log('✅ Event created with ID:', newEventRef.id);
+
+                // 3. Redirect to manageevent.html
                 window.location.href = `manageevent.html?eventId=${newEventRef.id}`;
 
             } catch (error) {
-                console.error('Error during finish process:', error);
+                console.error('❌ Error during finish process:', error);
                 showToast('Failed to create event. Please try again.', 'error');
                 btn.innerHTML = originalText;
                 btn.disabled = false;

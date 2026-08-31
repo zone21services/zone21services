@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET ===== */
+        /* ===== ROOT & RESET (same as before) ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -1202,25 +1202,29 @@
         }
 
         // ============================================================
-        //  REAL-TIME SUBSCRIPTION LISTENER – using userId (security rule compliant)
+        //  REAL-TIME SUBSCRIPTION LISTENER – fixed (no orderBy)
         // ============================================================
         function startSubscriptionListener() {
             if (!currentUser) return;
             if (unsubscribeSubscription) unsubscribeSubscription();
 
-            // Query by userId (which is set and allowed by security rules)
+            // Query by userId – we'll pick the latest manually
             unsubscribeSubscription = db.collection('subscriptions')
                 .where('userId', '==', currentUser.uid)
-                .orderBy('createdAt', 'desc')
                 .onSnapshot((snap) => {
                     let latestSub = null;
+                    let latestTime = 0;
                     snap.forEach((doc) => {
                         const data = doc.data();
-                        if (!latestSub || (data.createdAt && latestSub.createdAt && data.createdAt.toMillis() > latestSub.createdAt.toMillis())) {
+                        // Use createdAt or fallback to server timestamp
+                        const time = data.createdAt ? data.createdAt.toMillis() : 0;
+                        if (time > latestTime) {
+                            latestTime = time;
                             latestSub = { id: doc.id, ...data };
                         }
                     });
                     subscriptionData = latestSub;
+                    // Update providerData based on latest subscription
                     if (subscriptionData) {
                         const isActive = subscriptionData.status === 'active' || subscriptionData.status === 'approved';
                         if (isActive && subscriptionData.expiryDate) {
@@ -1240,6 +1244,7 @@
                         providerData.subscriptionStatus = 'none';
                         providerData.subscriptionPlan = null;
                     }
+                    // Re-render active tab
                     const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
                     if (activeTab === 'tab-dashboard') renderDashboard();
                     else if (activeTab === 'tab-subscription') renderSubscription();

@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET (same as before) ===== */
+        /* ===== ROOT & RESET ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -1049,9 +1049,7 @@
                     <div class="card-accent"></div>
                     <div class="card-header">
                         <h3><i class="fas fa-user"></i> My Profile</h3>
-                        <div>
-                            <button class="btn btn-outline btn-sm" id="editProfileToggle">Edit Profile</button>
-                        </div>
+                        <a id="editProfileLink" href="#" class="btn btn-outline btn-sm" style="display:none;">Edit Profile</a>
                     </div>
                     <div id="profile-content">
                         <div style="text-align:center; padding:20px;">
@@ -1240,13 +1238,12 @@
         }
 
         // ============================================================
-        //  REAL-TIME SUBSCRIPTION LISTENER (NO COMPOSITE INDEX NEEDED)
+        //  REAL-TIME SUBSCRIPTION LISTENER (NO COMPOSITE INDEX)
         // ============================================================
         function startSubscriptionListener() {
             if (!providerDocId) return;
             if (unsubscribeSubscription) unsubscribeSubscription();
 
-            // Simple query: only where providerId, no orderBy, no limit
             unsubscribeSubscription = db.collection('subscriptions')
                 .where('providerId', '==', providerDocId)
                 .onSnapshot((snap) => {
@@ -1339,7 +1336,6 @@
                         <h4>Subscription Status</h4>
                         <p>${plan ? `Plan: ${plan}` : 'No plan selected'}</p>
                         ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : ''}
-                        ${status === 'pending' ? '<p>Your payment is being verified. You will get access once approved.</p>' : ''}
                     </div>
                     <span class="badge ${statusBadge}">${statusText}</span>
                 </div>
@@ -1353,6 +1349,7 @@
                     </div>
                 `;
             } else if (status === 'active' && !expired) {
+                const profilePage = (plan === 'Venue') ? 'venueprofile.html' : 'vendorprofile.html';
                 html += `
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-top:12px;">
                         <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
@@ -1363,16 +1360,10 @@
                             <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData.reviewsCount || 0}</div>
                             <div style="font-size:0.7rem; color:var(--muted);">Reviews</div>
                         </div>
-                        <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                            <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData.views || 0}</div>
-                            <div style="font-size:0.7rem; color:var(--muted);">Profile Views</div>
-                        </div>
                     </div>
-                `;
-                html += `
-                    <div style="margin-top:16px;">
-                        <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-lime btn-sm"><i class="fas fa-sync-alt"></i> Renew Subscription</a>
-                        <a href="#" onclick="switchTab('profile'); return false;" class="btn btn-outline btn-sm"><i class="fas fa-user-edit"></i> Manage Profile</a>
+                    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <a href="${profilePage}" class="btn btn-lime btn-sm"><i class="fas fa-edit"></i> Manage Profile</a>
+                        <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-outline btn-sm"><i class="fas fa-sync-alt"></i> Renew Subscription</a>
                     </div>
                 `;
             } else {
@@ -1390,7 +1381,7 @@
         }
 
         // ============================================================
-        //  RENDER PROFILE
+        //  RENDER PROFILE (summary only)
         // ============================================================
         function renderProfile() {
             const container = document.getElementById('profile-content');
@@ -1407,136 +1398,35 @@
                         <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-lime" style="margin-top:12px;"><i class="fas fa-rocket"></i> Subscribe Now</a>
                     </div>
                 `;
-                document.getElementById('editProfileToggle').style.display = 'none';
+                document.getElementById('editProfileLink').style.display = 'none';
                 return;
             }
 
-            document.getElementById('editProfileToggle').style.display = 'inline-flex';
+            const plan = providerData.subscriptionPlan;
+            const profilePage = (plan === 'Venue') ? 'venueprofile.html' : 'vendorprofile.html';
+            document.getElementById('editProfileLink').href = profilePage;
+            document.getElementById('editProfileLink').style.display = 'inline-flex';
 
-            if (isEditingProfile) {
-                const servicesList = [
-                    "Venue / Space Rental", "Marquee / Tents & Chairs", "PA System & Basic Sound", "DJ Services",
-                    "Stage & Decorative Lighting", "Event Décor & Draping", "Catering (Food & Buffet)",
-                    "Beverages & Mobile Bar", "Cake Designer / Baker", "Photographer", "Videographer",
-                    "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist", "Transport / Car Hire",
-                    "Cleaning Services", "Ushers & Hostesses"
-                ];
-                const selected = providerData.service || '';
+            const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
+            const service = providerData.service || 'Not specified';
 
-                container.innerHTML = `
-                    <div class="form-grid">
-                        <div class="input-group"><label>Business/Company Name</label><input type="text" id="e-name" value="${providerData.name || ''}" /></div>
-                        <div class="input-group"><label>Location</label><input type="text" id="e-loc" value="${providerData.location || ''}" /></div>
-                        <div class="input-group"><label>Main Service *</label>
-                            <select id="e-service">
-                                <option value="">-- Select your main service --</option>
-                                ${servicesList.map(s => `<option value="${s}" ${s === selected ? 'selected' : ''}>${s}</option>`).join('')}
-                                <option value="Other" ${selected === 'Other' ? 'selected' : ''}>Other (specify below)</option>
-                            </select>
+            container.innerHTML = `
+                <div class="profile-summary">
+                    <div class="avatar-large">${avatarHtml}</div>
+                    <div class="info">
+                        <h2>${providerData.name || 'Unnamed Provider'}</h2>
+                        <div class="subtitle">
+                            <span><i class="fas fa-tag"></i> ${service}</span>
+                            <span><i class="fas fa-map-pin"></i> ${providerData.location || 'Location not set'}</span>
+                            <span><i class="fas fa-star" style="color:#ffb400;"></i> ${(providerData.rating || 0).toFixed(1)} (${providerData.reviewsCount || 0} reviews)</span>
                         </div>
-                        <div class="input-group" id="other-service-group" style="${selected === 'Other' ? 'display:block' : 'display:none'}">
-                            <label>Other Service</label>
-                            <input type="text" id="e-other-service" value="${selected === 'Other' ? providerData.service : ''}" placeholder="Specify your service" />
-                        </div>
-                        <div class="input-group"><label>Base Price ($)</label><input type="number" id="e-price" value="${providerData.basePrice || ''}" /></div>
-                        <div class="input-group"><label>WhatsApp/Phone</label><input type="text" id="e-phone" value="${providerData.phone || ''}" /></div>
-                        <div class="input-group full-width"><label>Description</label><textarea id="e-desc" rows="3">${providerData.description || ''}</textarea></div>
-                        <div class="input-group full-width"><label>Social Links (optional)</label></div>
-                        <div class="input-group"><label>Facebook</label><input type="text" id="e-fb" value="${providerData.facebook || ''}" /></div>
-                        <div class="input-group"><label>Instagram</label><input type="text" id="e-ig" value="${providerData.instagram || ''}" /></div>
-                        <div class="input-group"><label>TikTok</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}" /></div>
-                        <div class="input-group"><label>YouTube</label><input type="text" id="e-yt" value="${providerData.youtube || ''}" /></div>
-                        <div class="input-group"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}" /></div>
+                        ${providerData.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${providerData.basePrice}</div>` : ''}
+                        ${providerData.description ? `<div style="margin-top:10px; line-height:1.6;">${providerData.description}</div>` : ''}
                     </div>
-                    <button class="btn btn-lime btn-block" onclick="saveProfile()" style="margin-top:16px;"><i class="fas fa-save"></i> Save Changes</button>
-                    <button class="btn btn-outline btn-block" onclick="cancelEditProfile()" style="margin-top:8px;">Cancel</button>
-                `;
-
-                document.getElementById('e-service').addEventListener('change', function() {
-                    const group = document.getElementById('other-service-group');
-                    if (this.value === 'Other') group.style.display = 'block';
-                    else group.style.display = 'none';
-                });
-
-            } else {
-                const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-                const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
-                const service = providerData.service || 'Not specified';
-
-                container.innerHTML = `
-                    <div class="profile-summary">
-                        <div class="avatar-large">${avatarHtml}</div>
-                        <div class="info">
-                            <h2>${providerData.name || 'Unnamed Provider'}</h2>
-                            <div class="subtitle">
-                                <span><i class="fas fa-tag"></i> ${service}</span>
-                                <span><i class="fas fa-map-pin"></i> ${providerData.location || 'Location not set'}</span>
-                                <span><i class="fas fa-star" style="color:#ffb400;"></i> ${(providerData.rating || 0).toFixed(1)} (${providerData.reviewsCount || 0} reviews)</span>
-                            </div>
-                            ${providerData.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${providerData.basePrice}</div>` : ''}
-                            ${providerData.description ? `<div style="margin-top:10px; line-height:1.6;">${providerData.description}</div>` : ''}
-                            ${providerData.phone ? `<div style="margin-top:8px;"><i class="fas fa-phone"></i> ${providerData.phone}</div>` : ''}
-                            ${providerData.email ? `<div><i class="fas fa-envelope"></i> ${providerData.email}</div>` : ''}
-                        </div>
-                    </div>
-                    <div style="margin-top:16px;">
-                        <button class="btn btn-outline btn-sm" onclick="toggleProfileEdit()"><i class="fas fa-edit"></i> Edit Profile</button>
-                    </div>
-                `;
-            }
+                </div>
+            `;
         }
-
-        // ============================================================
-        //  PROFILE EDIT CONTROLS
-        // ============================================================
-        function toggleProfileEdit() {
-            isEditingProfile = !isEditingProfile;
-            renderProfile();
-        }
-        window.toggleProfileEdit = toggleProfileEdit;
-
-        function cancelEditProfile() {
-            isEditingProfile = false;
-            renderProfile();
-        }
-        window.cancelEditProfile = cancelEditProfile;
-
-        async function saveProfile() {
-            const name = document.getElementById('e-name').value.trim();
-            const location = document.getElementById('e-loc').value.trim();
-            const serviceSelect = document.getElementById('e-service');
-            let service = serviceSelect.value;
-            if (service === 'Other') service = document.getElementById('e-other-service').value.trim() || 'Other';
-            const price = parseFloat(document.getElementById('e-price').value) || 0;
-            const phone = document.getElementById('e-phone').value.trim();
-            const desc = document.getElementById('e-desc').value.trim();
-            const fb = document.getElementById('e-fb').value.trim();
-            const ig = document.getElementById('e-ig').value.trim();
-            const tt = document.getElementById('e-tt').value.trim();
-            const yt = document.getElementById('e-yt').value.trim();
-            const web = document.getElementById('e-web').value.trim();
-
-            if (!name) { showToast('Business name is required.', 'error'); return; }
-            if (!service) { showToast('Please select your main service.', 'error'); return; }
-
-            try {
-                await db.collection('serviceProviders').doc(providerDocId).update({
-                    name, location, service, basePrice: price, phone, description: desc,
-                    facebook: fb, instagram: ig, tiktok: tt, youtube: yt, website: web,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                providerData = { ...providerData, name, location, service, basePrice: price, phone, description: desc,
-                    facebook: fb, instagram: ig, tiktok: tt, youtube: yt, website: web };
-                isEditingProfile = false;
-                renderProfile();
-                updateTopbarAvatar();
-                showToast('Profile updated successfully!', 'success');
-            } catch (error) {
-                console.error('Error saving profile:', error);
-                showToast('Failed to save profile: ' + error.message, 'error');
-            }
-        }
-        window.saveProfile = saveProfile;
 
         // ============================================================
         //  RENDER SUBSCRIPTION TAB
@@ -1605,7 +1495,7 @@
         }
 
         // ============================================================
-        //  RENDER RENEW TAB – with updated benefits
+        //  RENDER RENEW TAB
         // ============================================================
         function renderRenew() {
             const container = document.getElementById('renew-content');
@@ -1742,7 +1632,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE – INDEX‑FREE QUERY
+        //  VIEW INVOICE (index-free query)
         // ============================================================
         async function viewInvoice() {
             if (!providerDocId) {
@@ -1751,7 +1641,6 @@
             }
 
             try {
-                // Fetch ALL invoices for this provider (no composite index needed)
                 const providerInvoices = await db.collection('invoices')
                     .where('providerId', '==', providerDocId)
                     .get();
@@ -1759,7 +1648,6 @@
                 let allInvoices = [];
                 providerInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
 
-                // If none, try by userId
                 if (allInvoices.length === 0) {
                     const userInvoices = await db.collection('invoices')
                         .where('userId', '==', currentUser.uid)
@@ -1767,7 +1655,6 @@
                     userInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
                 }
 
-                // Filter pending, sort by createdAt descending
                 const pendingInvoices = allInvoices
                     .filter(inv => inv.status === 'pending')
                     .sort((a, b) => {
@@ -1964,8 +1851,9 @@
             auth.signOut().then(() => window.location.href = 'index.html');
         });
 
-        document.getElementById('editProfileToggle').addEventListener('click', () => {
-            toggleProfileEdit();
+        document.getElementById('editProfileLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = e.target.closest('a').href;
         });
 
         // ============================================================
@@ -1998,7 +1886,7 @@
         }
         window.changePassword = changePassword;
 
-        console.log('Provider Hub with Invoice Viewer loaded.');
+        console.log('Provider Hub loaded.');
     </script>
 
 </body>

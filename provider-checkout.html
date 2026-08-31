@@ -865,7 +865,7 @@
     </div>
 
     <!-- ================================================================
-    FIREBASE + LOGIC
+    FIREBASE + LOGIC (UPDATED FOR CONSISTENCY)
     ================================================================ -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -1019,7 +1019,7 @@
         };
 
         // ==========================================
-        // GENERATE INVOICE
+        // GENERATE INVOICE (UPDATED FIELD STRUCTURE)
         // ==========================================
         window.generateInvoice = async function() {
             if (!currentUser) { window.location.href = "index.html"; return; }
@@ -1056,16 +1056,18 @@
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
             try {
-                // Invoice doc
+                // 1) INVOICE DOCUMENT – aligned with provider hub expectations
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
+                    providerId: currentUser.uid,  // ✅ ADDED providerId for provider hub queries
                     invoiceNumber: invNumber,
-                    packageDetails: {
-                        name: selectedPlan.name,
-                        price: selectedPlan.price,
-                        months: months,
-                        total: total
-                    },
+                    planName: selectedPlan.name,   // ✅ top-level planName
+                    months: months,               // ✅ top-level months
+                    total: total,                 // ✅ top-level total
+                    status: 'pending',            // ✅ use 'status' instead of 'paymentStatus'
+                    paymentStatus: 'pending_manual_transfer', // keep for backward compatibility if needed
+                    createdAt: serverTimestamp(),
+                    type: 'provider_subscription',
                     customerInfo: {
                         firstName: fName,
                         lastName: lName,
@@ -1074,23 +1076,20 @@
                         company: company,
                         zip: zip,
                         address: { street, city, country }
-                    },
-                    paymentStatus: 'pending_manual_transfer',
-                    createdAt: serverTimestamp(),
-                    type: 'provider_subscription'
+                    }
                 });
 
-                // User doc update
+                // 2) USER DOC – optional but kept
                 await setDoc(doc(db, "users", currentUser.uid), {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
                     latestInvoiceId: invNumber
                 }, { merge: true });
 
-                // Subscription doc (pending)
+                // 3) SUBSCRIPTION DOC – already correct, but ensure providerId set (it is currentUser.uid)
                 await setDoc(doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`), {
                     userId: currentUser.uid,
-                    providerId: currentUser.uid, // same as user ID for providers
+                    providerId: currentUser.uid,
                     planId: selectedPlan.id,
                     planName: selectedPlan.name,
                     price: selectedPlan.price,
@@ -1102,7 +1101,7 @@
                     customerInfo: { firstName: fName, lastName: lName, email, phone }
                 });
 
-                // Also update serviceProvider doc with pending status
+                // 4) SERVICE PROVIDER DOC – mark pending
                 await setDoc(doc(db, 'serviceProviders', currentUser.uid), {
                     subscriptionStatus: 'pending',
                     subscriptionPlan: selectedPlan.name,
@@ -1162,9 +1161,9 @@
                 document.getElementById('inv-email').innerText = invData.customerInfo.email;
                 document.getElementById('inv-company').innerText = invData.customerInfo.company ? `Company: ${invData.customerInfo.company}` : '';
                 document.getElementById('inv-date').innerText = dateStr;
-                document.getElementById('inv-item').innerText = invData.packageDetails.name;
-                document.getElementById('inv-item-price').innerText = `$${invData.packageDetails.total.toFixed(2)}`;
-                document.getElementById('inv-total').innerText = `$${invData.packageDetails.total.toFixed(2)}`;
+                document.getElementById('inv-item').innerText = invData.planName || invData.packageDetails?.name || 'Provider Subscription';
+                document.getElementById('inv-item-price').innerText = `$${invData.total || invData.packageDetails?.total || 0}`;
+                document.getElementById('inv-total').innerText = `$${invData.total || invData.packageDetails?.total || 0}`;
 
                 window.showView('view-invoice');
             } catch (error) {
@@ -1173,11 +1172,10 @@
             }
         };
 
-        // Expose for inline onclick
         window.viewExistingInvoice = window.viewExistingInvoice;
 
         console.log('✅ Provider Checkout loaded.');
     </script>
 
 </body>
-</html>
+    </html>

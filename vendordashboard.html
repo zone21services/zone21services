@@ -6,12 +6,11 @@
     <title>Provider Hub | Zone21</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET (same as before) ===== */
+        /* ===== ROOT & RESET ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -34,6 +33,7 @@
             --sidebar-width: 260px;
             --topbar-height: 64px;
             --danger: #DC2626;
+            --success: #10B981;
         }
 
         * {
@@ -359,6 +359,13 @@
             width: 100%;
             justify-content: center;
         }
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
 
         /* ===== SUBSCRIPTION STATUS CARD ===== */
         .sub-status {
@@ -402,7 +409,7 @@
             color: #fff;
         }
         .sub-status .badge.active {
-            background: #28a745;
+            background: var(--success);
             color: #fff;
         }
 
@@ -424,6 +431,42 @@
         }
         .renew-form .btn {
             margin-top: 0;
+        }
+
+        /* ===== PROFILE EDIT FORM ===== */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .input-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #f9fafb;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-group input:focus,
+        .input-group textarea:focus {
+            border-color: var(--navy);
+            background: white;
+        }
+        .full-width {
+            grid-column: 1 / -1;
         }
 
         /* ===== PROFILE DISPLAY ===== */
@@ -856,7 +899,7 @@
             background: var(--pink);
         }
         .toast.success {
-            background: #28a745;
+            background: var(--success);
         }
         .toast.info {
             background: var(--navy);
@@ -1013,7 +1056,7 @@
                     <div class="card-accent"></div>
                     <div class="card-header">
                         <h3><i class="fas fa-user"></i> My Profile</h3>
-                        <a id="editProfileLink" href="#" class="btn btn-outline btn-sm" style="display:none;">Edit Profile</a>
+                        <a id="editProfileLink" href="#" class="btn btn-outline btn-sm" style="display:none;">Manage Profile</a>
                     </div>
                     <div id="profile-content">
                         <div style="text-align:center; padding:20px;">
@@ -1118,7 +1161,8 @@
         let providerData = null;
         let subscriptionData = null;
         let isEditingProfile = false;
-        let unsubscribeSubscription = null; // for real-time updates
+        let unsubscribeSubscription = null;
+        let currentPlanType = null; // 'Service Provider' or 'Venue'
 
         // ============================================================
         //  AUTH STATE
@@ -1162,6 +1206,10 @@
                 if (docSnap.exists) {
                     providerDocId = docSnap.id;
                     providerData = docSnap.data();
+                    // Check if plan type is set
+                    if (providerData.subscriptionPlan) {
+                        currentPlanType = providerData.subscriptionPlan;
+                    }
                 } else {
                     const snapshot = await db.collection('serviceProviders')
                         .where('email', '==', user.email)
@@ -1170,6 +1218,9 @@
                     if (!snapshot.empty) {
                         providerDocId = snapshot.docs[0].id;
                         providerData = snapshot.docs[0].data();
+                        if (providerData.subscriptionPlan) {
+                            currentPlanType = providerData.subscriptionPlan;
+                        }
                     } else {
                         const defaultData = {
                             name: user.email.split('@')[0] || 'My Business',
@@ -1202,54 +1253,77 @@
         }
 
         // ============================================================
-        //  REAL-TIME SUBSCRIPTION LISTENER – fixed (no orderBy)
+        //  REAL-TIME SUBSCRIPTION LISTENER
         // ============================================================
         function startSubscriptionListener() {
-            if (!currentUser) return;
+            if (!providerDocId) return;
             if (unsubscribeSubscription) unsubscribeSubscription();
 
-            // Query by userId – we'll pick the latest manually
             unsubscribeSubscription = db.collection('subscriptions')
-                .where('userId', '==', currentUser.uid)
-                .onSnapshot((snap) => {
+                .where('providerId', '==', providerDocId)
+                .onSnapshot(async (snap) => {
                     let latestSub = null;
-                    let latestTime = 0;
                     snap.forEach((doc) => {
                         const data = doc.data();
-                        // Use createdAt or fallback to server timestamp
-                        const time = data.createdAt ? data.createdAt.toMillis() : 0;
-                        if (time > latestTime) {
-                            latestTime = time;
+                        if (!latestSub || (data.createdAt && latestSub.createdAt && data.createdAt.toMillis() > latestSub.createdAt.toMillis())) {
                             latestSub = { id: doc.id, ...data };
                         }
                     });
                     subscriptionData = latestSub;
-                    // Update providerData based on latest subscription
+                    
+                    // CRITICAL FIX: Update providerData based on subscription status
                     if (subscriptionData) {
-                        const isActive = subscriptionData.status === 'active' || subscriptionData.status === 'approved';
-                        if (isActive && subscriptionData.expiryDate) {
+                        // Update plan type from subscription
+                        if (subscriptionData.planName) {
+                            currentPlanType = subscriptionData.planName;
+                        }
+                        
+                        // Check if subscription is active
+                        if (subscriptionData.status === 'active' || subscriptionData.status === 'approved') {
                             providerData.subscriptionActive = true;
-                            providerData.subscriptionExpiry = subscriptionData.expiryDate;
                             providerData.subscriptionStatus = 'active';
+                            providerData.subscriptionPlan = subscriptionData.planName || null;
+                            if (subscriptionData.expiryDate) {
+                                providerData.subscriptionExpiry = subscriptionData.expiryDate;
+                            }
+                            
+                            // Also update the serviceProvider document to match
+                            await db.collection('serviceProviders').doc(providerDocId).update({
+                                subscriptionActive: true,
+                                subscriptionStatus: 'active',
+                                subscriptionPlan: subscriptionData.planName || null,
+                                subscriptionExpiry: subscriptionData.expiryDate || null
+                            }).catch(err => console.log('Update error:', err));
+                            
                         } else if (subscriptionData.status === 'pending' || subscriptionData.status === 'pending_payment') {
                             providerData.subscriptionActive = false;
                             providerData.subscriptionStatus = 'pending';
+                            providerData.subscriptionPlan = subscriptionData.planName || null;
+                            
+                        } else if (subscriptionData.status === 'rejected') {
+                            providerData.subscriptionActive = false;
+                            providerData.subscriptionStatus = 'rejected';
+                            providerData.subscriptionPlan = null;
+                            
                         } else {
                             providerData.subscriptionActive = false;
                             providerData.subscriptionStatus = 'none';
+                            providerData.subscriptionPlan = null;
                         }
-                        providerData.subscriptionPlan = subscriptionData.planName || null;
                     } else {
                         providerData.subscriptionActive = false;
                         providerData.subscriptionStatus = 'none';
                         providerData.subscriptionPlan = null;
                     }
-                    // Re-render active tab
+                    
+                    // Refresh all views
                     const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
                     if (activeTab === 'tab-dashboard') renderDashboard();
+                    else if (activeTab === 'tab-profile') renderProfile();
                     else if (activeTab === 'tab-subscription') renderSubscription();
                     else if (activeTab === 'tab-renew') renderRenew();
                     updateTopbarAvatar();
+                    
                 }, (error) => {
                     console.error('Subscription listener error:', error);
                 });
@@ -1273,7 +1347,7 @@
         }
 
         // ============================================================
-        //  RENDER DASHBOARD – correctly unlocks on approval
+        //  RENDER DASHBOARD
         // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
@@ -1283,22 +1357,23 @@
                 providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
             const expired = expiry && expiry < now;
-            const isActive = status === 'active' && !expired;
 
             let html = '';
 
-            // Status badge
             let statusBadge = '';
             let statusText = '';
             if (status === 'pending') {
                 statusBadge = 'badge pending';
                 statusText = 'Pending Approval';
-            } else if (isActive) {
+            } else if (status === 'active' && !expired) {
                 statusBadge = 'badge active';
                 statusText = 'Active';
             } else if (status === 'active' && expired) {
                 statusBadge = 'badge expired';
                 statusText = 'Expired';
+            } else if (status === 'rejected') {
+                statusBadge = 'badge expired';
+                statusText = 'Rejected';
             } else {
                 statusBadge = 'badge expired';
                 statusText = 'No Subscription';
@@ -1315,17 +1390,18 @@
                 </div>
             `;
 
-            // ---- PENDING STATE ----
             if (status === 'pending') {
                 html += `
                     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
                         <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                         <button class="btn btn-outline btn-sm" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button>
                     </div>
+                    <div style="margin-top:12px; padding:12px; background:#fff3cd; border-radius:var(--radius-sm); border:1px solid #ffc107;">
+                        <p style="font-size:0.85rem;"><i class="fas fa-clock" style="color:#856404;"></i> Your payment is pending admin approval. You'll get access as soon as it's verified.</p>
+                    </div>
                 `;
-
-            // ---- ACTIVE STATE ----
-            } else if (isActive) {
+            } else if (status === 'active' && !expired) {
+                // Determine which profile page to link to
                 const profilePage = (plan === 'Venue') ? 'venueprofile.html' : 'vendorprofile.html';
                 html += `
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-top:12px;">
@@ -1343,8 +1419,15 @@
                         <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-outline btn-sm"><i class="fas fa-sync-alt"></i> Renew Subscription</a>
                     </div>
                 `;
-
-            // ---- NO SUBSCRIPTION STATE ----
+            } else if (status === 'rejected') {
+                html += `
+                    <div style="margin-top:16px; padding:20px; text-align:center; background:#f8d7da; border-radius:var(--radius-sm); border:1px solid var(--pink);">
+                        <i class="fas fa-times-circle" style="font-size:2rem; color:var(--pink);"></i>
+                        <h4 style="margin:10px 0; color:var(--pink);">Payment Rejected</h4>
+                        <p style="color:var(--text-secondary);">Your payment was rejected. Please contact support or try again.</p>
+                        <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-primary" style="margin-top:12px;"><i class="fas fa-rocket"></i> Try Again</a>
+                    </div>
+                `;
             } else {
                 html += `
                     <div style="margin-top:16px; padding:20px; text-align:center; background:#f8f9fa; border-radius:var(--radius-sm);">
@@ -1360,31 +1443,43 @@
         }
 
         // ============================================================
-        //  RENDER PROFILE (summary only)
+        //  RENDER PROFILE
         // ============================================================
         function renderProfile() {
             const container = document.getElementById('profile-content');
-            const isActive = providerData && providerData.subscriptionActive;
-            const isExpired = providerData && providerData.subscriptionExpiry && new Date(providerData.subscriptionExpiry.toDate ?
-                providerData.subscriptionExpiry.toDate() : providerData.subscriptionExpiry) < new Date();
+            const status = providerData ? providerData.subscriptionStatus : 'none';
+            const plan = providerData ? providerData.subscriptionPlan : null;
+            const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
+                providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
+            const now = new Date();
+            const expired = expiry && expiry < now;
 
-            if (!isActive || isExpired) {
+            const isActive = status === 'active' && !expired;
+
+            if (!isActive) {
+                let message = 'You need an active subscription to manage your profile.';
+                if (status === 'pending') {
+                    message = 'Your subscription is pending approval. Please wait for admin verification.';
+                } else if (status === 'rejected') {
+                    message = 'Your payment was rejected. Please subscribe again.';
+                }
                 container.innerHTML = `
                     <div style="padding:30px; text-align:center; background:#f8f9fa; border-radius:var(--radius-sm);">
                         <i class="fas fa-lock" style="font-size:2.5rem; color:var(--pink);"></i>
                         <h4 style="margin:12px 0;">Profile Locked</h4>
-                        <p style="color:var(--text-secondary);">You need an active subscription to manage your profile.</p>
-                        <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-lime" style="margin-top:12px;"><i class="fas fa-rocket"></i> Subscribe Now</a>
+                        <p style="color:var(--text-secondary);">${message}</p>
+                        ${status === 'pending' ? '' : `<a href="#" onclick="switchTab('renew'); return false;" class="btn btn-lime" style="margin-top:12px;"><i class="fas fa-rocket"></i> Subscribe Now</a>`}
                     </div>
                 `;
                 document.getElementById('editProfileLink').style.display = 'none';
                 return;
             }
 
-            const plan = providerData.subscriptionPlan;
+            // Active subscription - show profile with Manage Profile button
             const profilePage = (plan === 'Venue') ? 'venueprofile.html' : 'vendorprofile.html';
             document.getElementById('editProfileLink').href = profilePage;
             document.getElementById('editProfileLink').style.display = 'inline-flex';
+            document.getElementById('editProfileLink').innerHTML = '<i class="fas fa-edit"></i> Manage Profile';
 
             const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
             const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
@@ -1402,6 +1497,9 @@
                         </div>
                         ${providerData.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${providerData.basePrice}</div>` : ''}
                         ${providerData.description ? `<div style="margin-top:10px; line-height:1.6;">${providerData.description}</div>` : ''}
+                        <div style="margin-top:12px;">
+                            <a href="${profilePage}" class="btn btn-lime"><i class="fas fa-edit"></i> Manage Profile</a>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1433,7 +1531,7 @@
             let statusHtml = '';
             if (status === 'pending' || status === 'pending_payment') statusHtml = '<span class="badge pending">Pending Approval</span>';
             else if (status === 'active' || status === 'approved') statusHtml = '<span class="badge active">Active</span>';
-            else if (status === 'expired') statusHtml = '<span class="badge expired">Expired</span>';
+            else if (status === 'rejected') statusHtml = '<span class="badge expired">Rejected</span>';
             else statusHtml = '<span class="badge">Unknown</span>';
 
             container.innerHTML = `
@@ -1478,68 +1576,77 @@
         // ============================================================
         function renderRenew() {
             const container = document.getElementById('renew-content');
-            const isActive = providerData && providerData.subscriptionActive;
+            const status = providerData ? providerData.subscriptionStatus : 'none';
+            const plan = providerData ? providerData.subscriptionPlan : null;
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ? providerData
                 .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
+            const now = new Date();
+            const isExpired = expiry && expiry < now;
+            const isActive = status === 'active' && !isExpired;
 
-            let currentPlan = providerData ? providerData.subscriptionPlan : null;
-            if (!currentPlan) {
-                const commonBenefits = [
-                    'Get priority visibility to event organizers',
-                    'Receive instant notifications via WhatsApp, email, and calls',
-                    'Showcase your work with an image gallery',
-                    'Manage all your social media handles in one place',
-                    'Build your brand with a professional profile'
-                ];
-
+            if (isActive) {
+                const planPrice = plan === 'Venue' ? 50 : 10;
                 container.innerHTML = `
-                    <h4 style="margin-bottom:12px;">Choose Your Plan</h4>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center;">
-                            <h4>Service Provider</h4>
-                            <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$10 <small style="font-size:0.8rem;">/month</small></p>
-                            <ul class="benefits-list" style="text-align:left;">
-                                ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
-                            </ul>
-                            <button class="btn btn-lime btn-block" onclick="selectPlan('Service Provider', 10)">Select</button>
-                        </div>
-                        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center; border-color:var(--pink);">
-                            <h4>Venue</h4>
-                            <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$50 <small style="font-size:0.8rem;">/month</small></p>
-                            <ul class="benefits-list" style="text-align:left;">
-                                ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
-                                <li><i class="fas fa-check"></i> <strong>Premium listing</strong> with venue spotlight</li>
-                            </ul>
-                            <button class="btn btn-pink btn-block" onclick="selectPlan('Venue', 50)">Select</button>
-                        </div>
+                    <div style="background:var(--bg); padding:16px; border-radius:var(--radius-sm); margin-bottom:16px;">
+                        <h4>Current Plan: <strong>${plan}</strong></h4>
+                        ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : '<p>No active subscription</p>'}
+                    </div>
+                    <h4 style="margin-bottom:12px;">Renew for Additional Months</h4>
+                    <div class="renew-form">
+                        <label for="months-select">Number of months:</label>
+                        <select id="months-select">
+                            ${Array.from({length:12}, (_,i) => `<option value="${i+1}">${i+1} month${i+1>1?'s':''}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-lime" onclick="renewSubscription()"><i class="fas fa-sync-alt"></i> Renew Now</button>
+                    </div>
+                    <div style="margin-top:12px; font-size:0.85rem; color:var(--muted);">
+                        Total cost: $<span id="renew-total">${planPrice}</span> (${planPrice} per month)
                     </div>
                 `;
+                document.getElementById('months-select').addEventListener('change', function() {
+                    const months = parseInt(this.value);
+                    document.getElementById('renew-total').textContent = (planPrice * months).toFixed(2);
+                });
                 return;
             }
 
-            const planPrice = currentPlan === 'Venue' ? 50 : 10;
+            // No active subscription - show plan selection
+            const commonBenefits = [
+                'Get priority visibility to event organizers',
+                'Receive instant notifications via WhatsApp, email, and calls',
+                'Showcase your work with an image gallery',
+                'Manage all your social media handles in one place',
+                'Build your brand with a professional profile'
+            ];
+
             container.innerHTML = `
-                <div style="background:var(--bg); padding:16px; border-radius:var(--radius-sm); margin-bottom:16px;">
-                    <h4>Current Plan: <strong>${currentPlan}</strong></h4>
-                    ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : '<p>No active subscription</p>'}
-                </div>
-                <h4 style="margin-bottom:12px;">Renew for Additional Months</h4>
-                <div class="renew-form">
-                    <label for="months-select">Number of months:</label>
-                    <select id="months-select">
-                        ${Array.from({length:12}, (_,i) => `<option value="${i+1}">${i+1} month${i+1>1?'s':''}</option>`).join('')}
-                    </select>
-                    <button class="btn btn-lime" onclick="renewSubscription()"><i class="fas fa-sync-alt"></i> Renew Now</button>
-                </div>
-                <div style="margin-top:12px; font-size:0.85rem; color:var(--muted);">
-                    Total cost: $<span id="renew-total">${planPrice}</span> (${planPrice} per month)
+                <h4 style="margin-bottom:12px;">Choose Your Plan</h4>
+                ${status === 'pending' ? `<div style="padding:12px; background:#fff3cd; border-radius:var(--radius-sm); border:1px solid #ffc107; margin-bottom:16px;">
+                    <p><i class="fas fa-clock" style="color:#856404;"></i> You have a pending subscription. Please wait for admin approval.</p>
+                </div>` : ''}
+                ${status === 'rejected' ? `<div style="padding:12px; background:#f8d7da; border-radius:var(--radius-sm); border:1px solid var(--pink); margin-bottom:16px;">
+                    <p style="color:var(--pink);"><i class="fas fa-times-circle"></i> Your previous payment was rejected. Please try again.</p>
+                </div>` : ''}
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center;">
+                        <h4>Service Provider</h4>
+                        <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$10 <small style="font-size:0.8rem;">/month</small></p>
+                        <ul class="benefits-list" style="text-align:left;">
+                            ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
+                        </ul>
+                        <button class="btn btn-lime btn-block" onclick="selectPlan('Service Provider', 10)">Select</button>
+                    </div>
+                    <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center; border-color:var(--pink);">
+                        <h4>Venue</h4>
+                        <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$50 <small style="font-size:0.8rem;">/month</small></p>
+                        <ul class="benefits-list" style="text-align:left;">
+                            ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
+                            <li><i class="fas fa-check"></i> <strong>Premium listing</strong> with venue spotlight</li>
+                        </ul>
+                        <button class="btn btn-pink btn-block" onclick="selectPlan('Venue', 50)">Select</button>
+                    </div>
                 </div>
             `;
-
-            document.getElementById('months-select').addEventListener('change', function() {
-                const months = parseInt(this.value);
-                document.getElementById('renew-total').textContent = (planPrice * months).toFixed(2);
-            });
         }
 
         // ============================================================
@@ -1554,20 +1661,18 @@
         window.selectPlan = selectPlan;
 
         // ============================================================
-        //  RENEW SUBSCRIPTION – now uses userId and providerId
+        //  RENEW SUBSCRIPTION
         // ============================================================
         async function renewSubscription() {
             if (!currentUser) { showToast('Please sign in.', 'error'); return; }
             const months = parseInt(document.getElementById('months-select').value);
-            const planName = providerData.subscriptionPlan;
+            const planName = providerData.subscriptionPlan || 'Service Provider';
             const price = planName === 'Venue' ? 50 : 10;
             const total = price * months;
 
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
-            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
             try {
-                // Invoice doc
                 await db.collection('invoices').doc(invNumber).set({
                     providerId: providerDocId,
                     userId: currentUser.uid,
@@ -1586,26 +1691,23 @@
                     }
                 });
 
-                // Subscription doc – using userId for queries
                 await db.collection('subscriptions').add({
                     providerId: providerDocId,
-                    userId: currentUser.uid, // crucial for security rules
+                    userId: currentUser.uid,
                     planName: planName,
                     months: months,
                     total: total,
                     invoiceNumber: invNumber,
-                    status: 'pending_payment',
+                    status: 'pending',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Update serviceProvider doc
                 await db.collection('serviceProviders').doc(providerDocId).update({
                     subscriptionStatus: 'pending',
                     subscriptionPlan: planName
                 });
 
                 showToast('Invoice generated! Please make payment and submit proof.', 'success');
-                // Real-time listener will update UI
             } catch (error) {
                 console.error('Renew error:', error);
                 showToast('Failed to process renewal: ' + error.message, 'error');
@@ -1614,7 +1716,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE (index-free query)
+        //  VIEW INVOICE
         // ============================================================
         async function viewInvoice() {
             if (!providerDocId) {
@@ -1761,7 +1863,7 @@
                             </div>
                             <div class="invoice-actions">
                                 <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
-                                <a href="support.html" target="_blank" class="btn btn-danger"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                                <a href="support.html" target="_blank" class="btn btn-pink"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                             </div>
                             <div class="invoice-footer-note">
                                 <i class="fas fa-shield-alt"></i> After payment, please submit your proof to activate your provider account.
@@ -1833,11 +1935,6 @@
             auth.signOut().then(() => window.location.href = 'index.html');
         });
 
-        document.getElementById('editProfileLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.href = e.target.closest('a').href;
-        });
-
         // ============================================================
         //  SETTINGS FUNCTIONS
         // ============================================================
@@ -1872,4 +1969,4 @@
     </script>
 
 </body>
-    </html>
+</html>

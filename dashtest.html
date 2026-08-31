@@ -1361,8 +1361,9 @@
                 `;
             } else if (status === 'pending') {
                 html += `
-                    <div style="margin-top:16px; padding:12px; background:#fff3cd; border-radius:var(--radius-sm);">
-                        <p><i class="fas fa-hourglass-half"></i> Your subscription is pending approval. Please wait or <a href="#" onclick="viewInvoice()">view invoice</a>.</p>
+                    <div style="margin-top:16px; padding:12px; background:#fff3cd; border-radius:var(--radius-sm); display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                        <p style="flex:1;"><i class="fas fa-hourglass-half"></i> Your subscription is pending approval. Please wait or <a href="#" onclick="viewInvoice()">view invoice</a>.</p>
+                        <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                     </div>
                 `;
             } else {
@@ -1763,7 +1764,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE – FIXED: fetch latest pending invoice
+        //  VIEW INVOICE – FIXED: fetch latest pending invoice by providerId or userId
         // ============================================================
         async function viewInvoice() {
             if (!providerDocId) {
@@ -1772,30 +1773,39 @@
             }
 
             try {
-                // Query invoices for this provider, status pending, order by createdAt desc
-                const snap = await db.collection('invoices')
+                // Query invoices for this provider by providerId (set during checkout/renewal)
+                let snap = await db.collection('invoices')
                     .where('providerId', '==', providerDocId)
                     .where('status', '==', 'pending')
                     .orderBy('createdAt', 'desc')
                     .limit(1)
                     .get();
 
+                // If no result, try by userId (fallback for older invoices)
                 if (snap.empty) {
-                    // Also try without status filter
-                    const snapAll = await db.collection('invoices')
+                    snap = await db.collection('invoices')
+                        .where('userId', '==', currentUser.uid)
+                        .where('status', '==', 'pending')
+                        .orderBy('createdAt', 'desc')
+                        .limit(1)
+                        .get();
+                }
+
+                // If still empty, try all invoices for this provider without status filter
+                if (snap.empty) {
+                    snap = await db.collection('invoices')
                         .where('providerId', '==', providerDocId)
                         .orderBy('createdAt', 'desc')
                         .limit(1)
                         .get();
-                    if (snapAll.empty) {
-                        showToast('No invoice found for your subscription.', 'error');
-                        return;
-                    }
-                    var invDoc = snapAll.docs[0];
-                } else {
-                    var invDoc = snap.docs[0];
                 }
 
+                if (snap.empty) {
+                    showToast('No invoice found for your subscription.', 'error');
+                    return;
+                }
+
+                const invDoc = snap.docs[0];
                 const invData = invDoc.data();
                 const invoiceNumber = invData.invoiceNumber || invDoc.id;
                 const container = document.getElementById('invoice-container');

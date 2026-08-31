@@ -11,9 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ============================================================
-           ROOT & RESET (merged from both themes)
-           ============================================================ */
+        /* ===== ROOT & RESET ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -407,7 +405,7 @@
             color: #fff;
         }
 
-        /* ===== RENEWAL FORM ===== */
+        /* ===== RENEW FORM ===== */
         .renew-form {
             display: flex;
             flex-wrap: wrap;
@@ -515,6 +513,335 @@
             width: 16px;
         }
 
+        /* ===== MODAL FOR INVOICE ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #fff;
+            border-radius: var(--radius);
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 0;
+            position: relative;
+        }
+        .modal-close-btn {
+            position: sticky;
+            top: 0;
+            right: 0;
+            float: right;
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--navy);
+            padding: 12px 20px;
+            z-index: 10;
+        }
+        .modal-close-btn:hover {
+            color: var(--pink);
+        }
+
+        /* ===== INVOICE STYLES (copied from checkout) ===== */
+        .invoice-wrapper {
+            background: #fff;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin: 0;
+        }
+        .invoice-header-bar {
+            background: var(--navy);
+            padding: 1.2rem 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .invoice-header-bar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .invoice-header-bar .brand .logo-mark {
+            width: 38px;
+            height: 38px;
+            background: var(--lime);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--navy);
+        }
+        .invoice-header-bar .brand h2 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .invoice-header-bar .brand h2 span {
+            color: var(--lime);
+        }
+        .invoice-header-bar .invoice-number {
+            text-align: right;
+        }
+        .invoice-header-bar .invoice-number .label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.6;
+            font-weight: 600;
+        }
+        .invoice-header-bar .invoice-number .number {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+        .invoice-body {
+            padding: 2.5rem 2.5rem 2rem;
+            position: relative;
+        }
+        .unpaid-stamp {
+            position: absolute;
+            top: 2rem;
+            right: 2.5rem;
+            transform: rotate(18deg);
+            border: 4px solid var(--danger);
+            color: var(--danger);
+            font-size: 1.8rem;
+            font-weight: 900;
+            padding: 0.4rem 1.2rem;
+            border-radius: 8px;
+            opacity: 0.55;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            pointer-events: none;
+            background: rgba(220, 38, 38, 0.04);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.2;
+            text-align: center;
+            z-index: 5;
+        }
+        .unpaid-stamp small {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            opacity: 0.7;
+        }
+        .invoice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .invoice-grid .bill-to h4,
+        .invoice-grid .invoice-meta h4 {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .invoice-grid .bill-to .name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .invoice-grid .bill-to .email {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .invoice-grid .invoice-meta .meta-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .invoice-grid .invoice-meta .meta-row:last-child {
+            border-bottom: none;
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-value {
+            font-weight: 700;
+            color: var(--navy);
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-value.danger {
+            color: var(--danger);
+        }
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0 2rem;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .invoice-table thead {
+            background: var(--navy);
+            color: #fff;
+        }
+        .invoice-table thead th {
+            padding: 0.9rem 1.2rem;
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+        }
+        .invoice-table tbody td {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .invoice-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .invoice-table tbody .item-desc {
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .invoice-table tbody .item-amount {
+            font-weight: 700;
+            color: var(--navy);
+        }
+        .invoice-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 1.5rem;
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+        }
+        .invoice-total-row .total-label {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .invoice-total-row .total-amount {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--pink);
+        }
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0 1.8rem;
+        }
+        .payment-method-card {
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            padding: 1.2rem 1.2rem 1rem;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: var(--transition);
+        }
+        .payment-method-card:hover {
+            border-color: var(--navy);
+            background: var(--card);
+            box-shadow: var(--shadow-sm);
+        }
+        .payment-method-card .method-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            padding: 6px;
+        }
+        .payment-method-card .method-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .payment-method-card .method-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--navy);
+            margin-bottom: 2px;
+        }
+        .payment-method-card .method-detail {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .payment-method-card .method-account {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        .payment-instructions {
+            background: rgba(11, 26, 43, 0.02);
+            border-left: 4px solid var(--lime);
+            padding: 1.2rem 1.5rem;
+            border-radius: var(--radius-md);
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .payment-instructions strong {
+            color: var(--navy);
+        }
+        .invoice-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+        .invoice-actions .btn {
+            flex: 1;
+            min-width: 160px;
+        }
+        .invoice-footer-note {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        .invoice-footer-note i {
+            color: var(--lime);
+        }
+
         /* ===== HIDDEN ===== */
         .hidden {
             display: none !important;
@@ -597,6 +924,41 @@
             .renew-form {
                 flex-direction: column;
                 align-items: stretch;
+            }
+            .invoice-body {
+                padding: 1.2rem 1rem 1.2rem;
+            }
+            .invoice-header-bar {
+                padding: 0.8rem 1rem;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .invoice-header-bar .invoice-number {
+                text-align: left;
+                width: 100%;
+            }
+            .unpaid-stamp {
+                font-size: 1rem;
+                padding: 0.15rem 0.6rem;
+                top: 1rem;
+                right: 1rem;
+                transform: rotate(15deg);
+            }
+            .unpaid-stamp small {
+                font-size: 0.45rem;
+            }
+            .invoice-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .payment-methods {
+                grid-template-columns: 1fr;
+            }
+            .invoice-actions {
+                flex-direction: column;
+            }
+            .invoice-actions .btn {
+                min-width: auto;
             }
         }
     </style>
@@ -734,6 +1096,14 @@
         </div><!-- /content -->
     </div><!-- /main-wrapper -->
 
+    <!-- ===== INVOICE MODAL ===== -->
+    <div class="modal-overlay" id="invoiceModal">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeInvoiceModal()">&times;</button>
+            <div id="invoice-container"></div>
+        </div>
+    </div>
+
     <!-- ===== TOAST CONTAINER ===== -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -809,7 +1179,6 @@
                     providerDocId = docSnap.id;
                     providerData = docSnap.data();
                 } else {
-                    // Try by email
                     const snapshot = await db.collection('serviceProviders')
                         .where('email', '==', user.email)
                         .limit(1)
@@ -818,7 +1187,6 @@
                         providerDocId = snapshot.docs[0].id;
                         providerData = snapshot.docs[0].data();
                     } else {
-                        // Create default profile
                         const defaultData = {
                             name: user.email.split('@')[0] || 'My Business',
                             category: '',
@@ -863,8 +1231,24 @@
                 if (!subSnap.empty) {
                     subscriptionData = subSnap.docs[0].data();
                     subscriptionData.id = subSnap.docs[0].id;
+                    // Also update providerData with subscription info
+                    if (subscriptionData.status === 'active' && subscriptionData.expiryDate) {
+                        providerData.subscriptionActive = true;
+                        providerData.subscriptionExpiry = subscriptionData.expiryDate;
+                        providerData.subscriptionStatus = 'active';
+                    } else if (subscriptionData.status === 'pending') {
+                        providerData.subscriptionActive = false;
+                        providerData.subscriptionStatus = 'pending';
+                    } else {
+                        providerData.subscriptionActive = false;
+                        providerData.subscriptionStatus = 'none';
+                    }
+                    providerData.subscriptionPlan = subscriptionData.planName || null;
                 } else {
                     subscriptionData = null;
+                    providerData.subscriptionActive = false;
+                    providerData.subscriptionStatus = 'none';
+                    providerData.subscriptionPlan = null;
                 }
             } catch (error) {
                 console.error('Error loading subscription:', error);
@@ -893,11 +1277,10 @@
         // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
-            const isActive = providerData && providerData.subscriptionActive;
             const status = providerData ? providerData.subscriptionStatus : 'none';
             const plan = providerData ? providerData.subscriptionPlan : null;
-            const expiry = providerData && providerData.subscriptionExpiry ? providerData.subscriptionExpiry.toDate ? providerData
-                .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry) : null;
+            const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
+                providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
             const expired = expiry && expiry < now;
 
@@ -933,7 +1316,6 @@
             `;
 
             if (status === 'active' && !expired) {
-                // Show provider stats (placeholder)
                 html += `
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-top:12px;">
                         <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
@@ -963,7 +1345,6 @@
                     </div>
                 `;
             } else {
-                // No active subscription
                 html += `
                     <div style="margin-top:16px; padding:20px; text-align:center; background:#f8f9fa; border-radius:var(--radius-sm);">
                         <i class="fas fa-lock" style="font-size:2rem; color:var(--pink);"></i>
@@ -1229,7 +1610,6 @@
 
             let currentPlan = providerData ? providerData.subscriptionPlan : null;
             if (!currentPlan) {
-                // If no plan, show plan selection
                 container.innerHTML = `
                     <h4 style="margin-bottom:12px;">Choose Your Plan</h4>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
@@ -1258,7 +1638,6 @@
                 return;
             }
 
-            // Show renewal form
             const planPrice = currentPlan === 'Venue' ? 50 : 10;
             container.innerHTML = `
                 <div style="background:var(--bg); padding:16px; border-radius:var(--radius-sm); margin-bottom:16px;">
@@ -1278,7 +1657,6 @@
                 </div>
             `;
 
-            // Update total when months change
             document.getElementById('months-select').addEventListener('change', function() {
                 const months = parseInt(this.value);
                 document.getElementById('renew-total').textContent = (planPrice * months).toFixed(2);
@@ -1286,10 +1664,9 @@
         }
 
         // ============================================================
-        //  PLAN SELECTION (first subscription)
+        //  PLAN SELECTION
         // ============================================================
         function selectPlan(planName, price) {
-            // Store selected plan in localStorage and redirect to checkout
             localStorage.setItem('zone21_provider_plan_name', planName);
             localStorage.setItem('zone21_provider_plan_price', price);
             localStorage.setItem('zone21_provider_plan_id', planName.toLowerCase().replace(/\s/g, ''));
@@ -1298,7 +1675,7 @@
         window.selectPlan = selectPlan;
 
         // ============================================================
-        //  RENEW SUBSCRIPTION (generates new invoice)
+        //  RENEW SUBSCRIPTION
         // ============================================================
         async function renewSubscription() {
             if (!currentUser) { showToast('Please sign in.', 'error'); return; }
@@ -1307,12 +1684,10 @@
             const price = planName === 'Venue' ? 50 : 10;
             const total = price * months;
 
-            // Create invoice and subscription entry
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
             const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
             try {
-                // Create invoice
                 await db.collection('invoices').add({
                     providerId: providerDocId,
                     userId: currentUser.uid,
@@ -1325,7 +1700,6 @@
                     type: 'subscription_renewal'
                 });
 
-                // Create/update subscription record (pending)
                 const subRef = db.collection('subscriptions').doc();
                 await subRef.set({
                     providerId: providerDocId,
@@ -1338,15 +1712,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                // Update provider status to pending
                 await db.collection('serviceProviders').doc(providerDocId).update({
                     subscriptionStatus: 'pending',
                     subscriptionPlan: planName
                 });
 
                 showToast('Invoice generated! Please make payment and submit proof.', 'success');
-                // Redirect to invoice view or show invoice
-                // For simplicity, we reload subscription data
                 await loadSubscriptionData();
                 renderSubscription();
                 renderDashboard();
@@ -1359,38 +1730,179 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE (placeholder)
+        //  VIEW INVOICE – FIXED: fetches and displays invoice modal
         // ============================================================
-        function viewInvoice() {
-            // In a real scenario, fetch the latest invoice and display it.
-            // For now, redirect to a generic invoice page.
-            showToast('Invoice details will be shown here. (Coming soon)', 'info');
-            // window.location.href = 'invoice.html?id=' + subscriptionData.invoiceNumber;
+        async function viewInvoice() {
+            if (!subscriptionData) {
+                showToast('No subscription found.', 'error');
+                return;
+            }
+            const invoiceNumber = subscriptionData.invoiceNumber;
+            if (!invoiceNumber) {
+                showToast('No invoice number found.', 'error');
+                return;
+            }
+
+            try {
+                const invSnap = await db.collection('invoices').doc(invoiceNumber).get();
+                if (!invSnap.exists) {
+                    showToast('Invoice not found.', 'error');
+                    return;
+                }
+                const invData = invSnap.data();
+                const container = document.getElementById('invoice-container');
+                const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
+                    'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
+                    .toLocaleDateString()) : 'N/A';
+                const customer = invData.customerInfo || {};
+                const fName = customer.firstName || '';
+                const lName = customer.lastName || '';
+                const fullName = (fName + ' ' + lName).trim() || 'N/A';
+                const email = customer.email || 'N/A';
+                const phone = customer.phone || 'N/A';
+                const company = customer.company || '';
+                const plan = invData.planName || invData.packageDetails?.name || 'Subscription';
+                const total = invData.total || invData.packageDetails?.total || 0;
+                const months = invData.months || invData.packageDetails?.months || 1;
+                const status = invData.status || 'pending';
+
+                // Build invoice HTML
+                const invoiceHtml = `
+                    <div class="invoice-wrapper">
+                        <div class="invoice-header-bar">
+                            <div class="brand">
+                                <div class="logo-mark">Z</div>
+                                <h2>Zone<span>21</span></h2>
+                            </div>
+                            <div class="invoice-number">
+                                <div class="label">Invoice Number</div>
+                                <div class="number">${invoiceNumber}</div>
+                            </div>
+                        </div>
+                        <div class="invoice-body">
+                            <div class="unpaid-stamp">
+                                ${status === 'paid' ? 'PAID' : 'UNPAID'}
+                                <small>${status === 'paid' ? 'payment confirmed' : 'payment pending'}</small>
+                            </div>
+                            <div class="invoice-grid">
+                                <div class="bill-to">
+                                    <h4>Bill To</h4>
+                                    <div class="name">${fullName}</div>
+                                    <div class="email">${email}</div>
+                                    ${company ? `<div style="font-size:0.8rem; color:var(--text-muted);">${company}</div>` : ''}
+                                    ${phone !== 'N/A' ? `<div style="font-size:0.8rem; color:var(--text-muted);">${phone}</div>` : ''}
+                                </div>
+                                <div class="invoice-meta">
+                                    <h4>Invoice Details</h4>
+                                    <div class="meta-row">
+                                        <span class="meta-label">Date</span>
+                                        <span class="meta-value">${dateStr}</span>
+                                    </div>
+                                    <div class="meta-row">
+                                        <span class="meta-label">Status</span>
+                                        <span class="meta-value danger">${status.toUpperCase()}</span>
+                                    </div>
+                                    <div class="meta-row">
+                                        <span class="meta-label">Payment Method</span>
+                                        <span class="meta-value">Manual Transfer</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <table class="invoice-table">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th style="text-align:right;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="item-desc">${plan} (${months} month${months > 1 ? 's' : ''})</td>
+                                        <td class="item-amount" style="text-align:right;">$${total.toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="invoice-total-row">
+                                <span class="total-label">Total Payable</span>
+                                <span class="total-amount">$${total.toFixed(2)}</span>
+                            </div>
+                            <div class="payment-instructions">
+                                <strong>📌 Manual Payment Required</strong><br>
+                                Please transfer the exact total amount to one of the accounts below.<br>
+                                Use your <strong>Invoice Number</strong> as the payment reference.
+                            </div>
+                            <div class="payment-methods">
+                                <div class="payment-method-card">
+                                    <div class="method-icon">
+                                        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgwnfhozjpovvXfL0xyqpu46qT3PjiQqNnUI97upb7S5JgCPPviUCxlPmJX27y7p9qa1qGWXB8qGKKG6SUrWnW9dNQrFLrNkbCH7OPynH0v-hErLb3LwkDDNrljlrAK1RBs1QniSaJkQJNPcg1D0xeCCxKN28WEbV3egQWEb43iSD-PeRYC5uI1loZcEhYY/s1600/722de7bfbab2b24020b8fb404bc9fe58_icon.png" alt="Ecocash">
+                                    </div>
+                                    <div class="method-name">Ecocash</div>
+                                    <div class="method-detail">078 991 2268</div>
+                                    <div class="method-account">Tanatswa Dean Mwanza</div>
+                                </div>
+                                <div class="payment-method-card">
+                                    <div class="method-icon">
+                                        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiol9STr7ImEkAH6KsKj4n5XsA6edceL24btsYwwo426RfFGa7uuqVMJrBY2U6FCFFPYX5Daf50iTun5jmqp9bx-sN1Ukmy0N2e7TSjPtT7TvRLfmS1FBjkeADvjzI2WpEpr0pB179sZBxNvZoH06DUdJzIkwa7JMzt_T1UH1ELIDMQKX8T3lhRaVrVR4K6/s1600/APP_ICON.png" alt="Innbucks">
+                                    </div>
+                                    <div class="method-name">Innbucks</div>
+                                    <div class="method-detail">078 991 2268</div>
+                                    <div class="method-account">Tanatswa Dean Mwanza</div>
+                                </div>
+                                <div class="payment-method-card">
+                                    <div class="method-icon">
+                                        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjcQFUEJrA33gQlP3kceYEdQCuJ1gXImN7b031MmiGlTdgqdD6An640fWWVV0R7jBsL2If96hrnDv9PypAbNBK_yQDH8z8Quefrt1Xc2xi6sShTFmHRgrO_sdGbvckOeMVoJZFIjA6DV_AJm9qLzliGiyU0DZXYT0SvPCvDR1_8J1aP4mEKObQk-3KfWJaV/s1600/kiev-ukraine-september-visa-mastercard-logos-printed-white-paper-visa-mastercard-american-multinational-102631953.jpg" alt="TN CyberTech Bank">
+                                    </div>
+                                    <div class="method-name">TN CyberTech Bank</div>
+                                    <div class="method-detail">4638 3300 1429 9948</div>
+                                    <div class="method-account">Corporate Account</div>
+                                </div>
+                            </div>
+                            <div class="invoice-actions">
+                                <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
+                                <a href="https://zone21services.github.io/zone21services/contactadmin.html" target="_blank" class="btn btn-danger"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                            </div>
+                            <div class="invoice-footer-note">
+                                <i class="fas fa-shield-alt"></i> After payment, submit your proof to activate your provider account.
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML = invoiceHtml;
+                document.getElementById('invoiceModal').classList.add('active');
+
+            } catch (error) {
+                console.error('Error fetching invoice:', error);
+                showToast('Failed to load invoice.', 'error');
+            }
         }
         window.viewInvoice = viewInvoice;
+
+        // ============================================================
+        //  CLOSE INVOICE MODAL
+        // ============================================================
+        function closeInvoiceModal() {
+            document.getElementById('invoiceModal').classList.remove('active');
+        }
+        window.closeInvoiceModal = closeInvoiceModal;
 
         // ============================================================
         //  TAB SWITCHING
         // ============================================================
         function switchTab(tab) {
-            // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            // Show selected
             const target = document.getElementById('tab-' + tab);
             if (target) target.classList.remove('hidden');
 
-            // Update sidebar active
             document.querySelectorAll('.sidebar .nav-links a').forEach(link => link.classList.remove('active'));
             const activeLink = document.querySelector(`.sidebar .nav-links a[data-tab="${tab}"]`);
             if (activeLink) activeLink.classList.add('active');
 
-            // Render content based on tab
             if (tab === 'dashboard') renderDashboard();
             else if (tab === 'profile') renderProfile();
             else if (tab === 'subscription') renderSubscription();
             else if (tab === 'renew') renderRenew();
 
-            // Close sidebar on mobile
             if (window.innerWidth <= 768) {
                 document.getElementById('sidebar').classList.remove('open');
             }
@@ -1453,19 +1965,8 @@
         }
         window.changePassword = changePassword;
 
-        // ============================================================
-        //  INIT – load data and show dashboard
-        // ============================================================
-        // The auth state handler already calls loadProviderData and loadSubscriptionData.
-        // We'll call switchTab('dashboard') after data loads.
-        // Modified auth state to call dashboard after load.
-        // We'll also ensure that profile render is called when needed.
-        // For now, we'll call renderDashboard after data loads.
-        // The current auth handler already calls renderDashboard().
-        // So we're good.
-
-        console.log('Provider Hub loaded.');
+        console.log('Provider Hub with Invoice Viewer loaded.');
     </script>
 
 </body>
-    </html>
+</html>

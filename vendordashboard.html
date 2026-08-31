@@ -1098,7 +1098,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ============================================================
-    FIREBASE + FULL LOGIC
+    FIREBASE + FULL LOGIC - USING THE SAME PATTERN AS ZONE21
     ============================================================ -->
     <script>
         // ============================================================
@@ -1123,11 +1123,9 @@
         let currentUser = null;
         let providerDocId = null;
         let providerData = null;
-        let subscriptionData = null;
-        let unsubscribeSubscription = null;
-        let unsubscribeProvider = null;
-        let currentPlanType = null;
-        let subscriptionStatus = 'none'; // Track status separately
+        let subscriptionStatus = 'none';
+        let activePlan = null;
+        let activePlanType = null;
 
         // ============================================================
         //  AUTH STATE
@@ -1137,9 +1135,8 @@
                 currentUser = user;
                 document.getElementById('topbar-name').textContent = user.email || 'Provider';
                 await loadProviderData(user);
-                // Start both listeners
-                startSubscriptionListener();
-                startProviderListener();
+                // CRITICAL: Check subscription status on load (same as Zone21)
+                await checkSubscriptionStatus();
                 renderDashboard();
                 switchTab('dashboard');
             } else {
@@ -1173,12 +1170,6 @@
                 if (docSnap.exists) {
                     providerDocId = docSnap.id;
                     providerData = docSnap.data();
-                    if (providerData.subscriptionPlan) {
-                        currentPlanType = providerData.subscriptionPlan;
-                    }
-                    if (providerData.subscriptionStatus) {
-                        subscriptionStatus = providerData.subscriptionStatus;
-                    }
                 } else {
                     const snapshot = await db.collection('serviceProviders')
                         .where('email', '==', user.email)
@@ -1187,12 +1178,6 @@
                     if (!snapshot.empty) {
                         providerDocId = snapshot.docs[0].id;
                         providerData = snapshot.docs[0].data();
-                        if (providerData.subscriptionPlan) {
-                            currentPlanType = providerData.subscriptionPlan;
-                        }
-                        if (providerData.subscriptionStatus) {
-                            subscriptionStatus = providerData.subscriptionStatus;
-                        }
                     } else {
                         const defaultData = {
                             name: user.email.split('@')[0] || 'My Business',
@@ -1215,7 +1200,6 @@
                         await db.collection('serviceProviders').doc(user.uid).set(defaultData);
                         providerDocId = user.uid;
                         providerData = defaultData;
-                        subscriptionStatus = 'none';
                     }
                 }
                 updateTopbarAvatar();
@@ -1226,135 +1210,112 @@
         }
 
         // ============================================================
-        //  REAL-TIME PROVIDER LISTENER - listens to serviceProvider document
+        //  CHECK SUBSCRIPTION STATUS - SAME PATTERN AS ZONE21
+        //  This is the CRITICAL function that checks subscriptions
+        //  and auto-syncs the status
         // ============================================================
-        function startProviderListener() {
-            if (!providerDocId) return;
-            if (unsubscribeProvider) unsubscribeProvider();
+        async function checkSubscriptionStatus() {
+            if (!currentUser) return;
 
-            unsubscribeProvider = db.collection('serviceProviders').doc(providerDocId)
-                .onSnapshot((doc) => {
-                    if (doc.exists) {
-                        providerData = doc.data();
-                        if (providerData.subscriptionPlan) {
-                            currentPlanType = providerData.subscriptionPlan;
-                        }
-                        if (providerData.subscriptionStatus) {
-                            subscriptionStatus = providerData.subscriptionStatus;
-                        }
-                        // Refresh UI
-                        const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
-                        if (activeTab === 'tab-dashboard') renderDashboard();
-                        else if (activeTab === 'tab-profile') renderProfile();
-                        else if (activeTab === 'tab-subscription') renderSubscription();
-                        else if (activeTab === 'tab-renew') renderRenew();
-                        updateTopbarAvatar();
+            try {
+                // Query subscriptions for this provider (same as Zone21)
+                const subsQuery = query(
+                    collection(db, 'subscriptions'),
+                    where('providerId', '==', currentUser.uid)
+                );
+                const subsSnapshot = await getDocs(subsQuery);
 
-                        // Show notification if status changed to active
-                        if (providerData.subscriptionStatus === 'active') {
-                            showToast('✅ Your subscription has been approved! You can now manage your profile.', 'success');
+                let isActive = false;
+                let isPending = false;
+                let planName = null;
+                let activeSubscription = null;
+
+                subsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Check if subscription is active or approved
+                    if (data.status === 'active' || data.status === 'approved') {
+                        isActive = true;
+                        planName = data.planName || data.plan || 'Unknown';
+                        activeSubscription = data;
+                    }
+                    // Check if there's a pending subscription
+                    if (data.status === 'pending' || data.status === 'pending_payment') {
+                        isPending = true;
+                        if (!planName) {
+                            planName = data.planName || data.plan || 'Unknown';
                         }
                     }
-                }, (error) => {
-                    console.error('Provider listener error:', error);
                 });
-        }
 
-        // ============================================================
-        //  REAL-TIME SUBSCRIPTION LISTENER
-        // ============================================================
-        function startSubscriptionListener() {
-            if (!providerDocId) return;
-            if (unsubscribeSubscription) unsubscribeSubscription();
-
-            unsubscribeSubscription = db.collection('subscriptions')
-                .where('providerId', '==', providerDocId)
-                .onSnapshot(async (snap) => {
-                    let latestSub = null;
-                    snap.forEach((doc) => {
-                        const data = doc.data();
-                        if (!latestSub || (data.createdAt && latestSub.createdAt && data.createdAt.toMillis() > latestSub.createdAt.toMillis())) {
-                            latestSub = { id: doc.id, ...data };
-                        }
-                    });
-                    subscriptionData = latestSub;
-
-                    // CRITICAL: Update subscription status from the subscription document
-                    if (subscriptionData) {
-                        if (subscriptionData.planName) {
-                            currentPlanType = subscriptionData.planName;
-                        }
-
-                        // Check the status from the subscription document
-                        const subStatus = subscriptionData.status || 'none';
-
-                        if (subStatus === 'active' || subStatus === 'approved') {
-                            subscriptionStatus = 'active';
-                            providerData.subscriptionActive = true;
-                            providerData.subscriptionStatus = 'active';
-                            providerData.subscriptionPlan = subscriptionData.planName || null;
-                            if (subscriptionData.expiryDate) {
-                                providerData.subscriptionExpiry = subscriptionData.expiryDate;
-                            }
-
-                            // Update serviceProvider document to match
-                            await db.collection('serviceProviders').doc(providerDocId).update({
-                                subscriptionActive: true,
-                                subscriptionStatus: 'active',
-                                subscriptionPlan: subscriptionData.planName || null,
-                                subscriptionExpiry: subscriptionData.expiryDate || null
-                            }).catch(err => console.log('Update error:', err));
-
-                            showToast('✅ Your subscription has been approved! You can now manage your profile.', 'success');
-
-                        } else if (subStatus === 'pending' || subStatus === 'pending_payment') {
-                            subscriptionStatus = 'pending';
-                            providerData.subscriptionActive = false;
-                            providerData.subscriptionStatus = 'pending';
-                            providerData.subscriptionPlan = subscriptionData.planName || null;
-
-                            await db.collection('serviceProviders').doc(providerDocId).update({
-                                subscriptionActive: false,
-                                subscriptionStatus: 'pending',
-                                subscriptionPlan: subscriptionData.planName || null
-                            }).catch(err => console.log('Update error:', err));
-
-                        } else if (subStatus === 'rejected') {
-                            subscriptionStatus = 'rejected';
-                            providerData.subscriptionActive = false;
-                            providerData.subscriptionStatus = 'rejected';
-                            providerData.subscriptionPlan = null;
-
-                            await db.collection('serviceProviders').doc(providerDocId).update({
-                                subscriptionActive: false,
-                                subscriptionStatus: 'rejected',
-                                subscriptionPlan: null
-                            }).catch(err => console.log('Update error:', err));
-
-                        } else {
-                            subscriptionStatus = 'none';
-                            providerData.subscriptionActive = false;
-                            providerData.subscriptionStatus = 'none';
-                            providerData.subscriptionPlan = null;
-                        }
-                    } else {
-                        subscriptionStatus = 'none';
-                        providerData.subscriptionActive = false;
-                        providerData.subscriptionStatus = 'none';
-                        providerData.subscriptionPlan = null;
+                // Update state based on what we found
+                if (isActive) {
+                    subscriptionStatus = 'active';
+                    activePlan = planName;
+                    activePlanType = planName; // 'Venue' or 'Service Provider'
+                    
+                    // Update providerData
+                    providerData.subscriptionStatus = 'active';
+                    providerData.subscriptionActive = true;
+                    providerData.subscriptionPlan = planName;
+                    if (activeSubscription && activeSubscription.expiryDate) {
+                        providerData.subscriptionExpiry = activeSubscription.expiryDate;
                     }
 
-                    // Refresh all views
-                    const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
-                    if (activeTab === 'tab-dashboard') renderDashboard();
-                    else if (activeTab === 'tab-profile') renderProfile();
-                    else if (activeTab === 'tab-subscription') renderSubscription();
-                    else if (activeTab === 'tab-renew') renderRenew();
-                    updateTopbarAvatar();
+                    // Sync serviceProvider document (same as Zone21)
+                    await db.collection('serviceProviders').doc(providerDocId).update({
+                        subscriptionStatus: 'active',
+                        subscriptionActive: true,
+                        subscriptionPlan: planName,
+                        subscriptionExpiry: activeSubscription?.expiryDate || null
+                    }).catch(err => console.log('Sync error:', err));
 
-                }, (error) => {
-                    console.error('Subscription listener error:', error);
-                });
+                    console.log('✅ Subscription is ACTIVE:', planName);
+
+                } else if (isPending) {
+                    subscriptionStatus = 'pending';
+                    activePlan = planName || 'Unknown';
+                    
+                    providerData.subscriptionStatus = 'pending';
+                    providerData.subscriptionActive = false;
+                    providerData.subscriptionPlan = planName || null;
+
+                    // Sync serviceProvider
+                    await db.collection('serviceProviders').doc(providerDocId).update({
+                        subscriptionStatus: 'pending',
+                        subscriptionActive: false,
+                        subscriptionPlan: planName || null
+                    }).catch(err => console.log('Sync error:', err));
+
+                    console.log('⏳ Subscription is PENDING');
+
+                } else {
+                    subscriptionStatus = 'none';
+                    activePlan = null;
+                    activePlanType = null;
+                    
+                    providerData.subscriptionStatus = 'none';
+                    providerData.subscriptionActive = false;
+                    providerData.subscriptionPlan = null;
+
+                    // Sync serviceProvider
+                    await db.collection('serviceProviders').doc(providerDocId).update({
+                        subscriptionStatus: 'none',
+                        subscriptionActive: false,
+                        subscriptionPlan: null
+                    }).catch(err => console.log('Sync error:', err));
+
+                    console.log('❌ No subscription found');
+                }
+
+                // Refresh UI
+                renderDashboard();
+                renderProfile();
+                renderSubscription();
+                renderRenew();
+
+            } catch (error) {
+                console.error('Error checking subscription status:', error);
+            }
         }
 
         // ============================================================
@@ -1375,32 +1336,12 @@
         }
 
         // ============================================================
-        //  GET EFFECTIVE STATUS - checks both providerData and subscriptionData
-        // ============================================================
-        function getEffectiveStatus() {
-            // First check subscriptionData if available (most reliable)
-            if (subscriptionData) {
-                const subStatus = subscriptionData.status || 'none';
-                if (subStatus === 'active' || subStatus === 'approved') return 'active';
-                if (subStatus === 'pending' || subStatus === 'pending_payment') return 'pending';
-                if (subStatus === 'rejected') return 'rejected';
-            }
-            // Fallback to providerData
-            if (providerData) {
-                if (providerData.subscriptionStatus === 'active') return 'active';
-                if (providerData.subscriptionStatus === 'pending') return 'pending';
-                if (providerData.subscriptionStatus === 'rejected') return 'rejected';
-            }
-            return subscriptionStatus || 'none';
-        }
-
-        // ============================================================
         //  RENDER DASHBOARD
         // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
-            const status = getEffectiveStatus();
-            const plan = providerData ? providerData.subscriptionPlan : null;
+            const status = subscriptionStatus;
+            const plan = activePlan || providerData?.subscriptionPlan || null;
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
                 providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
@@ -1453,11 +1394,11 @@
                 html += `
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-top:12px;">
                         <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                            <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData.rating || 0}</div>
+                            <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData?.rating || 0}</div>
                             <div style="font-size:0.7rem; color:var(--muted);">Rating</div>
                         </div>
                         <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                            <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData.reviewsCount || 0}</div>
+                            <div style="font-size:1.2rem; font-weight:800; color:var(--navy);">${providerData?.reviewsCount || 0}</div>
                             <div style="font-size:0.7rem; color:var(--muted);">Reviews</div>
                         </div>
                     </div>
@@ -1494,8 +1435,8 @@
         // ============================================================
         function renderProfile() {
             const container = document.getElementById('profile-content');
-            const status = getEffectiveStatus();
-            const plan = providerData ? providerData.subscriptionPlan : null;
+            const status = subscriptionStatus;
+            const plan = activePlan || providerData?.subscriptionPlan || null;
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
                 providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
@@ -1527,22 +1468,22 @@
             document.getElementById('editProfileLink').style.display = 'inline-flex';
             document.getElementById('editProfileLink').innerHTML = '<i class="fas fa-edit"></i> Manage Profile';
 
-            const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-            const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
-            const service = providerData.service || 'Not specified';
+            const initials = (providerData?.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = providerData?.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
+            const service = providerData?.service || 'Not specified';
 
             container.innerHTML = `
                 <div class="profile-summary">
                     <div class="avatar-large">${avatarHtml}</div>
                     <div class="info">
-                        <h2>${providerData.name || 'Unnamed Provider'}</h2>
+                        <h2>${providerData?.name || 'Unnamed Provider'}</h2>
                         <div class="subtitle">
                             <span><i class="fas fa-tag"></i> ${service}</span>
-                            <span><i class="fas fa-map-pin"></i> ${providerData.location || 'Location not set'}</span>
-                            <span><i class="fas fa-star" style="color:#ffb400;"></i> ${(providerData.rating || 0).toFixed(1)} (${providerData.reviewsCount || 0} reviews)</span>
+                            <span><i class="fas fa-map-pin"></i> ${providerData?.location || 'Location not set'}</span>
+                            <span><i class="fas fa-star" style="color:#ffb400;"></i> ${(providerData?.rating || 0).toFixed(1)} (${providerData?.reviewsCount || 0} reviews)</span>
                         </div>
-                        ${providerData.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${providerData.basePrice}</div>` : ''}
-                        ${providerData.description ? `<div style="margin-top:10px; line-height:1.6;">${providerData.description}</div>` : ''}
+                        ${providerData?.basePrice ? `<div style="margin-top:6px; font-weight:600; color:var(--pink);"><i class="fas fa-tag"></i> Starts at $${providerData.basePrice}</div>` : ''}
+                        ${providerData?.description ? `<div style="margin-top:10px; line-height:1.6;">${providerData.description}</div>` : ''}
                         <div style="margin-top:12px;">
                             <a href="${profilePage}" class="btn btn-lime"><i class="fas fa-edit"></i> Manage Profile</a>
                         </div>
@@ -1556,7 +1497,10 @@
         // ============================================================
         function renderSubscription() {
             const container = document.getElementById('subscription-content');
-            if (!subscriptionData) {
+            const status = subscriptionStatus;
+            const plan = activePlan || providerData?.subscriptionPlan || null;
+
+            if (!plan) {
                 container.innerHTML = `
                     <div style="padding:20px; text-align:center; color:var(--muted);">
                         <i class="fas fa-credit-card" style="font-size:2rem;"></i>
@@ -1565,18 +1509,36 @@
                 `;
                 return;
             }
-            const status = subscriptionData.status || 'pending';
-            const plan = subscriptionData.planName || 'Unknown';
-            const months = subscriptionData.months || 1;
-            const total = subscriptionData.total || 0;
-            const createdAt = subscriptionData.createdAt ? (subscriptionData.createdAt.toDate ? subscriptionData.createdAt.toDate() :
-                new Date(subscriptionData.createdAt)) : null;
-            const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ? providerData
-                .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
+
+            // Try to get more details from subscriptions collection
+            let months = 1;
+            let total = 0;
+            let createdAt = null;
+            let expiry = providerData?.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
+                providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
+
+            // Query the actual subscription document for details
+            db.collection('subscriptions')
+                .where('providerId', '==', currentUser.uid)
+                .where('planName', '==', plan)
+                .get()
+                .then(snap => {
+                    snap.forEach(doc => {
+                        const data = doc.data();
+                        if (data.status === 'active' || data.status === 'approved') {
+                            months = data.months || 1;
+                            total = data.total || 0;
+                            if (data.createdAt) {
+                                createdAt = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                            }
+                        }
+                    });
+                })
+                .catch(err => console.log('Error getting subscription details:', err));
 
             let statusHtml = '';
-            if (status === 'pending' || status === 'pending_payment') statusHtml = '<span class="badge pending">Pending Approval</span>';
-            else if (status === 'active' || status === 'approved') statusHtml = '<span class="badge active">Active</span>';
+            if (status === 'pending') statusHtml = '<span class="badge pending">Pending Approval</span>';
+            else if (status === 'active') statusHtml = '<span class="badge active">Active</span>';
             else if (status === 'rejected') statusHtml = '<span class="badge expired">Rejected</span>';
             else statusHtml = '<span class="badge">Unknown</span>';
 
@@ -1591,11 +1553,11 @@
                         <div>${statusHtml}</div>
                     </div>
                     <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                        <div style="font-size:0.8rem; color:var(--muted);">Months Paid</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">Months</div>
                         <div style="font-weight:700;">${months}</div>
                     </div>
                     <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                        <div style="font-size:0.8rem; color:var(--muted);">Total Paid</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">Total</div>
                         <div style="font-weight:700; color:var(--pink);">$${total}</div>
                     </div>
                     ${createdAt ? `<div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm); grid-column: 1/-1;">
@@ -1607,11 +1569,11 @@
                         <div>${expiry.toLocaleDateString()} ${expiry < new Date() ? ' (Expired)' : ''}</div>
                     </div>` : ''}
                 </div>
-                ${status === 'pending' || status === 'pending_payment' ? `<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                ${status === 'pending' ? `<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                     <button class="btn btn-outline btn-sm" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button>
                 </div>` : ''}
-                ${(status === 'active' || status === 'approved') && expiry && expiry < new Date() ? `<div style="margin-top:16px; padding:12px; background:#ffebee; border-radius:var(--radius-sm);">
+                ${status === 'active' && expiry && expiry < new Date() ? `<div style="margin-top:16px; padding:12px; background:#ffebee; border-radius:var(--radius-sm);">
                     <p><i class="fas fa-exclamation-triangle" style="color:var(--pink);"></i> Your subscription has expired. <a href="#" onclick="switchTab('renew'); return false;">Renew now</a></p>
                 </div>` : ''}
             `;
@@ -1622,15 +1584,15 @@
         // ============================================================
         function renderRenew() {
             const container = document.getElementById('renew-content');
-            const status = getEffectiveStatus();
-            const plan = providerData ? providerData.subscriptionPlan : null;
+            const status = subscriptionStatus;
+            const plan = activePlan || providerData?.subscriptionPlan || null;
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ? providerData
                 .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
             const isExpired = expiry && expiry < now;
             const isActive = status === 'active' && !isExpired;
 
-            if (isActive) {
+            if (isActive && plan) {
                 const planPrice = plan === 'Venue' ? 50 : 10;
                 container.innerHTML = `
                     <div style="background:var(--bg); padding:16px; border-radius:var(--radius-sm); margin-bottom:16px;">
@@ -1711,7 +1673,7 @@
         async function renewSubscription() {
             if (!currentUser) { showToast('Please sign in.', 'error'); return; }
             const months = parseInt(document.getElementById('months-select').value);
-            const planName = providerData.subscriptionPlan || 'Service Provider';
+            const planName = activePlan || 'Service Provider';
             const price = planName === 'Venue' ? 50 : 10;
             const total = price * months;
 
@@ -1729,10 +1691,10 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     type: 'subscription_renewal',
                     customerInfo: {
-                        firstName: providerData.name || '',
+                        firstName: providerData?.name || '',
                         lastName: '',
                         email: currentUser.email || '',
-                        phone: providerData.phone || ''
+                        phone: providerData?.phone || ''
                     }
                 });
 
@@ -1753,6 +1715,8 @@
                 });
 
                 showToast('Invoice generated! Please make payment and submit proof.', 'success');
+                // Refresh status
+                await checkSubscriptionStatus();
             } catch (error) {
                 console.error('Renew error:', error);
                 showToast('Failed to process renewal: ' + error.message, 'error');
@@ -1770,6 +1734,7 @@
             }
 
             try {
+                // Query invoices by providerId
                 const providerInvoices = await db.collection('invoices')
                     .where('providerId', '==', providerDocId)
                     .get();
@@ -1778,168 +1743,35 @@
                 providerInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
 
                 if (allInvoices.length === 0) {
+                    // Fallback: query by userId
                     const userInvoices = await db.collection('invoices')
                         .where('userId', '==', currentUser.uid)
                         .get();
                     userInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
                 }
 
-                const pendingInvoices = allInvoices
-                    .filter(inv => inv.status === 'pending' || inv.status === 'pending_payment')
-                    .sort((a, b) => {
-                        const aTime = a.createdAt?.toMillis?.() || 0;
-                        const bTime = b.createdAt?.toMillis?.() || 0;
-                        return bTime - aTime;
-                    });
+                // Sort by createdAt descending
+                allInvoices.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || 0;
+                    const bTime = b.createdAt?.toMillis?.() || 0;
+                    return bTime - aTime;
+                });
 
-                if (pendingInvoices.length === 0) {
-                    // Show the most recent invoice instead
-                    const anyInvoices = allInvoices.sort((a, b) => {
-                        const aTime = a.createdAt?.toMillis?.() || 0;
-                        const bTime = b.createdAt?.toMillis?.() || 0;
-                        return bTime - aTime;
-                    });
-                    if (anyInvoices.length === 0) {
-                        showToast('No invoice found for your subscription.', 'error');
-                        return;
-                    }
-                    const invData = anyInvoices[0];
-                    const invDocId = invData.id;
-                    const invoiceNumber = invData.invoiceNumber || invDocId;
-                    const container = document.getElementById('invoice-container');
-                    const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
-                        'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
-                        .toLocaleDateString()) : 'N/A';
-                    const customer = invData.customerInfo || {};
-                    const fName = customer.firstName || '';
-                    const lName = customer.lastName || '';
-                    const fullName = (fName + ' ' + lName).trim() || 'N/A';
-                    const email = customer.email || 'N/A';
-                    const phone = customer.phone || 'N/A';
-                    const company = customer.company || '';
-                    const plan = invData.planName || 'Subscription';
-                    const total = invData.total || 0;
-                    const months = invData.months || 1;
-                    const status = invData.status || 'pending';
+                // First try to find pending invoice
+                let invoiceToShow = allInvoices.find(inv => inv.status === 'pending' || inv.status === 'pending_payment');
 
-                    const invoiceHtml = `
-                        <div class="invoice-wrapper">
-                            <div class="invoice-header-bar">
-                                <div class="brand">
-                                    <div class="logo-mark">Z</div>
-                                    <h2>Zone<span>21</span></h2>
-                                </div>
-                                <div class="invoice-number">
-                                    <div class="label">Invoice Number</div>
-                                    <div class="number">${invoiceNumber}</div>
-                                </div>
-                            </div>
-                            <div class="invoice-body">
-                                <div class="unpaid-stamp" style="opacity:0.3; border-color:${status === 'active' || status === 'approved' ? 'var(--success)' : 'var(--danger)'};">
-                                    ${status === 'active' || status === 'approved' ? 'APPROVED' : status === 'pending' ? 'UNPAID' : status.toUpperCase()}
-                                    <small>${status === 'active' || status === 'approved' ? 'payment confirmed' : 'payment pending'}</small>
-                                </div>
-                                <div class="invoice-grid">
-                                    <div class="bill-to">
-                                        <h4>Bill To</h4>
-                                        <div class="name">${fullName}</div>
-                                        <div class="email">${email}</div>
-                                        ${company ? `<div style="font-size:0.8rem; color:var(--text-muted);">${company}</div>` : ''}
-                                        ${phone !== 'N/A' ? `<div style="font-size:0.8rem; color:var(--text-muted);">${phone}</div>` : ''}
-                                    </div>
-                                    <div class="invoice-meta">
-                                        <h4>Invoice Details</h4>
-                                        <div class="meta-row">
-                                            <span class="meta-label">Date</span>
-                                            <span class="meta-value">${dateStr}</span>
-                                        </div>
-                                        <div class="meta-row">
-                                            <span class="meta-label">Status</span>
-                                            <span class="meta-value ${status === 'active' || status === 'approved' ? '' : 'danger'}">${status.toUpperCase()}</span>
-                                        </div>
-                                        <div class="meta-row">
-                                            <span class="meta-label">Payment Method</span>
-                                            <span class="meta-value">Manual Transfer</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <table class="invoice-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Description</th>
-                                            <th style="text-align:right;">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td class="item-desc">${plan} (${months} month${months > 1 ? 's' : ''})</td>
-                                            <td class="item-amount" style="text-align:right;">$${total.toFixed(2)}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <div class="invoice-total-row">
-                                    <span class="total-label">Total Payable</span>
-                                    <span class="total-amount">$${total.toFixed(2)}</span>
-                                </div>
-                                ${status === 'pending' || status === 'pending_payment' ? `
-                                <div class="payment-instructions">
-                                    <strong>📌 Manual Payment Required</strong><br>
-                                    Please transfer the exact total amount to one of the accounts below.<br>
-                                    Kindly use your <strong>Invoice Number</strong> as the payment reference.
-                                </div>
-                                <div class="payment-methods">
-                                    <div class="payment-method-card">
-                                        <div class="method-icon">
-                                            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgwnfhozjpovvXfL0xyqpu46qT3PjiQqNnUI97upb7S5JgCPPviUCxlPmJX27y7p9qa1qGWXB8qGKKG6SUrWnW9dNQrFLrNkbCH7OPynH0v-hErLb3LwkDDNrljlrAK1RBs1QniSaJkQJNPcg1D0xeCCxKN28WEbV3egQWEb43iSD-PeRYC5uI1loZcEhYY/s1600/722de7bfbab2b24020b8fb404bc9fe58_icon.png" alt="Ecocash">
-                                        </div>
-                                        <div class="method-name">Ecocash</div>
-                                        <div class="method-detail">078 991 2268</div>
-                                        <div class="method-account">Tanatswa Dean Mwanza</div>
-                                    </div>
-                                    <div class="payment-method-card">
-                                        <div class="method-icon">
-                                            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiol9STr7ImEkAH6KsKj4n5XsA6edceL24btsYwwo426RfFGa7uuqVMJrBY2U6FCFFPYX5Daf50iTun5jmqp9bx-sN1Ukmy0N2e7TSjPtT7TvRLfmS1FBjkeADvjzI2WpEpr0pB179sZBxNvZoH06DUdJzIkwa7JMzt_T1UH1ELIDMQKX8T3lhRaVrVR4K6/s1600/APP_ICON.png" alt="Innbucks">
-                                        </div>
-                                        <div class="method-name">Innbucks</div>
-                                        <div class="method-detail">078 991 2268</div>
-                                        <div class="method-account">Tanatswa Dean Mwanza</div>
-                                    </div>
-                                    <div class="payment-method-card">
-                                        <div class="method-icon">
-                                            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjcQFUEJrA33gQlP3kceYEdQCuJ1gXImN7b031MmiGlTdgqdD6An640fWWVV0R7jBsL2If96hrnDv9PypAbNBK_yQDH8z8Quefrt1Xc2xi6sShTFmHRgrO_sdGbvckOeMVoJZFIjA6DV_AJm9qLzliGiyU0DZXYT0SvPCvDR1_8J1aP4mEKObQk-3KfWJaV/s1600/kiev-ukraine-september-visa-mastercard-logos-printed-white-paper-visa-mastercard-american-multinational-102631953.jpg" alt="TN CyberTech Bank">
-                                        </div>
-                                        <div class="method-name">TN CyberTech Bank</div>
-                                        <div class="method-detail">4638 3300 1429 9948</div>
-                                        <div class="method-account">Corporate Account</div>
-                                    </div>
-                                </div>
-                                <div class="invoice-actions">
-                                    <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
-                                    <a href="support.html" target="_blank" class="btn btn-pink"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
-                                </div>
-                                ` : `
-                                <div style="padding:12px; background:#e8f5e9; border-radius:var(--radius-sm); border:1px solid var(--success);">
-                                    <p style="color:var(--success);"><i class="fas fa-check-circle"></i> This invoice has been approved.</p>
-                                </div>
-                                <div class="invoice-actions">
-                                    <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
-                                </div>
-                                `}
-                                <div class="invoice-footer-note">
-                                    <i class="fas fa-shield-alt"></i> After payment, please submit your proof to activate your provider account.
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                // If no pending, show the most recent one
+                if (!invoiceToShow && allInvoices.length > 0) {
+                    invoiceToShow = allInvoices[0];
+                }
 
-                    container.innerHTML = invoiceHtml;
-                    document.getElementById('invoiceModal').classList.add('active');
+                if (!invoiceToShow) {
+                    showToast('No invoice found for your subscription.', 'error');
                     return;
                 }
 
-                const invData = pendingInvoices[0];
-                const invDocId = invData.id;
-                const invoiceNumber = invData.invoiceNumber || invDocId;
+                const invData = invoiceToShow;
+                const invoiceNumber = invData.invoiceNumber || invData.id;
                 const container = document.getElementById('invoice-container');
                 const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
                     'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
@@ -1955,6 +1787,7 @@
                 const total = invData.total || 0;
                 const months = invData.months || 1;
                 const status = invData.status || 'pending';
+                const isApproved = status === 'active' || status === 'approved';
 
                 const invoiceHtml = `
                     <div class="invoice-wrapper">
@@ -1969,9 +1802,9 @@
                             </div>
                         </div>
                         <div class="invoice-body">
-                            <div class="unpaid-stamp">
-                                ${status === 'paid' ? 'PAID' : 'UNPAID'}
-                                <small>${status === 'paid' ? 'payment confirmed' : 'payment pending'}</small>
+                            <div class="unpaid-stamp" style="opacity:0.3; border-color:${isApproved ? 'var(--success)' : 'var(--danger)'};">
+                                ${isApproved ? 'APPROVED' : status === 'pending' ? 'UNPAID' : status.toUpperCase()}
+                                <small>${isApproved ? 'payment confirmed' : 'payment pending'}</small>
                             </div>
                             <div class="invoice-grid">
                                 <div class="bill-to">
@@ -1989,7 +1822,7 @@
                                     </div>
                                     <div class="meta-row">
                                         <span class="meta-label">Status</span>
-                                        <span class="meta-value danger">${status.toUpperCase()}</span>
+                                        <span class="meta-value ${isApproved ? '' : 'danger'}">${isApproved ? 'APPROVED' : status.toUpperCase()}</span>
                                     </div>
                                     <div class="meta-row">
                                         <span class="meta-label">Payment Method</span>
@@ -2015,6 +1848,7 @@
                                 <span class="total-label">Total Payable</span>
                                 <span class="total-amount">$${total.toFixed(2)}</span>
                             </div>
+                            ${!isApproved ? `
                             <div class="payment-instructions">
                                 <strong>📌 Manual Payment Required</strong><br>
                                 Please transfer the exact total amount to one of the accounts below.<br>
@@ -2050,6 +1884,14 @@
                                 <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
                                 <a href="support.html" target="_blank" class="btn btn-pink"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                             </div>
+                            ` : `
+                            <div style="padding:12px; background:#e8f5e9; border-radius:var(--radius-sm); border:1px solid var(--success);">
+                                <p style="color:var(--success);"><i class="fas fa-check-circle"></i> This invoice has been approved.</p>
+                            </div>
+                            <div class="invoice-actions">
+                                <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
+                            </div>
+                            `}
                             <div class="invoice-footer-note">
                                 <i class="fas fa-shield-alt"></i> After payment, please submit your proof to activate your provider account.
                             </div>
@@ -2150,8 +1992,26 @@
         }
         window.changePassword = changePassword;
 
-        console.log('Provider Hub loaded with real-time status sync.');
-        console.log('💡 Tip: When admin approves payment, the status will update automatically.');
+        // ============================================================
+        //  PERIODIC STATUS CHECK - Like Zone21, check on page visibility change
+        // ============================================================
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && currentUser) {
+                console.log('🔄 Page became visible, checking subscription status...');
+                checkSubscriptionStatus();
+            }
+        });
+
+        // Also check when the page loads
+        window.addEventListener('load', () => {
+            if (currentUser) {
+                console.log('🔄 Page loaded, checking subscription status...');
+                setTimeout(checkSubscriptionStatus, 2000);
+            }
+        });
+
+        console.log('✅ Provider Hub loaded with Zone21-style subscription checking.');
+        console.log('💡 Status will auto-sync when admin approves payment.');
     </script>
 
 </body>

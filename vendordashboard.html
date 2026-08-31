@@ -1202,14 +1202,16 @@
         }
 
         // ============================================================
-        //  REAL-TIME SUBSCRIPTION LISTENER (NO COMPOSITE INDEX)
+        //  REAL-TIME SUBSCRIPTION LISTENER – using userId (security rule compliant)
         // ============================================================
         function startSubscriptionListener() {
-            if (!providerDocId) return;
+            if (!currentUser) return;
             if (unsubscribeSubscription) unsubscribeSubscription();
 
+            // Query by userId (which is set and allowed by security rules)
             unsubscribeSubscription = db.collection('subscriptions')
-                .where('providerId', '==', providerDocId)
+                .where('userId', '==', currentUser.uid)
+                .orderBy('createdAt', 'desc')
                 .onSnapshot((snap) => {
                     let latestSub = null;
                     snap.forEach((doc) => {
@@ -1220,13 +1222,12 @@
                     });
                     subscriptionData = latestSub;
                     if (subscriptionData) {
-                        // Check for both 'active' and 'approved' statuses
                         const isActive = subscriptionData.status === 'active' || subscriptionData.status === 'approved';
                         if (isActive && subscriptionData.expiryDate) {
                             providerData.subscriptionActive = true;
                             providerData.subscriptionExpiry = subscriptionData.expiryDate;
                             providerData.subscriptionStatus = 'active';
-                        } else if (subscriptionData.status === 'pending_payment' || subscriptionData.status === 'pending') {
+                        } else if (subscriptionData.status === 'pending' || subscriptionData.status === 'pending_payment') {
                             providerData.subscriptionActive = false;
                             providerData.subscriptionStatus = 'pending';
                         } else {
@@ -1267,7 +1268,7 @@
         }
 
         // ============================================================
-        //  RENDER DASHBOARD – now correctly unlocks on approval
+        //  RENDER DASHBOARD – correctly unlocks on approval
         // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
@@ -1548,7 +1549,7 @@
         window.selectPlan = selectPlan;
 
         // ============================================================
-        //  RENEW SUBSCRIPTION
+        //  RENEW SUBSCRIPTION – now uses userId and providerId
         // ============================================================
         async function renewSubscription() {
             if (!currentUser) { showToast('Please sign in.', 'error'); return; }
@@ -1561,6 +1562,7 @@
             const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
             try {
+                // Invoice doc
                 await db.collection('invoices').doc(invNumber).set({
                     providerId: providerDocId,
                     userId: currentUser.uid,
@@ -1579,9 +1581,10 @@
                     }
                 });
 
+                // Subscription doc – using userId for queries
                 await db.collection('subscriptions').add({
                     providerId: providerDocId,
-                    userId: currentUser.uid,
+                    userId: currentUser.uid, // crucial for security rules
                     planName: planName,
                     months: months,
                     total: total,
@@ -1590,6 +1593,7 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
+                // Update serviceProvider doc
                 await db.collection('serviceProviders').doc(providerDocId).update({
                     subscriptionStatus: 'pending',
                     subscriptionPlan: planName

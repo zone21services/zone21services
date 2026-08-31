@@ -1211,8 +1211,6 @@
 
         // ============================================================
         //  CHECK SUBSCRIPTION STATUS - SAME PATTERN AS ZONE21
-        //  This is the CRITICAL function that checks subscriptions
-        //  and auto-syncs the status
         // ============================================================
         async function checkSubscriptionStatus() {
             if (!currentUser) return;
@@ -1232,13 +1230,11 @@
 
                 subsSnapshot.forEach(doc => {
                     const data = doc.data();
-                    // Check if subscription is active or approved
                     if (data.status === 'active' || data.status === 'approved') {
                         isActive = true;
                         planName = data.planName || data.plan || 'Unknown';
                         activeSubscription = data;
                     }
-                    // Check if there's a pending subscription
                     if (data.status === 'pending' || data.status === 'pending_payment') {
                         isPending = true;
                         if (!planName) {
@@ -1247,13 +1243,11 @@
                     }
                 });
 
-                // Update state based on what we found
                 if (isActive) {
                     subscriptionStatus = 'active';
                     activePlan = planName;
-                    activePlanType = planName; // 'Venue' or 'Service Provider'
-                    
-                    // Update providerData
+                    activePlanType = planName;
+
                     providerData.subscriptionStatus = 'active';
                     providerData.subscriptionActive = true;
                     providerData.subscriptionPlan = planName;
@@ -1261,7 +1255,6 @@
                         providerData.subscriptionExpiry = activeSubscription.expiryDate;
                     }
 
-                    // Sync serviceProvider document (same as Zone21)
                     await db.collection('serviceProviders').doc(providerDocId).update({
                         subscriptionStatus: 'active',
                         subscriptionActive: true,
@@ -1274,12 +1267,11 @@
                 } else if (isPending) {
                     subscriptionStatus = 'pending';
                     activePlan = planName || 'Unknown';
-                    
+
                     providerData.subscriptionStatus = 'pending';
                     providerData.subscriptionActive = false;
                     providerData.subscriptionPlan = planName || null;
 
-                    // Sync serviceProvider
                     await db.collection('serviceProviders').doc(providerDocId).update({
                         subscriptionStatus: 'pending',
                         subscriptionActive: false,
@@ -1292,12 +1284,11 @@
                     subscriptionStatus = 'none';
                     activePlan = null;
                     activePlanType = null;
-                    
+
                     providerData.subscriptionStatus = 'none';
                     providerData.subscriptionActive = false;
                     providerData.subscriptionPlan = null;
 
-                    // Sync serviceProvider
                     await db.collection('serviceProviders').doc(providerDocId).update({
                         subscriptionStatus: 'none',
                         subscriptionActive: false,
@@ -1307,7 +1298,6 @@
                     console.log('❌ No subscription found');
                 }
 
-                // Refresh UI
                 renderDashboard();
                 renderProfile();
                 renderSubscription();
@@ -1510,14 +1500,12 @@
                 return;
             }
 
-            // Try to get more details from subscriptions collection
             let months = 1;
             let total = 0;
             let createdAt = null;
             let expiry = providerData?.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ?
                 providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
 
-            // Query the actual subscription document for details
             db.collection('subscriptions')
                 .where('providerId', '==', currentUser.uid)
                 .where('planName', '==', plan)
@@ -1715,7 +1703,6 @@
                 });
 
                 showToast('Invoice generated! Please make payment and submit proof.', 'success');
-                // Refresh status
                 await checkSubscriptionStatus();
             } catch (error) {
                 console.error('Renew error:', error);
@@ -1725,7 +1712,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE
+        //  VIEW INVOICE - RESTORED TO ORIGINAL WORKING VERSION
         // ============================================================
         async function viewInvoice() {
             if (!providerDocId) {
@@ -1742,12 +1729,17 @@
                 let allInvoices = [];
                 providerInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
 
+                // If no invoices found by providerId, try userId
                 if (allInvoices.length === 0) {
-                    // Fallback: query by userId
                     const userInvoices = await db.collection('invoices')
                         .where('userId', '==', currentUser.uid)
                         .get();
                     userInvoices.forEach(doc => allInvoices.push({ id: doc.id, ...doc.data() }));
+                }
+
+                if (allInvoices.length === 0) {
+                    showToast('No invoice found for your subscription.', 'error');
+                    return;
                 }
 
                 // Sort by createdAt descending
@@ -1757,25 +1749,16 @@
                     return bTime - aTime;
                 });
 
-                // First try to find pending invoice
-                let invoiceToShow = allInvoices.find(inv => inv.status === 'pending' || inv.status === 'pending_payment');
-
-                // If no pending, show the most recent one
-                if (!invoiceToShow && allInvoices.length > 0) {
-                    invoiceToShow = allInvoices[0];
-                }
-
-                if (!invoiceToShow) {
-                    showToast('No invoice found for your subscription.', 'error');
-                    return;
-                }
-
-                const invData = invoiceToShow;
-                const invoiceNumber = invData.invoiceNumber || invData.id;
+                // Get the most recent invoice
+                const invData = allInvoices[0];
+                const invDocId = invData.id;
+                const invoiceNumber = invData.invoiceNumber || invDocId;
                 const container = document.getElementById('invoice-container');
+
                 const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
                     'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
                     .toLocaleDateString()) : 'N/A';
+
                 const customer = invData.customerInfo || {};
                 const fName = customer.firstName || '';
                 const lName = customer.lastName || '';
@@ -1993,7 +1976,7 @@
         window.changePassword = changePassword;
 
         // ============================================================
-        //  PERIODIC STATUS CHECK - Like Zone21, check on page visibility change
+        //  PERIODIC STATUS CHECK
         // ============================================================
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && currentUser) {
@@ -2002,7 +1985,6 @@
             }
         });
 
-        // Also check when the page loads
         window.addEventListener('load', () => {
             if (currentUser) {
                 console.log('🔄 Page loaded, checking subscription status...');

@@ -559,7 +559,7 @@
             color: var(--pink);
         }
 
-        /* ===== INVOICE STYLES (copied from checkout) ===== */
+        /* ===== INVOICE STYLES ===== */
         .invoice-wrapper {
             background: #fff;
             border-radius: var(--radius);
@@ -840,6 +840,26 @@
         }
         .invoice-footer-note i {
             color: var(--lime);
+        }
+
+        /* ===== BENEFITS LIST ===== */
+        .benefits-list {
+            list-style: none;
+            margin: 10px 0 14px;
+            padding: 0;
+        }
+        .benefits-list li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 4px 0;
+        }
+        .benefits-list li i {
+            color: var(--lime);
+            width: 18px;
+            text-align: center;
         }
 
         /* ===== HIDDEN ===== */
@@ -1231,7 +1251,7 @@
                 if (!subSnap.empty) {
                     subscriptionData = subSnap.docs[0].data();
                     subscriptionData.id = subSnap.docs[0].id;
-                    // Also update providerData with subscription info
+                    // Update providerData with subscription info
                     if (subscriptionData.status === 'active' && subscriptionData.expiryDate) {
                         providerData.subscriptionActive = true;
                         providerData.subscriptionExpiry = subscriptionData.expiryDate;
@@ -1359,7 +1379,7 @@
         }
 
         // ============================================================
-        //  RENDER PROFILE (view & edit)
+        //  RENDER PROFILE
         // ============================================================
         function renderProfile() {
             const container = document.getElementById('profile-content');
@@ -1434,7 +1454,6 @@
                     <button class="btn btn-outline btn-block" onclick="cancelEditProfile()" style="margin-top:8px;">Cancel</button>
                 `;
 
-                // Show/hide other service input
                 document.getElementById('e-service').addEventListener('change', function() {
                     const group = document.getElementById('other-service-group');
                     if (this.value === 'Other') {
@@ -1600,7 +1619,7 @@
         }
 
         // ============================================================
-        //  RENDER RENEW TAB
+        //  RENDER RENEW TAB – with updated benefits
         // ============================================================
         function renderRenew() {
             const container = document.getElementById('renew-content');
@@ -1610,26 +1629,32 @@
 
             let currentPlan = providerData ? providerData.subscriptionPlan : null;
             if (!currentPlan) {
+                // Show plan selection with benefits
+                const commonBenefits = [
+                    'Get priority visibility to event organizers',
+                    'Receive instant notifications via WhatsApp, email, and calls',
+                    'Showcase your work with an image gallery',
+                    'Manage all your social media handles in one place',
+                    'Build your brand with a professional profile'
+                ];
+
                 container.innerHTML = `
                     <h4 style="margin-bottom:12px;">Choose Your Plan</h4>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                         <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center;">
                             <h4>Service Provider</h4>
                             <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$10 <small style="font-size:0.8rem;">/month</small></p>
-                            <ul style="list-style:none; margin:10px 0; text-align:left; font-size:0.85rem;">
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> List your services</li>
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> Accept bookings</li>
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> Get reviews</li>
+                            <ul class="benefits-list" style="text-align:left;">
+                                ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
                             </ul>
                             <button class="btn btn-lime btn-block" onclick="selectPlan('Service Provider', 10)">Select</button>
                         </div>
                         <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center; border-color:var(--pink);">
                             <h4>Venue</h4>
                             <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$50 <small style="font-size:0.8rem;">/month</small></p>
-                            <ul style="list-style:none; margin:10px 0; text-align:left; font-size:0.85rem;">
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> List your venue</li>
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> Accept bookings</li>
-                                <li><i class="fas fa-check" style="color:var(--lime);"></i> Premium listing</li>
+                            <ul class="benefits-list" style="text-align:left;">
+                                ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
+                                <li><i class="fas fa-check"></i> <strong>Premium listing</strong> with venue spotlight</li>
                             </ul>
                             <button class="btn btn-pink btn-block" onclick="selectPlan('Venue', 50)">Select</button>
                         </div>
@@ -1730,7 +1755,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE – FIXED: fetches and displays invoice modal
+        //  VIEW INVOICE – FIXED: robust fetching
         // ============================================================
         async function viewInvoice() {
             if (!subscriptionData) {
@@ -1739,17 +1764,27 @@
             }
             const invoiceNumber = subscriptionData.invoiceNumber;
             if (!invoiceNumber) {
-                showToast('No invoice number found.', 'error');
+                showToast('No invoice number found for this subscription.', 'error');
                 return;
             }
 
             try {
-                const invSnap = await db.collection('invoices').doc(invoiceNumber).get();
-                if (!invSnap.exists) {
-                    showToast('Invoice not found.', 'error');
-                    return;
+                // First try to get invoice by invoiceNumber field
+                let invDoc = await db.collection('invoices').doc(invoiceNumber).get();
+                if (!invDoc.exists) {
+                    // Try by invoiceNumber field (some invoices store number as field)
+                    const snap = await db.collection('invoices')
+                        .where('invoiceNumber', '==', invoiceNumber)
+                        .limit(1)
+                        .get();
+                    if (!snap.empty) {
+                        invDoc = snap.docs[0];
+                    } else {
+                        showToast('Invoice not found. Please contact support.', 'error');
+                        return;
+                    }
                 }
-                const invData = invSnap.data();
+                const invData = invDoc.data();
                 const container = document.getElementById('invoice-container');
                 const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
                     'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
@@ -1766,7 +1801,6 @@
                 const months = invData.months || invData.packageDetails?.months || 1;
                 const status = invData.status || 'pending';
 
-                // Build invoice HTML
                 const invoiceHtml = `
                     <div class="invoice-wrapper">
                         <div class="invoice-header-bar">
@@ -1873,7 +1907,7 @@
 
             } catch (error) {
                 console.error('Error fetching invoice:', error);
-                showToast('Failed to load invoice.', 'error');
+                showToast('Failed to load invoice. Please try again later.', 'error');
             }
         }
         window.viewInvoice = viewInvoice;

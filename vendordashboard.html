@@ -33,6 +33,7 @@
             --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             --sidebar-width: 260px;
             --topbar-height: 64px;
+            --danger: #DC2626;
         }
 
         * {
@@ -1713,7 +1714,8 @@
             const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
             try {
-                await db.collection('invoices').add({
+                // Create invoice with invoiceNumber as document ID
+                await db.collection('invoices').doc(invNumber).set({
                     providerId: providerDocId,
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
@@ -1722,7 +1724,13 @@
                     total: total,
                     status: 'pending',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    type: 'subscription_renewal'
+                    type: 'subscription_renewal',
+                    customerInfo: {
+                        firstName: providerData.name || '',
+                        lastName: '',
+                        email: currentUser.email || '',
+                        phone: providerData.phone || ''
+                    }
                 });
 
                 const subRef = db.collection('subscriptions').doc();
@@ -1755,7 +1763,7 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE – FIXED: robust fetching
+        //  VIEW INVOICE – FIXED: query by invoiceNumber field
         // ============================================================
         async function viewInvoice() {
             if (!subscriptionData) {
@@ -1769,22 +1777,16 @@
             }
 
             try {
-                // First try to get invoice by invoiceNumber field
-                let invDoc = await db.collection('invoices').doc(invoiceNumber).get();
-                if (!invDoc.exists) {
-                    // Try by invoiceNumber field (some invoices store number as field)
-                    const snap = await db.collection('invoices')
-                        .where('invoiceNumber', '==', invoiceNumber)
-                        .limit(1)
-                        .get();
-                    if (!snap.empty) {
-                        invDoc = snap.docs[0];
-                    } else {
-                        showToast('Invoice not found. Please contact support.', 'error');
-                        return;
-                    }
+                // Query by invoiceNumber field (since document ID may differ)
+                const snap = await db.collection('invoices')
+                    .where('invoiceNumber', '==', invoiceNumber)
+                    .limit(1)
+                    .get();
+                if (snap.empty) {
+                    showToast('Invoice not found. Please contact support.', 'error');
+                    return;
                 }
-                const invData = invDoc.data();
+                const invData = snap.docs[0].data();
                 const container = document.getElementById('invoice-container');
                 const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
                     'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
@@ -1796,9 +1798,9 @@
                 const email = customer.email || 'N/A';
                 const phone = customer.phone || 'N/A';
                 const company = customer.company || '';
-                const plan = invData.planName || invData.packageDetails?.name || 'Subscription';
-                const total = invData.total || invData.packageDetails?.total || 0;
-                const months = invData.months || invData.packageDetails?.months || 1;
+                const plan = invData.planName || 'Subscription';
+                const total = invData.total || 0;
+                const months = invData.months || 1;
                 const status = invData.status || 'pending';
 
                 const invoiceHtml = `
@@ -2003,4 +2005,4 @@
     </script>
 
 </body>
-</html>
+                        </html>

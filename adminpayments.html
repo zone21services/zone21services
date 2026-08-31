@@ -67,7 +67,7 @@
 
     /* Badges */
     .status-badge { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-    .status-pending_payment { background: var(--grey); color: var(--navy); }
+    .status-pending, .status-pending_payment { background: var(--grey); color: var(--navy); }
     .status-approved, .status-active { background: var(--lime); color: var(--navy); }
     .status-rejected { background: var(--pink); color: white; }
     .status-cancelled { background: var(--pink); color: white; }
@@ -149,7 +149,7 @@
     <div class="filters">
       <select id="status-filter" onchange="filterAndSearch()">
         <option value="all">All Statuses</option>
-        <option value="pending_payment">Pending Payment</option>
+        <option value="pending">Pending Payment</option>
         <option value="active">Active (Approved)</option>
         <option value="rejected">Rejected</option>
       </select>
@@ -333,14 +333,15 @@
         const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'}) : '—';
         
-        // FIX: Look at the top level fields instead of packageDetails
-        const price = p.price || 0;
+        const price = p.price || p.total || 0;
         const packageName = p.planName || 'Unknown';
         
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
           : `<div class="avatar">${(info.name.charAt(0) || '?').toUpperCase()}</div>`;
           
+        const isPending = p.status === 'pending' || p.status === 'pending_payment';
+        
         return `
           <tr>
             <td style="font-weight:bold; color:var(--pink);">${escapeHTML(invId)}</td>
@@ -355,11 +356,11 @@
             </td>
             <td><strong>${escapeHTML(packageName)}</strong></td>
             <td style="font-weight:bold; font-size:1.1rem;">$${price}</td>
-            <td><span class="status-badge status-${p.status || 'pending_payment'}">${p.status === 'pending_payment' ? 'Pending' : p.status}</span></td>
+            <td><span class="status-badge status-${p.status || 'pending'}">${p.status === 'pending' ? 'Pending' : p.status === 'pending_payment' ? 'Pending' : p.status}</span></td>
             <td>${date}</td>
             <td class="action-btns">
               <button class="btn btn-outline btn-small" onclick="viewDetails('${p.id}')" title="View"><i class="fa-solid fa-eye"></i></button>
-              ${p.status === 'pending_payment' ? `
+              ${isPending ? `
                 <button class="btn btn-accent btn-small" onclick="approvePayment('${p.id}')" title="Approve"><i class="fa-solid fa-check"></i></button>
                 <button class="btn btn-danger-outline btn-small" onclick="rejectPayment('${p.id}')" title="Reject"><i class="fa-solid fa-xmark"></i></button>
               ` : ''}
@@ -381,13 +382,14 @@
         const invId = p.invoiceNumber || ('INV-' + p.id.substring(0,8).toUpperCase());
         const date = p.createdAt ? new Date(p.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
         
-        // FIX: Look at the top level fields instead of packageDetails
-        const price = p.price || 0;
+        const price = p.price || p.total || 0;
         
         const avatarHtml = info.avatar
           ? `<div class="avatar"><img src="${escapeHTML(info.avatar)}" alt=""></div>`
           : `<div class="avatar">${(info.name.charAt(0) || '?').toUpperCase()}</div>`;
           
+        const isPending = p.status === 'pending' || p.status === 'pending_payment';
+        
         return `
           <div class="payment-card">
             <div class="flex-row">
@@ -398,7 +400,7 @@
                   <small style="display:block; color:var(--text-muted)">${escapeHTML(info.email)}</small>
                 </div>
               </div>
-              <span class="status-badge status-${p.status || 'pending_payment'}">${p.status === 'pending_payment' ? 'Pending' : p.status}</span>
+              <span class="status-badge status-${p.status || 'pending'}">${p.status === 'pending' ? 'Pending' : p.status === 'pending_payment' ? 'Pending' : p.status}</span>
             </div>
             <div class="details-row">
               <span><strong>Invoice:</strong> <span style="color:var(--pink);">${escapeHTML(invId)}</span></span>
@@ -408,7 +410,7 @@
             </div>
             <div class="actions">
               <button class="btn btn-outline btn-small" onclick="viewDetails('${p.id}')"><i class="fa-solid fa-eye"></i> View</button>
-              ${p.status === 'pending_payment' ? `
+              ${isPending ? `
                 <button class="btn btn-accent btn-small" onclick="approvePayment('${p.id}')"><i class="fa-solid fa-check"></i> Approve</button>
                 <button class="btn btn-danger-outline btn-small" onclick="rejectPayment('${p.id}')"><i class="fa-solid fa-xmark"></i></button>
               ` : ''}
@@ -427,9 +429,8 @@
       const user = userCache[sub.userId] || {};
       const created = sub.createdAt ? new Date(sub.createdAt.toMillis()).toLocaleDateString('en-GB') : '—';
       
-      // FIX: Look at the top level fields instead of packageDetails
       const packageName = sub.planName || 'Unknown';
-      const price = sub.price || 0;
+      const price = sub.price || sub.total || 0;
       
       const invNum = sub.invoiceNumber || docId;
       const fullName = (cust.firstName || cust.lastName) ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() : '—';
@@ -475,7 +476,7 @@
           </div>
         </div>
         
-        <div><strong>Current Status:</strong> <span class="status-badge status-${sub.status || 'pending_payment'}" style="margin-left:10px;">${sub.status === 'pending_payment' ? 'Pending' : sub.status}</span></div>
+        <div><strong>Current Status:</strong> <span class="status-badge status-${sub.status || 'pending'}" style="margin-left:10px;">${sub.status === 'pending' ? 'Pending' : sub.status === 'pending_payment' ? 'Pending' : sub.status}</span></div>
         
         ${userProfileHtml}
       `;
@@ -490,6 +491,18 @@
         const sub = allSubscriptions.find(p => p.id === docId);
         if (!sub) return;
         
+        // Check if the invoice document exists before approving
+        if (sub.invoiceNumber) {
+          const invDoc = await getDoc(doc(db, 'invoices', sub.invoiceNumber));
+          if (!invDoc.exists()) {
+            showToast('Invoice not found in system. Cannot approve orphaned subscription.', 'error');
+            return;
+          }
+        } else {
+          showToast('No invoice number associated. Cannot approve.', 'error');
+          return;
+        }
+        
         // Mark the existing subscription document as active
         await updateDoc(doc(db, 'subscriptions', docId), {
           status: 'active',
@@ -498,15 +511,10 @@
         });
 
         // Also update the original invoice document in the `invoices` collection to match statuses
-        if (sub.invoiceNumber) {
-            try {
-                await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
-                    paymentStatus: 'approved'
-                });
-            } catch(e) {
-                console.warn("Could not sync invoice doc status", e);
-            }
-        }
+        await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
+          status: 'approved',
+          paymentStatus: 'approved'
+        });
 
         // Update the global user document so their dashboard unlocks
         if (sub.userId) {
@@ -538,6 +546,7 @@
         if (sub && sub.invoiceNumber) {
             try {
                 await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
+                    status: 'rejected',
                     paymentStatus: 'rejected'
                 });
             } catch(e) {}

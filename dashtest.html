@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET ===== */
+        /* ===== ROOT & RESET (same as before) ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -1763,37 +1763,41 @@
         window.renewSubscription = renewSubscription;
 
         // ============================================================
-        //  VIEW INVOICE – EXACTLY AS REFERENCE
+        //  VIEW INVOICE – FIXED: fetch latest pending invoice
         // ============================================================
         async function viewInvoice() {
-            if (!subscriptionData) {
-                showToast('No subscription found.', 'error');
-                return;
-            }
-            const invoiceNumber = subscriptionData.invoiceNumber;
-            if (!invoiceNumber) {
-                showToast('No invoice number found for this subscription.', 'error');
+            if (!providerDocId) {
+                showToast('Provider ID not found.', 'error');
                 return;
             }
 
             try {
-                // 1) Direct fetch by document ID (since we set doc ID = invoiceNumber)
-                let invDoc = await db.collection('invoices').doc(invoiceNumber).get();
-                if (!invDoc.exists) {
-                    // 2) Fallback: query by invoiceNumber field
-                    const snap = await db.collection('invoices')
-                        .where('invoiceNumber', '==', invoiceNumber)
+                // Query invoices for this provider, status pending, order by createdAt desc
+                const snap = await db.collection('invoices')
+                    .where('providerId', '==', providerDocId)
+                    .where('status', '==', 'pending')
+                    .orderBy('createdAt', 'desc')
+                    .limit(1)
+                    .get();
+
+                if (snap.empty) {
+                    // Also try without status filter
+                    const snapAll = await db.collection('invoices')
+                        .where('providerId', '==', providerDocId)
+                        .orderBy('createdAt', 'desc')
                         .limit(1)
                         .get();
-                    if (snap.empty) {
-                        showToast('Invoice not found. Please contact support.', 'error');
+                    if (snapAll.empty) {
+                        showToast('No invoice found for your subscription.', 'error');
                         return;
                     }
-                    invDoc = snap.docs[0];
+                    var invDoc = snapAll.docs[0];
+                } else {
+                    var invDoc = snap.docs[0];
                 }
-                const invData = invDoc.data();
 
-                // Populate invoice UI exactly like the reference
+                const invData = invDoc.data();
+                const invoiceNumber = invData.invoiceNumber || invDoc.id;
                 const container = document.getElementById('invoice-container');
                 const dateStr = invData.createdAt ? (invData.createdAt.toDate ? invData.createdAt.toDate().toLocaleDateString(
                     'en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(invData.createdAt)
@@ -2012,4 +2016,4 @@
     </script>
 
 </body>
-</html>
+    </html>

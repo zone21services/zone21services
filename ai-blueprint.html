@@ -7,9 +7,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
     <!-- Firebase SDK (Compat) v10.8.0 -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
 
     <style>
         :root {
@@ -552,7 +555,7 @@
             margin-top: 0;
         }
 
-        /* Zone21 Help Section — Enhanced & Always Visible */
+        /* Zone21 Help Section — appended by JS */
         .zone21-help {
             background: linear-gradient(135deg, #0a1e2c 0%, #1a3a52 100%);
             color: white;
@@ -1070,15 +1073,16 @@
                         </div>
                     </div>
 
-                    <!-- Explicitly defining free-tier OpenRouter models -->
+                    <!-- Model Selector — all free models -->
                     <div class="model-selector-row">
-                        <label for="modelSelect"><i class="fas fa-brain"></i> AI Model</label>
+                        <label for="modelSelect"><i class="fas fa-brain"></i> AI Model (Free Tier)</label>
                         <select id="modelSelect">
-                            <option value="openrouter/free" selected>Auto-Router (Free Tier • Zero Maintenance)</option>
-                            <option value="google/gemma-2-9b-it:free">Gemma 2 (9B Instruct) - FREE</option>
-                            <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 (8B Instruct) - FREE</option>
+                            <option value="google/gemma-2-9b-it:free" selected>Gemma 2 (9B) – FREE</option>
+                            <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 (8B) – FREE</option>
+                            <option value="microsoft/phi-3-mini-4k-instruct:free">Phi-3 Mini (4K) – FREE</option>
+                            <option value="mistralai/mistral-7b-instruct:free">Mistral 7B – FREE</option>
                         </select>
-                        <span class="model-note">All models operate on the free tier network</span>
+                        <span class="model-note">All models are 100% free via OpenRouter</span>
                     </div>
 
                     <button type="submit" class="submit-btn" id="generateBtn">
@@ -1091,7 +1095,7 @@
             <div id="loading">
                 <div class="spinner"></div>
                 <h3 style="color:var(--navy);">Zone21 System is processing your allocation...</h3>
-                <p style="color:#666;font-size:0.9rem;margin-top:5px;">Analyzing budget, matching local vendors, and drafting blueprint.</p>
+                <p style="color:#666;font-size:0.9rem;margin-top:5px;" id="loading-status">Analyzing budget, matching local vendors, and drafting blueprint.</p>
             </div>
 
             <!-- Blueprint -->
@@ -1131,16 +1135,18 @@
         const db = firebase.firestore();
 
         // ============================================================
-        //  OPENROUTER API CONFIGURATION
+        //  OPENROUTER API CONFIGURATION — all free models
         // ============================================================
         const OPENROUTER_API_KEY = "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";
         const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-        const FREE_MODELS = {
-            auto: "openrouter/free",
-            gemma: "google/gemma-2-9b-it:free",
-            llama: "meta-llama/llama-3.1-8b-instruct:free"
-        };
+        // List of free models (with :free suffix) in order of preference
+        const FREE_MODEL_LIST = [
+            "google/gemma-2-9b-it:free",
+            "meta-llama/llama-3.1-8b-instruct:free",
+            "microsoft/phi-3-mini-4k-instruct:free",
+            "mistralai/mistral-7b-instruct:free"
+        ];
 
         const granularServices = [
             "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
@@ -1199,6 +1205,7 @@
         const generateBtn = document.getElementById('generateBtn');
         const formSection = document.getElementById('form-section');
         const loadingDiv = document.getElementById('loading');
+        const loadingStatus = document.getElementById('loading-status');
         const blueprintContainer = document.getElementById('blueprint-container');
         const finalBlueprint = document.getElementById('final-blueprint');
         const modelSelect = document.getElementById('modelSelect');
@@ -1246,7 +1253,7 @@
             const t = document.createElement('div');
             t.className = `toast ${type}`;
             const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-            t.innerHTML = `<i class="fa-solid ${iconMap[type] \vert{}\vert{} 'fa-circle-info'}"></i> ${msg}`;
+            t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
             container.appendChild(t);
             setTimeout(() => { t.style.opacity = '0';
                 setTimeout(() => t.remove(), 300); }, 4800);
@@ -1358,7 +1365,7 @@
                     const val = parseInt(this.value);
                     if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
                         this.value = pkg.maxAttendees;
-                        showToast(`Attendees limited to ${pkg.maxAttendees} for your${pkg.name} package.`, 'info');
+                        showToast(`Attendees limited to ${pkg.maxAttendees} for your ${pkg.name} package.`, 'info');
                     }
                 });
 
@@ -1444,12 +1451,13 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — OpenRouter API
+        //  GENERATE BLUEPRINT — with retry/fallback
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
             blueprintContainer.style.display = 'none';
             loadingDiv.style.display = 'block';
+            loadingStatus.textContent = 'Connecting to AI service...';
 
             if (!currentSessionId || !isRegenerating) {
                 currentSessionId = 'evt_' + Date.now();
@@ -1458,181 +1466,193 @@
             const pkg = PACKAGES[userPackage] || PACKAGES.small;
             const limitText = pkg.maxAttendees === Infinity ? 'unlimited' : `up to ${pkg.maxAttendees} people`;
 
-            const selectedModel = modelSelect.value || FREE_MODELS.auto;
-
-            // ============================================================
-            //  ENHANCED PROMPT — Tokens Optimized
-            // ============================================================
-            const prompt = `
-                    You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
-
-                    USER'S SUBSCRIPTION PACKAGE: ${pkg.name} (${limitText})
-                    This means the event size is capped at ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.
-                    Allocate budget and services appropriately for this package size.
-
-                    EVENT DETAILS:
-                    - Event Name: ${currentEventData.name}
-                    - Location: ${currentEventData.location}
-                    - Event Type: ${currentEventData.type}                     - Total Budget: $${currentEventData.budget}
-                    - Expected Attendees: ${currentEventData.attendees}
-                    - Additional Notes: ${currentEventData.notes || 'None'}
-                    - Specific Services Required: ${currentEventData.services}                      CRITICAL INSTRUCTIONS — BUDGET ASSESSMENT (MUST BE BALANCED AND OBJECTIVE):                      You MUST evaluate the budget fairly and realistically. DO NOT automatically say the budget is insufficient.                     Instead, follow this structured approach:                      1. FIRST, assess if $${currentEventData.budget} is REASONABLE for${currentEventData.attendees} people with the requested services in ${currentEventData.location}.                        - Calculate a rough per-person cost: $${currentEventData.budget} / ${currentEventData.attendees} =$${(parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees))).toFixed(2)} per attendee.
-                       - For ${pkg.name} package, typical per-person costs range from $15–$80 depending on services.
-
-                    2. CLASSIFY the budget into ONE of these categories:
-                       - "SUFFICIENT" — The budget comfortably covers all requested services with room for quality vendors.
-                       - "TIGHT BUT WORKABLE" — The budget covers essentials but may require trade-offs or careful vendor selection.
-                       - "INSUFFICIENT" — The budget is clearly below the minimum needed for the requested services.
-
-                    3. For EACH category, provide:
-                       - A clear heading showing the classification (e.g., "✅ Budget Assessment: SUFFICIENT" or "⚠️ Budget Assessment: TIGHT BUT WORKABLE" or "❌ Budget Assessment: INSUFFICIENT")
-                       - A balanced explanation of WHY it falls into that category.
-                       - If SUFFICIENT: highlight what makes it work and suggest areas for possible upgrades.
-                       - If TIGHT BUT WORKABLE: suggest specific trade-offs, which services to prioritize, and which to scale back.
-                       - If INSUFFICIENT: explain the gap and recommend a realistic budget range, but also offer a "bare-bones" version that fits the current budget.
-
-                    4. IMPORTANT — Do NOT default to "insufficient". Most budgets between $500–$5,000 for 50–150 people are workable. Be pragmatic.
-
-                    VENDOR ALLOCATION:
-                    - Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
-                    - For ${pkg.name} package, recommend vendors that match the scale.
-                    - Include realistic contact details (phone, email, or social) for suggested vendors.
-
-                    ZONE21 SECURITY RULE:
-                    - If "Zone21 Security - EXCLUSIVE" was selected, allocate security budget strictly to "Zone21 Security Team".
-
-                    FORMAT:
-                    - Output strictly in clean HTML.
-                    - Use <h2> for main sections, <h3> for sub-sections, <ul>/<li> for lists.
-                    - For the budget assessment section, use these CSS classes on the wrapper div:
-                      - If SUFFICIENT: class="budget-success"
-                      - If TIGHT BUT WORKABLE: class="budget-neutral"
-                      - If INSUFFICIENT: class="budget-warning"
-                    - Do NOT include markdown blocks like \`\`\`html.
-                    - ⚠️ DO NOT include any Call to Action, contact info, or professional help sections at the end of the blueprint. The system will append these automatically.
-                    `;
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                        'HTTP-Referer': window.location.origin,
-                        'X-Title': 'Zone21 Event Blueprint Generator'
-                    },
-                    body: JSON.stringify({
-                        model: selectedModel,
-                        messages: [{ role: "user", content: prompt }],
-                        max_tokens: 4096,
-                        temperature: 0.7,
-                    })
-                });
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    let errMsg = `API Error ${response.status}`;
-                    try {
-                        const errJson = JSON.parse(errText);
-                        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
-                    } catch (_) { /* ignore */ }
-                    throw new Error(`${errMsg} (${response.status})`);
+            // Determine which models to try: start with the user's selection, then fallback list
+            const selectedModel = modelSelect.value;
+            let modelsToTry = [selectedModel];
+            // Add other free models as fallbacks (excluding the one already chosen)
+            for (const m of FREE_MODEL_LIST) {
+                if (m !== selectedModel && !modelsToTry.includes(m)) {
+                    modelsToTry.push(m);
                 }
+            }
 
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message || 'OpenRouter returned an error');
+            let lastError = null;
 
-                let htmlOutput = data.choices[0].message.content.trim()
-                    .replace(/^```html/i, '')
-                    .replace(/^```/i, '')
-                    .replace(/```$/i, '');
+            for (let attempt = 0; attempt < modelsToTry.length; attempt++) {
+                const model = modelsToTry[attempt];
+                loadingStatus.textContent = `Using model: ${model} (attempt ${attempt+1}/${modelsToTry.length})...`;
 
-                // Auto-wrap budget sections with appropriate classes
-                if (!htmlOutput.includes('budget-success') && !htmlOutput.includes('budget-neutral') && !htmlOutput
-                    .includes('budget-warning')) {
-                    if (htmlOutput.includes('SUFFICIENT') || htmlOutput.includes('sufficient')) {
-                        htmlOutput = htmlOutput.replace(
-                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                            '<div class="budget-success">$1</div>'
-                        );
-                    } else if (htmlOutput.includes('TIGHT') || htmlOutput.includes('tight') || htmlOutput.includes(
-                            'WORKABLE')) {
-                        htmlOutput = htmlOutput.replace(
-                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                            '<div class="budget-neutral">$1</div>'
-                        );
-                    } else {
-                        htmlOutput = htmlOutput.replace(
-                            /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                            '<div class="budget-neutral">$1</div>'
-                        );
+                try {
+                    // ============================================================
+                    //  PROMPT — NO static HTML help block (saves tokens)
+                    // ============================================================
+                    const prompt = `
+                            You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
+
+                            USER'S SUBSCRIPTION PACKAGE: ${pkg.name} (${limitText})
+                            This means the event size is capped at ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.
+                            Allocate budget and services appropriately for this package size.
+
+                            EVENT DETAILS:
+                            - Event Name: ${currentEventData.name}
+                            - Location: ${currentEventData.location}
+                            - Event Type: ${currentEventData.type}
+                            - Total Budget: $${currentEventData.budget}
+                            - Expected Attendees: ${currentEventData.attendees}
+                            - Additional Notes: ${currentEventData.notes || 'None'}
+                            - Specific Services Required: ${currentEventData.services}
+
+                            CRITICAL INSTRUCTIONS — BUDGET ASSESSMENT (MUST BE BALANCED AND OBJECTIVE):
+
+                            You MUST evaluate the budget fairly and realistically. DO NOT automatically say the budget is insufficient.
+                            Instead, follow this structured approach:
+
+                            1. FIRST, assess if $${currentEventData.budget} is REASONABLE for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}.
+                               - Calculate a rough per-person cost: $${currentEventData.budget} / ${currentEventData.attendees} = $${(parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees))).toFixed(2)} per attendee.
+                               - For ${pkg.name} package, typical per-person costs range from $15–$80 depending on services.
+
+                            2. CLASSIFY the budget into ONE of these categories:
+                               - "SUFFICIENT" — The budget comfortably covers all requested services with room for quality vendors.
+                               - "TIGHT BUT WORKABLE" — The budget covers essentials but may require trade-offs or careful vendor selection.
+                               - "INSUFFICIENT" — The budget is clearly below the minimum needed for the requested services.
+
+                            3. For EACH category, provide:
+                               - A clear heading showing the classification (e.g., "✅ Budget Assessment: SUFFICIENT" or "⚠️ Budget Assessment: TIGHT BUT WORKABLE" or "❌ Budget Assessment: INSUFFICIENT")
+                               - A balanced explanation of WHY it falls into that category.
+                               - If SUFFICIENT: highlight what makes it work and suggest areas for possible upgrades.
+                               - If TIGHT BUT WORKABLE: suggest specific trade-offs, which services to prioritize, and which to scale back.
+                               - If INSUFFICIENT: explain the gap and recommend a realistic budget range, but also offer a "bare-bones" version that fits the current budget.
+
+                            4. IMPORTANT — Do NOT default to "insufficient". Most budgets between $500–$5,000 for 50–150 people are workable. Be pragmatic.
+
+                            VENDOR ALLOCATION:
+                            - Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
+                            - For ${pkg.name} package, recommend vendors that match the scale.
+                            - Include realistic contact details (phone, email, or social) for suggested vendors.
+
+                            ZONE21 SECURITY RULE:
+                            - If "Zone21 Security - EXCLUSIVE" was selected, allocate security budget strictly to "Zone21 Security Team".
+
+                            FORMAT:
+                            - Output strictly in clean HTML.
+                            - Use <h2> for main sections, <h3> for sub-sections, <ul>/<li> for lists.
+                            - For the budget assessment section, use these CSS classes on the wrapper div:
+                              - If SUFFICIENT: class="budget-success"
+                              - If TIGHT BUT WORKABLE: class="budget-neutral"
+                              - If INSUFFICIENT: class="budget-warning"
+                            - Do NOT include markdown blocks like \`\`\`html.
+                            - IMPORTANT: Do NOT include any contact details, phone numbers, emails, or call-to-action buttons. Those will be added separately.
+                            `;
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'Zone21 Event Blueprint Generator'
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: [{ role: "user", content: prompt }],
+                            max_tokens: 4096,
+                            temperature: 0.7,
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        let errMsg = `API Error ${response.status}`;
+                        try {
+                            const errJson = JSON.parse(errText);
+                            if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+                        } catch (_) { /* ignore */ }
+                        throw new Error(`${errMsg} (${response.status})`);
                     }
-                }
 
-                // ============================================================
-                //  FALLBACK — ALWAYS ensure the Zone21 help section is present
-                // ============================================================
-                const helpSection = `
-                            <div class="zone21-help">
-                                <h2>🎯 Need a Hand? Let Zone21 Take Over!</h2>
-                                <p class="help-question"><i class="fas fa-question-circle"></i> Feeling overwhelmed with planning? Our professional team at <strong>Zone21 Event Management</strong> is here to make your event seamless and spectacular.</p>
-                                <p>We offer full-service support to bring your vision to life — from concept to execution. Here's how we can help you:</p>
-                                <ul>
-                                    <li><strong>Vendor Matchmaking</strong> — We connect you with trusted, vetted service providers (caterers, DJs, decorators, and more).</li>
-                                    <li><strong>Venue Sourcing</strong> — We secure the perfect venue or spot that fits your style and budget.</li>
-                                    <li><strong>Entertainment Booking</strong> — We book top-tier DJs, MCs, live bands, and performers.</li>
-                                    <li><strong>Full Coordination</strong> — From timeline management to on-the-day execution, we handle it all.</li>
-                                    <li><strong>Budget Optimization</strong> — We help you get the most value out of every dollar spent.</li>
-                                    <li><strong>Stress-Free Experience</strong> — You enjoy the event; we handle the logistics.</li>
-                                </ul>
-                                <p><strong>📞 Reach out to us today — let's create something unforgettable together!</strong></p>
-                                <div class="help-actions">
-                                    <a href="mailto:zone21services@gmail.com" class="help-btn email"><i class="fas fa-envelope"></i> Email Us</a>
-                                    <a href="[https://wa.me/263789912268](https://wa.me/263789912268)" target="_blank" class="help-btn whatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-                                    <a href="tel:+263789912268" class="help-btn call"><i class="fas fa-phone"></i> Call Us</a>
-                                </div>
-                                <p class="help-tagline">✨ Zone21 — Your event, our passion. Let's make magic together. ✨</p>
-                            </div>
-                        `;
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error.message || 'OpenRouter returned an error');
 
-                // If the help section is missing, append it (which it will be now due to prompt changes)
-                if (!htmlOutput.includes('zone21-help')) {
-                    htmlOutput += helpSection;
-                } else {
-                    // Ensure it's at the very end — if it appears earlier, move it
-                    const lastHelpIndex = htmlOutput.lastIndexOf('<div class="zone21-help">');
-                    if (lastHelpIndex !== -1) {
-                        const before = htmlOutput.substring(0, lastHelpIndex);
-                        const after = htmlOutput.substring(lastHelpIndex);
-                        // If there's content after the help section, move it to the end
-                        if (after.trim().length > 0 && !after.includes('</div></div>')) {
-                            // Remove the help section from its current position and re-append
-                            const helpMatch = htmlOutput.match(/<div class="zone21-help">[\s\S]*?<\/div>/);
-                            if (helpMatch) {
-                                const helpContent = helpMatch[0];
-                                htmlOutput = htmlOutput.replace(helpContent, '');
-                                htmlOutput = htmlOutput.trim() + helpContent;
-                            }
+                    let htmlOutput = data.choices[0].message.content.trim()
+                        .replace(/^```html/i, '')
+                        .replace(/^```/i, '')
+                        .replace(/```$/i, '');
+
+                    // Auto-wrap budget sections with appropriate classes
+                    if (!htmlOutput.includes('budget-success') && !htmlOutput.includes('budget-neutral') && !htmlOutput
+                        .includes('budget-warning')) {
+                        if (htmlOutput.includes('SUFFICIENT') || htmlOutput.includes('sufficient')) {
+                            htmlOutput = htmlOutput.replace(
+                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                                '<div class="budget-success">$1</div>'
+                            );
+                        } else if (htmlOutput.includes('TIGHT') || htmlOutput.includes('tight') || htmlOutput.includes(
+                                'WORKABLE')) {
+                            htmlOutput = htmlOutput.replace(
+                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                                '<div class="budget-neutral">$1</div>'
+                            );
+                        } else {
+                            htmlOutput = htmlOutput.replace(
+                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
+                                '<div class="budget-neutral">$1</div>'
+                            );
                         }
                     }
+
+                    // ============================================================
+                    //  APPEND ZONE21 HELP SECTION VIA JAVASCRIPT (NO TOKEN WASTE)
+                    // ============================================================
+                    const helpSection = `
+                                <div class="zone21-help">
+                                    <h2>🎯 Need a Hand? Let Zone21 Take Over!</h2>
+                                    <p class="help-question"><i class="fas fa-question-circle"></i> Feeling overwhelmed with planning? Our professional team at <strong>Zone21 Event Management</strong> is here to make your event seamless and spectacular.</p>
+                                    <p>We offer full-service support to bring your vision to life — from concept to execution. Here's how we can help you:</p>
+                                    <ul>
+                                        <li><strong>Vendor Matchmaking</strong> — We connect you with trusted, vetted service providers (caterers, DJs, decorators, and more).</li>
+                                        <li><strong>Venue Sourcing</strong> — We secure the perfect venue or spot that fits your style and budget.</li>
+                                        <li><strong>Entertainment Booking</strong> — We book top-tier DJs, MCs, live bands, and performers.</li>
+                                        <li><strong>Full Coordination</strong> — From timeline management to on-the-day execution, we handle it all.</li>
+                                        <li><strong>Budget Optimization</strong> — We help you get the most value out of every dollar spent.</li>
+                                        <li><strong>Stress-Free Experience</strong> — You enjoy the event; we handle the logistics.</li>
+                                    </ul>
+                                    <p><strong>📞 Reach out to us today — let's create something unforgettable together!</strong></p>
+                                    <div class="help-actions">
+                                        <a href="mailto:zone21services@gmail.com" class="help-btn email"><i class="fas fa-envelope"></i> Email Us</a>
+                                        <a href="https://wa.me/263789912268" target="_blank" class="help-btn whatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                                        <a href="tel:+263789912268" class="help-btn call"><i class="fas fa-phone"></i> Call Us</a>
+                                    </div>
+                                    <p class="help-tagline">✨ Zone21 — Your event, our passion. Let's make magic together. ✨</p>
+                                </div>
+                            `;
+
+                    // Always append the help section at the end
+                    htmlOutput = htmlOutput.trim() + helpSection;
+
+                    loadingDiv.style.display = 'none';
+                    blueprintContainer.style.display = 'block';
+                    finalBlueprint.innerHTML = htmlOutput;
+
+                    saveBlueprintState(htmlOutput);
+                    // Success, exit loop
+                    return;
+
+                } catch (error) {
+                    console.error(`Attempt ${attempt+1} with model ${model} failed:`, error);
+                    lastError = error;
+                    // Continue to next model
+                    continue;
                 }
-
-                loadingDiv.style.display = 'none';
-                blueprintContainer.style.display = 'block';
-                finalBlueprint.innerHTML = htmlOutput;
-
-                saveBlueprintState(htmlOutput);
-
-            } catch (error) {
-                console.error('Generation Error:', error);
-                loadingDiv.style.display = 'none';
-                formSection.style.display = 'block';
-                let msg = error.message;
-                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('not found')) {
-                    msg = 'The AI service is temporarily unavailable. Please try again later.';
-                }
-                showToast('System error: ' + msg, 'error');
             }
+
+            // If we get here, all attempts failed
+            loadingDiv.style.display = 'none';
+            formSection.style.display = 'block';
+            let msg = lastError ? lastError.message : 'Unknown error';
+            if (msg.includes('404') || msg.includes('unavailable') || msg.includes('not found')) {
+                msg = 'The AI service is temporarily unavailable. Please try again later.';
+            }
+            showToast('System error: ' + msg, 'error');
         }
 
         // ============================================================

@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET (same as before) ===== */
+        /* ===== ROOT & RESET ===== */
         :root {
             --navy: #0a1f2e;
             --navy-light: #1a3a4a;
@@ -131,15 +131,6 @@
             width: 20px;
             text-align: center;
             font-size: 1rem;
-        }
-        .sidebar .nav-links a .badge-nav {
-            margin-left: auto;
-            background: var(--pink);
-            color: #fff;
-            font-size: 0.6rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 20px;
         }
 
         .sidebar .sidebar-footer {
@@ -422,9 +413,6 @@
             background: #fff;
             min-width: 120px;
         }
-        .renew-form .btn {
-            margin-top: 0;
-        }
 
         /* ===== PROFILE EDIT FORM ===== */
         .form-grid {
@@ -638,7 +626,6 @@
             text-transform: uppercase;
             pointer-events: none;
             background: rgba(220, 38, 38, 0.04);
-            font-family: 'Inter', sans-serif;
             line-height: 1.2;
             text-align: center;
             z-index: 5;
@@ -660,7 +647,7 @@
             font-size: 0.65rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--text-muted);
+            color: var(--muted);
             font-weight: 700;
             margin-bottom: 6px;
         }
@@ -671,7 +658,7 @@
         }
         .invoice-grid .bill-to .email {
             font-size: 0.85rem;
-            color: var(--text-muted);
+            color: var(--muted);
         }
         .invoice-grid .invoice-meta .meta-row {
             display: flex;
@@ -684,7 +671,7 @@
             border-bottom: none;
         }
         .invoice-grid .invoice-meta .meta-row .meta-label {
-            color: var(--text-muted);
+            color: var(--muted);
             font-weight: 500;
         }
         .invoice-grid .invoice-meta .meta-row .meta-value {
@@ -698,7 +685,7 @@
             width: 100%;
             border-collapse: collapse;
             margin: 1.5rem 0 2rem;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             overflow: hidden;
             border: 1px solid var(--border);
         }
@@ -737,14 +724,14 @@
             align-items: center;
             padding: 1.2rem 1.5rem;
             background: var(--bg);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             margin-bottom: 2rem;
             border: 1px solid var(--border);
         }
         .invoice-total-row .total-label {
             font-size: 1rem;
             font-weight: 700;
-            color: var(--text-muted);
+            color: var(--muted);
             text-transform: uppercase;
             letter-spacing: 0.04em;
         }
@@ -761,7 +748,7 @@
         }
         .payment-method-card {
             background: var(--bg);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             padding: 1.2rem 1.2rem 1rem;
             border: 1px solid var(--border);
             text-align: center;
@@ -803,7 +790,7 @@
         }
         .payment-method-card .method-account {
             font-size: 0.7rem;
-            color: var(--text-muted);
+            color: var(--muted);
             font-weight: 500;
             margin-top: 2px;
         }
@@ -811,7 +798,7 @@
             background: rgba(11, 26, 43, 0.02);
             border-left: 4px solid var(--lime);
             padding: 1.2rem 1.5rem;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             margin: 1.5rem 0;
             font-size: 0.9rem;
             color: var(--text-secondary);
@@ -834,7 +821,7 @@
         .invoice-footer-note {
             text-align: center;
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--muted);
             margin-top: 1.5rem;
             border-top: 1px solid var(--border);
             padding-top: 1rem;
@@ -1132,9 +1119,6 @@
     FIREBASE + FULL LOGIC
     ============================================================ -->
     <script>
-        // ============================================================
-        //  FIREBASE CONFIG
-        // ============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -1148,18 +1132,12 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ============================================================
-        //  STATE
-        // ============================================================
         let currentUser = null;
         let providerDocId = null;
         let providerData = null;
         let subscriptionData = null;
         let isEditingProfile = false;
 
-        // ============================================================
-        //  AUTH STATE
-        // ============================================================
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentUser = user;
@@ -1173,9 +1151,6 @@
             }
         });
 
-        // ============================================================
-        //  TOAST
-        // ============================================================
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -1190,9 +1165,6 @@
         }
         window.showToast = showToast;
 
-        // ============================================================
-        //  LOAD PROVIDER DATA
-        // ============================================================
         async function loadProviderData(user) {
             try {
                 let docSnap = await db.collection('serviceProviders').doc(user.uid).get();
@@ -1238,26 +1210,79 @@
             }
         }
 
-        // ============================================================
-        //  LOAD SUBSCRIPTION DATA
-        // ============================================================
+        /* Reset subscription if admin deletes invoice */
+        async function resetSubscriptionToSelectPlan(message) {
+            if (!providerDocId) return;
+            try {
+                await db.collection('serviceProviders').doc(providerDocId).update({
+                    subscriptionStatus: 'none',
+                    subscriptionPlan: null,
+                    subscriptionActive: false,
+                    subscriptionExpiry: null
+                });
+                if (providerData) {
+                    providerData.subscriptionStatus = 'none';
+                    providerData.subscriptionPlan = null;
+                    providerData.subscriptionActive = false;
+                    providerData.subscriptionExpiry = null;
+                }
+                subscriptionData = null;
+                if (message) showToast(message, 'info');
+                renderDashboard();
+                renderSubscription();
+                renderRenew();
+            } catch (err) {
+                console.error('Error resetting subscription:', err);
+            }
+        }
+
         async function loadSubscriptionData() {
             if (!providerDocId) return;
             try {
+                let invSnap = await db.collection('invoices')
+                    .where('providerId', '==', providerDocId)
+                    .orderBy('createdAt', 'desc')
+                    .limit(1)
+                    .get();
+
+                if (invSnap.empty) {
+                    invSnap = await db.collection('invoices')
+                        .where('userId', '==', currentUser.uid)
+                        .orderBy('createdAt', 'desc')
+                        .limit(1)
+                        .get();
+                }
+
                 const subSnap = await db.collection('subscriptions')
                     .where('providerId', '==', providerDocId)
                     .orderBy('createdAt', 'desc')
                     .limit(1)
                     .get();
+
+                if (invSnap.empty && subSnap.empty) {
+                    if (providerData.subscriptionStatus === 'pending') {
+                        await resetSubscriptionToSelectPlan('Your previous invoice was removed. Please choose a plan.');
+                    } else {
+                        subscriptionData = null;
+                        providerData.subscriptionActive = false;
+                        providerData.subscriptionStatus = 'none';
+                        providerData.subscriptionPlan = null;
+                    }
+                    return;
+                }
+
                 if (!subSnap.empty) {
                     subscriptionData = subSnap.docs[0].data();
                     subscriptionData.id = subSnap.docs[0].id;
-                    // Update providerData with subscription info
                     if (subscriptionData.status === 'active' && subscriptionData.expiryDate) {
                         providerData.subscriptionActive = true;
                         providerData.subscriptionExpiry = subscriptionData.expiryDate;
                         providerData.subscriptionStatus = 'active';
                     } else if (subscriptionData.status === 'pending') {
+                        if (invSnap.empty) {
+                            await resetSubscriptionToSelectPlan('Invoice was deleted by admin. Please select a plan.');
+                            return;
+                        }
                         providerData.subscriptionActive = false;
                         providerData.subscriptionStatus = 'pending';
                     } else {
@@ -1265,20 +1290,32 @@
                         providerData.subscriptionStatus = 'none';
                     }
                     providerData.subscriptionPlan = subscriptionData.planName || null;
-                } else {
-                    subscriptionData = null;
-                    providerData.subscriptionActive = false;
-                    providerData.subscriptionStatus = 'none';
-                    providerData.subscriptionPlan = null;
+                } else if (!invSnap.empty) {
+                    const invData = invSnap.docs[0].data();
+                    if (invData.status === 'pending') {
+                        subscriptionData = {
+                            id: invSnap.docs[0].id,
+                            planName: invData.planName,
+                            months: invData.months,
+                            total: invData.total,
+                            status: 'pending',
+                            createdAt: invData.createdAt
+                        };
+                        providerData.subscriptionActive = false;
+                        providerData.subscriptionStatus = 'pending';
+                        providerData.subscriptionPlan = invData.planName;
+                    } else {
+                        subscriptionData = null;
+                        providerData.subscriptionActive = false;
+                        providerData.subscriptionStatus = 'none';
+                        providerData.subscriptionPlan = null;
+                    }
                 }
             } catch (error) {
                 console.error('Error loading subscription:', error);
             }
         }
 
-        // ============================================================
-        //  UPDATE TOPBAR AVATAR
-        // ============================================================
         function updateTopbarAvatar() {
             const container = document.getElementById('topbar-avatar');
             if (providerData && providerData.avatar && providerData.avatar.startsWith('data:image')) {
@@ -1293,9 +1330,6 @@
             }
         }
 
-        // ============================================================
-        //  RENDER DASHBOARD
-        // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
             const status = providerData ? providerData.subscriptionStatus : 'none';
@@ -1307,7 +1341,6 @@
 
             let html = '';
 
-            // Subscription status card
             let statusBadge = '';
             let statusText = '';
             if (status === 'pending') {
@@ -1330,7 +1363,7 @@
                         <h4>Subscription Status</h4>
                         <p>${plan ? `Plan: ${plan}` : 'No plan selected'}</p>
                         ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : ''}
-                        ${status === 'pending' ? '<p>Your payment is being verified. You will get access once approved.</p>' : ''}
+                        ${status === 'pending' ? '<p>Your payment is pending approval. Submit proof of payment to activate your account.</p>' : ''}
                     </div>
                     <span class="badge ${statusBadge}">${statusText}</span>
                 </div>
@@ -1352,8 +1385,6 @@
                             <div style="font-size:0.7rem; color:var(--muted);">Profile Views</div>
                         </div>
                     </div>
-                `;
-                html += `
                     <div style="margin-top:16px;">
                         <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-lime btn-sm"><i class="fas fa-sync-alt"></i> Renew Subscription</a>
                         <a href="#" onclick="switchTab('profile'); return false;" class="btn btn-outline btn-sm"><i class="fas fa-user-edit"></i> Manage Profile</a>
@@ -1361,9 +1392,17 @@
                 `;
             } else if (status === 'pending') {
                 html += `
-                    <div style="margin-top:16px; padding:12px; background:#fff3cd; border-radius:var(--radius-sm); display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                        <p style="flex:1;"><i class="fas fa-hourglass-half"></i> Your subscription is pending approval. Please wait or <a href="#" onclick="viewInvoice()">view invoice</a>.</p>
-                        <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                    <div style="margin-top:16px; padding:16px; background:#fff8e1; border-left:4px solid #ffc107; border-radius:var(--radius-sm);">
+                        <p style="font-weight:700; color:var(--navy); font-size:0.95rem;">
+                            <i class="fas fa-hourglass-half" style="color:#ff9800;"></i> Subscription Pending Approval
+                        </p>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin:6px 0 14px;">
+                            Please complete your payment and submit your proof of payment so our admin team can activate your account.
+                        </p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button onclick="viewInvoice()" class="btn btn-outline btn-sm"><i class="fas fa-file-invoice"></i> View Invoice</button>
+                            <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                        </div>
                     </div>
                 `;
             } else {
@@ -1380,9 +1419,6 @@
             container.innerHTML = html;
         }
 
-        // ============================================================
-        //  RENDER PROFILE
-        // ============================================================
         function renderProfile() {
             const container = document.getElementById('profile-content');
             const isActive = providerData && providerData.subscriptionActive;
@@ -1405,7 +1441,6 @@
             document.getElementById('editProfileToggle').style.display = 'inline-flex';
 
             if (isEditingProfile) {
-                // Edit form
                 const servicesList = [
                     "Venue / Space Rental",
                     "Marquee / Tents & Chairs",
@@ -1466,7 +1501,6 @@
                 });
 
             } else {
-                // View mode
                 const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
                 const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
                 const service = providerData.service || 'Not specified';
@@ -1494,9 +1528,6 @@
             }
         }
 
-        // ============================================================
-        //  PROFILE EDIT CONTROLS
-        // ============================================================
         function toggleProfileEdit() {
             isEditingProfile = !isEditingProfile;
             renderProfile();
@@ -1557,25 +1588,22 @@
         }
         window.saveProfile = saveProfile;
 
-        // ============================================================
-        //  RENDER SUBSCRIPTION TAB
-        // ============================================================
         function renderSubscription() {
             const container = document.getElementById('subscription-content');
-            if (!subscriptionData) {
+            if (!subscriptionData && providerData.subscriptionStatus === 'none') {
                 container.innerHTML = `
                     <div style="padding:20px; text-align:center; color:var(--muted);">
                         <i class="fas fa-credit-card" style="font-size:2rem;"></i>
-                        <p style="margin-top:10px;">No subscription found. <a href="#" onclick="switchTab('renew'); return false;">Subscribe now</a></p>
+                        <p style="margin-top:10px;">No active subscription found. <a href="#" onclick="switchTab('renew'); return false;">Subscribe now</a></p>
                     </div>
                 `;
                 return;
             }
-            const status = subscriptionData.status || 'pending';
-            const plan = subscriptionData.planName || 'Unknown';
-            const months = subscriptionData.months || 1;
-            const total = subscriptionData.total || 0;
-            const createdAt = subscriptionData.createdAt ? (subscriptionData.createdAt.toDate ? subscriptionData.createdAt.toDate() :
+            const status = providerData.subscriptionStatus || 'none';
+            const plan = providerData.subscriptionPlan || 'Unknown';
+            const months = subscriptionData ? (subscriptionData.months || 1) : 1;
+            const total = subscriptionData ? (subscriptionData.total || 0) : 0;
+            const createdAt = subscriptionData && subscriptionData.createdAt ? (subscriptionData.createdAt.toDate ? subscriptionData.createdAt.toDate() :
                 new Date(subscriptionData.createdAt)) : null;
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ? providerData
                 .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
@@ -1584,7 +1612,7 @@
             if (status === 'pending') statusHtml = '<span class="badge pending">Pending Approval</span>';
             else if (status === 'active') statusHtml = '<span class="badge active">Active</span>';
             else if (status === 'expired') statusHtml = '<span class="badge expired">Expired</span>';
-            else statusHtml = '<span class="badge">Unknown</span>';
+            else statusHtml = '<span class="badge">None</span>';
 
             container.innerHTML = `
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
@@ -1597,15 +1625,15 @@
                         <div>${statusHtml}</div>
                     </div>
                     <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                        <div style="font-size:0.8rem; color:var(--muted);">Months Paid</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">Months</div>
                         <div style="font-weight:700;">${months}</div>
                     </div>
                     <div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm);">
-                        <div style="font-size:0.8rem; color:var(--muted);">Total Paid</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">Total Amount</div>
                         <div style="font-weight:700; color:var(--pink);">$${total}</div>
                     </div>
                     ${createdAt ? `<div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm); grid-column: 1/-1;">
-                        <div style="font-size:0.8rem; color:var(--muted);">Subscription Start</div>
+                        <div style="font-size:0.8rem; color:var(--muted);">Subscription Date</div>
                         <div>${createdAt.toLocaleDateString()}</div>
                     </div>` : ''}
                     ${expiry ? `<div style="background:var(--bg); padding:14px; border-radius:var(--radius-sm); grid-column: 1/-1;">
@@ -1613,25 +1641,24 @@
                         <div>${expiry.toLocaleDateString()} ${expiry < new Date() ? ' (Expired)' : ''}</div>
                     </div>` : ''}
                 </div>
-                ${status === 'pending' ? `<div style="margin-top:16px;"><button class="btn btn-outline" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button></div>` : ''}
-                ${status === 'active' && expiry && expiry < new Date() ? `<div style="margin-top:16px; padding:12px; background:#ffebee; border-radius:var(--radius-sm);">
-                    <p><i class="fas fa-exclamation-triangle" style="color:var(--pink);"></i> Your subscription has expired. <a href="#" onclick="switchTab('renew'); return false;">Renew now</a></p>
-                </div>` : ''}
+                ${status === 'pending' ? `
+                    <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
+                        <button class="btn btn-outline" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button>
+                        <a href="support.html" target="_blank" class="btn btn-pink"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                    </div>
+                ` : ''}
             `;
         }
 
-        // ============================================================
-        //  RENDER RENEW TAB – with updated benefits
-        // ============================================================
         function renderRenew() {
             const container = document.getElementById('renew-content');
-            const isActive = providerData && providerData.subscriptionActive;
+            const status = providerData ? providerData.subscriptionStatus : 'none';
             const expiry = providerData && providerData.subscriptionExpiry ? (providerData.subscriptionExpiry.toDate ? providerData
                 .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
 
             let currentPlan = providerData ? providerData.subscriptionPlan : null;
-            if (!currentPlan) {
-                // Show plan selection with benefits
+
+            if (!currentPlan || status === 'none') {
                 const commonBenefits = [
                     'Get priority visibility to event organizers',
                     'Receive instant notifications via WhatsApp, email, and calls',
@@ -1641,24 +1668,24 @@
                 ];
 
                 container.innerHTML = `
-                    <h4 style="margin-bottom:12px;">Choose Your Plan</h4>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center;">
-                            <h4>Service Provider</h4>
-                            <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$10 <small style="font-size:0.8rem;">/month</small></p>
+                    <h4 style="margin-bottom:12px; color:var(--navy);">Choose Your Plan</h4>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px;">
+                        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:20px; text-align:center; background:#fff;">
+                            <h4 style="font-size:1.1rem; color:var(--navy);">Service Provider</h4>
+                            <p style="font-size:1.8rem; font-weight:800; color:var(--pink); margin:10px 0;">$10 <small style="font-size:0.8rem;">/month</small></p>
                             <ul class="benefits-list" style="text-align:left;">
                                 ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
                             </ul>
-                            <button class="btn btn-lime btn-block" onclick="selectPlan('Service Provider', 10)">Select</button>
+                            <button class="btn btn-lime btn-block" onclick="selectPlan('Service Provider', 10)" style="margin-top:14px;">Select Plan</button>
                         </div>
-                        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px; text-align:center; border-color:var(--pink);">
-                            <h4>Venue</h4>
-                            <p style="font-size:1.6rem; font-weight:800; color:var(--pink);">$50 <small style="font-size:0.8rem;">/month</small></p>
+                        <div style="border:2px solid var(--pink); border-radius:var(--radius-sm); padding:20px; text-align:center; background:#fff;">
+                            <h4 style="font-size:1.1rem; color:var(--navy);">Venue</h4>
+                            <p style="font-size:1.8rem; font-weight:800; color:var(--pink); margin:10px 0;">$50 <small style="font-size:0.8rem;">/month</small></p>
                             <ul class="benefits-list" style="text-align:left;">
                                 ${commonBenefits.map(b => `<li><i class="fas fa-check"></i> ${b}</li>`).join('')}
                                 <li><i class="fas fa-check"></i> <strong>Premium listing</strong> with venue spotlight</li>
                             </ul>
-                            <button class="btn btn-pink btn-block" onclick="selectPlan('Venue', 50)">Select</button>
+                            <button class="btn btn-pink btn-block" onclick="selectPlan('Venue', 50)" style="margin-top:14px;">Select Plan</button>
                         </div>
                     </div>
                 `;
@@ -1669,7 +1696,7 @@
             container.innerHTML = `
                 <div style="background:var(--bg); padding:16px; border-radius:var(--radius-sm); margin-bottom:16px;">
                     <h4>Current Plan: <strong>${currentPlan}</strong></h4>
-                    ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : '<p>No active subscription</p>'}
+                    ${expiry ? `<p>Expires: ${expiry.toLocaleDateString()}</p>` : '<p>Status: ' + status.toUpperCase() + '</p>'}
                 </div>
                 <h4 style="margin-bottom:12px;">Renew for Additional Months</h4>
                 <div class="renew-form">
@@ -1690,9 +1717,6 @@
             });
         }
 
-        // ============================================================
-        //  PLAN SELECTION
-        // ============================================================
         function selectPlan(planName, price) {
             localStorage.setItem('zone21_provider_plan_name', planName);
             localStorage.setItem('zone21_provider_plan_price', price);
@@ -1701,9 +1725,6 @@
         }
         window.selectPlan = selectPlan;
 
-        // ============================================================
-        //  RENEW SUBSCRIPTION
-        // ============================================================
         async function renewSubscription() {
             if (!currentUser) { showToast('Please sign in.', 'error'); return; }
             const months = parseInt(document.getElementById('months-select').value);
@@ -1712,10 +1733,8 @@
             const total = price * months;
 
             const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
-            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
             try {
-                // Create invoice with invoiceNumber as document ID
                 await db.collection('invoices').doc(invNumber).set({
                     providerId: providerDocId,
                     userId: currentUser.uid,
@@ -1763,9 +1782,6 @@
         }
         window.renewSubscription = renewSubscription;
 
-        // ============================================================
-        //  VIEW INVOICE – FIXED: fetch latest pending invoice by providerId or userId
-        // ============================================================
         async function viewInvoice() {
             if (!providerDocId) {
                 showToast('Provider ID not found.', 'error');
@@ -1773,7 +1789,6 @@
             }
 
             try {
-                // Query invoices for this provider by providerId (set during checkout/renewal)
                 let snap = await db.collection('invoices')
                     .where('providerId', '==', providerDocId)
                     .where('status', '==', 'pending')
@@ -1781,7 +1796,6 @@
                     .limit(1)
                     .get();
 
-                // If no result, try by userId (fallback for older invoices)
                 if (snap.empty) {
                     snap = await db.collection('invoices')
                         .where('userId', '==', currentUser.uid)
@@ -1791,7 +1805,6 @@
                         .get();
                 }
 
-                // If still empty, try all invoices for this provider without status filter
                 if (snap.empty) {
                     snap = await db.collection('invoices')
                         .where('providerId', '==', providerDocId)
@@ -1800,8 +1813,10 @@
                         .get();
                 }
 
+                /* Admin deleted invoice check */
                 if (snap.empty) {
-                    showToast('No invoice found for your subscription.', 'error');
+                    await resetSubscriptionToSelectPlan('No active or pending invoice was found. Please select a plan to continue.');
+                    switchTab('renew');
                     return;
                 }
 
@@ -1815,9 +1830,9 @@
                 const customer = invData.customerInfo || {};
                 const fName = customer.firstName || '';
                 const lName = customer.lastName || '';
-                const fullName = (fName + ' ' + lName).trim() || 'N/A';
-                const email = customer.email || 'N/A';
-                const phone = customer.phone || 'N/A';
+                const fullName = (fName + ' ' + lName).trim() || providerData.name || 'N/A';
+                const email = customer.email || currentUser.email || 'N/A';
+                const phone = customer.phone || providerData.phone || 'N/A';
                 const company = customer.company || '';
                 const plan = invData.planName || 'Subscription';
                 const total = invData.total || 0;
@@ -1846,8 +1861,8 @@
                                     <h4>Bill To</h4>
                                     <div class="name">${fullName}</div>
                                     <div class="email">${email}</div>
-                                    ${company ? `<div style="font-size:0.8rem; color:var(--text-muted);">${company}</div>` : ''}
-                                    ${phone !== 'N/A' ? `<div style="font-size:0.8rem; color:var(--text-muted);">${phone}</div>` : ''}
+                                    ${company ? `<div style="font-size:0.8rem; color:var(--muted);">${company}</div>` : ''}
+                                    ${phone !== 'N/A' ? `<div style="font-size:0.8rem; color:var(--muted);">${phone}</div>` : ''}
                                 </div>
                                 <div class="invoice-meta">
                                     <h4>Invoice Details</h4>
@@ -1916,7 +1931,7 @@
                             </div>
                             <div class="invoice-actions">
                                 <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
-                                <a href="support.html" target="_blank" class="btn btn-danger"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                                <a href="support.html" target="_blank" class="btn btn-pink"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                             </div>
                             <div class="invoice-footer-note">
                                 <i class="fas fa-shield-alt"></i> After payment, submit your proof to activate your provider account.
@@ -1935,17 +1950,11 @@
         }
         window.viewInvoice = viewInvoice;
 
-        // ============================================================
-        //  CLOSE INVOICE MODAL
-        // ============================================================
         function closeInvoiceModal() {
             document.getElementById('invoiceModal').classList.remove('active');
         }
         window.closeInvoiceModal = closeInvoiceModal;
 
-        // ============================================================
-        //  TAB SWITCHING
-        // ============================================================
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             const target = document.getElementById('tab-' + tab);
@@ -1966,9 +1975,6 @@
         }
         window.switchTab = switchTab;
 
-        // ============================================================
-        //  EVENT LISTENERS
-        // ============================================================
         document.getElementById('menuToggle').addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('open');
         });
@@ -1992,9 +1998,6 @@
             toggleProfileEdit();
         });
 
-        // ============================================================
-        //  SETTINGS FUNCTIONS
-        // ============================================================
         async function changeEmail() {
             const newEmail = document.getElementById('new-email').value.trim();
             if (!newEmail) { showToast('Enter a new email address.', 'error'); return; }
@@ -2021,9 +2024,6 @@
             }
         }
         window.changePassword = changePassword;
-
-        console.log('Provider Hub with Invoice Viewer loaded.');
     </script>
-
 </body>
-    </html>
+</html>

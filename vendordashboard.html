@@ -426,42 +426,6 @@
             margin-top: 0;
         }
 
-        /* ===== PROFILE EDIT FORM ===== */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .input-group label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--navy);
-        }
-        .input-group input,
-        .input-group textarea,
-        .input-group select {
-            padding: 10px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 0.9rem;
-            background: #f9fafb;
-            outline: none;
-            transition: 0.3s;
-        }
-        .input-group input:focus,
-        .input-group textarea:focus {
-            border-color: var(--navy);
-            background: white;
-        }
-        .full-width {
-            grid-column: 1 / -1;
-        }
-
         /* ===== PROFILE DISPLAY ===== */
         .profile-summary {
             display: flex;
@@ -1256,11 +1220,13 @@
                     });
                     subscriptionData = latestSub;
                     if (subscriptionData) {
-                        if (subscriptionData.status === 'active' && subscriptionData.expiryDate) {
+                        // Check for both 'active' and 'approved' statuses
+                        const isActive = subscriptionData.status === 'active' || subscriptionData.status === 'approved';
+                        if (isActive && subscriptionData.expiryDate) {
                             providerData.subscriptionActive = true;
                             providerData.subscriptionExpiry = subscriptionData.expiryDate;
                             providerData.subscriptionStatus = 'active';
-                        } else if (subscriptionData.status === 'pending') {
+                        } else if (subscriptionData.status === 'pending_payment' || subscriptionData.status === 'pending') {
                             providerData.subscriptionActive = false;
                             providerData.subscriptionStatus = 'pending';
                         } else {
@@ -1301,7 +1267,7 @@
         }
 
         // ============================================================
-        //  RENDER DASHBOARD
+        //  RENDER DASHBOARD – now correctly unlocks on approval
         // ============================================================
         function renderDashboard() {
             const container = document.getElementById('dashboard-content');
@@ -1311,15 +1277,17 @@
                 providerData.subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
             const now = new Date();
             const expired = expiry && expiry < now;
+            const isActive = status === 'active' && !expired;
 
             let html = '';
 
+            // Status badge
             let statusBadge = '';
             let statusText = '';
             if (status === 'pending') {
                 statusBadge = 'badge pending';
                 statusText = 'Pending Approval';
-            } else if (status === 'active' && !expired) {
+            } else if (isActive) {
                 statusBadge = 'badge active';
                 statusText = 'Active';
             } else if (status === 'active' && expired) {
@@ -1341,6 +1309,7 @@
                 </div>
             `;
 
+            // ---- PENDING STATE ----
             if (status === 'pending') {
                 html += `
                     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1348,7 +1317,9 @@
                         <button class="btn btn-outline btn-sm" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button>
                     </div>
                 `;
-            } else if (status === 'active' && !expired) {
+
+            // ---- ACTIVE STATE ----
+            } else if (isActive) {
                 const profilePage = (plan === 'Venue') ? 'venueprofile.html' : 'vendorprofile.html';
                 html += `
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-top:12px;">
@@ -1366,6 +1337,8 @@
                         <a href="#" onclick="switchTab('renew'); return false;" class="btn btn-outline btn-sm"><i class="fas fa-sync-alt"></i> Renew Subscription</a>
                     </div>
                 `;
+
+            // ---- NO SUBSCRIPTION STATE ----
             } else {
                 html += `
                     <div style="margin-top:16px; padding:20px; text-align:center; background:#f8f9fa; border-radius:var(--radius-sm);">
@@ -1452,8 +1425,8 @@
                 .subscriptionExpiry.toDate() : new Date(providerData.subscriptionExpiry)) : null;
 
             let statusHtml = '';
-            if (status === 'pending') statusHtml = '<span class="badge pending">Pending Approval</span>';
-            else if (status === 'active') statusHtml = '<span class="badge active">Active</span>';
+            if (status === 'pending' || status === 'pending_payment') statusHtml = '<span class="badge pending">Pending Approval</span>';
+            else if (status === 'active' || status === 'approved') statusHtml = '<span class="badge active">Active</span>';
             else if (status === 'expired') statusHtml = '<span class="badge expired">Expired</span>';
             else statusHtml = '<span class="badge">Unknown</span>';
 
@@ -1484,11 +1457,11 @@
                         <div>${expiry.toLocaleDateString()} ${expiry < new Date() ? ' (Expired)' : ''}</div>
                     </div>` : ''}
                 </div>
-                ${status === 'pending' ? `<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                ${status === 'pending' || status === 'pending_payment' ? `<div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
                     <a href="support.html" target="_blank" class="btn btn-pink btn-sm"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
                     <button class="btn btn-outline btn-sm" onclick="viewInvoice()"><i class="fas fa-file-invoice"></i> View Invoice</button>
                 </div>` : ''}
-                ${status === 'active' && expiry && expiry < new Date() ? `<div style="margin-top:16px; padding:12px; background:#ffebee; border-radius:var(--radius-sm);">
+                ${(status === 'active' || status === 'approved') && expiry && expiry < new Date() ? `<div style="margin-top:16px; padding:12px; background:#ffebee; border-radius:var(--radius-sm);">
                     <p><i class="fas fa-exclamation-triangle" style="color:var(--pink);"></i> Your subscription has expired. <a href="#" onclick="switchTab('renew'); return false;">Renew now</a></p>
                 </div>` : ''}
             `;
@@ -1613,7 +1586,7 @@
                     months: months,
                     total: total,
                     invoiceNumber: invNumber,
-                    status: 'pending',
+                    status: 'pending_payment',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -1656,7 +1629,7 @@
                 }
 
                 const pendingInvoices = allInvoices
-                    .filter(inv => inv.status === 'pending')
+                    .filter(inv => inv.status === 'pending' || inv.status === 'pending_payment')
                     .sort((a, b) => {
                         const aTime = a.createdAt?.toMillis?.() || 0;
                         const bTime = b.createdAt?.toMillis?.() || 0;

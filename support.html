@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zone21 | Global Support</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ... (styles remain exactly the same as your original) ... */
+        /* ---- Your existing styles (unchanged) ---- */
         :root {
             --navy: #0f2437;
             --navy-light: #1a3a55;
@@ -686,7 +686,7 @@
         </div>
     </div>
 
-    <!-- GUEST LOGIN MODAL (appears if not logged in) -->
+    <!-- GUEST LOGIN MODAL -->
     <div class="modal" id="guestLoginModal">
         <div class="modal-content">
             <h3 style="margin-bottom:8px;">Welcome to Zone21 Support</h3>
@@ -696,11 +696,9 @@
                     <label>Email Address</label>
                     <input type="email" id="guestEmailInput" placeholder="you@example.com" required>
                 </div>
-                <button type="submit" class="btn btn-lime btn-block">Continue as Guest</button>
+                <button type="submit" class="btn btn-lime btn-block">Continue</button>
             </form>
-            <p style="font-size:0.75rem; color:var(--muted); margin-top:16px; text-align:center;">
-                Organizers: <a href="#" onclick="organizerLogin()" style="color:var(--pink);">Sign in with your organizer account</a>
-            </p>
+            <!-- REMOVED: "Sign in with your organizer account" link -->
         </div>
     </div>
 
@@ -722,7 +720,7 @@
         const auth = firebase.auth();
 
         let currentUserId = null;
-        let currentUserType = null;         // 'guest' or 'organizer'
+        let currentUserType = null;
         let currentUserEmail = null;
         let currentUserProfile = {};
         let chatImageBase64 = null;
@@ -751,7 +749,7 @@
             window.location.href = 'login.html';
         }
 
-        // ------------------- GUEST LOGIN (Anonymous Auth) -------------------
+        // ------------------- GUEST LOGIN -------------------
         async function guestLogin(e) {
             e.preventDefault();
             const email = document.getElementById('guestEmailInput').value.trim();
@@ -766,21 +764,23 @@
             btn.innerHTML = 'Signing in...';
 
             try {
-                // Sign in anonymously
                 const cred = await auth.signInAnonymously();
                 const uid = cred.user.uid;
-
-                // Store the guest email in the new 'guests' collection
                 await db.collection('guests').doc(uid).set({
                     email: email,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-
                 showToast('Welcome, ' + email + '! You can now chat with support.', 'success');
                 document.getElementById('guestLoginModal').classList.remove('active');
             } catch (err) {
                 console.error('Guest login error:', err);
-                showToast('Failed to sign in. Please try again.', 'error');
+                let msg = 'Failed to sign in. Please try again.';
+                if (err.code === 'auth/operation-not-allowed') {
+                    msg = '⚠️ Anonymous sign‑in is not enabled. Please ask the admin to enable it in Firebase Console (Authentication → Sign‑in methods → Anonymous).';
+                } else if (err.code === 'auth/network-request-failed') {
+                    msg = 'Network error. Please check your internet connection.';
+                }
+                showToast(msg, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
@@ -791,7 +791,6 @@
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 if (user.isAnonymous) {
-                    // Guest user
                     currentUserType = 'guest';
                     currentUserId = user.uid;
                     try {
@@ -799,7 +798,6 @@
                         if (doc.exists) {
                             currentUserEmail = doc.data().email;
                         } else {
-                            // If guest doc doesn't exist, show modal again
                             currentUserEmail = null;
                             document.getElementById('guestLoginModal').classList.add('active');
                             return;
@@ -811,7 +809,6 @@
                     }
                     document.getElementById('guestLoginModal').classList.remove('active');
                 } else {
-                    // Organizer (email/password)
                     currentUserType = 'organizer';
                     currentUserId = user.uid;
                     try {
@@ -828,11 +825,9 @@
                     document.getElementById('guestLoginModal').classList.remove('active');
                 }
 
-                // Load data for the authenticated user
                 loadNotifications();
                 loadChatMessages();
             } else {
-                // No user -> show guest login modal
                 document.getElementById('guestLoginModal').classList.add('active');
                 currentUserId = null;
                 currentUserType = null;
@@ -1045,7 +1040,7 @@
             window._chatUnsub = () => { unsub1(); unsub2(); };
         }
 
-        // ------------------- NOTIFICATIONS -------------------
+        // ------------------- NOTIFICATIONS (FIXED: only admin messages) -------------------
         function loadNotifications() {
             if (!currentUserId) return;
             const list = document.getElementById('notifications-list');
@@ -1056,9 +1051,11 @@
                 list.innerHTML = '';
                 let unread = 0;
                 let items = Array.from(notifMap.values());
-                items.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+                // Keep only messages where the sender is 'admin' (or senderType === 'admin')
+                const adminMessages = items.filter(d => d.sender === 'admin' || d.senderType === 'admin');
+                adminMessages.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-                items.forEach(d => {
+                adminMessages.forEach(d => {
                     const isUnread = d.status === 'unread' || d.status === 'pending';
                     if (isUnread) unread++;
                     const div = document.createElement('div');
@@ -1081,8 +1078,8 @@
 
                 badge.style.display = unread > 0 ? 'inline' : 'none';
                 badge.textContent = unread;
-                if (items.length === 0) {
-                    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);"><p>No notifications yet.</p></div>';
+                if (adminMessages.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);"><p>No notifications from admin yet.</p></div>';
                 }
             }
 
@@ -1091,7 +1088,8 @@
                 window._notifUnsub = null;
             }
 
-            const unsub1 = db.collection('messages')
+            // Only listen to messages where the user is the recipient (i.e., admin replies)
+            const unsub = db.collection('messages')
                 .where('recipientId', '==', currentUserId)
                 .onSnapshot(snapshot => {
                     snapshot.docChanges().forEach(change => {
@@ -1104,21 +1102,7 @@
                     renderNotifs();
                 }, err => showToast('Error loading notifications: ' + err.message, 'error'));
 
-            const unsub2 = db.collection('messages')
-                .where('senderId', '==', currentUserId)
-                .where('type', '==', 'payment_proof')
-                .onSnapshot(snapshot => {
-                    snapshot.docChanges().forEach(change => {
-                        if (change.type === 'added' || change.type === 'modified') {
-                            notifMap.set(change.doc.id, { ...change.doc.data(), docId: change.doc.id });
-                        } else if (change.type === 'removed') {
-                            notifMap.delete(change.doc.id);
-                        }
-                    });
-                    renderNotifs();
-                }, err => showToast('Error loading notifications: ' + err.message, 'error'));
-
-            window._notifUnsub = () => { unsub1(); unsub2(); };
+            window._notifUnsub = () => { unsub(); };
         }
 
         // ------------------- NOTIFICATION DETAIL MODAL -------------------

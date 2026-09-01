@@ -1007,4 +1007,162 @@
                             ` : ''}
                         </div>
                     </li>
-                `
+                `;
+            }).join('');
+        }
+
+        // ================================================================
+        //  HELPERS
+        // ================================================================
+        function formatTime(timestamp) {
+            if (!timestamp) return 'Just now';
+            let dateObj;
+            if (typeof timestamp.toDate === 'function') dateObj = timestamp.toDate();
+            else if (timestamp.seconds) dateObj = new Date(timestamp.seconds * 1000);
+            else dateObj = new Date(timestamp);
+
+            const now = new Date();
+            const diff = Math.floor((now - dateObj) / (1000 * 60 * 60 * 24));
+
+            if (diff === 0) {
+                return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (diff === 1) {
+                return 'Yesterday';
+            } else if (diff < 7) {
+                return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+            } else {
+                return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+        }
+
+        function getStatusBadge(status) {
+            const s = (status || 'pending').toLowerCase();
+            const badges = {
+                'approved': `<span class="badge-status approved"><i class="fas fa-check-circle" style="font-size:0.5rem;"></i> Approved</span>`,
+                'active': `<span class="badge-status active"><i class="fas fa-check-circle" style="font-size:0.5rem;"></i> Active</span>`,
+                'draft': `<span class="badge-status draft"><i class="fas fa-pen" style="font-size:0.5rem;"></i> Draft</span>`,
+                'pending_payment': `<span class="badge-status pending_payment"><i class="fas fa-clock" style="font-size:0.5rem;"></i> Pending</span>`,
+                'pending': `<span class="badge-status pending"><i class="fas fa-clock" style="font-size:0.5rem;"></i> Pending</span>`,
+                'rejected': `<span class="badge-status rejected"><i class="fas fa-times-circle" style="font-size:0.5rem;"></i> Rejected</span>`
+            };
+            return badges[s] || badges['pending'];
+        }
+
+        function getStatusDot(status) {
+            const s = (status || 'pending').toLowerCase();
+            if (s === 'approved' || s === 'active') return 'approved';
+            if (s === 'draft') return 'draft';
+            if (s === 'rejected') return 'rejected';
+            return 'pending_payment';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ================================================================
+        //  VIEW INVOICE
+        // ================================================================
+        window.viewInvoice = async function(eventId) {
+            try {
+                const eventDoc = await getDoc(doc(db, 'events', eventId));
+                if (!eventDoc.exists()) return;
+                const eventData = eventDoc.data();
+                
+                if (eventData.invoiceNumber) {
+                    // Store and redirect to subscription page to view invoice
+                    localStorage.setItem('zone21_view_invoice', eventData.invoiceNumber);
+                    window.location.href = 'subscription.html?viewInvoice=' + eventData.invoiceNumber;
+                } else {
+                    alert('No invoice found for this event.');
+                }
+            } catch (error) {
+                console.error('Error viewing invoice:', error);
+                alert('Could not load invoice.');
+            }
+        };
+
+        // ================================================================
+        //  NAVIGATION
+        // ================================================================
+        window.goToManageEvent = function(eventId) {
+            window.location.href = `manageevent.html?eventId=${eventId}`;
+        };
+
+        // ================================================================
+        //  SEARCH
+        // ================================================================
+        window.filterEvents = function() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const items = document.querySelectorAll('.event-item');
+            items.forEach(item => {
+                const name = item.getAttribute('data-name');
+                item.style.display = name && name.includes(query) ? 'flex' : 'none';
+            });
+        };
+
+        // ================================================================
+        //  RENAME MODAL
+        // ================================================================
+        const modal = document.getElementById('rename-modal');
+        const renameInput = document.getElementById('rename-input');
+        const saveBtn = document.getElementById('save-rename-btn');
+
+        window.openRenameModal = function(eventId, currentName) {
+            activeEventIdToRename = eventId;
+            renameInput.value = currentName;
+            modal.classList.add('active');
+            setTimeout(() => renameInput.focus(), 120);
+        };
+
+        window.closeRenameModal = function() {
+            modal.classList.remove('active');
+            activeEventIdToRename = null;
+        };
+
+        saveBtn.addEventListener('click', async () => {
+            if (!activeEventIdToRename) return;
+
+            const newName = renameInput.value.trim();
+            if (!newName) {
+                alert("Event name cannot be empty.");
+                return;
+            }
+
+            const originalText = saveBtn.innerText;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving';
+            saveBtn.disabled = true;
+
+            try {
+                const ref = doc(db, 'events', activeEventIdToRename);
+                await setDoc(ref, { name: newName }, { merge: true });
+
+                const nameEl = document.getElementById(`name-${activeEventIdToRename}`);
+                if (nameEl) {
+                    nameEl.innerText = newName;
+                    nameEl.closest('.event-item').setAttribute('data-name', newName.toLowerCase());
+                }
+
+                closeRenameModal();
+            } catch (error) {
+                console.error("Rename error:", error);
+                alert("Failed to rename. Please check your permissions.");
+            } finally {
+                saveBtn.innerText = originalText;
+                saveBtn.disabled = false;
+            }
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeRenameModal();
+        });
+
+        renameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveBtn.click();
+        });
+    </script>
+</body>
+</html>

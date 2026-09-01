@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Zone21 – Scan Tickets</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- QR Scanner libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; }
+        .container { max-width: 600px; width: 100%; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+        .header h1 { font-size: 1.6rem; font-weight: 800; color: var(--navy); }
+        .btn { padding: 8px 16px; border-radius: 30px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--navy); }
+        .btn-outline:hover { background: #f0f0f0; }
+        .btn-lime { background: var(--lime); color: var(--navy); }
+        .btn-lime:hover { background: #d0d800; }
+        .btn-pink { background: var(--pink); color: white; }
+        .btn-pink:hover { background: #d0005e; }
+        .btn-primary { background: var(--navy); color: var(--lime); }
+        .btn-primary:hover { background: #1a3a4a; }
+        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+        .card h2 { font-size: 1.2rem; font-weight: 700; color: var(--navy); margin-bottom: 15px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
+        .qr-scanner-container { width: 100%; max-width: 400px; margin: 0 auto; }
+        #qr-reader { width: 100%; max-width: 400px; margin: 0 auto; }
+        #qr-reader video { border-radius: 12px; background: #000; }
+        .scan-result { padding: 20px; border-radius: 12px; text-align: center; margin-top: 15px; }
+        .scan-valid { background: #d4edda; color: #155724; border: 2px solid #28a745; }
+        .scan-invalid { background: #f8d7da; color: #721c24; border: 2px solid #dc3545; }
+        .scan-warning { background: #fff3cd; color: #856404; border: 2px solid #ffc107; }
+        .button-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 15px; }
+        .countdown-timer { font-size: 3rem; font-weight: 800; color: var(--pink); text-align: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; border-radius: 16px; padding: 20px; max-width: 500px; width: 95%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .modal-header h2 { font-size: 1.4rem; color: var(--navy); }
+        .modal-close { background: none; border: none; font-size: 1.8rem; cursor: pointer; }
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .mt-10 { margin-top: 10px; }
+        .mt-20 { margin-top: 20px; }
+        .mb-10 { margin-bottom: 10px; }
+        .camera-permission-section { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 12px; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: white; padding: 12px 24px; border-radius: 30px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 2000; animation: slideUp 0.4s ease; }
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+        @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        @media (max-width: 600px) {
+            .container { padding: 0 10px; }
+            .header h1 { font-size: 1.3rem; }
+            .card { padding: 16px; }
+            #qr-reader { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-qrcode" style="color:var(--pink);"></i> Scan Tickets</h1>
+            <button class="btn btn-outline" onclick="history.back()"><i class="fas fa-arrow-left"></i> Back</button>
+        </div>
+
+        <!-- Scanner Card -->
+        <div class="card">
+            <h2><i class="fas fa-camera" style="color:var(--lime);"></i> QR Scanner</h2>
+            <div class="qr-scanner-container">
+                <!-- QR reader container -->
+                <div id="qr-reader"></div>
+
+                <!-- Scan result display -->
+                <div id="scan-result" class="scan-result hidden"></div>
+
+                <!-- Camera permission / fallback -->
+                <div id="camera-permission-section" class="camera-permission-section hidden">
+                    <p style="color:#6c757d; margin-bottom:10px;">Camera access is required to scan tickets.</p>
+                    <button class="btn btn-lime" onclick="requestCameraAndScan()">
+                        <i class="fas fa-camera"></i> Allow Camera Access
+                    </button>
+                    <p style="font-size:0.8rem; margin-top:8px;">If you're on a non-HTTPS page, camera may not work.<br>Use the "Scan from Image" button below instead.</p>
+                </div>
+
+                <!-- Manual entry and image upload fallback -->
+                <div class="button-group" style="margin-top:15px;">
+                    <button class="btn btn-outline" onclick="document.getElementById('qr-image-input').click()">
+                        <i class="fas fa-image"></i> Scan from Image
+                    </button>
+                    <input type="file" id="qr-image-input" accept="image/*" style="display:none;" onchange="scanFromFile(this.files[0])">
+                    <button class="btn btn-outline" onclick="manualScanEntry()"><i class="fas fa-keyboard"></i> Manual Entry</button>
+                    <button class="btn btn-outline" onclick="restartScanner()"><i class="fas fa-sync"></i> Restart Camera</button>
+                </div>
+
+                <!-- Quick help -->
+                <p style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-top:12px;">
+                    Scan the QR code on the ticket to validate entry.
+                </p>
+            </div>
+        </div>
+
+        <!-- Early Warning Modal -->
+        <div class="modal" id="early-warning-modal">
+            <div class="modal-content text-center">
+                <h2 style="color:var(--pink);">⚠️ Early Scan Detected</h2>
+                <p>This ticket cannot be scanned yet. Gate opens</p>
+                <div class="countdown-timer" id="countdown-timer">--:--:--</div>
+                <p id="gate-open-message">Please wait until the event starts.</p>
+                <button class="btn btn-pink" onclick="closeEarlyWarning()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ============ STATE ============
+        let html5QrCode = null;
+        let currentUserId = null;
+
+        // ============ AUTH ============
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUserId = user.uid;
+                // Auto-start scanner after login
+                startScanner();
+            } else {
+                // Prompt login
+                const email = prompt("Admin Login - Enter your email:");
+                if (email) {
+                    const password = prompt("Enter your password:");
+                    if (password) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .then(() => {
+                                showToast("Login successful!", "success");
+                            })
+                            .catch((err) => {
+                                alert("Login failed: " + err.message);
+                                document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Please refresh to try again.</h2>";
+                            });
+                    }
+                } else {
+                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                }
+            }
+        });
+
+        // ============ TOAST ============
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        // ============ SCANNER LOGIC ============
+        function startScanner() {
+            const qrReader = document.getElementById('qr-reader');
+            qrReader.innerHTML = '';
+            const permissionSection = document.getElementById('camera-permission-section');
+            permissionSection.classList.add('hidden');
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.classList.add('hidden');
+
+            if (html5QrCode) {
+                try { html5QrCode.stop().then(() => html5QrCode.clear()); } catch (e) {}
+                html5QrCode = null;
+            }
+
+            // Check if secure context
+            if (!window.isSecureContext) {
+                permissionSection.classList.remove('hidden');
+                permissionSection.innerHTML = `
+                    <p style="color:#dc3545;">⚠️ Camera access requires a secure (HTTPS) connection.</p>
+                    <p>Please serve this page over HTTPS or use the "Scan from Image" option.</p>
+                    <button class="btn btn-lime" onclick="document.getElementById('qr-image-input').click()">Scan from Image</button>
+                `;
+                return;
+            }
+
+            // Request camera permission
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    stream.getTracks().forEach(track => track.stop());
+                    // Now start the scanner
+                    html5QrCode = new Html5Qrcode("qr-reader");
+                    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        onScanFailure
+                    ).catch(err => {
+                        console.error('Start error:', err);
+                        permissionSection.classList.remove('hidden');
+                        permissionSection.innerHTML = `<p style="color:#856404;">Could not start camera: ${err.message}</p><button class="btn btn-lime" onclick="restartScanner()">Retry</button>`;
+                    });
+                })
+                .catch(err => {
+                    console.error('Camera permission error:', err);
+                    permissionSection.classList.remove('hidden');
+                    permissionSection.innerHTML = `
+                        <p style="color:#856404;">Unable to access camera. Please allow camera permission in your browser settings and try again.</p>
+                        <button class="btn btn-lime" onclick="requestCameraAndScan()"><i class="fas fa-camera"></i> Allow Camera Access</button>
+                        <p style="font-size:0.8rem; margin-top:8px;">Alternatively, use "Scan from Image".</p>
+                    `;
+                });
+        }
+
+        function requestCameraAndScan() {
+            const permissionSection = document.getElementById('camera-permission-section');
+            permissionSection.classList.add('hidden');
+            startScanner();
+        }
+
+        function restartScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                    startScanner();
+                }).catch(() => startScanner());
+            } else {
+                startScanner();
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                    validateTicket(decodedText);
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function onScanFailure(err) {}
+
+        // ============ MANUAL & FILE SCAN ============
+        function manualScanEntry() {
+            const ticketId = prompt('Enter Ticket ID (from QR code):');
+            if (ticketId) validateTicket(ticketId.trim());
+        }
+
+        async function scanFromFile(file) {
+            if (!file) return;
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
+            resultDiv.innerHTML = 'Processing image...';
+            try {
+                // Stop camera if running
+                if (html5QrCode) {
+                    try { await html5QrCode.stop(); html5QrCode.clear(); } catch(e) {}
+                    html5QrCode = null;
+                }
+                const tempScanner = new Html5Qrcode("qr-reader");
+                const result = await tempScanner.scanFile(file, false);
+                await tempScanner.clear();
+                validateTicket(result);
+            } catch (err) {
+                console.error('File scan error:', err);
+                resultDiv.classList.add('scan-invalid');
+                resultDiv.innerHTML = '<h3>❌ Could not read QR code from image</h3>';
+            }
+        }
+
+        // ============ TICKET VALIDATION ============
+        async function validateTicket(ticketId) {
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.classList.remove('hidden', 'scan-valid', 'scan-invalid', 'scan-warning');
+            resultDiv.innerHTML = 'Validating...';
+
+            try {
+                const ticketDoc = await db.collection('tickets').doc(ticketId).get();
+                if (!ticketDoc.exists) {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Ticket Not Found</h3><p>Please check the QR code.</p>';
+                    return;
+                }
+                const ticket = ticketDoc.data();
+
+                if (ticket.status === 'scanned') {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = `<h3>❌ Already Scanned</h3><p>Scanned at: ${ticket.scannedAt ? new Date(ticket.scannedAt).toLocaleString() : 'Unknown'}</p>`;
+                    return;
+                }
+                if (ticket.status !== 'approved') {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Ticket Not Valid</h3><p>Status: ' + ticket.status + '</p>';
+                    return;
+                }
+
+                // Check event start time
+                const eventDoc = await db.collection('events').doc(ticket.eventId).get();
+                if (!eventDoc.exists) {
+                    resultDiv.classList.add('scan-invalid');
+                    resultDiv.innerHTML = '<h3>❌ Event Not Found</h3>';
+                    return;
+                }
+                const event = eventDoc.data();
+                const eventStart = new Date(event.startDate);
+                const now = new Date();
+                const diffMs = eventStart - now;
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                // Allow scan up to 5 hours before event start (grace period)
+                if (diffHours > 5) {
+                    showEarlyWarning(eventStart);
+                    resultDiv.classList.add('scan-warning');
+                    resultDiv.innerHTML = '<h3>⚠️ Too Early to Scan</h3><p>Gate opens 5 hours before the event.</p>';
+                    return;
+                } else if (diffHours > 0) {
+                    resultDiv.classList.add('scan-warning');
+                    resultDiv.innerHTML = `<h3>⚠️ Gate Not Open Yet</h3><p>Gate opens in ${Math.ceil(diffHours)} hours.</p>`;
+                    return;
+                }
+
+                // All good – mark as scanned
+                const ticketRef = db.collection('tickets').doc(ticketId);
+                await db.runTransaction(async (transaction) => {
+                    const freshTicketDoc = await transaction.get(ticketRef);
+                    if (!freshTicketDoc.exists) throw new Error('Ticket does not exist');
+                    const freshTicket = freshTicketDoc.data();
+                    if (freshTicket.status === 'scanned') throw new Error('Already scanned');
+                    if (freshTicket.status !== 'approved') throw new Error('Ticket not approved');
+                    transaction.update(ticketRef, {
+                        status: 'scanned',
+                        scannedAt: new Date().toISOString(),
+                        scannerId: currentUserId || 'admin'
+                    });
+                });
+
+                resultDiv.classList.add('scan-valid');
+                resultDiv.innerHTML = `
+                    <h3>✅ Valid Ticket</h3>
+                    <p><strong>Buyer:</strong> ${ticket.buyerName}</p>
+                    <p><strong>Ticket Type:</strong> ${ticket.ticketTypeName}</p>
+                    <p><strong>Event:</strong> ${event.eventName}</p>
+                    <p style="color:#28a745; font-weight:700;">Entry Granted!</p>
+                `;
+                showToast('✅ Ticket validated for ' + ticket.buyerName, 'success');
+            } catch (err) {
+                console.error('Scan validation error:', err);
+                resultDiv.classList.add('scan-invalid');
+                resultDiv.innerHTML = `<h3>❌ Error</h3><p>${err.message || 'Failed to validate ticket'}</p>`;
+            }
+        }
+
+        // ============ EARLY WARNING MODAL ============
+        function showEarlyWarning(eventStart) {
+            const modal = document.getElementById('early-warning-modal');
+            modal.style.display = 'flex';
+            const countdownElement = document.getElementById('countdown-timer');
+            // Gate opens 5 hours before event
+            const gateOpenTime = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
+            const updateCountdown = () => {
+                const now = new Date();
+                const diff = gateOpenTime - now;
+                if (diff <= 0) {
+                    countdownElement.textContent = '00:00:00';
+                    clearInterval(window._earlyCountdownInterval);
+                    modal.style.display = 'none';
+                    // Restart scanner automatically
+                    startScanner();
+                    return;
+                }
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                countdownElement.textContent = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            };
+            updateCountdown();
+            window._earlyCountdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function closeEarlyWarning() {
+            const modal = document.getElementById('early-warning-modal');
+            modal.style.display = 'none';
+            if (window._earlyCountdownInterval) clearInterval(window._earlyCountdownInterval);
+            startScanner();
+        }
+
+        // ============ INITIAL SETUP ============
+        // Auth state will trigger scanner start if logged in.
+        // If user already logged in, startScanner is called in onAuthStateChanged.
+
+        // Also handle manual restart if needed.
+        window.onload = function() {
+            // If auth already resolved (user already logged in), the onAuthStateChanged will have called startScanner.
+            // But if user is not logged in, the prompt will appear.
+            // This is just a safety net.
+        };
+    </script>
+</body>
+</html>

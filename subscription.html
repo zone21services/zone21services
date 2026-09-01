@@ -23,7 +23,6 @@
             --border: #E2E8F0;
             --danger: #DC2626;
             --success: #10B981;
-            --gold: #f59e0b;
             --radius-xl: 20px;
             --radius-lg: 14px;
             --radius-md: 10px;
@@ -177,8 +176,6 @@
         .btn-danger { background: var(--pink); color: white; }
         .btn-danger:hover { background: #c0005a; transform: translateY(-2px); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .btn-warning { background: var(--gold); color: white; }
-        .btn-warning:hover { background: #d97706; transform: translateY(-2px); }
 
         /* ============================================================
            CHECKOUT CARD
@@ -357,7 +354,7 @@
         .hidden { display: none !important; }
 
         /* ============================================================
-           INVOICE
+           INVOICE – KEPT EXACTLY AS REDESIGNED (SUPER BEAUTIFUL)
            ============================================================ */
         .invoice-wrapper {
             background: var(--surface);
@@ -838,7 +835,7 @@
             </div>
         </div>
 
-        <!-- ===== VIEW: INVOICE ===== -->
+        <!-- ===== VIEW: INVOICE (KEPT EXACTLY AS REDESIGNED) ===== -->
         <div class="view" id="view-invoice">
             <div class="invoice-wrapper">
                 <div class="invoice-header-bar">
@@ -953,21 +950,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            getDoc, 
-            serverTimestamp, 
-            collection, 
-            addDoc, 
-            query, 
-            where, 
-            getDocs,
-            updateDoc,
-            deleteDoc,
-            writeBatch
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -1008,7 +991,7 @@
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
             t.className = 'toast';
-            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838', warning: '#f59e0b' } [type] || '#102838';
+            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
             t.textContent = msg;
             c.appendChild(t);
             setTimeout(() => {
@@ -1054,9 +1037,6 @@
                 querySnapshot.forEach(docSnap => {
                     let eventData = docSnap.data();
                     let eventId = docSnap.id;
-                    
-                    if (eventData.status === 'deleted' || eventData.status === 'archived') return;
-
                     if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
                         eventData.status = 'approved';
                         setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
@@ -1113,7 +1093,7 @@
         }
 
         // ==========================================
-        // UPDATE PLAN BUTTONS
+        // PLAN BUTTONS
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -1127,11 +1107,11 @@
                 const container = document.getElementById(`action-${plan.id}`);
                 if (!container) continue;
                 try {
-                    const subDoc = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
+                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
                     let buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     
-                    if (subDoc.exists()) {
-                        const subData = subDoc.data();
+                    if (subSnap.exists()) {
+                        const subData = subSnap.data();
                         if (subData.status === 'pending_payment') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
@@ -1143,10 +1123,8 @@
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')" style="background:var(--lime); color:var(--navy);">
-                                        <i class="fa-solid fa-plus"></i> Create Another Event
-                                    </button>
                                     <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another</button>
                                 </div>
                             `;
                         } else if (subData.status === 'rejected') {
@@ -1177,7 +1155,6 @@
 
         window.startCheckout = async function(planName, price, planId) {
             if (!currentUser) { window.location.href = "index.html"; return; }
-            
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists() && subSnap.data().status === 'pending_payment') {
@@ -1243,7 +1220,7 @@
         };
 
         // ==========================================
-        // GENERATE INVOICE - WITH BATCH AND RETRY
+        // GENERATE INVOICE - FIXED
         // ==========================================
         window.generateInvoice = async function() {
             if (!currentUser) { 
@@ -1260,7 +1237,7 @@
                     return;
                 }
             } catch (error) { 
-                console.warn("Duplicate check bypassed:", error);
+                console.warn("Duplicate check bypassed:", error); 
             }
 
             const btn = document.getElementById('btn-generate-invoice');
@@ -1281,41 +1258,66 @@
                 const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
-                console.log('📝 Starting invoice generation for:', selectedPlan.name);
+                console.log('📝 Generating invoice for:', selectedPlan.name);
                 console.log('📝 Invoice number:', invNumber);
-                console.log('📝 User ID:', currentUser.uid);
 
                 const subId = `${currentUser.uid}_${selectedPlan.id}`;
                 const subRef = doc(db, 'subscriptions', subId);
-                
-                // Prepare customer info
-                const customerInfo = {
-                    firstName: fName,
-                    lastName: lName,
-                    email: email,
-                    phone: phone,
-                    company: company,
-                    zip: zip,
-                    address: { street, city, country }
-                };
 
                 // ============================================================
-                // USE BATCH WRITE FOR ATOMIC OPERATIONS
+                // 1. CREATE INVOICE (Always create a new one)
                 // ============================================================
-                const batch = writeBatch(db);
+                await setDoc(doc(db, "invoices", invNumber), {
+                    userId: currentUser.uid,
+                    invoiceNumber: invNumber,
+                    packageDetails: { 
+                        name: selectedPlan.name, 
+                        price: selectedPlan.price 
+                    },
+                    customerInfo: {
+                        firstName: fName,
+                        lastName: lName,
+                        email: email,
+                        phone: phone,
+                        company: company,
+                        zip: zip,
+                        address: { street, city, country }
+                    },
+                    paymentStatus: 'pending_manual_transfer',
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+                console.log('✅ Invoice created:', invNumber);
 
-                // 1. Create/Update Subscription
+                // ============================================================
+                // 2. CHECK IF SUBSCRIPTION EXISTS - UPDATE OR CREATE
+                // ============================================================
                 const subSnap = await getDoc(subRef);
+                
                 if (subSnap.exists()) {
-                    batch.update(subRef, {
+                    // UPDATE existing subscription with new invoice
+                    await setDoc(subRef, {
+                        userId: currentUser.uid,
+                        planId: selectedPlan.id,
+                        planName: selectedPlan.name,
+                        price: selectedPlan.price,
                         invoiceNumber: invNumber,
                         status: 'pending_payment',
                         updatedAt: serverTimestamp(),
-                        customerInfo: customerInfo
-                    });
-                    console.log('✅ Batch: Updating subscription');
+                        customerInfo: { 
+                            firstName: fName, 
+                            lastName: lName, 
+                            email: email, 
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: { street, city, country }
+                        }
+                    }, { merge: true });
+                    console.log('✅ Subscription UPDATED:', subId);
                 } else {
-                    batch.set(subRef, {
+                    // CREATE new subscription
+                    await setDoc(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
                         planName: selectedPlan.name,
@@ -1324,49 +1326,40 @@
                         status: 'pending_payment',
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
-                        customerInfo: customerInfo
+                        customerInfo: { 
+                            firstName: fName, 
+                            lastName: lName, 
+                            email: email, 
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: { street, city, country }
+                        }
                     });
-                    console.log('✅ Batch: Creating subscription');
+                    console.log('✅ Subscription CREATED:', subId);
                 }
 
-                // 2. Create Invoice
-                const invoiceRef = doc(db, 'invoices', invNumber);
-                batch.set(invoiceRef, {
-                    userId: currentUser.uid,
-                    invoiceNumber: invNumber,
-                    packageDetails: { 
-                        name: selectedPlan.name, 
-                        price: selectedPlan.price,
-                        planId: selectedPlan.id
-                    },
-                    customerInfo: customerInfo,
-                    paymentStatus: 'pending_manual_transfer',
-                    status: 'pending',
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                });
-                console.log('✅ Batch: Creating invoice');
-
-                // 3. Update User
-                const userRef = doc(db, 'users', currentUser.uid);
-                batch.set(userRef, {
+                // ============================================================
+                // 3. UPDATE USER
+                // ============================================================
+                await setDoc(doc(db, "users", currentUser.uid), {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
-                    latestInvoiceId: invNumber,
-                    updatedAt: serverTimestamp()
+                    latestInvoiceId: invNumber
                 }, { merge: true });
-                console.log('✅ Batch: Updating user');
+                console.log('✅ User updated');
 
-                // 4. Create Event
-                const eventRef = doc(collection(db, 'events'));
-                batch.set(eventRef, {
+                // ============================================================
+                // 4. CREATE EVENT
+                // ============================================================
+                const eventsRef = collection(db, 'events');
+                const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
                     name: `My ${selectedPlan.name}`,
                     package: selectedPlan.name,
                     packageId: selectedPlan.id,
                     status: 'pending_payment',
                     createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
                     location: '',
                     date: null,
                     budget: 0,
@@ -1375,32 +1368,27 @@
                     ticketsSold: 0,
                     grossRevenue: 0,
                     blueprint: null,
-                    invoiceNumber: invNumber,
-                    subscriptionId: subId
+                    invoiceNumber: invNumber
                 });
-                console.log('✅ Batch: Creating event');
-
-                // 5. Update Invoice with Event ID
-                batch.update(invoiceRef, {
-                    eventId: eventRef.id
-                });
-                console.log('✅ Batch: Updating invoice with event ID');
-
-                // 6. Update Subscription with Event ID
-                batch.update(subRef, {
-                    eventId: eventRef.id
-                });
-                console.log('✅ Batch: Updating subscription with event ID');
-
-                // COMMIT THE BATCH
-                await batch.commit();
-                console.log('✅ All operations committed successfully!');
-
-                // Store event ID for later use
-                localStorage.setItem('zone21_latest_event', eventRef.id);
+                console.log('✅ Event created:', newEventRef.id);
+                localStorage.setItem('zone21_latest_event', newEventRef.id);
 
                 // ============================================================
-                // DISPLAY INVOICE
+                // 5. UPDATE INVOICE WITH EVENT ID
+                // ============================================================
+                await setDoc(doc(db, "invoices", invNumber), {
+                    eventId: newEventRef.id
+                }, { merge: true });
+
+                // ============================================================
+                // 6. UPDATE SUBSCRIPTION WITH EVENT ID
+                // ============================================================
+                await setDoc(subRef, {
+                    eventId: newEventRef.id
+                }, { merge: true });
+
+                // ============================================================
+                // 7. DISPLAY INVOICE
                 // ============================================================
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
@@ -1420,23 +1408,13 @@
             } catch (error) {
                 console.error("❌ Database Error:", error);
                 console.error("❌ Error details:", error.message);
-                console.error("❌ Error stack:", error.stack);
-                
-                // Check for specific permission errors
-                if (error.message.includes('permission') || error.message.includes('PERMISSION_DENIED')) {
-                    showToast('⚠️ Permission error: Please check Firestore rules for all collections.', 'error');
-                } else {
-                    showToast('Failed to generate invoice: ' + error.message, 'error');
-                }
+                showToast('Failed to generate invoice: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         };
 
-        // ==========================================
-        // VIEW EXISTING INVOICE
-        // ==========================================
         window.viewExistingInvoice = async function(planId) {
             if (!currentUser) { window.location.href = "index.html"; return; }
             try {
@@ -1475,4 +1453,4 @@
         window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-    </html>
+                                    </html>

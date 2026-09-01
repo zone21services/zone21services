@@ -41,7 +41,7 @@
         ::-webkit-scrollbar-track { background:transparent; }
         ::-webkit-scrollbar-thumb { background:var(--lime); border-radius:10px; }
 
-        /* ===== SIDEBAR (same as before) ===== */
+        /* ===== SIDEBAR ===== */
         .sidebar { width:var(--sidebar-width); background:var(--navy); color:#fff; height:100vh; position:fixed; left:0; top:0; transition:transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94); z-index:1000; display:flex; flex-direction:column; box-shadow:4px 0 40px rgba(10,31,46,0.2); overflow-y:auto; }
         .sidebar .logo { padding:22px 24px; font-size:1.3rem; font-weight:800; color:var(--lime); border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; gap:12px; }
         .sidebar .logo i { font-size:1.6rem; color:var(--lime); }
@@ -135,7 +135,7 @@
         .modal-close-btn { position:sticky; top:0; right:0; float:right; background:none; border:none; font-size:2rem; cursor:pointer; color:var(--navy); padding:12px 20px; z-index:10; }
         .modal-close-btn:hover { color:var(--pink); }
 
-        /* ===== INVOICE STYLES (abbreviated – same as before) ===== */
+        /* ===== INVOICE STYLES ===== */
         .invoice-wrapper { background:#fff; border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); }
         .invoice-header-bar { background:var(--navy); padding:1.2rem 2.5rem; display:flex; justify-content:space-between; align-items:center; color:#fff; flex-wrap:wrap; gap:0.5rem; }
         .invoice-header-bar .brand { display:flex; align-items:center; gap:10px; }
@@ -217,7 +217,8 @@
         </div>
         <div class="nav-links">
             <a href="#" class="active" data-tab="dashboard"><i class="fas fa-home"></i> Dashboard</a>
-            <a href="#" data-tab="profile"><i class="fas fa-user"></i> My Profile</a>
+            <!-- CHANGED: My Profile now redirects to manageprofile.html -->
+            <a href="manageprofile.html"><i class="fas fa-user"></i> My Profile</a>
             <a href="#" data-tab="subscription"><i class="fas fa-credit-card"></i> Subscription</a>
             <a href="#" data-tab="settings"><i class="fas fa-cog"></i> Settings</a>
             <a href="index.html" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -258,20 +259,6 @@
                         <h3><i class="fas fa-home"></i> Dashboard</h3>
                     </div>
                     <div id="dashboard-content">
-                        <!-- Rendered by JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== PROFILE TAB ===== -->
-            <div id="tab-profile" class="tab-content hidden">
-                <div class="card">
-                    <div class="card-accent"></div>
-                    <div class="card-header">
-                        <h3><i class="fas fa-user"></i> My Profile</h3>
-                        <a id="editProfileLink" href="#" class="btn btn-outline btn-sm" style="display:none;">Manage Profile</a>
-                    </div>
-                    <div id="profile-content">
                         <!-- Rendered by JavaScript -->
                     </div>
                 </div>
@@ -356,8 +343,8 @@
 
         // Plan definitions
         const PLANS = [
-            { id: 'service_provider', name: 'Service Provider Package', price: 10, profilePage: 'vendorprofile.html' },
-            { id: 'venue', name: 'Venue Package', price: 50, profilePage: 'venueprofile.html' }
+            { id: 'service_provider', name: 'Service Provider Package', price: 10, profilePage: 'manageprofile.html' },
+            { id: 'venue', name: 'Venue Package', price: 50, profilePage: 'manageprofile.html' }
         ];
 
         // ============================================================
@@ -437,7 +424,6 @@
                         // Refresh currently visible tab
                         const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
                         if (activeTab === 'tab-dashboard') renderDashboard();
-                        else if (activeTab === 'tab-profile') renderProfile();
                         else if (activeTab === 'tab-subscription') renderSubscription();
                     }
                 }, (error) => {
@@ -464,8 +450,6 @@
                             planId = data.planName.toLowerCase().replace(/\s/g, '');
                         }
                         if (planId) {
-                            // Keep only the most recent if multiple? For simplicity, just store the doc
-                            // We'll keep the latest by createdAt if duplicates exist, but user shouldn't have duplicates.
                             if (!subscriptionMap[planId] || (data.createdAt && data.createdAt.toMillis() > (subscriptionMap[planId].createdAt?.toMillis() || 0))) {
                                 subscriptionMap[planId] = { id: doc.id, ...data };
                             }
@@ -474,7 +458,6 @@
                     // Refresh all views
                     const activeTab = document.querySelector('.tab-content:not(.hidden)')?.id;
                     if (activeTab === 'tab-dashboard') renderDashboard();
-                    else if (activeTab === 'tab-profile') renderProfile();
                     else if (activeTab === 'tab-subscription') renderSubscription();
                 }, (error) => {
                     console.error('Subscription listener error:', error);
@@ -563,8 +546,9 @@
                         <button class="btn btn-outline" onclick="viewInvoice('${plan.id}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
                     `;
                 } else if (status === 'active' || status === 'approved') {
+                    // CHANGED: Manage Profile now redirects to manageprofile.html
                     actionHtml = `
-                        <button class="btn btn-success" onclick="window.location.href='${plan.profilePage}'"><i class="fa-solid fa-user-cog"></i> Manage Profile</button>
+                        <button class="btn btn-success" onclick="window.location.href='manageprofile.html'"><i class="fa-solid fa-user-cog"></i> Manage Profile</button>
                     `;
                 } else if (status === 'rejected') {
                     actionHtml = `
@@ -573,7 +557,6 @@
                     `;
                 }
 
-                // Benefits list (can be static)
                 const benefits = plan.id === 'service_provider' ?
                     ['Get priority visibility to event organizers', 'Receive instant notifications via WhatsApp, email, and calls',
                         'Showcase your work with an image gallery', 'Manage all your social media handles in one place',
@@ -608,58 +591,6 @@
                 </div>
                 <div class="plans-grid">
                     ${plansHtml}
-                </div>
-            `;
-        }
-
-        // ============================================================
-        //  RENDER PROFILE TAB
-        // ============================================================
-        function renderProfile() {
-            const container = document.getElementById('profile-content');
-            const name = providerData?.name || 'Unnamed Provider';
-            const email = providerData?.email || currentUser?.email || 'N/A';
-            const phone = providerData?.phone || 'Not set';
-            const location = providerData?.location || 'Not set';
-            const service = providerData?.service || 'Not specified';
-            const avatarHtml = providerData?.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` :
-                name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-
-            // Check if any active subscription exists
-            let isActive = false;
-            let profilePage = '#';
-            for (const plan of PLANS) {
-                const status = getPlanStatus(plan.id);
-                if (status === 'active' || status === 'approved') {
-                    isActive = true;
-                    profilePage = plan.profilePage;
-                    break;
-                }
-            }
-
-            const editLink = document.getElementById('editProfileLink');
-            if (isActive) {
-                editLink.href = profilePage;
-                editLink.style.display = 'inline-flex';
-                editLink.innerHTML = '<i class="fas fa-edit"></i> Manage Profile';
-            } else {
-                editLink.style.display = 'none';
-            }
-
-            container.innerHTML = `
-                <div class="profile-summary" style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
-                    <div class="avatar-large" style="width:80px; height:80px; border-radius:50%; background:var(--navy); color:var(--lime); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; overflow:hidden; border:3px solid var(--lime);">
-                        ${avatarHtml}
-                    </div>
-                    <div class="info">
-                        <h2>${name}</h2>
-                        <div class="subtitle">
-                            <span><i class="fas fa-envelope"></i> ${email}</span>
-                            <span><i class="fas fa-phone"></i> ${phone}</span>
-                            <span><i class="fas fa-map-pin"></i> ${location}</span>
-                            <span><i class="fas fa-tag"></i> ${service}</span>
-                        </div>
-                    </div>
                 </div>
             `;
         }
@@ -898,15 +829,12 @@
             const target = document.getElementById('tab-' + tab);
             if (target) target.classList.remove('hidden');
 
-            document.querySelectorAll('.sidebar .nav-links a').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.sidebar .nav-links a[data-tab]').forEach(link => link.classList.remove('active'));
             const activeLink = document.querySelector(`.sidebar .nav-links a[data-tab="${tab}"]`);
             if (activeLink) activeLink.classList.add('active');
 
-            // Render content based on tab
             if (tab === 'dashboard') renderDashboard();
-            else if (tab === 'profile') renderProfile();
             else if (tab === 'subscription') renderSubscription();
-            // settings tab is static
 
             if (window.innerWidth <= 768) {
                 document.getElementById('sidebar').classList.remove('open');
@@ -966,7 +894,7 @@
         }
         window.changePassword = changePassword;
 
-        console.log('Provider Hub (lightweight) loaded. Listen for real-time status updates.');
+        console.log('Provider Hub loaded. My Profile now redirects to manageprofile.html');
     </script>
 </body>
 </html>

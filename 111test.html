@@ -1,1 +1,397 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone21 System | Event Blueprint Generator (Test Mode)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --white: #F8F8F8;
+            --grey: #E0E0E8;
+            --radius: 16px;
+            --radius-xl: 24px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        html { height: -webkit-fill-available; }
+        body {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f5f3f1 100%);
+            min-height: 100vh; display: flex; padding: 20px; gap: 20px; overflow: hidden; color: var(--navy); margin: 0;
+        }
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(0, 0, 0, 0.4); z-index: 999; opacity: 0; transition: 0.3s ease; }
+        .sidebar { width: 300px; background: var(--navy); border-radius: var(--radius-xl); color: white; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(16, 40, 56, 0.15); transition: 0.3s ease; z-index: 1000; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center; }
+        .new-chat-btn { background: var(--lime); color: var(--navy); border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.2s; }
+        .new-chat-btn:hover { background: white; }
+        .history-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .history-item { padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; transition: 0.2s; gap: 8px; }
+        .history-item:hover, .history-item.active { background: rgba(255, 255, 255, 0.15); }
+        .history-item.active { border-left: 4px solid var(--lime); }
+        .history-item .item-info { display: flex; align-items: center; gap: 8px; overflow: hidden; flex: 1; }
+        .history-item .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: white; }
+        .history-item .delete-btn { color: rgba(255, 255, 255, 0.4); padding: 4px; border-radius: 4px; transition: 0.2s; }
+        .history-item .delete-btn:hover { color: var(--pink); background: rgba(248, 0, 112, 0.15); }
+        .workspace { flex: 1; background: white; border-radius: var(--radius-xl); box-shadow: 0 20px 60px rgba(16, 40, 56, 0.15); display: flex; flex-direction: column; overflow: hidden; position: relative; min-width: 0; }
+        .workspace-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); z-index: 10; flex-wrap: wrap; }
+        .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
+        .workspace-header h1 { font-size: 1.3rem; color: var(--lime); margin: 0; }
+        .workspace-header p { font-size: 0.8rem; color: rgba(255, 255, 255, 0.8); margin: 0; }
+        .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        .header-right .package-tag { background: var(--lime); color: var(--navy); padding: 4px 14px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+        .header-right .user-email { font-size: 0.75rem; color: rgba(255, 255, 255, 0.7); }
+        .header-right .logout-btn { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.7rem; cursor: pointer; transition: 0.2s; }
+        .header-right .logout-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--pink); }
+        .workspace-content { flex: 1; overflow-y: auto; padding: 20px; background: #fafbfc; scroll-behavior: smooth; }
+        .form-section { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--grey); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-group label { font-weight: bold; font-size: 0.9rem; }
+        .input-group .hint { font-size: 0.7rem; color: #888; font-weight: 400; margin-top: 2px; }
+        .input-group input, .input-group select, .input-group textarea { padding: 12px; border: 1px solid var(--grey); border-radius: 8px; outline: none; transition: 0.3s; font-size: 0.95rem; background: #f9fafb; }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--navy); background: white; }
+        .input-group textarea { resize: vertical; min-height: 80px; }
+        .limit-badge { display: inline-block; font-size: 0.7rem; background: var(--lime); color: var(--navy); padding: 1px 10px; border-radius: 12px; font-weight: 700; margin-left: 6px; }
+        .services-wrapper { margin-top: 15px; }
+        .services-wrapper>label { font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; display: block; border-bottom: 2px solid var(--lime); padding-bottom: 5px; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        .service-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; background: #f0f4f8; padding: 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; transition: 0.2s; }
+        .service-item:hover { background: #e8eef4; border-color: var(--grey); }
+        .service-item input { accent-color: var(--pink); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+        .submit-btn { width: 100%; background: var(--navy); color: var(--lime); border: none; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-top: 25px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .submit-btn:hover { background: var(--lime); color: var(--navy); }
+        #loading { display: none; text-align: center; padding: 40px; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #blueprint-container { display: none; }
+        .blueprint-wrapper { width: 100%; margin-top: 10px; animation: fadeInUp 0.3s ease forwards; }
+        .blueprint-result { background: white; padding: 30px; border-radius: 16px; border: 1px solid var(--grey); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); word-wrap: break-word; overflow-x: auto; }
+        .blueprint-result h2 { color: var(--navy); font-size: 1.4rem; border-bottom: 3px solid var(--lime); padding-bottom: 8px; margin-top: 25px; margin-bottom: 15px; }
+        .blueprint-result h2:first-child { margin-top: 0; }
+        .blueprint-result h3 { color: var(--pink); font-size: 1.1rem; margin-top: 20px; margin-bottom: 10px; }
+        .blueprint-result ul { list-style: none; padding-left: 0; margin-bottom: 20px; }
+        .blueprint-result li { margin-bottom: 10px; font-size: 0.95rem; line-height: 1.6; color: #333; display: flex; align-items: flex-start; gap: 10px; }
+        .blueprint-result li:before { content: "▪"; color: var(--lime); font-size: 1.2rem; line-height: 1; }
+        .blueprint-result p { margin-bottom: 15px; line-height: 1.6; color: #444; font-size: 0.95rem; }
+        .budget-warning { background: rgba(248, 0, 112, 0.05); border-left: 4px solid var(--pink); padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .budget-warning h2, .budget-warning h3 { border-bottom: none; color: var(--pink); margin-top: 0; }
+        .blueprint-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; border-top: 1px solid var(--grey); padding-top: 20px; }
+        .action-btn { padding: 10px 18px; border-radius: 30px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: 0.2s; }
+        .btn-download { background: #28a745; color: white; }
+        .btn-regen { background: #f0f4f8; color: var(--navy); border: 1px solid var(--grey); }
+        .btn-regen:hover { background: var(--navy); color: white; }
+        .package-banner { background: var(--navy); color: white; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .package-banner .pkg-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); font-weight: 600; text-transform: uppercase; }
+        .package-banner .pkg-name { font-size: 1.1rem; font-weight: 800; color: var(--lime); }
+        .package-banner .pkg-limit { font-size: 0.85rem; background: rgba(255, 255, 255, 0.1); padding: 4px 14px; border-radius: 20px; color: white; }
+        .package-banner .pkg-limit span { color: var(--lime); font-weight: 700; }
+        .package-banner .pkg-action { background: var(--lime); color: var(--navy); border: none; padding: 6px 18px; border-radius: 20px; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-decoration: none; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @media(max-width:768px) {
+            body { padding: 0; gap: 0; }
+            .workspace { border-radius: 0; box-shadow: none; }
+            .menu-btn { display: block; }
+            .sidebar { position: fixed; top: 0; left: -320px; height: 100dvh; width: 280px; border-radius: 0 24px 24px 0; }
+            .sidebar.active { transform: translateX(320px); }
+            .sidebar-overlay.active { display: block; opacity: 1; }
+            .workspace-content, .form-section, .blueprint-result { padding: 15px; border-radius: 12px; }
+            .header-right .user-email { display: none; }
+            .package-banner { flex-direction: column; align-items: stretch; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <h2>Past Events</h2>
+                <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;" id="sidebar-package-label">Package: —</div>
+            </div>
+        </div>
+        <div style="padding:0 20px;">
+            <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
+        </div>
+        <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <div class="workspace-header">
+            <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
+            <div>
+                <h1>Zone21 System</h1>
+                <p>Event Allocation &amp; Blueprint Generation</p>
+            </div>
+            <div class="header-right">
+                <span class="package-tag" id="header-package-tag">—</span>
+                <span class="user-email" id="header-user-email">test@zone21.local</span>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+
+        <div class="workspace-content" id="workspace-content">
+            <!-- Package Banner (visible in test mode) -->
+            <div class="package-banner" id="package-banner">
+                <div>
+                    <div class="pkg-label">Your Active Package</div>
+                    <div class="pkg-name" id="pkg-banner-name">Medium Event</div>
+                </div>
+                <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">≤ 355</span></div>
+                <a class="pkg-action" id="pkg-banner-action" href="#" onclick="return false;">Test Mode Active</a>
+            </div>
+
+            <!-- Form -->
+            <div class="form-section" id="form-section">
+                <form id="eventForm">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>1. Event Name</label>
+                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding">
+                        </div>
+                        <div class="input-group">
+                            <label>2. Location (City/Area)</label>
+                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe">
+                        </div>
+                        <div class="input-group">
+                            <label>3. Event Type</label>
+                            <select id="eventType" required>
+                                <option value="" disabled selected>Select Event Type...</option>
+                                <option value="Social & Private Events">Social & Private Events</option>
+                                <option value="Weddings & Traditional">Weddings & Traditional</option>
+                                <option value="Entertainment Events">Entertainment (Concerts/Shows)</option>
+                                <option value="Business & Corporate">Business & Corporate</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>4. Contact Details</label>
+                            <input type="text" id="eventContact" required placeholder="Email or Phone">
+                        </div>
+                        <div class="input-group">
+                            <label>5. Total Budget (USD)</label>
+                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50">
+                            <span class="hint" id="budget-hint">Recommended range for your package</span>
+                        </div>
+                        <div class="input-group">
+                            <label>6. Expected Attendees <span class="limit-badge" id="attendee-limit-badge">≤ 355</span></label>
+                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" max="355">
+                            <span class="hint" id="attendee-hint">Maximum 355 attendees for your package.</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom:15px;">
+                        <label>7. Additional Notes or Requests (Optional)</label>
+                        <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system..."></textarea>
+                    </div>
+
+                    <div class="services-wrapper">
+                        <label>8. Select Required Service Providers</label>
+                        <div class="services-grid" id="servicesContainer"></div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="generateBtn">
+                        <i class="fas fa-magic"></i> Generate System Blueprint
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading">
+                <div class="spinner"></div>
+                <h3 style="color:var(--navy);">Zone21 System is processing your allocation...</h3>
+                <p style="color:#666;font-size:0.9rem;margin-top:5px;">Hitting Cloudflare AI Edge Servers...</p>
+            </div>
+
+            <!-- Blueprint -->
+            <div id="blueprint-container">
+                <div class="blueprint-wrapper">
+                    <div class="blueprint-result" id="final-blueprint"></div>
+                    <div class="blueprint-controls">
+                        <button class="action-btn btn-download" onclick="window.print()"><i class="fas fa-file-pdf"></i> Download Blueprint</button>
+                        <button class="action-btn btn-regen" onclick="generateBlueprint(true)"><i class="fas fa-rotate"></i> Regenerate Allocations</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  CLOUDFLARE WORKERS AI CONFIGURATION
+        // ============================================================
+        const CLOUDFLARE_ACCOUNT_ID = "853f55c5e05e67d2724d7489520a952d";
+        const CLOUDFLARE_API_TOKEN = "cfut_VJ5zkLtVtWlHkVEDT55YsqdTuqn2lHmB0Nc4AoGj1f0731c2";
+        const API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+
+        const granularServices = [
+            "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
+            "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting",
+            "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar",
+            "Cake Designer / Baker", "Photographer", "Videographer", "Zone21 Security - EXCLUSIVE"
+        ];
+
+        let currentSessionId = null;
+        let currentEventData = null;
+
+        // DOM Elements
+        const container = document.getElementById('servicesContainer');
+        const form = document.getElementById('eventForm');
+        const formSection = document.getElementById('form-section');
+        const loadingDiv = document.getElementById('loading');
+        const blueprintContainer = document.getElementById('blueprint-container');
+        const finalBlueprint = document.getElementById('final-blueprint');
+
+        // Populate Checkboxes
+        granularServices.forEach(service => {
+            container.innerHTML += `<label class="service-item"><input type="checkbox" name="services" value="${service}"> ${service}</label>`;
+        });
+
+        // Test Mode UI Initialization
+        function initializeTestMode() {
+            document.getElementById('header-package-tag').textContent = 'Medium';
+            document.getElementById('sidebar-package-label').textContent = `Package: Medium Event (≤ 355)`;
+            alert("Test Mode Active: Using Cloudflare AI directly. \n\nNote: If you receive a 'Failed to Fetch' error, it is because Cloudflare blocks direct browser API calls for security (CORS). You must test locally or use a CORS-unblock extension.");
+        }
+
+        // Form Submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb.value);
+            
+            if (selectedServices.length === 0) {
+                alert('Please select at least one service provider.');
+                return;
+            }
+
+            currentEventData = {
+                name: document.getElementById('eventName').value,
+                location: document.getElementById('eventLocation').value,
+                budget: document.getElementById('eventBudget').value,
+                attendees: document.getElementById('eventAttendees').value,
+                services: selectedServices.join(", "),
+            };
+            generateBlueprint(false);
+        });
+
+        // API Call to Cloudflare Workers AI
+        async function generateBlueprint(isRegenerating) {
+            formSection.style.display = 'none';
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            if (!currentSessionId || !isRegenerating) { currentSessionId = 'evt_' + Date.now(); }
+
+            const prompt = `
+                You are the Zone21 Event System. Generate a formal Event Blueprint.
+                EVENT DETAILS:
+                - Name: ${currentEventData.name}
+                - Location: ${currentEventData.location}                 - Budget: $${currentEventData.budget}
+                - Attendees: ${currentEventData.attendees}
+                - Services: ${currentEventData.services}
+
+                Output strictly in clean HTML using <h2>, <h3>, and <ul>. Do NOT include markdown blocks like \`\`\`html.
+                Evaluate the budget first. If it is too low, add a <div class="budget-warning"><h2>Budget Analysis</h2><p>...</p></div> warning at the top.
+            `;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+                    },
+                    body: JSON.stringify({
+                        messages: [{ role: "user", content: prompt }]
+                    })
+                });
+
+                if (!response.ok) { throw new Error(`Cloudflare API Error ${response.status}: ${await response.text()}`); }
+
+                const data = await response.json();
+                if (!data.success) { throw new Error(data.errors?.[0]?.message || 'Cloudflare AI returned an error'); }
+
+                let htmlOutput = data.result.response.trim().replace(/^```html/i, '').replace(/^```/i, '').replace(/```$/i, '');
+
+                loadingDiv.style.display = 'none';
+                blueprintContainer.style.display = 'block';
+                finalBlueprint.innerHTML = htmlOutput;
+                saveBlueprintState(htmlOutput);
+
+            } catch (error) {
+                console.error('Generation Error:', error);
+                loadingDiv.style.display = 'none';
+                formSection.style.display = 'block';
+                alert('System error: ' + error.message + '\n\nIf this says "Failed to fetch", it is a CORS security block. You must use a backend Worker to bypass it on a live website.');
+            }
+        }
+
+        // LocalStorage History
+        function saveBlueprintState(htmlOutput) {
+            const chatData = { id: currentSessionId, title: currentEventData.name, formData: currentEventData, blueprintHtml: htmlOutput, updatedAt: new Date().toISOString() };
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            localSessions[currentSessionId] = chatData;
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            renderHistorySidebar();
+        }
+
+        function renderHistorySidebar() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            Object.values(localSessions).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
+                const item = document.createElement('div');
+                item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+                item.innerHTML = `<div class="item-info"><i class="fas fa-clipboard-list" style="color:var(--lime);"></i> <span class="item-title">${session.title}</span></div> <i class="fas fa-trash delete-btn" onclick="deleteBlueprintSession('${session.id}', event)"></i>`;
+                item.onclick = () => loadBlueprintSession(session.id);
+                historyList.appendChild(item);
+            });
+        }
+
+        function loadBlueprintSession(sessionId) {
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            const session = localSessions[sessionId];
+            if (!session) return;
+            currentSessionId = session.id; currentEventData = session.formData;
+            formSection.style.display = 'none'; loadingDiv.style.display = 'none'; blueprintContainer.style.display = 'block';
+            finalBlueprint.innerHTML = session.blueprintHtml;
+            renderHistorySidebar();
+        }
+
+        function deleteBlueprintSession(sessionId, event) {
+            if (event) event.stopPropagation();
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            delete localSessions[sessionId];
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            if (currentSessionId === sessionId) { startNewSession(); } else { renderHistorySidebar(); }
+        }
+
+        function startNewSession() {
+            currentSessionId = null; currentEventData = null; form.reset();
+            blueprintContainer.style.display = 'none'; loadingDiv.style.display = 'none'; formSection.style.display = 'block';
+            renderHistorySidebar();
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTestMode();
+            renderHistorySidebar();
+            
+            // Mobile sidebar toggles
+            document.getElementById('menu-btn').addEventListener('click', () => { 
+                document.getElementById('sidebar').classList.add('active'); 
+                document.getElementById('sidebar-overlay').classList.add('active'); 
+            });
+            document.getElementById('sidebar-overlay').addEventListener('click', () => { 
+                document.getElementById('sidebar').classList.remove('active'); 
+                document.getElementById('sidebar-overlay').classList.remove('active'); 
+            });
+        });
+    </script>
+</body>
+</html>

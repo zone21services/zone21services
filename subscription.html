@@ -1037,8 +1037,14 @@
                 querySnapshot.forEach(docSnap => {
                     let eventData = docSnap.data();
                     let eventId = docSnap.id;
+                    
+                    // Skip if event is marked as deleted or archived
+                    if (eventData.status === 'deleted' || eventData.status === 'archived') return;
+
+                    // Self-heal: if status is pending_payment and invoice is active, promote to approved
                     if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
                         eventData.status = 'approved';
+                        // Update Firestore to keep it in sync
                         setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
                     }
                     events.push({ id: eventId, ...eventData });
@@ -1052,6 +1058,7 @@
                             <i class="fas fa-clock"></i>
                             <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
                             <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
+                            <p style="font-size:0.8rem; color:var(--text-muted);">If an event was deleted by an admin, it will not appear.</p>
                         </div>
                     `;
                     return;

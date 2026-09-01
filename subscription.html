@@ -23,6 +23,7 @@
             --border: #E2E8F0;
             --danger: #DC2626;
             --success: #10B981;
+            --gold: #f59e0b;
             --radius-xl: 20px;
             --radius-lg: 14px;
             --radius-md: 10px;
@@ -964,7 +965,8 @@
             where, 
             getDocs,
             updateDoc,
-            deleteDoc
+            deleteDoc,
+            writeBatch
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -1006,7 +1008,7 @@
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
             t.className = 'toast';
-            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
+            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838', warning: '#f59e0b' } [type] || '#102838';
             t.textContent = msg;
             c.appendChild(t);
             setTimeout(() => {
@@ -1111,7 +1113,7 @@
         }
 
         // ==========================================
-        // UPDATE PLAN BUTTONS - FIXED FOR MULTIPLE EVENTS
+        // UPDATE PLAN BUTTONS
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -1125,7 +1127,6 @@
                 const container = document.getElementById(`action-${plan.id}`);
                 if (!container) continue;
                 try {
-                    // Check if user has an ACTIVE subscription for this plan
                     const subDoc = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
                     let buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     
@@ -1139,7 +1140,6 @@
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
-                            // User has an ACTIVE subscription - allow creating ANOTHER event
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
@@ -1157,9 +1157,6 @@
                                 </div>
                             `;
                         }
-                    } else {
-                        // No subscription exists - show normal select button
-                        buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
@@ -1181,7 +1178,6 @@
         window.startCheckout = async function(planName, price, planId) {
             if (!currentUser) { window.location.href = "index.html"; return; }
             
-            // Check if there's a pending subscription for this plan
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists() && subSnap.data().status === 'pending_payment') {
@@ -1247,10 +1243,13 @@
         };
 
         // ==========================================
-        // GENERATE INVOICE - FIXED FOR MULTIPLE EVENTS
+        // GENERATE INVOICE - WITH BATCH AND RETRY
         // ==========================================
         window.generateInvoice = async function() {
-            if (!currentUser) { window.location.href = "index.html"; return; }
+            if (!currentUser) { 
+                window.location.href = "index.html"; 
+                return; 
+            }
             
             // Check for pending subscription
             try {
@@ -1260,7 +1259,9 @@
                     showToast('You already have a pending invoice for this plan.', 'error');
                     return;
                 }
-            } catch (error) { console.warn("Duplicate check bypassed:", error); }
+            } catch (error) { 
+                console.warn("Duplicate check bypassed:", error);
+            }
 
             const btn = document.getElementById('btn-generate-invoice');
             const originalText = btn.innerHTML;
@@ -1274,42 +1275,47 @@
                 const phone = document.getElementById('cust-phone').value;
                 const company = document.getElementById('cust-company').value;
                 const zip = document.getElementById('cust-zip').value;
+                const street = document.getElementById('cust-street').value;
+                const city = document.getElementById('cust-city').value;
+                const country = document.getElementById('cust-country').value;
                 const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
-                // ============================================================
-                // 1. CREATE OR UPDATE SUBSCRIPTION
-                //    - If subscription exists (active/approved), update it
-                //    - If not, create a new one
-                // ============================================================
+                console.log('📝 Starting invoice generation for:', selectedPlan.name);
+                console.log('📝 Invoice number:', invNumber);
+                console.log('📝 User ID:', currentUser.uid);
+
                 const subId = `${currentUser.uid}_${selectedPlan.id}`;
                 const subRef = doc(db, 'subscriptions', subId);
-                const subSnap = await getDoc(subRef);
+                
+                // Prepare customer info
+                const customerInfo = {
+                    firstName: fName,
+                    lastName: lName,
+                    email: email,
+                    phone: phone,
+                    company: company,
+                    zip: zip,
+                    address: { street, city, country }
+                };
 
+                // ============================================================
+                // USE BATCH WRITE FOR ATOMIC OPERATIONS
+                // ============================================================
+                const batch = writeBatch(db);
+
+                // 1. Create/Update Subscription
+                const subSnap = await getDoc(subRef);
                 if (subSnap.exists()) {
-                    // Update existing subscription
-                    await updateDoc(subRef, {
+                    batch.update(subRef, {
                         invoiceNumber: invNumber,
                         status: 'pending_payment',
                         updatedAt: serverTimestamp(),
-                        customerInfo: {
-                            firstName: fName,
-                            lastName: lName,
-                            email: email,
-                            phone: phone,
-                            company: company,
-                            zip: zip,
-                            address: {
-                                street: document.getElementById('cust-street').value,
-                                city: document.getElementById('cust-city').value,
-                                country: document.getElementById('cust-country').value
-                            }
-                        }
+                        customerInfo: customerInfo
                     });
-                    console.log('✅ Updated existing subscription:', subId);
+                    console.log('✅ Batch: Updating subscription');
                 } else {
-                    // Create new subscription
-                    await setDoc(subRef, {
+                    batch.set(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
                         planName: selectedPlan.name,
@@ -1318,64 +1324,42 @@
                         status: 'pending_payment',
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
-                        customerInfo: {
-                            firstName: fName,
-                            lastName: lName,
-                            email: email,
-                            phone: phone,
-                            company: company,
-                            zip: zip,
-                            address: {
-                                street: document.getElementById('cust-street').value,
-                                city: document.getElementById('cust-city').value,
-                                country: document.getElementById('cust-country').value
-                            }
-                        }
+                        customerInfo: customerInfo
                     });
-                    console.log('✅ Created new subscription:', subId);
+                    console.log('✅ Batch: Creating subscription');
                 }
 
-                // ============================================================
-                // 2. CREATE INVOICE
-                // ============================================================
-                await setDoc(doc(db, "invoices", invNumber), {
+                // 2. Create Invoice
+                const invoiceRef = doc(db, 'invoices', invNumber);
+                batch.set(invoiceRef, {
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
-                    packageDetails: { name: selectedPlan.name, price: selectedPlan.price },
-                    customerInfo: {
-                        firstName: fName,
-                        lastName: lName,
-                        email: email,
-                        phone: phone,
-                        company: company,
-                        zip: zip,
-                        address: {
-                            street: document.getElementById('cust-street').value,
-                            city: document.getElementById('cust-city').value,
-                            country: document.getElementById('cust-country').value
-                        }
+                    packageDetails: { 
+                        name: selectedPlan.name, 
+                        price: selectedPlan.price,
+                        planId: selectedPlan.id
                     },
+                    customerInfo: customerInfo,
                     paymentStatus: 'pending_manual_transfer',
                     status: 'pending',
-                    createdAt: serverTimestamp()
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
                 });
-                console.log('✅ Created invoice:', invNumber);
+                console.log('✅ Batch: Creating invoice');
 
-                // ============================================================
-                // 3. UPDATE USER
-                // ============================================================
-                await setDoc(doc(db, "users", currentUser.uid), {
+                // 3. Update User
+                const userRef = doc(db, 'users', currentUser.uid);
+                batch.set(userRef, {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
-                    latestInvoiceId: invNumber
+                    latestInvoiceId: invNumber,
+                    updatedAt: serverTimestamp()
                 }, { merge: true });
-                console.log('✅ Updated user:', currentUser.uid);
+                console.log('✅ Batch: Updating user');
 
-                // ============================================================
-                // 4. CREATE EVENT
-                // ============================================================
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
+                // 4. Create Event
+                const eventRef = doc(collection(db, 'events'));
+                batch.set(eventRef, {
                     organizerId: currentUser.uid,
                     name: `My ${selectedPlan.name}`,
                     package: selectedPlan.name,
@@ -1394,25 +1378,29 @@
                     invoiceNumber: invNumber,
                     subscriptionId: subId
                 });
-                console.log('✅ Created event:', newEventRef.id);
-                localStorage.setItem('zone21_latest_event', newEventRef.id);
+                console.log('✅ Batch: Creating event');
 
-                // ============================================================
-                // 5. UPDATE INVOICE WITH EVENT ID
-                // ============================================================
-                await updateDoc(doc(db, "invoices", invNumber), {
-                    eventId: newEventRef.id
+                // 5. Update Invoice with Event ID
+                batch.update(invoiceRef, {
+                    eventId: eventRef.id
                 });
+                console.log('✅ Batch: Updating invoice with event ID');
 
-                // ============================================================
-                // 6. UPDATE SUBSCRIPTION WITH EVENT ID
-                // ============================================================
-                await updateDoc(subRef, {
-                    eventId: newEventRef.id
+                // 6. Update Subscription with Event ID
+                batch.update(subRef, {
+                    eventId: eventRef.id
                 });
+                console.log('✅ Batch: Updating subscription with event ID');
+
+                // COMMIT THE BATCH
+                await batch.commit();
+                console.log('✅ All operations committed successfully!');
+
+                // Store event ID for later use
+                localStorage.setItem('zone21_latest_event', eventRef.id);
 
                 // ============================================================
-                // 7. DISPLAY INVOICE
+                // DISPLAY INVOICE
                 // ============================================================
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
@@ -1430,8 +1418,16 @@
                 updatePlanButtons();
 
             } catch (error) {
-                console.error("Database Error:", error);
-                showToast('Failed to generate invoice: ' + error.message, 'error');
+                console.error("❌ Database Error:", error);
+                console.error("❌ Error details:", error.message);
+                console.error("❌ Error stack:", error.stack);
+                
+                // Check for specific permission errors
+                if (error.message.includes('permission') || error.message.includes('PERMISSION_DENIED')) {
+                    showToast('⚠️ Permission error: Please check Firestore rules for all collections.', 'error');
+                } else {
+                    showToast('Failed to generate invoice: ' + error.message, 'error');
+                }
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -1479,4 +1475,4 @@
         window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-                            </html>
+    </html>

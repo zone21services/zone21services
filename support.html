@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
+        /* ... (styles remain exactly the same as your original) ... */
         :root {
             --navy: #0f2437;
             --navy-light: #1a3a55;
@@ -527,12 +528,10 @@
             <div class="header-left">
                 <div class="header-icon"><i class="fas fa-headset"></i></div>
                 <div>
-                    <!-- CHANGED: title and subtitle -->
                     <h1>Zone 21 Support 21</h1>
                     <div class="subtitle">Global Support · Help & Contact Center</div>
                 </div>
             </div>
-            <!-- Back button -->
             <button class="btn btn-outline" onclick="history.back();"><i class="fas fa-arrow-left"></i> Back</button>
         </div>
 
@@ -722,9 +721,9 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        let currentUserId = null;           // 'guest_' + email OR actual UID
+        let currentUserId = null;
         let currentUserType = null;         // 'guest' or 'organizer'
-        let currentUserEmail = null;        // for guests, the email they entered
+        let currentUserEmail = null;
         let currentUserProfile = {};
         let chatImageBase64 = null;
         let allMessagesMap = new Map();
@@ -747,58 +746,94 @@
             document.getElementById('email-display').textContent = 'zone21services@gmail.com';
         }
 
-        // ------------------- GUEST LOGIN -------------------
-        function guestLogin(e) {
+        // ------------------- ORGANIZER LOGIN (redirect) -------------------
+        function organizerLogin() {
+            window.location.href = 'login.html';
+        }
+
+        // ------------------- GUEST LOGIN (Anonymous Auth) -------------------
+        async function guestLogin(e) {
             e.preventDefault();
             const email = document.getElementById('guestEmailInput').value.trim();
             if (!email || !email.includes('@')) {
                 showToast('Please enter a valid email address.', 'error');
                 return;
             }
-            currentUserEmail = email;
-            currentUserId = 'guest_' + email;
-            currentUserType = 'guest';
-            document.getElementById('guestLoginModal').classList.remove('active');
-            // Load messages and notifications for this guest
-            loadNotifications();
-            loadChatMessages();
-            // Update UI to show user is logged in as guest (optional)
-            showToast('Welcome, ' + email + '! You can now chat with support.', 'success');
-        }
 
-        // Organizer login – redirect to the normal login page (or trigger auth flow)
-        function organizerLogin() {
-            // You can redirect to your actual login page, or trigger Firebase sign-in.
-            // For simplicity, we just redirect.
-            window.location.href = 'login.html'; // adjust if needed
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Signing in...';
+
+            try {
+                // Sign in anonymously
+                const cred = await auth.signInAnonymously();
+                const uid = cred.user.uid;
+
+                // Store the guest email in the new 'guests' collection
+                await db.collection('guests').doc(uid).set({
+                    email: email,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast('Welcome, ' + email + '! You can now chat with support.', 'success');
+                document.getElementById('guestLoginModal').classList.remove('active');
+            } catch (err) {
+                console.error('Guest login error:', err);
+                showToast('Failed to sign in. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
 
         // ------------------- AUTH STATE -------------------
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // Organizer logged in
-                currentUserId = user.uid;
-                currentUserType = 'organizer';
-                // Fetch user profile
-                db.collection('users').doc(user.uid).get()
-                    .then(doc => {
+                if (user.isAnonymous) {
+                    // Guest user
+                    currentUserType = 'guest';
+                    currentUserId = user.uid;
+                    try {
+                        const doc = await db.collection('guests').doc(user.uid).get();
+                        if (doc.exists) {
+                            currentUserEmail = doc.data().email;
+                        } else {
+                            // If guest doc doesn't exist, show modal again
+                            currentUserEmail = null;
+                            document.getElementById('guestLoginModal').classList.add('active');
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Error fetching guest profile:', err);
+                        showToast('Error loading profile.', 'error');
+                        return;
+                    }
+                    document.getElementById('guestLoginModal').classList.remove('active');
+                } else {
+                    // Organizer (email/password)
+                    currentUserType = 'organizer';
+                    currentUserId = user.uid;
+                    try {
+                        const doc = await db.collection('users').doc(user.uid).get();
                         if (doc.exists) {
                             currentUserProfile = doc.data();
                             currentUserEmail = currentUserProfile.email || user.email;
                         } else {
                             currentUserEmail = user.email;
                         }
-                    })
-                    .catch(err => showToast('Error loading profile: ' + err.message, 'error'));
-                // Hide guest modal if open
-                document.getElementById('guestLoginModal').classList.remove('active');
-                // Load data
+                    } catch (err) {
+                        showToast('Error loading profile: ' + err.message, 'error');
+                    }
+                    document.getElementById('guestLoginModal').classList.remove('active');
+                }
+
+                // Load data for the authenticated user
                 loadNotifications();
                 loadChatMessages();
             } else {
                 // No user -> show guest login modal
                 document.getElementById('guestLoginModal').classList.add('active');
-                // Reset state
                 currentUserId = null;
                 currentUserType = null;
                 currentUserEmail = null;
@@ -834,7 +869,6 @@
                     type: 'general_query',
                     senderId: currentUserId,
                     senderType: currentUserType,
-                    guestEmail: currentUserType === 'guest' ? currentUserEmail : null,
                     recipientId: 'admin',
                     status: 'unread',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -876,13 +910,12 @@
                     reference: reference,
                     purpose: purpose,
                     proofImage: base64,
-                    image: base64, // same image for chat rendering
+                    image: base64,
                     notes: notes,
                     message: `Payment proof submitted: $${amount} via ${method} for ${purpose}`,
                     type: 'payment_proof',
                     senderId: currentUserId,
                     senderType: currentUserType,
-                    guestEmail: currentUserType === 'guest' ? currentUserEmail : null,
                     recipientId: 'admin',
                     status: 'pending',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -923,7 +956,6 @@
                     sender: 'user',
                     senderId: currentUserId,
                     senderType: currentUserType,
-                    guestEmail: currentUserType === 'guest' ? currentUserEmail : null,
                     senderName: currentUserProfile.name || (currentUserType === 'guest' ? currentUserEmail : 'Client'),
                     message: msg,
                     image: chatImageBase64 || null,
@@ -946,15 +978,11 @@
             if (!currentUserId) return;
             const chatDiv = document.getElementById('chatMessages');
 
-            // Unsubscribe from previous listeners (using a global variable to store unsubscribe)
             if (window._chatUnsub) {
                 window._chatUnsub();
                 window._chatUnsub = null;
             }
 
-            // Query messages where senderId == currentUserId OR recipientId == currentUserId
-            // We need to listen to both conditions separately and merge.
-            // We'll use two queries and merge in memory.
             const messagesMap = new Map();
 
             function renderChat() {
@@ -988,7 +1016,6 @@
                 chatDiv.scrollTop = chatDiv.scrollHeight;
             }
 
-            // Query where senderId == currentUserId
             const unsub1 = db.collection('messages')
                 .where('senderId', '==', currentUserId)
                 .onSnapshot(snapshot => {
@@ -1002,7 +1029,6 @@
                     renderChat();
                 }, err => showToast('Error loading sent messages: ' + err.message, 'error'));
 
-            // Query where recipientId == currentUserId
             const unsub2 = db.collection('messages')
                 .where('recipientId', '==', currentUserId)
                 .onSnapshot(snapshot => {
@@ -1016,7 +1042,6 @@
                     renderChat();
                 }, err => showToast('Error loading received messages: ' + err.message, 'error'));
 
-            // Store both unsubscribers to clean up later
             window._chatUnsub = () => { unsub1(); unsub2(); };
         }
 
@@ -1034,7 +1059,6 @@
                 items.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
                 items.forEach(d => {
-                    // For guests, we consider notification as 'unread' if status is 'unread' or 'pending'
                     const isUnread = d.status === 'unread' || d.status === 'pending';
                     if (isUnread) unread++;
                     const div = document.createElement('div');
@@ -1062,17 +1086,11 @@
                 }
             }
 
-            // Unsubscribe previous listener
             if (window._notifUnsub) {
                 window._notifUnsub();
                 window._notifUnsub = null;
             }
 
-            // Listen to messages where recipientId == currentUserId (admin replies or notifications)
-            // Also include messages where senderId == currentUserId and type is 'payment_proof' (status updates)
-            // We'll combine both.
-
-            // Query for received messages (recipientId == currentUserId)
             const unsub1 = db.collection('messages')
                 .where('recipientId', '==', currentUserId)
                 .onSnapshot(snapshot => {
@@ -1086,7 +1104,6 @@
                     renderNotifs();
                 }, err => showToast('Error loading notifications: ' + err.message, 'error'));
 
-            // Also include payment_proof messages sent by user (to show status updates)
             const unsub2 = db.collection('messages')
                 .where('senderId', '==', currentUserId)
                 .where('type', '==', 'payment_proof')
@@ -1172,9 +1189,6 @@
         document.getElementById('paymentSuccessModal').addEventListener('click', function(e) {
             if (e.target === this) closePaymentSuccessModal();
         });
-
-        // Initial: if user not logged in, the guest modal will appear via auth listener.
-        // Also, if they click "organizer login", we redirect.
     </script>
 </body>
 </html>

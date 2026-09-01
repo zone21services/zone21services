@@ -176,6 +176,8 @@
         .btn-danger { background: var(--pink); color: white; }
         .btn-danger:hover { background: #c0005a; transform: translateY(-2px); }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-warning { background: var(--gold); color: white; }
+        .btn-warning:hover { background: #d97706; transform: translateY(-2px); }
 
         /* ============================================================
            CHECKOUT CARD
@@ -354,7 +356,7 @@
         .hidden { display: none !important; }
 
         /* ============================================================
-           INVOICE – KEPT EXACTLY AS REDESIGNED (SUPER BEAUTIFUL)
+           INVOICE
            ============================================================ */
         .invoice-wrapper {
             background: var(--surface);
@@ -835,7 +837,7 @@
             </div>
         </div>
 
-        <!-- ===== VIEW: INVOICE (KEPT EXACTLY AS REDESIGNED) ===== -->
+        <!-- ===== VIEW: INVOICE ===== -->
         <div class="view" id="view-invoice">
             <div class="invoice-wrapper">
                 <div class="invoice-header-bar">
@@ -950,7 +952,20 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            serverTimestamp, 
+            collection, 
+            addDoc, 
+            query, 
+            where, 
+            getDocs,
+            updateDoc,
+            deleteDoc
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -1038,13 +1053,10 @@
                     let eventData = docSnap.data();
                     let eventId = docSnap.id;
                     
-                    // Skip if event is marked as deleted or archived
                     if (eventData.status === 'deleted' || eventData.status === 'archived') return;
 
-                    // Self-heal: if status is pending_payment and invoice is active, promote to approved
                     if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
                         eventData.status = 'approved';
-                        // Update Firestore to keep it in sync
                         setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
                     }
                     events.push({ id: eventId, ...eventData });
@@ -1058,7 +1070,6 @@
                             <i class="fas fa-clock"></i>
                             <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
                             <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
-                            <p style="font-size:0.8rem; color:var(--text-muted);">If an event was deleted by an admin, it will not appear.</p>
                         </div>
                     `;
                     return;
@@ -1100,7 +1111,7 @@
         }
 
         // ==========================================
-        // PLAN BUTTONS
+        // UPDATE PLAN BUTTONS - FIXED FOR MULTIPLE EVENTS
         // ==========================================
         async function updatePlanButtons() {
             if (!currentUser) return;
@@ -1114,11 +1125,12 @@
                 const container = document.getElementById(`action-${plan.id}`);
                 if (!container) continue;
                 try {
-                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
+                    // Check if user has an ACTIVE subscription for this plan
+                    const subDoc = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
                     let buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     
-                    if (subSnap.exists()) {
-                        const subData = subSnap.data();
+                    if (subDoc.exists()) {
+                        const subData = subDoc.data();
                         if (subData.status === 'pending_payment') {
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
@@ -1127,11 +1139,14 @@
                                 </div>
                             `;
                         } else if (subData.status === 'active' || subData.status === 'approved') {
+                            // User has an ACTIVE subscription - allow creating ANOTHER event
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')" style="background:var(--lime); color:var(--navy);">
+                                        <i class="fa-solid fa-plus"></i> Create Another Event
+                                    </button>
                                     <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
-                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another</button>
                                 </div>
                             `;
                         } else if (subData.status === 'rejected') {
@@ -1142,6 +1157,9 @@
                                 </div>
                             `;
                         }
+                    } else {
+                        // No subscription exists - show normal select button
+                        buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
                     }
                     container.innerHTML = buttonHtml;
                 } catch (error) {
@@ -1162,6 +1180,8 @@
 
         window.startCheckout = async function(planName, price, planId) {
             if (!currentUser) { window.location.href = "index.html"; return; }
+            
+            // Check if there's a pending subscription for this plan
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
                 if (subSnap.exists() && subSnap.data().status === 'pending_payment') {
@@ -1183,6 +1203,7 @@
             document.getElementById('main-header').style.display = 'block';
             window.showView('view-pricing');
             renderUserEvents();
+            updatePlanButtons();
         };
 
         window.goToStep = function(stepNum) {
@@ -1225,8 +1246,13 @@
             if (valid) window.goToStep(nextStep);
         };
 
+        // ==========================================
+        // GENERATE INVOICE - FIXED FOR MULTIPLE EVENTS
+        // ==========================================
         window.generateInvoice = async function() {
             if (!currentUser) { window.location.href = "index.html"; return; }
+            
+            // Check for pending subscription
             try {
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
                 const subSnap = await getDoc(subRef);
@@ -1241,16 +1267,77 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
             btn.disabled = true;
 
-            const fName = document.getElementById('cust-fname').value;
-            const lName = document.getElementById('cust-lname').value;
-            const email = document.getElementById('cust-email').value;
-            const phone = document.getElementById('cust-phone').value;
-            const company = document.getElementById('cust-company').value;
-            const zip = document.getElementById('cust-zip').value;
-            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-            const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
-
             try {
+                const fName = document.getElementById('cust-fname').value;
+                const lName = document.getElementById('cust-lname').value;
+                const email = document.getElementById('cust-email').value;
+                const phone = document.getElementById('cust-phone').value;
+                const company = document.getElementById('cust-company').value;
+                const zip = document.getElementById('cust-zip').value;
+                const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+
+                // ============================================================
+                // 1. CREATE OR UPDATE SUBSCRIPTION
+                //    - If subscription exists (active/approved), update it
+                //    - If not, create a new one
+                // ============================================================
+                const subId = `${currentUser.uid}_${selectedPlan.id}`;
+                const subRef = doc(db, 'subscriptions', subId);
+                const subSnap = await getDoc(subRef);
+
+                if (subSnap.exists()) {
+                    // Update existing subscription
+                    await updateDoc(subRef, {
+                        invoiceNumber: invNumber,
+                        status: 'pending_payment',
+                        updatedAt: serverTimestamp(),
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: {
+                                street: document.getElementById('cust-street').value,
+                                city: document.getElementById('cust-city').value,
+                                country: document.getElementById('cust-country').value
+                            }
+                        }
+                    });
+                    console.log('✅ Updated existing subscription:', subId);
+                } else {
+                    // Create new subscription
+                    await setDoc(subRef, {
+                        userId: currentUser.uid,
+                        planId: selectedPlan.id,
+                        planName: selectedPlan.name,
+                        price: selectedPlan.price,
+                        invoiceNumber: invNumber,
+                        status: 'pending_payment',
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: {
+                                street: document.getElementById('cust-street').value,
+                                city: document.getElementById('cust-city').value,
+                                country: document.getElementById('cust-country').value
+                            }
+                        }
+                    });
+                    console.log('✅ Created new subscription:', subId);
+                }
+
+                // ============================================================
+                // 2. CREATE INVOICE
+                // ============================================================
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
@@ -1269,26 +1356,24 @@
                         }
                     },
                     paymentStatus: 'pending_manual_transfer',
+                    status: 'pending',
                     createdAt: serverTimestamp()
                 });
+                console.log('✅ Created invoice:', invNumber);
 
+                // ============================================================
+                // 3. UPDATE USER
+                // ============================================================
                 await setDoc(doc(db, "users", currentUser.uid), {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
                     latestInvoiceId: invNumber
                 }, { merge: true });
+                console.log('✅ Updated user:', currentUser.uid);
 
-                await setDoc(doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`), {
-                    userId: currentUser.uid,
-                    planId: selectedPlan.id,
-                    planName: selectedPlan.name,
-                    price: selectedPlan.price,
-                    invoiceNumber: invNumber,
-                    status: 'pending_payment',
-                    createdAt: serverTimestamp(),
-                    customerInfo: { firstName: fName, lastName: lName, email: email, phone: phone }
-                });
-
+                // ============================================================
+                // 4. CREATE EVENT
+                // ============================================================
                 const eventsRef = collection(db, 'events');
                 const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
@@ -1297,6 +1382,7 @@
                     packageId: selectedPlan.id,
                     status: 'pending_payment',
                     createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
                     location: '',
                     date: null,
                     budget: 0,
@@ -1305,10 +1391,29 @@
                     ticketsSold: 0,
                     grossRevenue: 0,
                     blueprint: null,
-                    invoiceNumber: invNumber
+                    invoiceNumber: invNumber,
+                    subscriptionId: subId
                 });
+                console.log('✅ Created event:', newEventRef.id);
                 localStorage.setItem('zone21_latest_event', newEventRef.id);
 
+                // ============================================================
+                // 5. UPDATE INVOICE WITH EVENT ID
+                // ============================================================
+                await updateDoc(doc(db, "invoices", invNumber), {
+                    eventId: newEventRef.id
+                });
+
+                // ============================================================
+                // 6. UPDATE SUBSCRIPTION WITH EVENT ID
+                // ============================================================
+                await updateDoc(subRef, {
+                    eventId: newEventRef.id
+                });
+
+                // ============================================================
+                // 7. DISPLAY INVOICE
+                // ============================================================
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
                 document.getElementById('inv-email').innerText = email;
@@ -1320,18 +1425,22 @@
                 localStorage.setItem('zone21_package', selectedPlan.name);
                 localStorage.setItem('zone21_invoice', invNumber);
 
+                showToast('✅ Invoice generated successfully!', 'success');
                 window.showView('view-invoice');
                 updatePlanButtons();
 
             } catch (error) {
                 console.error("Database Error:", error);
-                alert("Failed to generate invoice. Please check your connection.");
+                showToast('Failed to generate invoice: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         };
 
+        // ==========================================
+        // VIEW EXISTING INVOICE
+        // ==========================================
         window.viewExistingInvoice = async function(planId) {
             if (!currentUser) { window.location.href = "index.html"; return; }
             try {
@@ -1367,6 +1476,7 @@
         };
 
         window.renderUserEvents = renderUserEvents;
+        window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-</html>
+                            </html>

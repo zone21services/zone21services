@@ -25,6 +25,8 @@
             --lime-glow: rgba(176, 184, 0, 0.10);
             --pink: #e0006a;
             --pink-glow: rgba(224, 0, 106, 0.06);
+            --gold: #f59e0b;
+            --gold-glow: rgba(245, 158, 11, 0.10);
             --radius-xl: 24px;
             --radius-lg: 16px;
             --radius-md: 12px;
@@ -236,6 +238,20 @@
             background: #f59e0b;
         }
 
+        .event-avatar .status-dot.pending {
+            background: #f59e0b;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        .event-avatar .status-dot.approved {
+            background: #10b981;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
         /* Content */
         .event-content {
             flex: 1;
@@ -288,15 +304,36 @@
             letter-spacing: 0.04em;
             padding: 2px 12px;
             border-radius: 40px;
+            border: 1px solid rgba(16, 185, 129, 0.15);
+        }
+
+        .event-meta .badge-status.approved {
             background: rgba(16, 185, 129, 0.10);
             color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.15);
         }
 
         .event-meta .badge-status.draft {
             background: rgba(245, 158, 11, 0.10);
             color: #f59e0b;
             border-color: rgba(245, 158, 11, 0.15);
+        }
+
+        .event-meta .badge-status.pending {
+            background: rgba(245, 158, 11, 0.10);
+            color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.15);
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+
+        .event-meta .badge-status.rejected {
+            background: rgba(220, 38, 38, 0.10);
+            color: #dc2626;
+            border-color: rgba(220, 38, 38, 0.15);
+        }
+
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         /* Actions (hover) */
@@ -553,6 +590,32 @@
         }
 
         /* ============================================================
+           REFRESH BUTTON
+           ============================================================ */
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 6px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .refresh-btn:hover {
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        .refresh-btn i {
+            font-size: 0.8rem;
+        }
+
+        /* ============================================================
            RESPONSIVE
            ============================================================ */
         @media (max-width: 640px) {
@@ -707,6 +770,9 @@
                 <h1>Zone<span>21</span></h1>
             </a>
             <div class="header-actions">
+                <button class="refresh-btn" onclick="loadEvents()" title="Refresh events">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
                 <span class="event-count" id="event-count"><strong>0</strong> events</span>
             </div>
         </header>
@@ -749,7 +815,7 @@
         // ================================================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // ================================================================
         //  FIREBASE CONFIG
@@ -783,6 +849,9 @@
             }
         });
 
+        // Make loadEvents globally accessible for refresh button
+        window.loadEvents = loadEvents;
+
         // ================================================================
         //  HELPERS
         // ================================================================
@@ -808,18 +877,39 @@
         }
 
         function getStatusBadge(status) {
-            const s = (status || 'approved').toLowerCase();
-            if (s === 'draft') {
-                return `<span class="badge-status draft">Draft</span>`;
-            }
-            return `<span class="badge-status">Approved</span>`;
+            const s = (status || 'pending').toLowerCase();
+            const badges = {
+                'approved': `<span class="badge-status approved"><i class="fas fa-check-circle" style="font-size:0.5rem;"></i> Approved</span>`,
+                'active': `<span class="badge-status approved"><i class="fas fa-check-circle" style="font-size:0.5rem;"></i> Active</span>`,
+                'draft': `<span class="badge-status draft"><i class="fas fa-pen" style="font-size:0.5rem;"></i> Draft</span>`,
+                'pending_payment': `<span class="badge-status pending"><i class="fas fa-clock" style="font-size:0.5rem;"></i> Pending Payment</span>`,
+                'pending': `<span class="badge-status pending"><i class="fas fa-clock" style="font-size:0.5rem;"></i> Pending</span>`,
+                'rejected': `<span class="badge-status rejected"><i class="fas fa-times-circle" style="font-size:0.5rem;"></i> Rejected</span>`
+            };
+            return badges[s] || badges['pending'];
+        }
+
+        function getStatusDot(status) {
+            const s = (status || 'pending').toLowerCase();
+            if (s === 'approved' || s === 'active') return 'approved';
+            if (s === 'draft') return 'draft';
+            if (s === 'rejected') return 'draft';
+            return 'pending';
         }
 
         // ================================================================
-        //  LOAD EVENTS
+        //  LOAD EVENTS - SHOW ALL STATUSES
         // ================================================================
         async function loadEvents() {
             const container = document.getElementById('event-list-container');
+            
+            // Show loading state
+            container.innerHTML = `
+                <li class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading your events…</p>
+                </li>
+            `;
 
             try {
                 const q = query(
@@ -833,20 +923,50 @@
                     events.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Show ONLY approved & draft (hide pending_payment etc.)
-                const filtered = events.filter(e => {
-                    const status = (e.status || 'approved').toLowerCase();
-                    return status === 'approved' || status === 'draft';
-                });
+                // ============================================================
+                //  SELF-HEAL: Check for pending_payment events and verify
+                //  if their invoice is now active, promote to approved
+                // ============================================================
+                const activeInvoices = [];
+                const pendingEvents = events.filter(e => 
+                    (e.status || 'pending').toLowerCase() === 'pending_payment'
+                );
+
+                if (pendingEvents.length > 0) {
+                    // Check all invoices for this user
+                    const subsQuery = query(
+                        collection(db, 'subscriptions'),
+                        where('userId', '==', currentUser.uid)
+                    );
+                    const subsSnapshot = await getDocs(subsQuery);
+                    
+                    subsSnapshot.forEach(docSnap => {
+                        const sub = docSnap.data();
+                        if (sub.status === 'active' || sub.status === 'approved') {
+                            if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
+                        }
+                    });
+
+                    // Promote events whose invoice is now active
+                    for (const event of pendingEvents) {
+                        if (event.invoiceNumber && activeInvoices.includes(event.invoiceNumber)) {
+                            console.log(`Self-heal: Promoting event ${event.id} to approved`);
+                            await updateDoc(doc(db, 'events', event.id), {
+                                status: 'approved'
+                            });
+                            event.status = 'approved';
+                        }
+                    }
+                }
 
                 // Sort by newest first
-                filtered.sort((a, b) => {
+                events.sort((a, b) => {
                     const da = a.createdAt?.seconds || 0;
                     const db2 = b.createdAt?.seconds || 0;
                     return db2 - da;
                 });
 
-                const count = filtered.length;
+                const count = events.length;
                 document.getElementById('event-count').innerHTML = `<strong>${count}</strong> event${count !== 1 ? 's' : ''}`;
 
                 if (count === 0) {
@@ -871,18 +991,23 @@
                 }
 
                 // ---- RENDER EVENT LIST ----
-                container.innerHTML = filtered.map(event => {
+                container.innerHTML = events.map(event => {
                     const name = event.name || 'Untitled Event';
                     const pkg = event.package || 'Event Package';
                     const time = formatTime(event.createdAt);
-                    const statusBadge = getStatusBadge(event.status);
-                    const isDraft = (event.status || 'approved').toLowerCase() === 'draft';
+                    const status = event.status || 'pending';
+                    const statusBadge = getStatusBadge(status);
+                    const statusDot = getStatusDot(status);
+                    
+                    // Determine if event is clickable (approved/active only)
+                    const isClickable = ['approved', 'active'].includes(status.toLowerCase());
+                    const clickHandler = isClickable ? `onclick="goToManageEvent('${event.id}')"` : '';
 
                     return `
-                        <li class="event-item" data-name="${name.toLowerCase()}" onclick="goToManageEvent('${event.id}')">
+                        <li class="event-item" data-name="${name.toLowerCase()}" ${clickHandler} style="${!isClickable ? 'cursor:default;' : ''}">
                             <div class="event-avatar">
                                 <i class="fas fa-calendar-star"></i>
-                                <div class="status-dot ${isDraft ? 'draft' : ''}"></div>
+                                <div class="status-dot ${statusDot}"></div>
                             </div>
                             <div class="event-content">
                                 <div class="event-top-row">
@@ -892,12 +1017,22 @@
                                 <div class="event-meta">
                                     <i class="fas fa-tag"></i> ${pkg}
                                     ${statusBadge}
+                                    ${status.toLowerCase() === 'pending_payment' ? 
+                                        `<span style="font-size:0.65rem;color:var(--text-dim);">
+                                            <i class="fas fa-info-circle"></i> Awaiting payment confirmation
+                                        </span>` : ''}
                                 </div>
                             </div>
                             <div class="event-actions">
-                                <button class="action-btn edit" title="Rename" onclick="event.stopPropagation(); openRenameModal('${event.id}', '${name.replace(/'/g, "\\'")}')">
-                                    <i class="fas fa-pen"></i>
-                                </button>
+                                ${isClickable ? `
+                                    <button class="action-btn edit" title="Rename" onclick="event.stopPropagation(); openRenameModal('${event.id}', '${name.replace(/'/g, "\\'")}')">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                ` : `
+                                    <button class="action-btn" title="View Invoice" onclick="event.stopPropagation(); viewInvoice('${event.id}')" style="color:var(--gold);">
+                                        <i class="fas fa-file-invoice"></i>
+                                    </button>
+                                `}
                             </div>
                         </li>
                     `;
@@ -912,13 +1047,35 @@
                         </div>
                         <h2>Something went wrong</h2>
                         <p>We couldn't load your events. Please check your connection and try again.</p>
-                        <button class="btn-create-event" onclick="location.reload()" style="font-size:0.9rem; padding:0.7rem 1.8rem;">
+                        <button class="btn-create-event" onclick="loadEvents()" style="font-size:0.9rem; padding:0.7rem 1.8rem;">
                             <i class="fas fa-sync"></i> Retry
                         </button>
                     </li>
                 `;
             }
         }
+
+        // ================================================================
+        //  VIEW INVOICE FOR PENDING EVENT
+        // ================================================================
+        window.viewInvoice = async function(eventId) {
+            try {
+                const eventDoc = await getDoc(doc(db, 'events', eventId));
+                if (!eventDoc.exists()) return;
+                const eventData = eventDoc.data();
+                
+                if (eventData.invoiceNumber) {
+                    // Store the invoice number and go to subscription page to view it
+                    localStorage.setItem('zone21_view_invoice', eventData.invoiceNumber);
+                    window.location.href = 'subscription.html?viewInvoice=' + eventData.invoiceNumber;
+                } else {
+                    alert('No invoice found for this event.');
+                }
+            } catch (error) {
+                console.error('Error viewing invoice:', error);
+                alert('Could not load invoice.');
+            }
+        };
 
         // ================================================================
         //  NAVIGATION

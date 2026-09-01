@@ -192,7 +192,19 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, query, orderBy, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { 
+        getFirestore, 
+        doc, 
+        getDoc, 
+        collection, 
+        getDocs, 
+        query, 
+        orderBy, 
+        updateDoc, 
+        deleteDoc, 
+        serverTimestamp,
+        where
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ============ ZONE21 FIREBASE CONFIG ============
     const firebaseConfig = {
@@ -485,13 +497,27 @@
 
     window.closeModal = () => document.getElementById('detail-modal').classList.remove('active');
 
+    // ================================================================
+    //  APPROVE PAYMENT - UPDATED TO ALSO UPDATE EVENTS
+    // ================================================================
     window.approvePayment = async (docId) => {
       if (!confirm('Approve payment and activate this Zone21 package?')) return;
+      
+      const approveBtn = document.querySelector(`[onclick="approvePayment('${docId}')"]`);
+      const originalText = approveBtn ? approveBtn.innerHTML : 'Approve';
+      if (approveBtn) {
+        approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        approveBtn.disabled = true;
+      }
+
       try {
         const sub = allSubscriptions.find(p => p.id === docId);
-        if (!sub) return;
+        if (!sub) {
+          showToast('Subscription not found.', 'error');
+          return;
+        }
         
-        // Check if the invoice document exists before approving
+        // Check if the invoice document exists
         if (sub.invoiceNumber) {
           const invDoc = await getDoc(doc(db, 'invoices', sub.invoiceNumber));
           if (!invDoc.exists()) {
@@ -503,37 +529,148 @@
           return;
         }
         
-        // Mark the existing subscription document as active
+        // 1. Mark the subscription as active
         await updateDoc(doc(db, 'subscriptions', docId), {
           status: 'active',
           approvedBy: currentAdmin.uid,
           approvedAt: serverTimestamp()
         });
 
-        // Also update the original invoice document in the `invoices` collection to match statuses
+        // 2. Update the invoice document
         await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
           status: 'approved',
-          paymentStatus: 'approved'
+          paymentStatus: 'approved',
+          approvedBy: currentAdmin.uid,
+          approvedAt: serverTimestamp()
         });
 
-        // Update the global user document so their dashboard unlocks
+        // 3. Update the user document
         if (sub.userId) {
           await updateDoc(doc(db, 'users', sub.userId), {
             subscriptionStatus: 'active',
-            activePlan: sub.planName || 'Unknown'
+            activePlan: sub.planName || 'Unknown',
+            latestInvoiceId: sub.invoiceNumber
           });
         }
 
-        showToast('Payment verified! Zone21 Blueprint package activated.', 'success');
-        loadSubscriptions();
+        // 4. ============================================================
+        //    CRITICAL: Find and update ANY pending events for this user
+        //    to 'approved' status so they appear in My Events
+        //    ============================================================
+        if (sub.userId) {
+          // Query all events for this user with pending_payment status
+          const eventsQuery = query(
+            collection(db, 'events'),
+            where('organizerId', '==', sub.userId),
+            where('status', '==', 'pending_payment')
+          );
+          
+          const eventsSnapshot = await getDocs(eventsQuery);
+          let updatedEventCount = 0;
+          
+          // Also check events that might have the invoice number but different status
+          const allEventsQuery = query(
+            collection(db, 'events'),
+            where('organizerId', '==', sub.userId)
+          );
+          const allEventsSnapshot = await getDocs(allEventsQuery);
+          
+          // Process all events for this user
+          const updatePromises = [];
+          
+          allEventsSnapshot.forEach(eventDoc => {
+            const eventData = eventDoc.data();
+            const eventStatus = (eventData.status || '').toLowerCase();
+            
+            // Update if pending_payment OR if it has matching invoice number
+            if (eventStatus === 'pending_payment' || 
+                (eventData.invoiceNumber && eventData.invoiceNumber === sub.invoiceNumber)) {
+              
+              console.log(`Found matching event ${eventDoc.id} with status ${eventStatus}, promoting to approved`);
+              
+              updatePromises.push(
+                updateDoc(doc(db, 'events', eventDoc.id), {
+                  status: 'approved',
+                  updatedAt: serverTimestamp()
+                }).then(() => {
+                  updatedEventCount++;
+                })
+              );
+            }
+          });
+          
+          // Wait for all event updates to complete
+          if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+            console.log(`✅ Updated ${updatedEventCount} events from pending_payment to approved for user ${sub.userId}`);
+          } else {
+            console.log(`ℹ️ No pending events found for user ${sub.userId}`);
+          }
+          
+          // Also check if there's an event with the same package but no status
+          // This handles edge cases where event was created without status
+          if (updatedEventCount === 0) {
+            // Try to find events without status or with 'draft' status
+            const draftEventsQuery = query(
+              collection(db, 'events'),
+              where('organizerId', '==', sub.userId)
+            );
+            const draftSnapshot = await getDocs(draftEventsQuery);
+            
+            const draftPromises = [];
+            draftSnapshot.forEach(eventDoc => {
+              const eventData = eventDoc.data();
+              // If event has no status or is draft, and has matching invoice or package
+              if ((!eventData.status || eventData.status === 'draft' || eventData.status === '') &&
+                  (eventData.invoiceNumber === sub.invoiceNumber || 
+                   eventData.packageId === sub.planId ||
+                   eventData.package === sub.planName)) {
+                
+                console.log(`Found draft event ${eventDoc.id}, promoting to approved`);
+                draftPromises.push(
+                  updateDoc(doc(db, 'events', eventDoc.id), {
+                    status: 'approved',
+                    updatedAt: serverTimestamp()
+                  })
+                );
+              }
+            });
+            
+            if (draftPromises.length > 0) {
+              await Promise.all(draftPromises);
+              console.log(`✅ Updated ${draftPromises.length} draft events to approved`);
+            }
+          }
+        }
+
+        showToast('✅ Payment verified! Package activated and events updated.', 'success');
+        
+        // Reload the data
+        await loadSubscriptions();
+        
       } catch (e) {
-        console.error(e);
-        showToast('Error approving payment.', 'error');
+        console.error('Approval error:', e);
+        showToast('Error approving payment: ' + e.message, 'error');
+      } finally {
+        if (approveBtn) {
+          approveBtn.innerHTML = originalText;
+          approveBtn.disabled = false;
+        }
       }
     };
 
+    // ================================================================
+    //  REJECT PAYMENT - Also updates events
+    // ================================================================
     window.rejectPayment = async (docId) => {
       if (!confirm('Reject this invoice? This will cancel their pending package request.')) return;
+      
+      const rejectBtn = document.querySelector(`[onclick="rejectPayment('${docId}')"]`);
+      if (rejectBtn) {
+        rejectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        rejectBtn.disabled = true;
+      }
+
       try {
         const sub = allSubscriptions.find(p => p.id === docId);
         
@@ -547,22 +684,60 @@
             try {
                 await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
                     status: 'rejected',
-                    paymentStatus: 'rejected'
+                    paymentStatus: 'rejected',
+                    rejectedBy: currentAdmin.uid,
+                    rejectedAt: serverTimestamp()
                 });
-            } catch(e) {}
+            } catch(e) {
+              console.warn('Could not update invoice:', e);
+            }
         }
         
+        // Update user status
         if (sub && sub.userId) {
           await updateDoc(doc(db, 'users', sub.userId), {
             subscriptionStatus: 'rejected'
           });
+          
+          // Also update any pending events to rejected status
+          try {
+            const eventsQuery = query(
+              collection(db, 'events'),
+              where('organizerId', '==', sub.userId),
+              where('status', '==', 'pending_payment')
+            );
+            const eventsSnapshot = await getDocs(eventsQuery);
+            
+            const updatePromises = [];
+            eventsSnapshot.forEach(eventDoc => {
+              updatePromises.push(
+                updateDoc(doc(db, 'events', eventDoc.id), {
+                  status: 'rejected',
+                  updatedAt: serverTimestamp()
+                })
+              );
+            });
+            
+            if (updatePromises.length > 0) {
+              await Promise.all(updatePromises);
+              console.log(`✅ Updated ${updatePromises.length} events to rejected`);
+            }
+          } catch (e) {
+            console.warn('Could not update events for rejection:', e);
+          }
         }
         
         showToast('Invoice rejected.', 'info');
-        loadSubscriptions();
+        await loadSubscriptions();
+        
       } catch (e) { 
         console.error(e);
         showToast('Error rejecting invoice.', 'error'); 
+      } finally {
+        if (rejectBtn) {
+          rejectBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+          rejectBtn.disabled = false;
+        }
       }
     };
 

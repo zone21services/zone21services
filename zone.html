@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Zone21 System | Demo Mode</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        /* ====== ZONE21 DEMO THEME ====== */
+        :root { 
+            --navy: #102838; 
+            --lime: #C0C800; 
+            --pink: #F80070; 
+            --white: #ffffff; 
+            --light-bg: #f4f7f6;
+            --grey: #e0e4e8; 
+            --text: #333333;
+            --radius: 12px; 
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--light-bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+        /* ====== LAYOUT & SIDEBAR ====== */
+        .sidebar { width: 280px; background: var(--navy); color: var(--white); display: flex; flex-direction: column; transition: 0.3s; z-index: 100; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h2 { font-size: 1.2rem; color: var(--lime); }
+        .new-chat-btn { margin: 20px; padding: 12px; background: rgba(255,255,255,0.1); color: var(--white); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius); cursor: pointer; display: flex; gap: 10px; justify-content: center; align-items: center; transition: 0.2s; }
+        .new-chat-btn:hover { background: var(--lime); color: var(--navy); }
+        .history-list { flex: 1; overflow-y: auto; padding: 0 10px; }
+        .history-item { padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; cursor: pointer; transition: 0.2s; color: #aaa; font-size: 0.9rem; }
+        .history-item:hover, .history-item.active { background: rgba(255,255,255,0.1); color: var(--white); }
+        .delete-btn { color: var(--pink); cursor: pointer; padding: 5px; }
+
+        /* ====== MAIN WORKSPACE ====== */
+        .workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--light-bg); }
+        .workspace-header { background: var(--white); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 10; }
+        .workspace-header h1 { font-size: 1.4rem; color: var(--navy); }
+        .workspace-header p { font-size: 0.85rem; color: #666; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .demo-badge { background: var(--lime); color: var(--navy); padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+        .menu-btn { display: none; background: none; border: none; font-size: 1.5rem; color: var(--navy); cursor: pointer; }
+
+        .workspace-content { flex: 1; overflow-y: auto; padding: 25px; display: flex; justify-content: center; }
+        .form-section, #blueprint-container { background: var(--white); width: 100%; max-width: 800px; padding: 30px; border-radius: var(--radius); box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+
+        /* ====== FORM STYLES ====== */
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--navy); font-size: 0.95rem; }
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px 15px; border: 1px solid var(--grey); border-radius: 8px; font-size: 1rem; outline: none; transition: 0.2s; background: #fafafa; }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--lime); background: var(--white); box-shadow: 0 0 0 3px rgba(192,200,0,0.2); }
+        .input-group textarea { resize: vertical; min-height: 80px; }
+
+        /* ====== SERVICES GRID ====== */
+        .services-wrapper { margin-bottom: 25px; }
+        .services-wrapper > label { display: block; font-weight: 600; margin-bottom: 10px; color: var(--navy); }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 250px; overflow-y: auto; padding: 10px; background: #fafafa; border: 1px solid var(--grey); border-radius: 8px; }
+        .service-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .service-item:hover { background: var(--grey); }
+        .service-item input { accent-color: var(--pink); width: 18px; height: 18px; cursor: pointer; }
+
+        /* ====== BUTTONS ====== */
+        .submit-btn { width: 100%; background: var(--navy); color: var(--lime); border: none; padding: 16px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .submit-btn:hover { background: var(--lime); color: var(--navy); }
+
+        /* ====== LOADING & TOAST ====== */
+        #loading { display: none; text-align: center; padding: 50px 20px; width: 100%; max-width: 800px; margin: 0 auto; }
+        .spinner { border: 4px solid var(--grey); width: 50px; height: 50px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { background: var(--navy); color: white; padding: 15px 25px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: 0.3s; }
+        .toast.error { border-left: 5px solid var(--pink); }
+        .toast.success { border-left: 5px solid var(--lime); }
+
+        /* ====== BLUEPRINT OUTPUT ====== */
+        #blueprint-container { display: none; }
+        .blueprint-controls { display: flex; gap: 15px; margin-top: 25px; }
+        .action-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-regen { background: var(--grey); color: var(--navy); }
+        .btn-regen:hover { background: #d0d4d8; }
+        
+        .blueprint-result h2 { color: var(--navy); font-size: 1.5rem; border-bottom: 3px solid var(--lime); padding-bottom: 10px; margin-top: 30px; margin-bottom: 15px; }
+        .blueprint-result h3 { color: var(--pink); font-size: 1.2rem; margin-top: 25px; margin-bottom: 10px; }
+        .blueprint-result ul { list-style: none; padding-left: 0; margin-bottom: 20px; }
+        .blueprint-result li { margin-bottom: 12px; font-size: 1rem; line-height: 1.6; display: flex; gap: 10px; }
+        .blueprint-result li:before { content: "▪"; color: var(--lime); font-size: 1.2rem; line-height: 1; }
+        
+        .budget-warning { background: #ffe6eb; border-left: 5px solid var(--pink); padding: 20px; border-radius: 6px; margin-bottom: 20px; }
+        .budget-success { background: #f2f5cc; border-left: 5px solid var(--lime); padding: 20px; border-radius: 6px; margin-bottom: 20px; }
+        .budget-neutral { background: #e8ecef; border-left: 5px solid var(--navy); padding: 20px; border-radius: 6px; margin-bottom: 20px; }
+
+        /* ====== MOBILE RESPONSIVE ====== */
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; left: -280px; height: 100vh; box-shadow: 2px 0 15px rgba(0,0,0,0.2); }
+            .sidebar.active { left: 0; }
+            .menu-btn { display: block; }
+            .workspace-content { padding: 15px; }
+            .form-section, #blueprint-container { padding: 20px; }
+            .header-right span { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <h2>Past Events</h2>
+                <div style="font-size:0.75rem; color:#aaa; margin-top:4px;">Demo Mode Active</div>
+            </div>
+        </div>
+        <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
+        <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        <div class="workspace-header">
+            <button class="menu-btn" id="menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div>
+                <h1>Zone21 System</h1>
+                <p>Event Blueprint Generator</p>
+            </div>
+            <div class="header-right">
+                <span class="demo-badge">UNLIMITED DEMO</span>
+            </div>
+        </div>
+
+        <div class="workspace-content" id="workspace-content" onclick="closeSidebarOnMobile()">
+            
+            <!-- Input Form -->
+            <div class="form-section" id="form-section">
+                <form id="eventForm">
+                    <div class="input-group">
+                        <label>1. Event Name</label>
+                        <input type="text" id="eventName" required placeholder="e.g. Corporate Gala 2026" />
+                    </div>
+                    <div class="input-group">
+                        <label>2. Location (City/Area)</label>
+                        <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
+                    </div>
+                    <div class="input-group">
+                        <label>3. Event Type</label>
+                        <select id="eventType" required>
+                            <option value="" disabled selected>Select Event Type...</option>
+                            <option value="Weddings & Traditional">Weddings & Traditional</option>
+                            <option value="Corporate & Business">Corporate & Business</option>
+                            <option value="Entertainment & Concerts">Entertainment & Concerts</option>
+                            <option value="Private Parties">Private Parties</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Flexible Layout for numbers -->
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <div class="input-group" style="flex: 1; min-width: 150px;">
+                            <label>4. Total Budget ($)</label>
+                            <input type="number" id="eventBudget" required placeholder="5000" min="50" />
+                        </div>
+                        <div class="input-group" style="flex: 1; min-width: 150px;">
+                            <label>5. Expected Attendees</label>
+                            <input type="number" id="eventAttendees" required placeholder="150" min="1" />
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>6. Additional Notes</label>
+                        <textarea id="eventNotes" placeholder="e.g. Need strict security and high-end catering."></textarea>
+                    </div>
+
+                    <div class="services-wrapper">
+                        <label>7. Select Required Service Providers</label>
+                        <div class="services-grid" id="servicesContainer">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="generateBtn">
+                        <i class="fas fa-magic"></i> Generate AI Blueprint
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading Screen -->
+            <div id="loading">
+                <div class="spinner"></div>
+                <h3 style="color:var(--navy);">Zone21 AI is designing your event...</h3>
+                <p style="color:#666; margin-top:10px;">Matching vendors, balancing budget, and structuring logistics.</p>
+            </div>
+
+            <!-- Final Blueprint Result -->
+            <div id="blueprint-container">
+                <div class="blueprint-result" id="final-blueprint"></div>
+                <div class="blueprint-controls">
+                    <button class="action-btn btn-regen" onclick="startNewSession()">
+                        <i class="fas fa-arrow-left"></i> Start Over
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  DEMO DATA SETUP (No Firebase, No Subscription Required)
+        // ============================================================
+        const allServices = [
+            "Event Planner", "Event Venue", "Caterer", "Zone21 Security - EXCLUSIVE", 
+            "DJ", "PA System", "Photographer", "Videographer", "Event Decorator", 
+            "Florist", "MC", "Live Band", "Car Hire", "Portable Toilets", 
+            "Makeup Artist", "Digital Marketing", "Ticketing", "Event Insurance"
+        ];
+
+        const container = document.getElementById('servicesContainer');
+        allServices.forEach(service => {
+            container.innerHTML += `
+                <label class="service-item">
+                    <input type="checkbox" name="services" value="${service}">
+                    ${service}
+                </label>
+            `;
+        });
+
+        // ============================================================
+        //  UI & SIDEBAR CONTROLS
+        // ============================================================
+        const sidebar = document.getElementById('sidebar');
+        function toggleSidebar() { sidebar.classList.toggle('active'); }
+        function closeSidebarOnMobile() { if (window.innerWidth <= 768) sidebar.classList.remove('active'); }
+        
+        function showToast(msg, type = 'info') {
+            const tc = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icon = type === 'error' ? 'fa-triangle-exclamation' : 'fa-check-circle';
+            t.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+            tc.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        // ============================================================
+        //  FORM SUBMISSION (Connects to Cloudflare)
+        // ============================================================
+        let currentSessionId = null;
+
+        document.getElementById('eventForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb.value);
+            if (selectedServices.length === 0) {
+                showToast('Please select at least one service.', 'error');
+                return;
+            }
+
+            const currentEventData = {
+                name: document.getElementById('eventName').value,
+                location: document.getElementById('eventLocation').value,
+                type: document.getElementById('eventType').value,
+                budget: document.getElementById('eventBudget').value,
+                attendees: document.getElementById('eventAttendees').value,
+                notes: document.getElementById('eventNotes').value,
+                services: selectedServices.join(", ")
+            };
+
+            // Switch UI to Loading
+            document.getElementById('form-section').style.display = 'none';
+            document.getElementById('blueprint-container').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            currentSessionId = 'evt_' + Date.now();
+
+            try {
+                // FETCH FROM CLOUDFLARE WORKER
+                const response = await fetch('https://blueprint.zone21services.workers.dev', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ eventData: currentEventData })
+                });
+
+                if (!response.ok) throw new Error('Failed to connect to Zone21 AI.');
+                
+                const data = await response.json();
+                
+                // Display Results
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('blueprint-container').style.display = 'block';
+                document.getElementById('final-blueprint').innerHTML = data.blueprint;
+
+                // Save to Local History
+                saveBlueprintState(currentEventData.name, currentEventData, data.blueprint);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('form-section').style.display = 'block';
+                showToast(error.message, 'error');
+            }
+        });
+
+        // ============================================================
+        //  LOCAL STORAGE HISTORY
+        // ============================================================
+        function saveBlueprintState(title, formData, htmlOutput) {
+            const chatData = { id: currentSessionId, title, formData, blueprintHtml: htmlOutput, updatedAt: new Date().toISOString() };
+            let history = JSON.parse(localStorage.getItem('zone21_demo') || '{}');
+            history[currentSessionId] = chatData;
+            localStorage.setItem('zone21_demo', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            let history = JSON.parse(localStorage.getItem('zone21_demo') || '{}');
+            Object.values(history).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
+                const item = document.createElement('div');
+                item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+                item.innerHTML = `
+                    <span><i class="fas fa-file-alt" style="color:var(--lime); margin-right:8px;"></i> ${session.title}</span>
+                    <i class="fas fa-trash delete-btn" onclick="deleteHistory('${session.id}', event)"></i>
+                `;
+                item.onclick = () => loadHistory(session.id);
+                list.appendChild(item);
+            });
+        }
+
+        function loadHistory(id) {
+            closeSidebarOnMobile();
+            let history = JSON.parse(localStorage.getItem('zone21_demo') || '{}');
+            if (!history[id]) return;
+            currentSessionId = id;
+            document.getElementById('form-section').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('blueprint-container').style.display = 'block';
+            document.getElementById('final-blueprint').innerHTML = history[id].blueprintHtml;
+            renderHistory();
+        }
+
+        function deleteHistory(id, event) {
+            event.stopPropagation();
+            let history = JSON.parse(localStorage.getItem('zone21_demo') || '{}');
+            delete history[id];
+            localStorage.setItem('zone21_demo', JSON.stringify(history));
+            if (currentSessionId === id) startNewSession();
+            else renderHistory();
+        }
+
+        function startNewSession() {
+            closeSidebarOnMobile();
+            currentSessionId = null;
+            document.getElementById('eventForm').reset();
+            document.getElementById('blueprint-container').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('form-section').style.display = 'block';
+            renderHistory();
+        }
+
+        // Initialize history on load
+        window.onload = renderHistory;
+    </script>
+</body>
+</html>

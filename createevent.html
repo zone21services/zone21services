@@ -1001,28 +1001,35 @@
             }
         });
 
-        // ============ LOAD MY EVENTS (FIXED: removed orderBy to avoid index requirement) ============
-        function loadMyEvents() {
-            if (!currentOrganizerId) return;
+        // ============ LOAD MY EVENTS ============
+function loadMyEvents() {
+    if (!currentOrganizerId) return;
+    
+    const listDiv = document.getElementById('my-events-list');
+    listDiv.innerHTML = '<p class="helper">Loading your events...</p>';
+    
+    db.collection('events')
+        .where('organizerId', '==', currentOrganizerId)
+        // Removed .orderBy('createdAt', 'desc') to prevent missing composite index errors
+        .get()
+        .then(snapshot => {
+            const events = [];
+            snapshot.forEach(doc => events.push(doc.data()));
+            
+            // Sort the events in memory by date (descending)
+            events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            hasEvent = events.length > 0;
+            updateCreateButtonVisibility();
+            displayEvents(events);
+        })
+        .catch(err => {
+            console.error('Error loading events:', err);
+            document.getElementById('no-events-msg').style.display = 'block';
+            document.getElementById('no-events-msg').textContent = 'Failed to load events. Check console for details.';
+        });
+}
 
-            const listDiv = document.getElementById('my-events-list');
-            listDiv.innerHTML = '<p class="helper">Loading your events...</p>';
-
-            // Simple query: only filter by organizerId, no orderBy (to avoid composite index)
-            db.collection('events')
-                .where('organizerId', '==', currentOrganizerId)
-                .get()
-                .then(snapshot => {
-                    const events = [];
-                    snapshot.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
-                    // Sort manually by createdAt descending
-                    events.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-                    hasEvent = events.length > 0;
-                    updateCreateButtonVisibility();
-                    displayEvents(events);
-                })
-                .catch(err => {
-                    console.error('Error loading events:', err);
                     document.getElementById('no-events-msg').style.display = 'block';
                     document.getElementById('no-events-msg').textContent = 'Failed to load events. Make sure you are connected.';
                 });

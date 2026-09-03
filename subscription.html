@@ -2,792 +2,392 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zone21 · Subscriptions</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zone21 Organizer Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
     <style>
-        /* ============================================================
-           ROOT – ORIGINAL ZONE21 THEME (unchanged)
-           ============================================================ */
+        /* ===== All styles unchanged – same as before ===== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
             --pink: #F80070;
-            --white: #F8F8F8;
-            --grey: #E0E0E8;
-            --bg: #f0f4f8;
-            --surface: #FFFFFF;
-            --text: #102838;
-            --text-muted: #64748B;
-            --border: #E2E8F0;
-            --danger: #DC2626;
-            --success: #10B981;
-            --radius-xl: 20px;
-            --radius-lg: 14px;
-            --radius-md: 10px;
-            --shadow-md: 0 10px 30px rgba(16, 40, 56, 0.08);
-            --shadow-lg: 0 20px 50px rgba(16, 40, 56, 0.12);
-            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 16px;
+            --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding: 1.5rem;
-            -webkit-font-smoothing: antialiased;
-            line-height: 1.5;
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+        .dashboard-header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .dashboard-header .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        .btn-create {
+            background: var(--lime); color: var(--navy); border: none; border-radius: 30px;
+            padding: 12px 24px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
         }
-        .app-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+        .btn-create:hover { background: #d0d800; transform: translateY(-2px); }
+        .btn-create:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-refresh {
+            background: var(--navy); color: white; border: none; border-radius: 30px;
+            padding: 12px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .btn-refresh:hover { background: #1a3a4a; transform: translateY(-2px); }
+        
+        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px; margin-bottom: 25px; }
+        .card h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
+        
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--navy); }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--lime); }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group .helper { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        
+        .poster-preview { width: 100%; max-width: 300px; height: auto; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
+        
+        .ticket-type-row { background: #fafbfc; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative; }
+        .ticket-type-row .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--pink); font-size: 1.2rem; cursor: pointer; }
+        .ticket-type-row .ticket-preview { max-width: 120px; height: auto; margin-top: 10px; border-radius: 8px; }
+        
+        .add-ticket-btn { background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .add-ticket-btn:hover { background: #1a3a4a; }
+        
+        .checkbox-group { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
+        .checkbox-group input[type="checkbox"] { margin-top: 4px; width: auto; }
+        .checkbox-group label { font-weight: 500; color: var(--navy); }
+        
+        .btn-submit { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 14px 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-submit:hover:not(:disabled) { background: #d0d800; transform: translateY(-2px); }
+        .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        
+        .btn-cancel-form { background: #f0f0f0; color: var(--navy); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        
+        .my-events { margin-top: 40px; }
+        .event-card { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
+        .event-card .status { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-cancelled { background: #e2e3e5; color: #383d41; }
+        .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
+        .status-pending_payment { background: #f8d7da; color: #856404; }
+        
+        .event-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .event-card .actions button { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; padding: 5px 8px; border-radius: 50%; }
+        .event-card .edit-btn { color: var(--navy); }
+        .event-card .cancel-btn { color: #ffc107; }
+        
+        .toast {
+            position: fixed; bottom: 20px; right: 20px;
+            background: var(--navy); color: white;
+            padding: 16px 24px; border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(16, 40, 56, 0.2);
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 600; z-index: 9999;
+            transform: translateY(150%); opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast i { font-size: 1.2rem; }
+        .toast-success { border-left: 5px solid var(--lime); }
+        .toast-error { border-left: 5px solid var(--pink); }
 
-        .header { text-align: center; margin-bottom: 2.5rem; }
-        .header h1 { color: var(--navy); font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; }
-        .header h1 span { color: var(--pink); }
-
-        .view { display: none; animation: fadeSlideIn 0.35s ease; }
-        .view.active { display: block; }
-        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-        .section-label {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: var(--navy);
-            margin: 2rem 0 1.2rem;
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: white; border-radius: 16px; padding: 30px;
+            max-width: 750px; width: 92%; max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .modal-content h3 { font-size: 1.8rem; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
+        .modal-content h4 { font-size: 1.2rem; color: var(--navy); margin-top: 20px; margin-bottom: 8px; }
+        .modal-content p { margin-bottom: 12px; line-height: 1.7; color: #2d3748; }
+        .modal-content ul { margin: 10px 0 15px 20px; }
+        .modal-content li { margin-bottom: 6px; }
+        .modal-content .highlight-box {
+            background: #f0f7ff; border-left: 5px solid var(--pink); padding: 15px 20px; border-radius: 8px; margin: 15px 0;
+        }
+        .modal-close {
+            position: sticky; top: 0; float: right; background: none; border: none;
+            font-size: 2rem; cursor: pointer; color: var(--text-muted);
+            transition: 0.2s;
+        }
+        .modal-close:hover { color: var(--pink); }
+        .btn-close-modal {
+            background: var(--navy); color: white; border: none; padding: 10px 24px;
+            border-radius: 30px; font-weight: 700; cursor: pointer; margin-top: 15px;
+            transition: 0.2s;
+        }
+        .btn-close-modal:hover { background: #1a3a4a; }
+        .terms-link { color: var(--pink); cursor: pointer; text-decoration: underline; font-weight: 600; }
+        
+        .hidden { display: none; }
+        
+        .commission-box {
+            background: #f0f7ff;
+            border: 2px solid var(--pink);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
             gap: 10px;
         }
-        .section-label i { color: var(--lime); }
-        .section-label small { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
+        .commission-box .label { font-weight: 700; color: var(--navy); font-size: 1.1rem; }
+        .commission-box .rate { background: var(--pink); color: white; padding: 6px 18px; border-radius: 30px; font-weight: 800; font-size: 1.5rem; }
+        .commission-box .detail { font-size: 0.9rem; color: var(--text-muted); }
 
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            width: 100%;
-        }
-        .plan-card, .event-card {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            padding: 24px 20px 20px;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
-            border: 2px solid transparent;
-            display: flex;
-            flex-direction: column;
-        }
-        .plan-card:hover { transform: translateY(-5px); border-color: var(--lime); box-shadow: var(--shadow-lg); }
-        .plan-card.popular { border-color: var(--pink); position: relative; }
-        .popular-badge {
-            position: absolute;
-            top: -15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--pink);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
-        .plan-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--navy); }
-        .plan-price { font-size: 2rem; color: var(--navy); font-weight: 800; margin-bottom: 16px; }
-        .plan-price span { font-size: 1rem; color: #888; font-weight: 500; }
-        .plan-features { list-style: none; margin-bottom: 24px; flex: 1; }
-        .plan-features li { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #444; font-weight: 500; }
-        .plan-features li i { color: var(--lime); font-size: 1rem; }
+        .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .event-card .event-title-row strong { font-size: 1rem; }
 
-        .event-card {
-            border-color: var(--lime);
-            background: linear-gradient(135deg, #fafff0 0%, #ffffff 100%);
-        }
-        .event-card .event-name { font-size: 1.1rem; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-        .event-card .event-package { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
-        .event-card .event-status {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            color: var(--success);
-            background: rgba(16, 185, 129, 0.1);
-            padding: 2px 12px;
-            border-radius: 20px;
-            display: inline-block;
-            margin-bottom: 12px;
-        }
-        .event-card .event-date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.8rem 1.2rem;
-            border-radius: var(--radius-md);
-            font-weight: 700;
-            font-size: 0.9rem;
-            border: none;
-            cursor: pointer;
-            transition: all var(--transition);
-            text-decoration: none;
-            width: 100%;
-        }
-        .btn-primary { background: var(--lime); color: var(--navy); }
-        .btn-primary:hover { background: var(--navy); color: var(--lime); transform: translateY(-2px); }
-        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
-        .btn-outline:hover { background: var(--bg); border-color: var(--navy); color: var(--navy); }
-        .btn-success { background: var(--success); color: white; }
-        .btn-success:hover { background: #059669; transform: translateY(-2px); }
-        .btn-danger { background: var(--pink); color: white; }
-        .btn-danger:hover { background: #c0005a; transform: translateY(-2px); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-        .card {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            padding: 2.5rem;
-            border: 1px solid var(--border);
-            max-width: 700px;
-            margin: 0 auto;
-        }
-        h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--navy); font-weight: 800; }
-
-        .steps {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2.5rem;
-            position: relative;
-        }
-        .steps::after {
-            content: '';
-            position: absolute;
-            top: 14px;
-            left: 12%;
-            right: 12%;
-            height: 3px;
-            background: var(--border);
-            z-index: 1;
-            border-radius: 2px;
-        }
-        .step {
-            flex: 1;
-            text-align: center;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            position: relative;
-            z-index: 2;
-            transition: var(--transition);
-        }
-        .step::before {
-            content: '';
-            display: block;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--border);
-            margin: 0 auto 8px;
-            transition: all var(--transition);
-            line-height: 32px;
-            font-size: 0.9rem;
-        }
-        .step[data-step="1"]::before { content: '1'; }
-        .step[data-step="2"]::before { content: '2'; }
-        .step[data-step="3"]::before { content: '3'; }
-        .step.active { color: var(--pink); }
-        .step.active::before { background: var(--pink); box-shadow: 0 0 0 6px rgba(248, 0, 112, 0.15); }
-        .step.done { color: var(--navy); }
-        .step.done::before { background: var(--navy); content: '✓'; }
-
-        .form-group { margin-bottom: 1.2rem; }
-        .form-group label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.9rem 1rem;
-            border: 2px solid var(--border);
-            border-radius: var(--radius-md);
-            font-family: inherit;
-            font-size: 0.95rem;
-            background: #F8FAFC;
-            transition: var(--transition);
-            color: var(--text);
-        }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--pink); background: #fff; }
-        .form-row { display: flex; gap: 1rem; }
-        .form-row>* { flex: 1; }
-
-        .agreement {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.7rem;
-            background: rgba(192, 200, 0, 0.1);
-            border: 1px solid var(--lime);
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            margin: 1.5rem 0;
-            font-size: 0.85rem;
-            color: var(--navy);
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .agreement input { margin-top: 3px; accent-color: var(--pink); width: 18px; height: 18px; cursor: pointer; }
-
-        .order-summary {
-            background: #F8FAFC;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border);
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-        }
-        .order-summary .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.6rem 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.95rem;
-        }
-        .order-summary .summary-row:last-child {
-            border-bottom: none;
-            font-weight: 800;
-            font-size: 1.1rem;
-            color: var(--navy);
-        }
-        .order-summary .summary-row .label { color: var(--text-muted); }
-        .order-summary .summary-row .value { font-weight: 700; color: var(--navy); }
-        .order-summary .summary-row.total .value { color: var(--pink); font-size: 1.3rem; }
-
-        #toast-container {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 99998;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            width: max-content;
-            max-width: 90%;
-            pointer-events: none;
-        }
-        .toast {
-            padding: 0.75rem 1.3rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.88rem;
-            color: #fff;
-            animation: slideDown 0.35s ease;
-            text-align: center;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-            pointer-events: auto;
-        }
-        @keyframes slideDown { from { transform: translateY(-24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
-        .empty-state i { font-size: 2rem; color: var(--grey); margin-bottom: 10px; display: block; }
-        .error-state { color: var(--pink); padding: 2rem; text-align: center; }
-        .error-state i { font-size: 2rem; color: var(--pink); margin-bottom: 10px; display: block; }
-        .error-state h4 { color: var(--navy); margin-bottom: 6px; }
-        .error-state p { font-size: 0.85rem; color: #666; }
-        .hidden { display: none !important; }
-
-        /* Invoice styles (unchanged) */
-        .invoice-wrapper {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .invoice-header-bar {
+        .package-info {
             background: var(--navy);
-            padding: 1.2rem 2.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: #fff;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .invoice-header-bar .brand { display: flex; align-items: center; gap: 10px; }
-        .invoice-header-bar .brand .logo-mark {
-            width: 38px;
-            height: 38px;
-            background: var(--lime);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 1.1rem;
-            color: var(--navy);
-        }
-        .invoice-header-bar .brand h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; }
-        .invoice-header-bar .brand h2 span { color: var(--lime); }
-        .invoice-header-bar .invoice-number { text-align: right; }
-        .invoice-header-bar .invoice-number .label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; font-weight: 600; }
-        .invoice-header-bar .invoice-number .number { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.02em; }
-
-        .invoice-body { padding: 2.5rem 2.5rem 2rem; position: relative; }
-        .unpaid-stamp {
-            position: absolute;
-            top: 2rem;
-            right: 2.5rem;
-            transform: rotate(18deg);
-            border: 4px solid var(--danger);
-            color: var(--danger);
-            font-size: 1.8rem;
-            font-weight: 900;
-            padding: 0.4rem 1.2rem;
+            color: var(--lime);
+            padding: 12px 18px;
             border-radius: 8px;
-            opacity: 0.55;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            pointer-events: none;
-            background: rgba(220, 38, 38, 0.04);
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            line-height: 1.2;
-            text-align: center;
-            z-index: 5;
-        }
-        .unpaid-stamp small { display: block; font-size: 0.65rem; font-weight: 600; opacity: 0.7; }
-
-        .invoice-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        .invoice-grid .bill-to h4, .invoice-grid .invoice-meta h4 {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--text-muted);
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .invoice-grid .bill-to .name { font-size: 1.1rem; font-weight: 800; color: var(--navy); }
-        .invoice-grid .bill-to .email { font-size: 0.85rem; color: var(--text-muted); }
-        .invoice-grid .invoice-meta .meta-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            font-size: 0.85rem;
-            border-bottom: 1px solid var(--border);
-        }
-        .invoice-grid .invoice-meta .meta-row:last-child { border-bottom: none; }
-        .invoice-grid .invoice-meta .meta-row .meta-label { color: var(--text-muted); font-weight: 500; }
-        .invoice-grid .invoice-meta .meta-row .meta-value { font-weight: 700; color: var(--navy); }
-        .invoice-grid .invoice-meta .meta-row .meta-value.danger { color: var(--danger); }
-
-        .invoice-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0 2rem;
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-        .invoice-table thead { background: var(--navy); color: #fff; }
-        .invoice-table thead th {
-            padding: 0.9rem 1.2rem;
-            text-align: left;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-weight: 700;
-        }
-        .invoice-table tbody td {
-            padding: 1rem 1.2rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-        .invoice-table tbody tr:last-child td { border-bottom: none; }
-        .invoice-table tbody .item-desc { font-weight: 600; color: var(--navy); }
-        .invoice-table tbody .item-amount { font-weight: 700; color: var(--navy); }
-
-        .invoice-total-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.2rem 1.5rem;
-            background: var(--bg-body);
-            border-radius: var(--radius-md);
-            margin-bottom: 2rem;
-            border: 1px solid var(--border);
-        }
-        .invoice-total-row .total-label { font-size: 1rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .invoice-total-row .total-amount { font-size: 1.8rem; font-weight: 900; color: var(--pink); }
-
-        .payment-methods {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.2rem;
-            margin: 1.5rem 0 1.8rem;
-        }
-        .payment-method-card {
-            background: var(--bg-body);
-            border-radius: var(--radius-md);
-            padding: 1.2rem 1.2rem 1rem;
-            border: 1px solid var(--border);
-            text-align: center;
-            transition: var(--transition);
-        }
-        .payment-method-card:hover { border-color: var(--navy); background: var(--surface); box-shadow: var(--shadow-sm); }
-        .payment-method-card .method-icon {
-            width: 52px;
-            height: 52px;
-            margin: 0 auto 6px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            padding: 6px;
-        }
-        .payment-method-card .method-icon img { width: 100%; height: 100%; object-fit: contain; }
-        .payment-method-card .method-name { font-weight: 700; font-size: 0.85rem; color: var(--navy); margin-bottom: 2px; }
-        .payment-method-card .method-detail { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
-        .payment-method-card .method-account { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
-
-        .payment-instructions {
-            background: rgba(11, 26, 43, 0.02);
-            border-left: 4px solid var(--lime);
-            padding: 1.2rem 1.5rem;
-            border-radius: var(--radius-md);
-            margin: 1.5rem 0;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-        .payment-instructions strong { color: var(--navy); }
-
-        .invoice-actions {
-            display: flex;
-            gap: 1rem;
+            justify-content: space-between;
             flex-wrap: wrap;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border);
+            gap: 10px;
+            font-weight: 600;
         }
-        .invoice-actions .btn { flex: 1; min-width: 160px; }
-        .invoice-footer-note {
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 1.5rem;
-            border-top: 1px solid var(--border);
-            padding-top: 1rem;
+        .package-info .count {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 2px 14px;
+            border-radius: 20px;
+            font-size: 0.9rem;
         }
-        .invoice-footer-note i { color: var(--lime); }
 
         @media (max-width: 768px) {
-            .form-row { flex-direction: column; gap: 0; }
-            .card { padding: 1.5rem; }
-            .steps::after { display: none; }
-            .pricing-grid { grid-template-columns: 1fr; }
-            .invoice-body { padding: 1.2rem 1rem 1.2rem; }
-            .invoice-header-bar { padding: 0.8rem 1rem; flex-direction: column; align-items: flex-start; }
-            .invoice-header-bar .invoice-number { text-align: left; width: 100%; }
-            .unpaid-stamp { font-size: 1rem; padding: 0.15rem 0.6rem; top: 1rem; right: 1rem; transform: rotate(15deg); }
-            .unpaid-stamp small { font-size: 0.45rem; }
-            .invoice-grid { grid-template-columns: 1fr; gap: 1rem; }
-            .payment-methods { grid-template-columns: 1fr; }
-            .invoice-actions { flex-direction: column; }
-            .invoice-actions .btn { min-width: auto; }
-            .order-summary .summary-row { font-size: 0.85rem; }
-        }
-        @media (max-width: 480px) {
-            body { padding: 0.75rem; }
-            .header h1 { font-size: 1.6rem; }
-            .step { font-size: 0.7rem; }
-            .step::before { width: 28px; height: 28px; line-height: 28px; font-size: 0.8rem; }
-            .plan-card { padding: 20px 16px 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            .card { padding: 20px; }
+            .dashboard-header { flex-direction: column; align-items: flex-start; }
+            .commission-box { flex-direction: column; align-items: flex-start; }
+            .event-card { flex-direction: column; align-items: stretch; }
+            .event-card .actions { justify-content: flex-end; }
         }
     </style>
 </head>
 <body>
-    <div id="toast-container"></div>
-
-    <div class="app-container">
-        <div class="header" id="main-header">
-            <h1>Zone21 <span>System</span></h1>
-        </div>
-
-        <!-- ===== VIEW: PRICING ===== -->
-        <div class="view active" id="view-pricing">
-            <div id="user-events-section">
-                <div class="section-label"><i class="fas fa-calendar-check"></i> Your Events <small>— Manage your existing events</small></div>
-                <div class="pricing-grid" id="user-events-grid"></div>
-            </div>
-
-            <div class="section-label" style="margin-top: 2.5rem;"><i class="fas fa-shopping-cart"></i> Purchase a New Package</div>
-            <div class="pricing-grid" id="plan-grid">
-                <!-- Small -->
-                <div class="plan-card">
-                    <div class="plan-title">Small Event</div>
-                    <div class="plan-price">$10 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Support for up to 29 attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Strict budget enforcement</li>
-                        <li><i class="fas fa-check-circle"></i> AI Vendor Matching</li>
-                        <li><i class="fas fa-check-circle"></i> Standard Blueprint Export</li>
-                    </ul>
-                    <div id="action-small">
-                        <button class="btn btn-primary" onclick="startCheckout('Small Event Package', 10, 'small')">Select Plan</button>
-                    </div>
-                </div>
-
-                <!-- Medium -->
-                <div class="plan-card popular">
-                    <div class="popular-badge">Most Popular</div>
-                    <div class="plan-title">Medium Event</div>
-                    <div class="plan-price">$125 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Support for up to 349 attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Priority Vendor Allocations</li>
-                        <li><i class="fas fa-check-circle"></i> Advanced Budget Analysis</li>
-                        <li><i class="fas fa-check-circle"></i> Detailed Blueprint Export</li>
-                    </ul>
-                    <div id="action-medium">
-                        <button class="btn btn-primary" onclick="startCheckout('Medium Event Package', 125, 'medium')">Select Plan</button>
-                    </div>
-                </div>
-
-                <!-- Large -->
-                <div class="plan-card">
-                    <div class="plan-title">Large / Enterprise</div>
-                    <div class="plan-price">$300 <span>/ event</span></div>
-                    <ul class="plan-features">
-                        <li><i class="fas fa-check-circle"></i> Unlimited attendees</li>
-                        <li><i class="fas fa-check-circle"></i> Unlimited Budgeting</li>
-                        <li><i class="fas fa-check-circle"></i> Premium Vendor Sourcing</li>
-                        <li><i class="fas fa-check-circle"></i> Zone21 Exclusive Security Focus</li>
-                    </ul>
-                    <div id="action-large">
-                        <button class="btn btn-primary" onclick="startCheckout('Large / Enterprise Package', 300, 'large')">Select Plan</button>
-                    </div>
-                </div>
+    <div class="container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+            <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
+            <div class="header-actions">
+                <button class="btn-refresh" onclick="loadMyEvents()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
             </div>
         </div>
 
-        <!-- ===== VIEW: CHECKOUT ===== -->
-        <div class="view" id="view-checkout">
-            <div class="card">
-                <div class="steps" id="steps-indicator">
-                    <div class="step active" data-step="1">Your Details</div>
-                    <div class="step" data-step="2">Billing Address</div>
-                    <div class="step" data-step="3">Review & Pay</div>
-                </div>
-
-                <form id="checkout-form" onsubmit="return false;">
-                    <div class="step-content" id="step-1">
-                        <h2>Your Details</h2>
-                        <div style="background: rgba(16,40,56,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Selected Package</span>
-                                <div id="display-plan-name" style="font-weight: 800; color: var(--navy); font-size: 1.1rem;">-</div>
-                            </div>
-                            <button type="button" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto;" onclick="goBackToPricing()">Change</button>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>First Name *</label><input type="text" id="cust-fname" placeholder="John" required></div>
-                            <div class="form-group"><label>Last Name *</label><input type="text" id="cust-lname" placeholder="Doe" required></div>
-                        </div>
-                        <div class="form-group"><label>Email Address *</label><input type="email" id="cust-email" placeholder="you@example.com" required></div>
-                        <div class="form-group"><label>Phone Number *</label><input type="tel" id="cust-phone" placeholder="+263 77 000 0000" required></div>
-                        <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(1, 2)">Continue to Billing <i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-
-                    <div class="step-content hidden" id="step-2">
-                        <h2>Billing Address</h2>
-                        <div class="form-group"><label>Street Address *</label><input type="text" id="cust-street" placeholder="e.g. 45 Samora Machel Ave" required></div>
-                        <div class="form-row">
-                            <div class="form-group"><label>City *</label><input type="text" id="cust-city" placeholder="e.g. Harare" required></div>
-                            <div class="form-group"><label>Country *</label>
-                                <select id="cust-country" required>
-                                    <option value="" disabled>Select your country</option>
-                                    <option value="Zimbabwe" selected>Zimbabwe</option>
-                                    <option value="South Africa">South Africa</option>
-                                    <option value="Zambia">Zambia</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Company (Optional)</label><input type="text" id="cust-company" placeholder="Your company name"></div>
-                            <div class="form-group"><label>ZIP / Postal Code</label><input type="text" id="cust-zip" placeholder="0000"></div>
-                        </div>
-                        <div class="agreement" onclick="document.getElementById('agreement').click()">
-                            <input type="checkbox" id="agreement" required onclick="event.stopPropagation()">
-                            <label for="agreement">I agree that all payments are manual. I will transfer the funds using Ecocash, Innbucks, or Bank Transfer.</label>
-                        </div>
-                        <div class="form-row">
-                            <button type="button" class="btn btn-outline btn-block" onclick="goToStep(1)"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                            <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(2, 3)">Review Summary <i class="fa-solid fa-arrow-right"></i></button>
-                        </div>
-                    </div>
-
-                    <div class="step-content hidden" id="step-3">
-                        <h2>Order Summary</h2>
-                        <div class="order-summary">
-                            <div class="summary-row">
-                                <span class="label">Package</span>
-                                <span class="value" id="summary-plan">—</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="label">Billed To</span>
-                                <span class="value" id="summary-name">—</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="label">Quantity</span>
-                                <span class="value">1</span>
-                            </div>
-                            <div class="summary-row" style="border-bottom: 2px solid var(--border);">
-                                <span class="label">Unit Price</span>
-                                <span class="value" id="summary-unit-price">$0.00</span>
-                            </div>
-                            <div class="summary-row total">
-                                <span class="label">Total Due</span>
-                                <span class="value" id="summary-price">$0.00</span>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <button type="button" class="btn btn-outline btn-block" onclick="goToStep(2)"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                            <button type="button" class="btn btn-primary btn-block" id="btn-generate-invoice" onclick="generateInvoice()"><i class="fa-solid fa-file-invoice"></i> Generate Invoice</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+        <!-- Package Info Banner -->
+        <div class="package-info" id="packageInfo">
+            <span><i class="fas fa-boxes"></i> Available Packages</span>
+            <span><span id="usedPackages">0</span> / <span id="totalPackages">0</span> used</span>
         </div>
 
-        <!-- ===== VIEW: INVOICE ===== -->
-        <div class="view" id="view-invoice">
-            <div class="invoice-wrapper">
-                <div class="invoice-header-bar">
-                    <div class="brand">
-                        <div class="logo-mark">Z</div>
-                        <h2>Zone<span>21</span></h2>
+        <!-- Event Creation Form (hidden by default) -->
+        <div class="card hidden" id="event-form-card">
+            <h2>Event Information</h2>
+            <form id="event-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Event Name *</label>
+                        <input type="text" id="eventName" required>
                     </div>
-                    <div class="invoice-number">
-                        <div class="label">Invoice Number</div>
-                        <div class="number" id="inv-number">INV-0000</div>
-                    </div>
-                </div>
-
-                <div class="invoice-body" id="invoice-print-area">
-                    <div class="unpaid-stamp">
-                        UNPAID
-                        <small>payment pending</small>
-                    </div>
-
-                    <div class="invoice-grid">
-                        <div class="bill-to">
-                            <h4>Bill To</h4>
-                            <div class="name" id="inv-name">Name</div>
-                            <div class="email" id="inv-email">email@example.com</div>
-                        </div>
-                        <div class="invoice-meta">
-                            <h4>Invoice Details</h4>
-                            <div class="meta-row">
-                                <span class="meta-label">Date</span>
-                                <span class="meta-value" id="inv-date">—</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Status</span>
-                                <span class="meta-value danger">UNPAID</span>
-                            </div>
-                            <div class="meta-row">
-                                <span class="meta-label">Payment Method</span>
-                                <span class="meta-value">Manual Transfer</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <table class="invoice-table">
-                        <thead>
-                            <tr><th>Description</th><th style="text-align:right;">Amount</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="item-desc" id="inv-item">Package Name</td>
-                                <td class="item-amount" style="text-align:right;" id="inv-item-price">$0.00</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="invoice-total-row">
-                        <span class="total-label">Total Payable</span>
-                        <span class="total-amount" id="inv-total">$0.00</span>
-                    </div>
-
-                    <div class="payment-instructions">
-                        <strong>📌 Manual Payment Required</strong><br>
-                        Please transfer the exact total amount to one of the accounts below.<br>
-                        Use your <strong>Invoice Number</strong> as the payment reference.
-                    </div>
-
-                    <div class="payment-methods">
-                        <div class="payment-method-card">
-                            <div class="method-icon">
-                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgwnfhozjpovvXfL0xyqpu46qT3PjiQqNnUI97upb7S5JgCPPviUCxlPmJX27y7p9qa1qGWXB8qGKKG6SUrWnW9dNQrFLrNkbCH7OPynH0v-hErLb3LwkDDNrljlrAK1RBs1QniSaJkQJNPcg1D0xeCCxKN28WEbV3egQWEb43iSD-PeRYC5uI1loZcEhYY/s1600/722de7bfbab2b24020b8fb404bc9fe58_icon.png" alt="Ecocash">
-                            </div>
-                            <div class="method-name">Ecocash</div>
-                            <div class="method-detail">078 991 2268</div>
-                            <div class="method-account">Tanatswa Dean Mwanza</div>
-                        </div>
-
-                        <div class="payment-method-card">
-                            <div class="method-icon">
-                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiol9STr7ImEkAH6KsKj4n5XsA6edceL24btsYwwo426RfFGa7uuqVMJrBY2U6FCFFPYX5Daf50iTun5jmqp9bx-sN1Ukmy0N2e7TSjPtT7TvRLfmS1FBjkeADvjzI2WpEpr0pB179sZBxNvZoH06DUdJzIkwa7JMzt_T1UH1ELIDMQKX8T3lhRaVrVR4K6/s1600/APP_ICON.png" alt="Innbucks">
-                            </div>
-                            <div class="method-name">Innbucks</div>
-                            <div class="method-detail">078 991 2268</div>
-                            <div class="method-account">Tanatswa Dean Mwanza</div>
-                        </div>
-
-                        <div class="payment-method-card">
-                            <div class="method-icon">
-                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjcQFUEJrA33gQlP3kceYEdQCuJ1gXImN7b031MmiGlTdgqdD6An640fWWVV0R7jBsL2If96hrnDv9PypAbNBK_yQDH8z8Quefrt1Xc2xi6sShTFmHRgrO_sdGbvckOeMVoJZFIjA6DV_AJm9qLzliGiyU0DZXYT0SvPCvDR1_8J1aP4mEKObQk-3KfWJaV/s1600/kiev-ukraine-september-visa-mastercard-logos-printed-white-paper-visa-mastercard-american-multinational-102631953.jpg" alt="TN CyberTech Bank">
-                            </div>
-                            <div class="method-name">TN CyberTech Bank</div>
-                            <div class="method-detail">4638 3300 1429 9948</div>
-                            <div class="method-account">Corporate Account</div>
-                        </div>
-                    </div>
-
-                    <div class="invoice-actions">
-                        <button class="btn btn-outline" onclick="goBackToPricing()"><i class="fas fa-arrow-left"></i> Back to Packages</button>
-                        <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
-                        <a href="support.html" class="btn btn-danger"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
-                    </div>
-
-                    <div class="invoice-footer-note">
-                        <i class="fas fa-shield-alt"></i> After payment, submit your proof to activate your event.
+                    <div class="form-group">
+                        <label>Event Type *</label>
+                        <select id="eventType" required>
+                            <option value="">Select type...</option>
+                            <option>Conference</option>
+                            <option>Music Festival</option>
+                            <option>Corporate Gala</option>
+                            <option>Wedding</option>
+                            <option>Brand Launch</option>
+                            <option>Private Party</option>
+                            <option>Exhibition</option>
+                            <option>Sporting Event</option>
+                            <option>Other</option>
+                        </select>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="eventDescription" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date & Time *</label>
+                        <input type="datetime-local" id="startDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date & Time *</label>
+                        <input type="datetime-local" id="endDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Location / Venue *</label>
+                        <input type="text" id="location" placeholder="e.g., Harare International Conference Centre" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Capacity *</label>
+                        <input type="number" id="capacity" min="1" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Organizer Contact Name *</label>
+                        <input type="text" id="organizerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Organizer Email *</label>
+                        <input type="email" id="organizerEmail" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Organizer Phone</label>
+                    <input type="tel" id="organizerPhone">
+                </div>
+                <div class="form-group">
+                    <label>Event Poster Image</label>
+                    <input type="file" id="posterUpload" accept="image/*">
+                    <div class="helper">Recommended size: 1200x800px, JPG/PNG. Max 500KB (will be compressed).</div>
+                    <img id="posterPreview" class="poster-preview" style="display:none;" alt="Poster Preview">
+                </div>
+                <div class="form-group">
+                    <label>Age Restriction (optional)</label>
+                    <input type="text" id="ageRestriction" placeholder="e.g., 18+">
+                </div>
+                <div class="form-group">
+                    <label>Dress Code (optional)</label>
+                    <input type="text" id="dressCode" placeholder="e.g., Formal / Smart Casual">
+                </div>
+                <div class="form-group">
+                    <label>Choose Default Ticket Template</label>
+                    <select id="ticketTemplate">
+                        <option value="classic">Classic (Z21 standard)</option>
+                        <option value="modern">Modern Minimal</option>
+                        <option value="festival">Festival Vibes</option>
+                        <option value="corporate">Corporate Elegance</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- Ticket Types Card -->
+        <div class="card hidden" id="ticket-types-card">
+            <h2>Ticket Types</h2>
+            <div id="ticket-types-container"></div>
+            <button type="button" class="add-ticket-btn" id="add-ticket-btn"><i class="fas fa-plus"></i> Add Ticket Type</button>
+            <p style="margin-top:10px; color:var(--text-muted);">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</p>
+        </div>
+
+        <!-- Terms & Submit -->
+        <div class="card hidden" id="terms-submit-card">
+            <h2>Terms & Conditions</h2>
+            <div class="commission-box">
+                <div>
+                    <div class="label"><i class="fas fa-percent" style="color:var(--pink);"></i> Zone21 Ticketing Fee</div>
+                    <div class="detail">2% commission on every ticket sold through the platform</div>
+                </div>
+                <div class="rate">2%</div>
             </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="agreeTerms" required>
+                <label for="agreeTerms">
+                    I agree to the <span class="terms-link" id="open-terms">Zone21 Organizer Terms &amp; Conditions</span>, 
+                    including the <strong>2% ticketing commission</strong> on all ticket sales. *
+                </label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="agreeRights">
+                <label for="agreeRights">I confirm that I have the rights to use all uploaded images and information provided.</label>
+            </div>
+
+            <button type="button" class="btn-submit" id="submit-event"><i class="fas fa-paper-plane"></i> <span>Submit for Approval</span></button>
+            <button type="button" class="btn-cancel-form" id="cancel-create">Cancel</button>
+        </div>
+
+        <!-- My Events List -->
+        <div class="card my-events">
+            <h2>My Events</h2>
+            <div id="my-events-list"></div>
+            <p id="no-events-msg" style="color:var(--text-muted);">No events created yet. Click "Create New Event" to get started.</p>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    <!-- Terms Modal -->
+    <div class="modal" id="terms-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-terms">&times;</button>
+            <h3>Zone21 Organizer Terms &amp; Conditions</h3>
+            <div class="highlight-box">
+                <strong><i class="fas fa-percent" style="color:var(--pink);"></i> 2% ZONE21 TICKETING COMMISSION</strong><br>
+                For every ticket sold through the Zone21 platform, the Organizer agrees that Zone21 will receive a <strong>2% ticketing commission</strong>.
+                The commission is calculated on the ticket price paid by the customer for each ticket sold through Zone21.
+            </div>
+            <h4>Example</h4>
+            <p>If a customer purchases a ticket for US$100:</p>
+            <ul>
+                <li><strong>Ticket price:</strong> US$100</li>
+                <li><strong>Zone21 commission (2%):</strong> US$2</li>
+                <li><strong>Amount remaining:</strong> US$98</li>
+            </ul>
+            <p>If 1,000 tickets are sold at US$100 each:</p>
+            <ul>
+                <li><strong>Total ticket sales:</strong> US$100,000</li>
+                <li><strong>Zone21 2% commission:</strong> US$2,000</li>
+                <li><strong>Remaining amount:</strong> US$98,000</li>
+            </ul>
+            <hr style="margin: 20px 0; border-color: #e2e8f0;">
+            <h4>Ticket Sales and Settlement</h4>
+            <p>Where Zone21 receives ticket payments on behalf of the Organizer, Zone21 may deduct its 2% ticketing commission before transferring the applicable balance to the Organizer.</p>
+            <h4>Organiser Acknowledgement</h4>
+            <p>By accepting this Agreement, the Organizer expressly acknowledges and agrees that Zone21 charges a 2% commission on every ticket sold through the Zone21 platform.</p>
+            <button class="btn-close-modal" id="accept-terms-btn">I Understand &amp; Agree</button>
+        </div>
+    </div>
 
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <i class="fas fa-check-circle" id="toast-icon"></i>
+        <span id="toast-message">Event saved successfully!</span>
+    </div>
+
+    <script>
+        // ============ FIREBASE CONFIG ============
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -798,456 +398,665 @@
             measurementId: "G-KE007Y89F1"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        let currentUser = null;
-        let selectedPlan = { id: '', name: '', price: 0 };
+        // ============ GLOBAL VARIABLES ============
+        let currentOrganizerId = null;
+        let totalPackages = 0;          // approved/active subscriptions
+        let activeEventsCount = 0;      // events with status not cancelled/rejected/pending_payment
 
-        // ==========================================
-        // AUTH
-        // ==========================================
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                const emailInput = document.getElementById('cust-email');
-                if (emailInput) {
-                    emailInput.value = user.email;
-                    emailInput.readOnly = true;
-                }
-                await updatePlanButtons();
-                await renderUserEvents();
+        // ============ TOAST ============
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+
+            msgEl.textContent = message;
+            toast.className = `toast toast-${type} show`;
+
+            if (type === 'success') {
+                iconEl.className = 'fas fa-check-circle';
+                iconEl.style.color = 'var(--lime)';
             } else {
-                window.location.href = "index.html";
+                iconEl.className = 'fas fa-exclamation-circle';
+                iconEl.style.color = 'var(--pink)';
             }
+
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        // ============ UI ELEMENTS ============
+        const showCreateBtn = document.getElementById('show-create-form');
+        const eventFormCard = document.getElementById('event-form-card');
+        const ticketTypesCard = document.getElementById('ticket-types-card');
+        const termsSubmitCard = document.getElementById('terms-submit-card');
+        const cancelCreateBtn = document.getElementById('cancel-create');
+        const packageInfo = document.getElementById('packageInfo');
+        const usedPackagesSpan = document.getElementById('usedPackages');
+        const totalPackagesSpan = document.getElementById('totalPackages');
+
+        // ============ UPDATE CREATE BUTTON VISIBILITY ============
+        function updateCreateButton() {
+            const canCreate = activeEventsCount < totalPackages;
+            showCreateBtn.style.display = canCreate ? 'flex' : 'none';
+            // Update package banner
+            usedPackagesSpan.textContent = activeEventsCount;
+            totalPackagesSpan.textContent = totalPackages;
+            if (totalPackages === 0) {
+                packageInfo.style.background = '#f8d7da';
+                packageInfo.style.color = '#721c24';
+                packageInfo.innerHTML = `<span><i class="fas fa-exclamation-triangle"></i> No active packages</span>
+                                         <span>0 / 0 used</span>`;
+            } else if (activeEventsCount >= totalPackages) {
+                packageInfo.style.background = '#f8d7da';
+                packageInfo.style.color = '#721c24';
+                packageInfo.innerHTML = `<span><i class="fas fa-exclamation-triangle"></i> Package limit reached</span>
+                                         <span>${activeEventsCount} / ${totalPackages} used</span>`;
+            } else {
+                packageInfo.style.background = 'var(--navy)';
+                packageInfo.style.color = 'var(--lime)';
+                packageInfo.innerHTML = `<span><i class="fas fa-boxes"></i> Available Packages</span>
+                                         <span><span id="usedPackages">${activeEventsCount}</span> / <span id="totalPackages">${totalPackages}</span> used</span>`;
+            }
+        }
+
+        // ============ SHOW/HIDE FORM ============
+        showCreateBtn.addEventListener('click', () => {
+            if (activeEventsCount >= totalPackages) {
+                showToast('You have used all your packages. Please purchase additional packages.', 'error');
+                return;
+            }
+            eventFormCard.classList.remove('hidden');
+            ticketTypesCard.classList.remove('hidden');
+            termsSubmitCard.classList.remove('hidden');
+            showCreateBtn.style.display = 'none';
+            document.getElementById('event-form').reset();
+            document.getElementById('ticket-types-container').innerHTML = '';
+            ticketCount = 0;
+            addTicketType();
+            document.getElementById('posterPreview').style.display = 'none';
+            document.getElementById('submit-event').dataset.editId = '';
+            document.getElementById('submit-event').innerHTML = '<i class="fas fa-paper-plane"></i> <span>Submit for Approval</span>';
         });
 
-        window.showToast = function(msg, type = 'info') {
-            const c = document.getElementById('toast-container');
-            const t = document.createElement('div');
-            t.className = 'toast';
-            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
-            t.textContent = msg;
-            c.appendChild(t);
-            setTimeout(() => {
-                t.style.opacity = '0';
-                t.style.transition = '0.3s';
-                setTimeout(() => t.remove(), 300);
-            }, 4500);
-        };
+        cancelCreateBtn.addEventListener('click', () => {
+            eventFormCard.classList.add('hidden');
+            ticketTypesCard.classList.add('hidden');
+            termsSubmitCard.classList.add('hidden');
+            showCreateBtn.style.display = (activeEventsCount < totalPackages) ? 'flex' : 'none';
+        });
 
-        // ==========================================
-        // RENDER USER EVENTS (self‑heal included)
-        // ==========================================
-        async function renderUserEvents() {
-            const grid = document.getElementById('user-events-grid');
-            if (!currentUser) {
-                grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
+        // ============ IMAGE HANDLING (unchanged) ============
+        function fileToBase64(file, maxDimension = 800, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width, height = img.height;
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) { height = Math.round((height * maxDimension) / width); width = maxDimension; } 
+                            else { width = Math.round((width * maxDimension) / height); height = maxDimension; }
+                        }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handlePosterUpload(file) {
+            if (!file) return null;
+            try {
+                const base64 = await fileToBase64(file, 800, 0.7);
+                document.getElementById('posterPreview').src = base64;
+                document.getElementById('posterPreview').style.display = 'block';
+                return base64;
+            } catch (e) { showToast('Failed to process poster image.', 'error'); return null; }
+        }
+
+        async function handleTicketImageUpload(file, previewId) {
+            if (!file) return null;
+            try {
+                const base64 = await fileToBase64(file, 400, 0.7);
+                const preview = document.getElementById(previewId);
+                if (preview) { preview.src = base64; preview.style.display = 'block'; }
+                return base64;
+            } catch (e) { showToast('Failed to process ticket image.', 'error'); return null; }
+        }
+
+        // ============ TICKET TYPES MANAGEMENT ============
+        let ticketCount = 0;
+        function addTicketType() {
+            ticketCount++;
+            const container = document.getElementById('ticket-types-container');
+            const ticketDiv = document.createElement('div');
+            ticketDiv.className = 'ticket-type-row';
+            ticketDiv.id = `ticket-row-${ticketCount}`;
+            ticketDiv.innerHTML = `
+                <button type="button" class="remove-btn" onclick="removeTicketType(${ticketCount})" title="Remove"><i class="fas fa-times"></i></button>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ticket Name *</label>
+                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (USD) *</label>
+                        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantity Available *</label>
+                        <input type="number" class="ticket-quantity" min="1" value="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge access">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Custom Ticket Design (optional)</label>
+                    <input type="file" class="ticket-image-upload" accept="image/*" onchange="previewTicketImage(this, ${ticketCount})">
+                    <img id="ticket-preview-${ticketCount}" class="ticket-preview" style="display:none;" alt="Ticket Design Preview">
+                </div>
+            `;
+            container.appendChild(ticketDiv);
+        }
+
+        function removeTicketType(id) { document.getElementById(`ticket-row-${id}`)?.remove(); }
+
+        function previewTicketImage(input, id) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById(`ticket-preview-${id}`);
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function collectTicketTypes() {
+            const rows = document.querySelectorAll('.ticket-type-row');
+            if (rows.length === 0) {
+                showToast('Please add at least one ticket type.', 'error');
+                return null;
+            }
+            const ticketTypes = [];
+            for (let row of rows) {
+                const name = row.querySelector('.ticket-name').value.trim();
+                const price = parseFloat(row.querySelector('.ticket-price').value);
+                const quantity = parseInt(row.querySelector('.ticket-quantity').value);
+                const description = row.querySelector('.ticket-description').value.trim();
+                const imageInput = row.querySelector('.ticket-image-upload');
+                let imageBase64 = null;
+                if (imageInput.files && imageInput.files[0]) {
+                    imageBase64 = await handleTicketImageUpload(imageInput.files[0], `ticket-preview-${row.id.split('-')[2]}`);
+                }
+                if (!name || isNaN(price) || isNaN(quantity)) {
+                    showToast('Please fill all required ticket fields.', 'error');
+                    return null;
+                }
+                ticketTypes.push({ name, price, quantity, description, imageBase64: imageBase64 || null, template: document.getElementById('ticketTemplate').value || 'classic' });
+            }
+            return ticketTypes;
+        }
+
+        // ============ EVENT SUBMISSION (unchanged) ============
+        document.getElementById('submit-event').addEventListener('click', async function() {
+            const editId = this.dataset.editId;
+            const eventForm = document.getElementById('event-form');
+            
+            if (!eventForm.checkValidity()) { eventForm.reportValidity(); return; }
+            if (!document.getElementById('agreeTerms').checked) {
+                showToast('You must agree to the Terms & Conditions (including the 2% commission).', 'error');
                 return;
             }
 
-            const getSafeDate = (timestamp) => {
-                if (!timestamp) return new Date(0);
-                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
-                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
-                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
-                return new Date(timestamp);
-            };
+            if (!editId && activeEventsCount >= totalPackages) {
+                showToast('You have used all your packages. Please purchase additional packages.', 'error');
+                return;
+            }
+
+            const submitBtn = this;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving Event...</span>';
 
             try {
-                // Get approved subscriptions to self‑heal any lingering pending events
-                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
-                const subsSnapshot = await getDocs(subsQ);
-                const activeInvoices = [];
-                subsSnapshot.forEach(docSnap => {
-                    const sub = docSnap.data();
-                    if (sub.status === 'active' || sub.status === 'approved') {
-                        if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
-                    }
-                });
-
-                const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
-                const querySnapshot = await getDocs(q);
-                const events = [];
+                const posterInput = document.getElementById('posterUpload');
+                let posterBase64 = document.getElementById('posterPreview').src || null;
                 
-                querySnapshot.forEach(docSnap => {
-                    let eventData = docSnap.data();
-                    let eventId = docSnap.id;
-                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
-                        eventData.status = 'approved';
-                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
-                    }
-                    events.push({ id: eventId, ...eventData });
-                });
-
-                const validEvents = events.filter(e => e.status !== 'pending_payment');
-
-                if (validEvents.length === 0) {
-                    grid.innerHTML = `
-                        <div class="empty-state" style="grid-column:1/-1;">
-                            <i class="fas fa-clock"></i>
-                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
-                            <p style="font-size:0.9rem;">Purchase a package and after approval, create your event from the dashboard.</p>
-                        </div>
-                    `;
-                    return;
+                if (posterInput.files && posterInput.files[0]) {
+                    posterBase64 = await handlePosterUpload(posterInput.files[0]);
+                } else if (!posterBase64 || posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1) {
+                    posterBase64 = null;
                 }
 
-                validEvents.sort((a, b) => {
-                    const da = getSafeDate(a.createdAt);
-                    const db2 = getSafeDate(b.createdAt);
-                    return db2 - da;
-                });
+                const ticketTypes = await collectTicketTypes();
+                if (!ticketTypes) throw new Error("Ticket validation failed");
 
-                grid.innerHTML = validEvents.map(event => {
-                    const packageName = event.package || 'Unknown Package';
-                    let status = event.status || 'approved';
-                    if (status.toLowerCase() === 'draft') status = 'approved';
-                    const dateObj = getSafeDate(event.createdAt);
-                    const dateStr = dateObj.getTime() > 0 ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-                    return `
-                        <div class="event-card">
-                            <div class="event-name">${event.name || 'Untitled Event'}</div>
-                            <div class="event-package"><i class="fas fa-tag" style="color:var(--lime);"></i> ${packageName}</div>
-                            <div class="event-status"><i class="fas fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> ${status.toUpperCase()}</div>
-                            <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
-                            <a href="manageevent.html?eventId=${event.id}" class="btn btn-success"><i class="fas fa-arrow-right"></i> Manage Event</a>
-                        </div>
-                    `;
-                }).join('');
+                const eventId = editId || 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+                const eventData = {
+                    organizerId: currentOrganizerId,
+                    eventName: document.getElementById('eventName').value.trim(),
+                    type: document.getElementById('eventType').value,
+                    description: document.getElementById('eventDescription').value.trim(),
+                    startDate: document.getElementById('startDate').value,
+                    endDate: document.getElementById('endDate').value,
+                    location: document.getElementById('location').value.trim(),
+                    capacity: parseInt(document.getElementById('capacity').value),
+                    organizerName: document.getElementById('organizerName').value.trim(),
+                    organizerEmail: document.getElementById('organizerEmail').value.trim(),
+                    organizerPhone: document.getElementById('organizerPhone').value.trim(),
+                    ageRestriction: document.getElementById('ageRestriction').value.trim(),
+                    dressCode: document.getElementById('dressCode').value.trim(),
+                    posterImage: posterBase64,
+                    ticketTypes: ticketTypes,
+                    status: editId ? undefined : 'pending',
+                    createdAt: editId ? (await db.collection('events').doc(editId).get()).data().createdAt : new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                if (editId) {
+                    await db.collection('events').doc(editId).update(eventData);
+                    showToast('Event updated and resubmitted for approval!', 'success');
+                } else {
+                    await db.collection('events').doc(eventId).set(eventData);
+                    showToast('Event successfully submitted for approval!', 'success');
+                }
+
+                eventFormCard.classList.add('hidden');
+                ticketTypesCard.classList.add('hidden');
+                termsSubmitCard.classList.add('hidden');
+                showCreateBtn.style.display = (activeEventsCount < totalPackages) ? 'flex' : 'none';
+                document.getElementById('event-form').reset();
+                document.getElementById('ticket-types-container').innerHTML = '';
+                ticketCount = 0;
+                document.getElementById('posterPreview').style.display = 'none';
+                document.getElementById('posterPreview').src = '';
+                
+                loadMyEvents();
 
             } catch (error) {
-                console.error('Error loading events:', error);
-                grid.innerHTML = `
-                    <div class="error-state" style="grid-column:1/-1;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h4>Could not load events</h4>
-                        <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
-                    </div>
-                `;
+                console.error('Error saving event:', error);
+                if(error.message !== "Ticket validation failed") {
+                    showToast('Failed to save event. Check permissions.', 'error');
+                }
+            } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
             }
-        }
+        });
 
-        // ==========================================
-        // PLAN BUTTONS – query all subscriptions by userId & planId
-        // ==========================================
-        async function updatePlanButtons() {
-            if (!currentUser) return;
-            const plans = [
-                { id: 'small', name: 'Small Event Package', price: 10 },
-                { id: 'medium', name: 'Medium Event Package', price: 125 },
-                { id: 'large', name: 'Large / Enterprise Package', price: 300 }
-            ];
+        // ============ LOAD MY EVENTS – FIXED ============
+        function loadMyEvents() {
+            if (!currentOrganizerId) {
+                console.warn('loadMyEvents: No organizer ID');
+                return;
+            }
 
-            for (const plan of plans) {
-                const container = document.getElementById(`action-${plan.id}`);
-                if (!container) continue;
-                try {
-                    // Query all subscriptions for this user and plan
-                    const q = query(
-                        collection(db, 'subscriptions'),
-                        where('userId', '==', currentUser.uid),
-                        where('planId', '==', plan.id)
-                    );
-                    const snap = await getDocs(q);
-                    
-                    let hasPending = false;
-                    let hasApproved = false;
-                    let pendingInvoiceId = null;
-                    
-                    snap.forEach(doc => {
-                        const sub = doc.data();
-                        if (sub.status === 'pending_payment') {
-                            hasPending = true;
-                            pendingInvoiceId = sub.invoiceNumber;
+            const listDiv = document.getElementById('my-events-list');
+            const noMsg = document.getElementById('no-events-msg');
+            listDiv.innerHTML = '<p class="helper" style="text-align:center; padding:20px;">Loading your events...</p>';
+            noMsg.style.display = 'none';
+
+            let approvedInvoiceNumbers = [];
+
+            // Step 1: get approved subscriptions
+            db.collection('subscriptions')
+                .where('userId', '==', currentOrganizerId)
+                .where('status', 'in', ['approved', 'active'])
+                .get()
+                .then(snapshot => {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.invoiceNumber) approvedInvoiceNumbers.push(data.invoiceNumber);
+                    });
+                    // Step 2: fetch events
+                    return db.collection('events')
+                        .where('organizerId', '==', currentOrganizerId)
+                        .get();
+                })
+                .then(snapshot => {
+                    const events = [];
+                    const batch = db.batch();
+                    let hasUpdates = false;
+
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        // Self‑heal: if pending_payment and invoice is approved, set to approved
+                        if (data.status === 'pending_payment' && data.invoiceNumber && approvedInvoiceNumbers.includes(data.invoiceNumber)) {
+                            const ref = db.collection('events').doc(doc.id);
+                            batch.update(ref, { status: 'approved' });
+                            hasUpdates = true;
+                            data.status = 'approved';
                         }
-                        if (sub.status === 'approved' || sub.status === 'active') {
-                            hasApproved = true;
-                        }
+                        events.push({
+                            id: data.id || doc.id,
+                            docId: doc.id,
+                            ...data
+                        });
                     });
 
-                    let buttonHtml = '';
-                    if (hasPending) {
-                        buttonHtml = `
-                            <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Pending Payment</button>
-                                <button class="btn btn-outline" onclick="viewExistingInvoice('${pendingInvoiceId}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
-                            </div>
-                        `;
-                    } else if (hasApproved) {
-                        buttonHtml = `
-                            <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                <button class="btn btn-outline" onclick="window.location.href='dashboard.html'"><i class="fa-solid fa-list"></i> Go To Dashboard</button>
-                                <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Buy Another</button>
-                            </div>
-                        `;
-                    } else {
-                        buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
+                    if (hasUpdates) {
+                        batch.commit().catch(err => console.warn('Self‑heal batch failed:', err));
                     }
-                    container.innerHTML = buttonHtml;
-                } catch (error) {
-                    console.error("Error updating plan buttons:", error);
-                    container.innerHTML = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
-                }
-            }
+
+                    // Sort by newest first
+                    events.sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                        return dateB - dateA;
+                    });
+
+                    // ✅ Count active events: exclude cancelled, rejected, and pending_payment
+                    activeEventsCount = events.filter(ev => 
+                        ev.status !== 'cancelled' && 
+                        ev.status !== 'rejected' && 
+                        ev.status !== 'pending_payment'
+                    ).length;
+
+                    // Step 3: Now also fetch total packages from subscriptions (approved/active)
+                    return db.collection('subscriptions')
+                        .where('userId', '==', currentOrganizerId)
+                        .where('status', 'in', ['approved', 'active'])
+                        .get()
+                        .then(subsSnap => {
+                            totalPackages = subsSnap.size; // simple count
+                            updateCreateButton();
+                            if (events.length === 0) {
+                                listDiv.innerHTML = '';
+                                noMsg.style.display = 'block';
+                                noMsg.textContent = 'No events created yet. Click "Create New Event" to get started.';
+                                return;
+                            }
+                            displayEvents(events);
+                        });
+                })
+                .catch(err => {
+                    console.error('loadMyEvents: ERROR', err);
+                    // Fallback: try loading events without subscriptions
+                    db.collection('events')
+                        .where('organizerId', '==', currentOrganizerId)
+                        .get()
+                        .then(snapshot => {
+                            const events = [];
+                            snapshot.forEach(doc => {
+                                const data = doc.data();
+                                events.push({
+                                    id: data.id || doc.id,
+                                    docId: doc.id,
+                                    ...data
+                                });
+                            });
+                            events.sort((a, b) => {
+                                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                                return dateB - dateA;
+                            });
+                            activeEventsCount = events.filter(ev => 
+                                ev.status !== 'cancelled' && 
+                                ev.status !== 'rejected' && 
+                                ev.status !== 'pending_payment'
+                            ).length;
+                            // Try to get package count anyway (if possible)
+                            db.collection('subscriptions')
+                                .where('userId', '==', currentOrganizerId)
+                                .where('status', 'in', ['approved', 'active'])
+                                .get()
+                                .then(subsSnap => {
+                                    totalPackages = subsSnap.size;
+                                    updateCreateButton();
+                                })
+                                .catch(() => { totalPackages = 0; updateCreateButton(); });
+                            if (events.length === 0) {
+                                listDiv.innerHTML = '';
+                                noMsg.style.display = 'block';
+                                noMsg.textContent = 'No events created yet. Click "Create New Event" to get started.';
+                            } else {
+                                displayEvents(events);
+                            }
+                        })
+                        .catch(err2 => {
+                            listDiv.innerHTML = '';
+                            noMsg.style.display = 'block';
+                            noMsg.textContent = '❌ Failed to load events: ' + (err2.message || 'unknown error');
+                            showToast('Failed to load events: ' + err2.message, 'error');
+                        });
+                });
         }
 
-        // ==========================================
-        // EXPOSED FUNCTIONS
-        // ==========================================
-        window.showView = function(viewId) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
+        // ============ DISPLAY EVENTS (unchanged) ============
+        function displayEvents(events) {
+            const listDiv = document.getElementById('my-events-list');
+            const noMsg = document.getElementById('no-events-msg');
+            listDiv.innerHTML = '';
+            noMsg.style.display = 'none';
 
-        window.startCheckout = async function(planName, price, planId) {
-            if (!currentUser) { window.location.href = "index.html"; return; }
-            // Check if there's already a pending subscription for this plan
-            try {
-                const q = query(
-                    collection(db, 'subscriptions'),
-                    where('userId', '==', currentUser.uid),
-                    where('planId', '==', planId),
-                    where('status', '==', 'pending_payment')
-                );
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    showToast('You already have a pending invoice for this plan.', 'error');
+            if (!events || events.length === 0) {
+                noMsg.style.display = 'block';
+                noMsg.textContent = 'No events found.';
+                return;
+            }
+
+            events.forEach(ev => {
+                if (!ev) return;
+                const eventId = ev.id || ev.docId;
+                if (!eventId) {
+                    console.warn('displayEvents: Skipping event with no id', ev);
                     return;
                 }
-            } catch (error) { console.error(error); }
 
-            selectedPlan.id = planId;
-            selectedPlan.name = planName;
-            selectedPlan.price = price;
-            document.getElementById('main-header').style.display = 'none';
-            document.getElementById('display-plan-name').innerText = planName;
-            window.showView('view-checkout');
-            window.goToStep(1);
-        };
+                const card = document.createElement('div');
+                card.className = 'event-card';
 
-        window.goBackToPricing = function() {
-            document.getElementById('main-header').style.display = 'block';
-            window.showView('view-pricing');
-            renderUserEvents();
-            updatePlanButtons();
-        };
+                let actionsHtml = '';
 
-        window.goToStep = function(stepNum) {
-            document.querySelectorAll('.step').forEach(step => {
-                const sNum = parseInt(step.getAttribute('data-step'));
-                step.classList.remove('active', 'done');
-                if (sNum < stepNum) step.classList.add('done');
-                if (sNum === stepNum) step.classList.add('active');
-            });
-
-            document.querySelectorAll('.step-content').forEach(content => content.classList.add('hidden'));
-            document.getElementById(`step-${stepNum}`).classList.remove('hidden');
-
-            if (stepNum === 3) {
-                const fName = document.getElementById('cust-fname').value;
-                const lName = document.getElementById('cust-lname').value;
-                const price = selectedPlan.price;
-                document.getElementById('summary-plan').innerText = selectedPlan.name;
-                document.getElementById('summary-name').innerText = `${fName} ${lName}`;
-                document.getElementById('summary-unit-price').innerText = `$${price}.00`;
-                document.getElementById('summary-price').innerText = `$${price}.00`;
-            }
-        };
-
-        window.validateAndNext = function(currentStep, nextStep) {
-            const stepContainer = document.getElementById(`step-${currentStep}`);
-            const inputs = stepContainer.querySelectorAll('input[required], select[required]');
-            let valid = true;
-            inputs.forEach(input => {
-                if (!input.checkValidity()) { input.reportValidity();
-                    valid = false; }
-            });
-            if (currentStep === 2) {
-                const checkbox = document.getElementById('agreement');
-                if (!checkbox.checked) {
-                    showToast("Please agree to the manual payment terms to proceed.", "error");
-                    valid = false;
+                if (ev.status === 'pending' || ev.status === 'pending_payment') {
+                    actionsHtml += `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
+                    actionsHtml += `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
                 }
-            }
-            if (valid) window.goToStep(nextStep);
-        };
 
-        // ==========================================
-        // GENERATE INVOICE (uses addDoc for subscriptions)
-        // ==========================================
-        window.generateInvoice = async function() {
-            if (!currentUser) { 
-                window.location.href = "index.html"; 
-                return; 
+                if (ev.status === 'approved') {
+                    actionsHtml += `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+                }
+
+                if (!actionsHtml.includes('edit-btn') && ev.status !== 'cancelled' && ev.status !== 'rejected') {
+                    actionsHtml = `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button> ` + actionsHtml;
+                }
+
+                if (!actionsHtml) {
+                    actionsHtml = `<span style="color:var(--text-muted);font-size:0.8rem;">No actions available</span>`;
+                }
+
+                const statusText = (ev.status || 'unknown').replace(/_/g, ' ').toUpperCase();
+
+                card.innerHTML = `
+                    <div class="event-title-row">
+                        <strong>${ev.eventName || 'Unnamed Event'}</strong>
+                        <span class="status status-${ev.status || 'pending'}">${statusText}</span>
+                        <div style="font-size:0.85rem; color:var(--text-muted); display:inline-block;">
+                            ${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : 'No date'} – ${ev.location || 'No location'}
+                        </div>
+                    </div>
+                    <div class="actions">
+                        ${actionsHtml}
+                    </div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        // ============ EVENT ACTIONS (unchanged) ============
+        window.editEvent = function(eventId) {
+            if (!eventId || eventId === 'undefined') {
+                showToast('Invalid event ID.', 'error');
+                return;
             }
-            
-            // Check for pending subscription again (double-check)
-            try {
-                const q = query(
-                    collection(db, 'subscriptions'),
-                    where('userId', '==', currentUser.uid),
-                    where('planId', '==', selectedPlan.id),
-                    where('status', '==', 'pending_payment')
-                );
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    showToast('You already have a pending invoice for this plan.', 'error');
+
+            db.collection('events').doc(eventId).get().then(doc => {
+                if (!doc.exists) {
+                    showToast('Event not found.', 'error');
                     return;
                 }
-            } catch (error) { 
-                console.warn("Duplicate check bypassed:", error); 
+                const ev = doc.data();
+
+                eventFormCard.classList.remove('hidden');
+                ticketTypesCard.classList.remove('hidden');
+                termsSubmitCard.classList.remove('hidden');
+                showCreateBtn.style.display = 'none';
+
+                document.getElementById('eventName').value = ev.eventName || '';
+                document.getElementById('eventType').value = ev.type || '';
+                document.getElementById('eventDescription').value = ev.description || '';
+                document.getElementById('startDate').value = ev.startDate || '';
+                document.getElementById('endDate').value = ev.endDate || '';
+                document.getElementById('location').value = ev.location || '';
+                document.getElementById('capacity').value = ev.capacity || '';
+                document.getElementById('organizerName').value = ev.organizerName || '';
+                document.getElementById('organizerEmail').value = ev.organizerEmail || '';
+                document.getElementById('organizerPhone').value = ev.organizerPhone || '';
+                document.getElementById('ageRestriction').value = ev.ageRestriction || '';
+                document.getElementById('dressCode').value = ev.dressCode || '';
+
+                if (ev.posterImage) {
+                    document.getElementById('posterPreview').src = ev.posterImage;
+                    document.getElementById('posterPreview').style.display = 'block';
+                } else {
+                    document.getElementById('posterPreview').style.display = 'none';
+                }
+
+                document.getElementById('ticket-types-container').innerHTML = '';
+                ticketCount = 0;
+                if (ev.ticketTypes && ev.ticketTypes.length) {
+                    ev.ticketTypes.forEach(tt => {
+                        addTicketType();
+                        const lastRow = document.querySelector('.ticket-type-row:last-child');
+                        if (lastRow) {
+                            lastRow.querySelector('.ticket-name').value = tt.name || '';
+                            lastRow.querySelector('.ticket-price').value = tt.price || 0;
+                            lastRow.querySelector('.ticket-quantity').value = tt.quantity || 0;
+                            lastRow.querySelector('.ticket-description').value = tt.description || '';
+                            if (tt.imageBase64) {
+                                const preview = lastRow.querySelector('.ticket-preview');
+                                if (preview) {
+                                    preview.src = tt.imageBase64;
+                                    preview.style.display = 'block';
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    addTicketType();
+                }
+
+                const submitBtn = document.getElementById('submit-event');
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> <span>Update & Resubmit</span>';
+                submitBtn.dataset.editId = eventId;
+            }).catch(err => {
+                console.error('Error editing event:', err);
+                showToast('Failed to load event details: ' + err.message, 'error');
+            });
+        };
+
+        window.cancelEvent = async function(eventId) {
+            if (!eventId || eventId === 'undefined') {
+                showToast('Invalid event ID.', 'error');
+                return;
             }
-
-            const btn = document.getElementById('btn-generate-invoice');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-            btn.disabled = true;
-
+            if (!confirm('Mark this event as cancelled? This will remove it from public view.')) return;
             try {
-                const fName = document.getElementById('cust-fname').value;
-                const lName = document.getElementById('cust-lname').value;
-                const email = document.getElementById('cust-email').value;
-                const phone = document.getElementById('cust-phone').value;
-                const company = document.getElementById('cust-company').value;
-                const zip = document.getElementById('cust-zip').value;
-                const street = document.getElementById('cust-street').value;
-                const city = document.getElementById('cust-city').value;
-                const country = document.getElementById('cust-country').value;
-                const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+                await db.collection('events').doc(eventId).update({ status: 'cancelled' });
+                showToast('Event has been cancelled.', 'success');
+                loadMyEvents();
+            } catch (err) {
+                console.error('Cancel failed:', err);
+                showToast('Failed to cancel event: ' + err.message, 'error');
+            }
+        };
 
-                console.log('📝 Generating invoice for:', selectedPlan.name);
-                console.log('📝 Invoice number:', invNumber);
+        window.requestCancellation = async function(eventId) {
+            if (!eventId || eventId === 'undefined') {
+                showToast('Invalid event ID.', 'error');
+                return;
+            }
+            if (!confirm('Send cancellation request to admin?')) return;
+            try {
+                await db.collection('events').doc(eventId).update({ status: 'cancellation_requested' });
+                showToast('Cancellation request sent to admin.', 'success');
+                loadMyEvents();
+            } catch (err) {
+                console.error('Request failed:', err);
+                showToast('Failed to send request: ' + err.message, 'error');
+            }
+        };
 
-                // ============================================================
-                // 1. CREATE INVOICE
-                // ============================================================
-                await setDoc(doc(db, "invoices", invNumber), {
-                    userId: currentUser.uid,
-                    invoiceNumber: invNumber,
-                    packageDetails: { 
-                        name: selectedPlan.name, 
-                        price: selectedPlan.price 
-                    },
-                    customerInfo: {
-                        firstName: fName,
-                        lastName: lName,
-                        email: email,
-                        phone: phone,
-                        company: company,
-                        zip: zip,
-                        address: { street, city, country }
-                    },
-                    paymentStatus: 'pending_manual_transfer',
-                    status: 'pending',
-                    createdAt: serverTimestamp()
-                });
-                console.log('✅ Invoice created:', invNumber);
+        // ============ TERMS MODAL ============
+        document.getElementById('open-terms').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'flex';
+        });
+        document.getElementById('close-terms').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'none';
+        });
+        document.getElementById('terms-modal').addEventListener('click', function(e) {
+            if (e.target === this) this.style.display = 'none';
+        });
+        document.getElementById('accept-terms-btn').addEventListener('click', () => {
+            document.getElementById('terms-modal').style.display = 'none';
+            document.getElementById('agreeTerms').checked = true;
+        });
 
-                // ============================================================
-                // 2. CREATE SUBSCRIPTION WITH AUTO-GENERATED ID (addDoc)
-                //    This ensures each purchase creates a new document.
-                // ============================================================
-                const subData = {
-                    userId: currentUser.uid,
-                    planId: selectedPlan.id,
-                    planName: selectedPlan.name,
-                    price: selectedPlan.price,
-                    invoiceNumber: invNumber,
-                    status: 'pending_payment',
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                    customerInfo: { 
-                        firstName: fName, 
-                        lastName: lName, 
-                        email: email, 
-                        phone: phone,
-                        company: company,
-                        zip: zip,
-                        address: { street, city, country }
+        // ============ INIT ============
+        document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
+        document.getElementById('posterUpload').addEventListener('change', async function() {
+            if (this.files[0]) await handlePosterUpload(this.files[0]);
+        });
+
+        // ============ AUTH ============
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log("Logged in Organizer:", user.uid);
+                currentOrganizerId = user.uid;
+                loadMyEvents();
+                if (document.querySelectorAll('.ticket-type-row').length === 0) {
+                    addTicketType();
+                }
+            } else {
+                const email = prompt("Organizer Login - Enter your email:");
+                if (email) {
+                    const password = prompt("Enter your password:");
+                    if (password) {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .then(() => showToast("Login successful!", "success"))
+                            .catch((err) => {
+                                document.body.innerHTML = `<h2 style='padding:20px; color:var(--navy);'>Access Denied. ${err.message}</h2>`;
+                            });
                     }
-                };
-                const subRef = await addDoc(collection(db, 'subscriptions'), subData);
-                console.log('✅ Subscription CREATED with ID:', subRef.id);
-
-                // ============================================================
-                // 3. UPDATE USER
-                // ============================================================
-                await setDoc(doc(db, "users", currentUser.uid), {
-                    activePlan: selectedPlan.name,
-                    subscriptionStatus: 'pending_payment',
-                    latestInvoiceId: invNumber
-                }, { merge: true });
-                console.log('✅ User updated');
-
-                // ============================================================
-                // 4. DISPLAY INVOICE
-                // ============================================================
-                document.getElementById('inv-number').innerText = invNumber;
-                document.getElementById('inv-name').innerText = `${fName} ${lName}`;
-                document.getElementById('inv-email').innerText = email;
-                document.getElementById('inv-date').innerText = dateStr;
-                document.getElementById('inv-item').innerText = selectedPlan.name;
-                document.getElementById('inv-item-price').innerText = `$${selectedPlan.price}.00`;
-                document.getElementById('inv-total').innerText = `$${selectedPlan.price}.00`;
-
-                localStorage.setItem('zone21_package', selectedPlan.name);
-                localStorage.setItem('zone21_invoice', invNumber);
-
-                showToast('✅ Invoice generated successfully! Once payment is approved, go to your dashboard to create your event.', 'success');
-                window.showView('view-invoice');
-                updatePlanButtons();
-
-            } catch (error) {
-                console.error("❌ Database Error:", error);
-                console.error("❌ Error details:", error.message);
-                showToast('Failed to generate invoice: ' + error.message, 'error');
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                } else {
+                    document.body.innerHTML = "<h2 style='padding:20px; color:var(--navy);'>Access Denied. Authentication required.</h2>";
+                }
             }
-        };
+        });
 
-        // ==========================================
-        // VIEW EXISTING INVOICE (by invoice number)
-        // ==========================================
-        window.viewExistingInvoice = async function(invoiceNumber) {
-            if (!currentUser) { window.location.href = "index.html"; return; }
-            try {
-                const invSnap = await getDoc(doc(db, "invoices", invoiceNumber));
-                if (!invSnap.exists()) { showToast('Invoice not found.', 'error'); return; }
-                const invData = invSnap.data();
-                
-                const getSafeDate = (ts) => {
-                    if (!ts) return new Date();
-                    if (typeof ts.toDate === 'function') return ts.toDate();
-                    if (ts.seconds) return new Date(ts.seconds * 1000);
-                    return new Date(ts);
-                };
-                const dateStr = getSafeDate(invData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-
-                document.getElementById('inv-number').innerText = invData.invoiceNumber;
-                document.getElementById('inv-name').innerText = `${invData.customerInfo.firstName} ${invData.customerInfo.lastName}`;
-                document.getElementById('inv-email').innerText = invData.customerInfo.email;
-                document.getElementById('inv-date').innerText = dateStr;
-                document.getElementById('inv-item').innerText = invData.packageDetails.name;
-                document.getElementById('inv-item-price').innerText = `$${invData.packageDetails.price}.00`;
-                document.getElementById('inv-total').innerText = `$${invData.packageDetails.price}.00`;
-
-                document.getElementById('main-header').style.display = 'none';
-                window.showView('view-invoice');
-            } catch (error) {
-                console.error("Error viewing invoice:", error);
-                showToast("Failed to load invoice.", "error");
-            }
-        };
-
-        window.renderUserEvents = renderUserEvents;
-        window.updatePlanButtons = updatePlanButtons;
+        // ============ DEFAULT TICKET TYPE ============
+        if (document.querySelectorAll('.ticket-type-row').length === 0) {
+            addTicketType();
+        }
     </script>
 </body>
 </html>

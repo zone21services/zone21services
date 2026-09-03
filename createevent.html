@@ -160,7 +160,7 @@
         .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .event-card .event-title-row strong { font-size: 1rem; }
 
-        /* package limit banner – updated colors */
+        /* package limit banner */
         .package-info {
             background: var(--navy);
             color: var(--lime);
@@ -200,7 +200,7 @@
             <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
         </div>
 
-        <!-- Package Info Banner (now reflects approved subscriptions) -->
+        <!-- Package Info Banner -->
         <div class="package-info" id="packageInfo">
             <span><i class="fas fa-boxes"></i> Available Packages</span>
             <span><span id="usedPackages">0</span> / <span id="totalPackages">0</span> used</span>
@@ -702,7 +702,7 @@
             }
         });
 
-        // ============ LOAD MY EVENTS (with self-heal for pending_payment) ============
+        // ============ LOAD MY EVENTS (FIXED) ============
         function loadMyEvents() {
             if (!currentOrganizerId) {
                 console.warn('loadMyEvents: No organizer ID');
@@ -714,8 +714,9 @@
             listDiv.innerHTML = '<p class="helper" style="text-align:center; padding:20px;">Loading your events...</p>';
             noMsg.style.display = 'none';
 
-            // First, get approved subscription invoices to self-heal pending events
             let approvedInvoiceNumbers = [];
+
+            // Step 1: get approved subscriptions to self-heal pending events
             db.collection('subscriptions')
                 .where('userId', '==', currentOrganizerId)
                 .where('status', 'in', ['approved', 'active'])
@@ -725,7 +726,7 @@
                         const data = doc.data();
                         if (data.invoiceNumber) approvedInvoiceNumbers.push(data.invoiceNumber);
                     });
-                    // Now fetch events
+                    // Step 2: fetch events (even if subscriptions query returns nothing)
                     return db.collection('events')
                         .where('organizerId', '==', currentOrganizerId)
                         .get();
@@ -733,12 +734,15 @@
                 .then(snapshot => {
                     const events = [];
                     const batch = db.batch();
+                    let hasUpdates = false;  // ✅ FIX: use a flag instead of batch._operations
+
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         // Self‑heal: if event is pending_payment and its invoice is now approved, update to approved
                         if (data.status === 'pending_payment' && data.invoiceNumber && approvedInvoiceNumbers.includes(data.invoiceNumber)) {
                             const ref = db.collection('events').doc(doc.id);
                             batch.update(ref, { status: 'approved' });
+                            hasUpdates = true;
                             data.status = 'approved'; // update local copy
                         }
                         events.push({
@@ -747,8 +751,9 @@
                             ...data
                         });
                     });
-                    // Commit any self‑heal updates
-                    if (batch._operations.length > 0) {
+
+                    // Commit any self‑heal updates only if we added any
+                    if (hasUpdates) {
                         batch.commit().catch(err => console.warn('Self‑heal batch failed:', err));
                     }
 
@@ -778,10 +783,44 @@
                 })
                 .catch(err => {
                     console.error('loadMyEvents: ERROR', err);
-                    listDiv.innerHTML = '';
-                    noMsg.style.display = 'block';
-                    noMsg.textContent = '❌ Failed to load events: ' + (err.message || 'unknown error');
-                    showToast('Failed to load events: ' + err.message, 'error');
+                    // Even if the subscription query fails, try to load events directly
+                    // as a fallback (some users may not have subscriptions yet)
+                    db.collection('events')
+                        .where('organizerId', '==', currentOrganizerId)
+                        .get()
+                        .then(snapshot => {
+                            const events = [];
+                            snapshot.forEach(doc => {
+                                const data = doc.data();
+                                events.push({
+                                    id: data.id || doc.id,
+                                    docId: doc.id,
+                                    ...data
+                                });
+                            });
+                            events.sort((a, b) => {
+                                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                                return dateB - dateA;
+                            });
+                            activeEventsCount = events.filter(ev => 
+                                ev.status !== 'cancelled' && ev.status !== 'rejected'
+                            ).length;
+                            updateCreateButton();
+                            if (events.length === 0) {
+                                listDiv.innerHTML = '';
+                                noMsg.style.display = 'block';
+                                noMsg.textContent = 'No events created yet. Click "Create New Event" to get started.';
+                            } else {
+                                displayEvents(events);
+                            }
+                        })
+                        .catch(err2 => {
+                            listDiv.innerHTML = '';
+                            noMsg.style.display = 'block';
+                            noMsg.textContent = '❌ Failed to load events: ' + (err2.message || 'unknown error');
+                            showToast('Failed to load events: ' + err2.message, 'error');
+                        });
                 });
         }
 
@@ -978,11 +1017,11 @@
                         count++;
                     }
                 });
-                totalPackages = count; // could be 0
+                totalPackages = count;
                 console.log('Approved subscriptions count:', totalPackages);
             } catch (err) {
                 console.error('Error fetching subscriptions:', err);
-                totalPackages = 0; // fallback: no packages
+                totalPackages = 0;
             }
             updateCreateButton();
         }
@@ -998,9 +1037,7 @@
             if (user) {
                 console.log("Logged in Organizer:", user.uid);
                 currentOrganizerId = user.uid;
-                // Load package count from subscriptions first
                 await loadUserPackages(user.uid);
-                // Then load events (which will update activeEventsCount and self-heal)
                 loadMyEvents();
                 if (document.querySelectorAll('.ticket-type-row').length === 0) {
                     addTicketType();

@@ -13,7 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* ========== (Same styles as before – no changes) ========== */
+        /* ========== (All styles unchanged – same as before) ========== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -160,7 +160,7 @@
         .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .event-card .event-title-row strong { font-size: 1rem; }
 
-        /* package limit banner */
+        /* package limit banner – updated colors */
         .package-info {
             background: var(--navy);
             color: var(--lime);
@@ -200,9 +200,9 @@
             <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
         </div>
 
-        <!-- Package Info Banner -->
+        <!-- Package Info Banner (now reflects approved subscriptions) -->
         <div class="package-info" id="packageInfo">
-            <span><i class="fas fa-boxes"></i> Your Packages</span>
+            <span><i class="fas fa-boxes"></i> Available Packages</span>
             <span><span id="usedPackages">0</span> / <span id="totalPackages">0</span> used</span>
         </div>
 
@@ -295,7 +295,7 @@
             </form>
         </div>
 
-        <!-- Ticket Types Card (hidden by default, shown with form) -->
+        <!-- Ticket Types Card -->
         <div class="card hidden" id="ticket-types-card">
             <h2>Ticket Types</h2>
             <div id="ticket-types-container"></div>
@@ -303,7 +303,7 @@
             <p style="margin-top:10px; color:var(--text-muted);">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</p>
         </div>
 
-        <!-- Terms & Submit (hidden) -->
+        <!-- Terms & Submit -->
         <div class="card hidden" id="terms-submit-card">
             <h2>Terms & Conditions</h2>
 
@@ -402,7 +402,7 @@
 
         // ============ GLOBAL VARIABLES ============
         let currentOrganizerId = null;
-        let totalPackages = 0;          // from user document
+        let totalPackages = 0;          // computed from approved subscriptions
         let activeEventsCount = 0;      // events with status not cancelled/rejected
 
         // ============ TOAST ============
@@ -443,7 +443,12 @@
             // Update package banner
             usedPackagesSpan.textContent = activeEventsCount;
             totalPackagesSpan.textContent = totalPackages;
-            if (activeEventsCount >= totalPackages && totalPackages > 0) {
+            if (totalPackages === 0) {
+                packageInfo.style.background = '#f8d7da';
+                packageInfo.style.color = '#721c24';
+                packageInfo.innerHTML = `<span><i class="fas fa-exclamation-triangle"></i> No active packages</span>
+                                         <span>0 / 0 used</span>`;
+            } else if (activeEventsCount >= totalPackages) {
                 packageInfo.style.background = '#f8d7da';
                 packageInfo.style.color = '#721c24';
                 packageInfo.innerHTML = `<span><i class="fas fa-exclamation-triangle"></i> Package limit reached</span>
@@ -451,16 +456,15 @@
             } else {
                 packageInfo.style.background = 'var(--navy)';
                 packageInfo.style.color = 'var(--lime)';
-                packageInfo.innerHTML = `<span><i class="fas fa-boxes"></i> Your Packages</span>
+                packageInfo.innerHTML = `<span><i class="fas fa-boxes"></i> Available Packages</span>
                                          <span><span id="usedPackages">${activeEventsCount}</span> / <span id="totalPackages">${totalPackages}</span> used</span>`;
             }
         }
 
         // ============ SHOW/HIDE FORM ============
         showCreateBtn.addEventListener('click', () => {
-            // Double-check limit before opening form
             if (activeEventsCount >= totalPackages) {
-                showToast('You have used all your event packages. Please purchase additional packages.', 'error');
+                showToast('You have used all your packages. Please purchase additional packages.', 'error');
                 return;
             }
             eventFormCard.classList.remove('hidden');
@@ -622,7 +626,7 @@
 
             // For new events, check package limit
             if (!editId && activeEventsCount >= totalPackages) {
-                showToast('You have used all your event packages. Please purchase additional packages.', 'error');
+                showToast('You have used all your packages. Please purchase additional packages.', 'error');
                 return;
             }
 
@@ -644,7 +648,6 @@
                 const ticketTypes = await collectTicketTypes();
                 if (!ticketTypes) throw new Error("Ticket validation failed");
 
-                // Each event gets a unique ID
                 const eventId = editId || 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
 
                 const eventData = {
@@ -699,7 +702,7 @@
             }
         });
 
-        // ============ LOAD MY EVENTS ============
+        // ============ LOAD MY EVENTS (with self-heal for pending_payment) ============
         function loadMyEvents() {
             if (!currentOrganizerId) {
                 console.warn('loadMyEvents: No organizer ID');
@@ -711,19 +714,43 @@
             listDiv.innerHTML = '<p class="helper" style="text-align:center; padding:20px;">Loading your events...</p>';
             noMsg.style.display = 'none';
 
-            db.collection('events')
-                .where('organizerId', '==', currentOrganizerId)
+            // First, get approved subscription invoices to self-heal pending events
+            let approvedInvoiceNumbers = [];
+            db.collection('subscriptions')
+                .where('userId', '==', currentOrganizerId)
+                .where('status', 'in', ['approved', 'active'])
                 .get()
                 .then(snapshot => {
-                    const events = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
+                        if (data.invoiceNumber) approvedInvoiceNumbers.push(data.invoiceNumber);
+                    });
+                    // Now fetch events
+                    return db.collection('events')
+                        .where('organizerId', '==', currentOrganizerId)
+                        .get();
+                })
+                .then(snapshot => {
+                    const events = [];
+                    const batch = db.batch();
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        // Self‑heal: if event is pending_payment and its invoice is now approved, update to approved
+                        if (data.status === 'pending_payment' && data.invoiceNumber && approvedInvoiceNumbers.includes(data.invoiceNumber)) {
+                            const ref = db.collection('events').doc(doc.id);
+                            batch.update(ref, { status: 'approved' });
+                            data.status = 'approved'; // update local copy
+                        }
                         events.push({
                             id: data.id || doc.id,
                             docId: doc.id,
                             ...data
                         });
                     });
+                    // Commit any self‑heal updates
+                    if (batch._operations.length > 0) {
+                        batch.commit().catch(err => console.warn('Self‑heal batch failed:', err));
+                    }
 
                     // Sort by newest first
                     events.sort((a, b) => {
@@ -784,7 +811,7 @@
 
                 let actionsHtml = '';
 
-                if (ev.status === 'pending') {
+                if (ev.status === 'pending' || ev.status === 'pending_payment') {
                     actionsHtml += `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
                     actionsHtml += `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
                 }
@@ -938,21 +965,25 @@
             document.getElementById('agreeTerms').checked = true;
         });
 
-        // ============ FETCH USER PACKAGE COUNT ============
+        // ============ FETCH USER PACKAGE COUNT FROM SUBSCRIPTIONS ============
         async function loadUserPackages(uid) {
             try {
-                const userDoc = await getDoc(doc(db, 'users', uid));
-                if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    totalPackages = data.packageCount || 1;  // default to 1 if not set
-                } else {
-                    totalPackages = 1; // fallback
-                }
+                const subsSnapshot = await db.collection('subscriptions')
+                    .where('userId', '==', uid)
+                    .get();
+                let count = 0;
+                subsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'approved' || data.status === 'active') {
+                        count++;
+                    }
+                });
+                totalPackages = count; // could be 0
+                console.log('Approved subscriptions count:', totalPackages);
             } catch (err) {
-                console.error('Error fetching packages:', err);
-                totalPackages = 1;
+                console.error('Error fetching subscriptions:', err);
+                totalPackages = 0; // fallback: no packages
             }
-            // Update UI after package count is known
             updateCreateButton();
         }
 
@@ -967,9 +998,9 @@
             if (user) {
                 console.log("Logged in Organizer:", user.uid);
                 currentOrganizerId = user.uid;
-                // Load package count first
+                // Load package count from subscriptions first
                 await loadUserPackages(user.uid);
-                // Then load events
+                // Then load events (which will update activeEventsCount and self-heal)
                 loadMyEvents();
                 if (document.querySelectorAll('.ticket-type-row').length === 0) {
                     addTicketType();

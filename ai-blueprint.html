@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Zone21 System | Event Blueprint Generator</title>
+    <title>Zone21 Ultimate | Event Blueprint Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
     <!-- Firebase SDK (Compat) v10.8.0 -->
@@ -15,38 +15,59 @@
     </script>
 
     <style>
+        /* ============================================================
+           ROOT — Clean, stable, no overflow
+           ============================================================ */
         :root {
             --navy: #102838;
             --lime: #C0C800;
             --pink: #F80070;
-            --white: #F8F8F8;
+            --gold: #D4A017;
             --grey: #E0E0E8;
-            --radius: 16px;
-            --radius-xl: 24px;
+            --radius: 12px;
+            --radius-xl: 20px;
+            --max-width: 1100px;
         }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        html {
-            height: -webkit-fill-available;
-        }
+
+        html,
         body {
+            height: 100%;
+            height: -webkit-fill-available;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f5f3f1 100%);
-            min-height: 100vh;
-            min-height: -webkit-fill-available;
-            height: 100dvh;
             display: flex;
             padding: 20px;
             gap: 20px;
-            overflow: hidden;
             color: var(--navy);
             margin: 0;
+            height: 100dvh;
+            overflow: hidden;
         }
 
-        /* Sidebar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--lime);
+            border-radius: 4px;
+        }
+
+        /* ============================================================
+           SIDEBAR
+           ============================================================ */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -59,6 +80,11 @@
             opacity: 0;
             transition: opacity 0.3s ease;
         }
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
         .sidebar {
             width: 300px;
             background: var(--navy);
@@ -68,92 +94,113 @@
             flex-direction: column;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(16, 40, 56, 0.15);
+            flex-shrink: 0;
             transition: transform 0.3s ease;
             z-index: 1000;
-            flex-shrink: 0;
         }
+
         .sidebar-header {
-            padding: 20px;
+            padding: 20px 24px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .sidebar-header .badge-package {
-            font-size: 0.65rem;
+        .sidebar-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--lime);
+        }
+        .sidebar-header .badge {
+            font-size: 0.6rem;
             background: var(--lime);
             color: var(--navy);
-            padding: 3px 10px;
+            padding: 2px 12px;
             border-radius: 20px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }
+
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
         .new-chat-btn {
+            width: 100%;
+            padding: 14px;
             background: var(--lime);
             color: var(--navy);
             border: none;
-            padding: 12px 15px;
-            border-radius: 20px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: 0.95rem;
             cursor: pointer;
-            font-weight: bold;
-            width: 100%;
-            margin-top: 15px;
             transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 16px;
         }
         .new-chat-btn:hover {
             background: white;
+            transform: translateY(-2px);
         }
-        .history-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
+
         .history-item {
-            padding: 10px 12px;
+            padding: 12px 14px;
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            margin-bottom: 8px;
+            border-radius: var(--radius);
+            margin-bottom: 6px;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.85rem;
             transition: 0.2s;
-            gap: 8px;
+            border-left: 3px solid transparent;
         }
         .history-item:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.12);
         }
         .history-item.active {
-            border-left: 4px solid var(--lime);
-            background: rgba(255, 255, 255, 0.1);
+            border-left-color: var(--lime);
+            background: rgba(255, 255, 255, 0.08);
         }
-        .history-item .item-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            overflow: hidden;
-            flex: 1;
-        }
-        .history-item .item-title {
+        .history-item .title {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            color: white;
+            color: rgba(255, 255, 255, 0.85);
         }
         .history-item .delete-btn {
-            color: rgba(255, 255, 255, 0.4);
-            padding: 4px;
-            border-radius: 4px;
+            color: rgba(255, 255, 255, 0.3);
+            padding: 4px 8px;
+            border-radius: 6px;
             transition: 0.2s;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 0.9rem;
         }
         .history-item .delete-btn:hover {
             color: var(--pink);
             background: rgba(248, 0, 112, 0.15);
         }
 
-        /* Workspace */
+        .sidebar-footer {
+            padding: 12px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.3);
+            text-align: center;
+        }
+
+        /* ============================================================
+           WORKSPACE
+           ============================================================ */
         .workspace {
             flex: 1;
             background: white;
@@ -162,74 +209,74 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            position: relative;
             min-width: 0;
         }
+
         .workspace-header {
             background: var(--navy);
             color: white;
-            padding: 15px 20px;
+            padding: 14px 20px;
             display: flex;
             align-items: center;
             gap: 15px;
             border-bottom: 4px solid var(--lime);
-            z-index: 10;
+            flex-shrink: 0;
             flex-wrap: wrap;
         }
-        .menu-btn {
+        .workspace-header .menu-btn {
             display: none;
             background: transparent;
             border: none;
-            font-size: 1.4rem;
             color: white;
+            font-size: 1.4rem;
             cursor: pointer;
             padding: 5px;
         }
-        .workspace-header h1 {
-            font-size: 1.3rem;
+        .workspace-header .brand h1 {
+            font-size: 1.2rem;
             color: var(--lime);
             margin: 0;
+            font-weight: 700;
         }
-        .workspace-header p {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.8);
+        .workspace-header .brand p {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
             margin: 0;
         }
-        .header-right {
+        .workspace-header .right {
             margin-left: auto;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .header-right .package-tag {
+        .workspace-header .package-tag {
             background: var(--lime);
             color: var(--navy);
-            padding: 4px 14px;
+            padding: 3px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }
-        .header-right .user-email {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.7);
+        .workspace-header .user-email {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
             max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .header-right .logout-btn {
+        .workspace-header .logout-btn {
             background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             color: white;
-            padding: 5px 12px;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             cursor: pointer;
             transition: 0.2s;
         }
-        .header-right .logout-btn:hover {
+        .workspace-header .logout-btn:hover {
             background: rgba(255, 255, 255, 0.1);
             border-color: var(--pink);
         }
@@ -237,55 +284,116 @@
         .workspace-content {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 20px 24px;
             background: #fafbfc;
-            scroll-behavior: smooth;
         }
 
-        /* Form */
+        /* ============================================================
+           PACKAGE BANNER
+           ============================================================ */
+        .package-banner {
+            background: var(--navy);
+            color: white;
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .package-banner .pkg-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .package-banner .pkg-name {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--lime);
+        }
+        .package-banner .pkg-limit {
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 3px 14px;
+            border-radius: 20px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .package-banner .pkg-limit span {
+            color: var(--lime);
+            font-weight: 700;
+        }
+        .package-banner .pkg-action {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+            padding: 5px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+        }
+        .package-banner .pkg-action:hover {
+            background: white;
+        }
+
+        /* ============================================================
+           FORM
+           ============================================================ */
         .form-section {
             background: white;
-            padding: 25px;
-            border-radius: 16px;
+            padding: 22px 24px;
+            border-radius: var(--radius);
             border: 1px solid var(--grey);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
         }
+
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 25px;
+            gap: 18px;
+            margin-bottom: 18px;
         }
-        @media(max-width:768px) {
+        @media (max-width: 640px) {
             .form-grid {
                 grid-template-columns: 1fr;
             }
         }
+
         .input-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 5px;
         }
         .input-group label {
-            font-weight: bold;
-            font-size: 0.9rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
         }
         .input-group .hint {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #888;
             font-weight: 400;
-            margin-top: 2px;
         }
         .input-group input,
         .input-group select,
         .input-group textarea {
-            padding: 12px;
+            padding: 10px 14px;
             border: 1px solid var(--grey);
             border-radius: 8px;
             outline: none;
             transition: 0.3s;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             background: #f9fafb;
+            width: 100%;
         }
         .input-group input:focus,
         .input-group select:focus,
@@ -293,18 +401,14 @@
             border-color: var(--navy);
             background: white;
         }
-        .input-group input:disabled {
-            background: #f0f0f0;
-            color: #666;
-            cursor: not-allowed;
-        }
         .input-group textarea {
             resize: vertical;
-            min-height: 80px;
+            min-height: 70px;
         }
+
         .limit-badge {
             display: inline-block;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             background: var(--lime);
             color: var(--navy);
             padding: 1px 10px;
@@ -312,34 +416,30 @@
             font-weight: 700;
             margin-left: 6px;
         }
-        .limit-badge.warn {
-            background: var(--pink);
-            color: white;
-        }
 
         .services-wrapper {
-            margin-top: 15px;
+            margin-top: 14px;
         }
         .services-wrapper>label {
-            font-weight: bold;
-            font-size: 0.95rem;
-            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
             display: block;
             border-bottom: 2px solid var(--lime);
-            padding-bottom: 5px;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
         }
         .services-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 10px;
+            gap: 6px;
         }
         .service-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             background: #f0f4f8;
-            padding: 10px;
+            padding: 8px 12px;
             border-radius: 8px;
             border: 1px solid transparent;
             cursor: pointer;
@@ -349,36 +449,40 @@
             background: #e8eef4;
             border-color: var(--grey);
         }
-        .service-item input {
+        .service-item input[type="checkbox"] {
             accent-color: var(--pink);
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
             cursor: pointer;
             flex-shrink: 0;
         }
-        .service-item.disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            pointer-events: none;
+        .service-item .zone21-badge {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 0 8px;
+            border-radius: 10px;
+            font-size: 0.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-left: auto;
         }
-
-        /* No model selector — completely removed */
 
         .submit-btn {
             width: 100%;
+            padding: 14px;
             background: var(--navy);
             color: var(--lime);
             border: none;
-            padding: 15px;
-            font-size: 1.1rem;
-            font-weight: bold;
             border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
             cursor: pointer;
             transition: 0.3s;
-            margin-top: 20px;
+            margin-top: 18px;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             gap: 10px;
         }
         .submit-btn:hover {
@@ -391,309 +495,312 @@
             cursor: not-allowed;
         }
 
+        /* ============================================================
+           LOADING
+           ============================================================ */
         #loading {
             display: none;
             text-align: center;
-            padding: 40px;
+            padding: 60px 20px;
         }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 40px;
-            height: 40px;
+        #loading .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.06);
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            border-left-color: var(--pink);
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px auto;
+            border-top-color: var(--pink);
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
         }
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
+            to {
                 transform: rotate(360deg);
             }
         }
+        #loading h3 {
+            color: var(--navy);
+            font-size: 1rem;
+        }
+        #loading p {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
 
+        /* ============================================================
+           BLUEPRINT RESULT — FULL WIDTH, SAFE CONTAINMENT
+           ============================================================ */
         #blueprint-container {
             display: none;
         }
         .blueprint-wrapper {
-            width: 100%;
-            margin-top: 10px;
-            animation: fadeInUp 0.3s ease forwards;
+            animation: fadeUp 0.4s ease forwards;
         }
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .blueprint-result {
             background: white;
-            padding: 30px;
-            border-radius: 16px;
+            padding: 24px 28px;
+            border-radius: var(--radius);
             border: 1px solid var(--grey);
-            width: 100%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
             word-wrap: break-word;
             overflow-x: auto;
+            line-height: 1.65;
+            color: #1a202c;
+            width: 100%;
+            max-width: 100%;
+            font-size: 0.95rem;
+        }
+
+        .blueprint-result table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            margin: 12px 0 18px;
+            font-size: 0.82rem;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+            display: table;
+            table-layout: auto;
+        }
+        .blueprint-result table th {
+            background: var(--navy);
+            color: white;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .blueprint-result table td {
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--grey);
+            word-break: break-word;
+        }
+        .blueprint-result table tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        .blueprint-result table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 12px 0 18px;
+            border-radius: var(--radius);
+            border: 1px solid var(--grey);
+        }
+        .table-responsive table {
+            margin: 0;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            min-width: 600px;
+        }
+
+        .blueprint-result h1 {
+            color: var(--navy);
+            font-size: 1.6rem;
+            border-bottom: 3px solid var(--lime);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            text-align: left;
+            font-weight: 700;
         }
         .blueprint-result h2 {
             color: var(--navy);
-            font-size: 1.4rem;
-            border-bottom: 3px solid var(--lime);
-            padding-bottom: 8px;
-            margin-top: 25px;
-            margin-bottom: 15px;
+            font-size: 1.2rem;
+            border-bottom: 2px solid var(--lime);
+            padding-bottom: 5px;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            clear: both;
         }
         .blueprint-result h2:first-child {
             margin-top: 0;
         }
         .blueprint-result h3 {
             color: var(--pink);
-            font-size: 1.1rem;
-            margin-top: 20px;
-            margin-bottom: 10px;
+            font-size: 1rem;
+            margin-top: 18px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        .blueprint-result h4 {
+            color: var(--navy);
+            font-size: 0.9rem;
+            margin-top: 14px;
+            margin-bottom: 4px;
+            font-weight: 600;
         }
         .blueprint-result ul {
             list-style: none;
             padding-left: 0;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
         .blueprint-result li {
-            margin-bottom: 10px;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            color: #333;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            padding-left: 20px;
+            position: relative;
         }
         .blueprint-result li:before {
-            content: "▪";
+            content: "▸";
             color: var(--lime);
-            font-size: 1.2rem;
-            line-height: 1;
+            position: absolute;
+            left: 0;
+            font-weight: 700;
         }
         .blueprint-result p {
-            margin-bottom: 15px;
-            line-height: 1.6;
-            color: #444;
-            font-size: 0.95rem;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
         }
-        .budget-warning {
-            background: rgba(248, 0, 112, 0.05);
-            border-left: 4px solid var(--pink);
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+        .blueprint-result hr {
+            border: none;
+            border-top: 2px dashed var(--grey);
+            margin: 20px 0;
         }
-        .budget-warning h2,
-        .budget-warning h3 {
-            border-bottom: none;
-            color: var(--pink);
-            margin-top: 0;
-        }
+
         .budget-success {
-            background: rgba(192, 200, 0, 0.08);
+            background: rgba(192, 200, 0, 0.06);
             border-left: 4px solid var(--lime);
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
         }
         .budget-success h2,
         .budget-success h3 {
-            border-bottom: none;
-            color: var(--navy);
-            margin-top: 0;
+            border-bottom: none !important;
+            color: var(--navy) !important;
+            margin-top: 0 !important;
         }
-        .budget-success h2 {
-            color: var(--navy);
-        }
+
         .budget-neutral {
             background: rgba(16, 40, 56, 0.04);
             border-left: 4px solid var(--navy);
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
         }
         .budget-neutral h2,
         .budget-neutral h3 {
-            border-bottom: none;
-            color: var(--navy);
-            margin-top: 0;
+            border-bottom: none !important;
+            color: var(--navy) !important;
+            margin-top: 0 !important;
         }
 
-        /* Zone21 Help — injected by JS */
-        .zone21-help {
-            background: linear-gradient(135deg, #0a1e2c 0%, #1a3a52 100%);
-            color: white;
-            padding: 30px 32px;
-            border-radius: 18px;
-            margin-top: 32px;
-            border: 2px solid var(--lime);
-            box-shadow: 0 10px 40px rgba(16, 40, 56, 0.25);
-            position: relative;
-            overflow: hidden;
+        .budget-warning {
+            background: rgba(248, 0, 112, 0.06);
+            border-left: 4px solid var(--pink);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
         }
-        .zone21-help::before {
-            content: "";
-            position: absolute;
-            top: -60px;
-            right: -60px;
-            width: 200px;
-            height: 200px;
-            background: rgba(192, 200, 0, 0.06);
-            border-radius: 50%;
-            pointer-events: none;
+        .budget-warning h2,
+        .budget-warning h3 {
+            border-bottom: none !important;
+            color: var(--pink) !important;
+            margin-top: 0 !important;
+        }
+
+        /* ============================================================
+           ZONE21 HELP — Clean, light, actionable
+           ============================================================ */
+        .zone21-help {
+            background: #f8f9fb;
+            color: var(--navy);
+            padding: 18px 22px;
+            border-radius: var(--radius);
+            margin-top: 26px;
+            border: 1px solid var(--grey);
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.02);
         }
         .zone21-help h2 {
-            color: var(--lime) !important;
-            border-bottom: 2px solid rgba(192, 200, 0, 0.25) !important;
-            padding-bottom: 12px;
+            color: var(--navy) !important;
+            border-bottom: 2px solid var(--lime) !important;
+            padding-bottom: 8px;
             margin-top: 0 !important;
-            font-size: 1.6rem;
-            letter-spacing: -0.3px;
-            position: relative;
-            z-index: 1;
-        }
-        .zone21-help h3 {
-            color: #f0f4f8 !important;
-            margin-top: 20px !important;
-            font-size: 1.15rem;
-            position: relative;
-            z-index: 1;
+            font-size: 1.1rem;
+            font-weight: 700;
         }
         .zone21-help p {
-            color: rgba(255, 255, 255, 0.92) !important;
-            font-size: 1rem;
-            line-height: 1.8;
-            position: relative;
-            z-index: 1;
+            color: #2d3748;
+            margin: 10px 0 14px;
+            font-size: 0.9rem;
         }
-        .zone21-help ul {
-            list-style: none;
-            padding-left: 0;
-            margin: 14px 0 20px 0;
-            position: relative;
-            z-index: 1;
-        }
-        .zone21-help ul li {
-            color: rgba(255, 255, 255, 0.92) !important;
-            padding: 7px 0;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.97rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .zone21-help ul li:last-child {
-            border-bottom: none;
-        }
-        .zone21-help ul li:before {
-            content: "✦";
-            color: var(--lime);
-            font-weight: 700;
-            font-size: 1.1rem;
-            flex-shrink: 0;
-        }
-        .help-actions {
+        .zone21-help .help-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 14px;
-            margin-top: 22px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
-            position: relative;
-            z-index: 1;
+            gap: 8px;
+            margin-top: 8px;
         }
-        .help-btn {
+        .zone21-help .help-btn {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 13px 26px;
-            border-radius: 40px;
-            font-weight: 700;
-            font-size: 0.95rem;
+            gap: 7px;
+            padding: 7px 16px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.8rem;
             text-decoration: none;
-            transition: 0.25s ease;
-            border: none;
+            transition: 0.2s;
+            border: 1px solid var(--grey);
             cursor: pointer;
+            color: var(--navy);
+            background: white;
+        }
+        .zone21-help .help-btn:hover {
             background: var(--lime);
             color: var(--navy);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            flex: 0 1 auto;
-            min-width: 140px;
-            justify-content: center;
+            border-color: var(--lime);
+            transform: translateY(-1px);
         }
-        .help-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 28px rgba(192, 200, 0, 0.4);
-        }
-        .help-btn.whatsapp {
-            background: #25D366;
-            color: white;
-        }
-        .help-btn.whatsapp:hover {
-            box-shadow: 0 8px 28px rgba(37, 211, 102, 0.45);
-        }
-        .help-btn.email {
-            background: #4a9eff;
-            color: white;
-        }
-        .help-btn.email:hover {
-            box-shadow: 0 8px 28px rgba(74, 158, 255, 0.45);
-        }
-        .help-btn.call {
-            background: var(--pink);
-            color: white;
-        }
-        .help-btn.call:hover {
-            box-shadow: 0 8px 28px rgba(248, 0, 112, 0.45);
-        }
-        .help-btn i {
-            font-size: 1.2rem;
-        }
-        .help-tagline {
+        .zone21-help .help-btn i {
             font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6) !important;
-            margin-top: 16px;
-            font-style: italic;
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            letter-spacing: 0.3px;
-        }
-        .help-question {
-            font-size: 1.15rem;
-            font-weight: 600;
-            color: white !important;
-            margin-top: 6px;
-            position: relative;
-            z-index: 1;
-        }
-        .help-question i {
-            color: var(--lime);
-            margin-right: 8px;
         }
 
         .blueprint-controls {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 16px;
+            padding-top: 14px;
             border-top: 1px solid var(--grey);
-            padding-top: 20px;
         }
         .action-btn {
-            padding: 10px 18px;
+            padding: 8px 18px;
             border-radius: 30px;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 0.8rem;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
+            gap: 7px;
             transition: 0.2s;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
         }
         .btn-download {
             background: #28a745;
             color: white;
+        }
+        .btn-download:hover {
+            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
         }
         .btn-regen {
             background: #f0f4f8;
@@ -703,169 +810,12 @@
         .btn-regen:hover {
             background: var(--navy);
             color: white;
+            border-color: var(--navy);
         }
 
-        .package-banner {
-            background: var(--navy);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .package-banner .pkg-label {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .package-banner .pkg-name {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--lime);
-        }
-        .package-banner .pkg-limit {
-            font-size: 0.85rem;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 4px 14px;
-            border-radius: 20px;
-            color: white;
-        }
-        .package-banner .pkg-limit span {
-            color: var(--lime);
-            font-weight: 700;
-        }
-        .package-banner .pkg-action {
-            background: var(--lime);
-            color: var(--navy);
-            border: none;
-            padding: 6px 18px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: 0.2s;
-            text-decoration: none;
-        }
-        .package-banner .pkg-action:hover {
-            background: white;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media(max-width:768px) {
-            body {
-                padding: 0;
-                gap: 0;
-            }
-            .workspace {
-                border-radius: 0;
-                box-shadow: none;
-            }
-            .menu-btn {
-                display: block;
-            }
-            .sidebar {
-                position: fixed;
-                top: 0;
-                left: -320px;
-                height: 100dvh;
-                width: 280px;
-                border-radius: 0 24px 24px 0;
-            }
-            .sidebar.active {
-                transform: translateX(320px);
-            }
-            .sidebar-overlay.active {
-                display: block;
-                opacity: 1;
-            }
-            .workspace-content {
-                padding: 15px 10px;
-            }
-            .form-section {
-                padding: 15px;
-                border-radius: 12px;
-            }
-            .blueprint-result {
-                padding: 15px;
-                border-radius: 12px;
-            }
-            .header-right .user-email {
-                display: none;
-            }
-            .package-banner {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-            }
-            .zone21-help {
-                padding: 22px 16px;
-            }
-            .zone21-help h2 {
-                font-size: 1.3rem;
-            }
-            .help-actions {
-                flex-direction: column;
-            }
-            .help-btn {
-                min-width: unset;
-                width: 100%;
-                justify-content: center;
-            }
-        }
-        @media print {
-            @page {
-                size: A4;
-                margin: 20mm;
-            }
-            body * {
-                visibility: hidden;
-            }
-            .blueprint-wrapper,
-            .blueprint-wrapper * {
-                visibility: visible;
-            }
-            .blueprint-wrapper {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-            }
-            .blueprint-result {
-                border: none;
-                box-shadow: none;
-                padding: 0;
-                max-width: 100%;
-            }
-            .blueprint-controls {
-                display: none !important;
-            }
-            .workspace {
-                box-shadow: none;
-                overflow: visible;
-            }
-            .zone21-help .help-actions {
-                display: none !important;
-            }
-        }
-
-        /* Toast styles */
+        /* ============================================================
+           TOAST
+           ============================================================ */
         #toast-container {
             position: fixed;
             top: 20px;
@@ -878,17 +828,16 @@
             width: 100%;
         }
         .toast {
-            padding: 14px 20px;
-            border-radius: 12px;
+            padding: 12px 18px;
+            border-radius: var(--radius);
             background: var(--navy);
             color: white;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             animation: slideIn 0.3s ease forwards;
             display: flex;
             align-items: center;
-            gap: 12px;
-            transition: opacity 0.3s ease;
+            gap: 10px;
         }
         .toast.success {
             border-left: 4px solid var(--lime);
@@ -898,18 +847,6 @@
         }
         .toast.info {
             border-left: 4px solid #4a9eff;
-        }
-        .toast i {
-            font-size: 1.2rem;
-        }
-        .toast.success i {
-            color: var(--lime);
-        }
-        .toast.error i {
-            color: var(--pink);
-        }
-        .toast.info i {
-            color: #4a9eff;
         }
         @keyframes slideIn {
             from {
@@ -921,56 +858,171 @@
                 transform: translateX(0);
             }
         }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+                gap: 0;
+            }
+            .workspace {
+                border-radius: 0;
+                box-shadow: none;
+            }
+            .workspace-header .menu-btn {
+                display: block;
+            }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -320px;
+                height: 100dvh;
+                width: 280px;
+                border-radius: 0 20px 20px 0;
+            }
+            .sidebar.active {
+                transform: translateX(320px);
+            }
+            .workspace-content {
+                padding: 12px 10px;
+            }
+            .form-section {
+                padding: 14px;
+            }
+            .blueprint-result {
+                padding: 14px 12px;
+            }
+            .zone21-help {
+                padding: 14px 12px;
+            }
+            .help-actions {
+                flex-direction: column;
+            }
+            .zone21-help .help-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .package-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            .workspace-header .user-email {
+                display: none;
+            }
+            .blueprint-result h1 {
+                font-size: 1.25rem;
+            }
+            .blueprint-result table {
+                font-size: 0.7rem;
+                min-width: 500px;
+            }
+            .blueprint-result table th,
+            .blueprint-result table td {
+                padding: 4px 8px;
+            }
+            #toast-container {
+                top: 10px;
+                right: 10px;
+                max-width: calc(100% - 20px);
+            }
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .blueprint-wrapper,
+            .blueprint-wrapper * {
+                visibility: visible;
+            }
+            .blueprint-wrapper {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+            }
+            .blueprint-result {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .blueprint-controls {
+                display: none !important;
+            }
+            .zone21-help .help-actions {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <!-- Toast Container -->
+    <!-- ============================================================
+    TOAST
+    ============================================================ -->
     <div id="toast-container"></div>
 
-    <!-- Sidebar -->
+    <!-- ============================================================
+    SIDEBAR OVERLAY
+    ============================================================ -->
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ============================================================
+    SIDEBAR
+    ============================================================ -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div>
-                <h2>Past Events</h2>
-                <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-top:2px;" id="sidebar-package-label">Package: —</div>
-            </div>
+            <h2><i class="fas fa-calendar-check" style="color:var(--lime);margin-right:8px;"></i>Past Events</h2>
+            <span class="badge" id="sidebar-package-badge">—</span>
         </div>
-        <div style="padding:0 20px;">
-            <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus"></i> New Event</button>
+        <div class="sidebar-body">
+            <button class="new-chat-btn" onclick="startNewSession()">
+                <i class="fas fa-plus-circle"></i> New Event
+            </button>
+            <div id="history-list"></div>
         </div>
-        <div class="history-list" id="history-list"></div>
+        <div class="sidebar-footer">
+            <span id="sidebar-package-label">Package: —</span>
+        </div>
     </div>
 
-    <!-- Main Workspace -->
+    <!-- ============================================================
+    WORKSPACE
+    ============================================================ -->
     <div class="workspace">
+
+        <!-- HEADER -->
         <div class="workspace-header">
             <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
-            <div>
+            <div class="brand">
                 <h1>Zone21 System</h1>
                 <p>Event Allocation &amp; Blueprint Generator</p>
             </div>
-            <div class="header-right">
+            <div class="right">
                 <span class="package-tag" id="header-package-tag">—</span>
                 <span class="user-email" id="header-user-email">user@example.com</span>
                 <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
 
+        <!-- CONTENT -->
         <div class="workspace-content" id="workspace-content">
 
-            <!-- Package Banner -->
+            <!-- PACKAGE BANNER -->
             <div class="package-banner" id="package-banner" style="display:none;">
                 <div>
                     <div class="pkg-label">Your Active Package</div>
                     <div class="pkg-name" id="pkg-banner-name">—</div>
                 </div>
                 <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
-                <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage Subscription</a>
+                <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage</a>
             </div>
 
-            <!-- Form -->
+            <!-- FORM -->
             <div class="form-section" id="form-section">
                 <form id="eventForm">
                     <div class="form-grid">
@@ -1012,19 +1064,15 @@
                         </div>
                     </div>
 
-                    <div class="input-group" style="margin-bottom:15px;">
-                        <label>7. Additional Notes or Requests (Optional)</label>
+                    <div class="input-group" style="margin-bottom:14px;">
+                        <label>7. Additional Notes (Optional)</label>
                         <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system over decorations..."></textarea>
                     </div>
 
                     <div class="services-wrapper">
                         <label>8. Select Required Service Providers</label>
-                        <div class="services-grid" id="servicesContainer">
-                            <!-- Injected via JS -->
-                        </div>
+                        <div class="services-grid" id="servicesContainer"></div>
                     </div>
-
-                    <!-- No model selector — completely removed -->
 
                     <button type="submit" class="submit-btn" id="generateBtn">
                         <i class="fas fa-magic"></i> Generate System Blueprint
@@ -1032,14 +1080,14 @@
                 </form>
             </div>
 
-            <!-- Loading -->
+            <!-- LOADING -->
             <div id="loading">
                 <div class="spinner"></div>
-                <h3 style="color:var(--navy);">Preparing Your Blueprint...</h3>
-                <p style="color:#666;font-size:0.9rem;margin-top:5px;" id="loading-status">Analyzing your event details and matching the best services.</p>
+                <h3>Zone21 Ultimate is processing your event...</h3>
+                <p id="loading-status">Analyzing budget, matching vendors, and crafting your comprehensive blueprint.</p>
             </div>
 
-            <!-- Blueprint -->
+            <!-- BLUEPRINT -->
             <div id="blueprint-container">
                 <div class="blueprint-wrapper">
                     <div class="blueprint-result" id="final-blueprint"></div>
@@ -1076,19 +1124,37 @@
         const db = firebase.firestore();
 
         // ============================================================
-        //  OPENROUTER API — fixed free model, no user selection
+        //  DEEPSEEK API
         // ============================================================
-        const OPENROUTER_API_KEY = "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";
-        const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+        const DEEPSEEK_API_KEY = "sk-6cde0fb5cf124bc28a52135d2acf47a0";
+        const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+        const DEEPSEEK_MODEL = "deepseek-chat";
 
-        // Valid free model — Gemma is reliable and fast
-        const DEFAULT_MODEL = "google/gemma-2-9b-it:free";
+        // ============================================================
+        //  ZONE21 CONTACT
+        // ============================================================
+        const ZONE21 = {
+            phone: "+263789912268",
+            whatsapp: "+263789912268",
+            email: "zone21services@gmail.com",
+            instagram: "https://www.instagram.com/zone21_event_management",
+            facebook: "https://www.facebook.com/zone21events",
+            website: "https://zone21.co.zw"
+        };
 
-        // Fallback free models (Gemma removed since it's already the default)
-        const FALLBACK_MODELS = [
-            "meta-llama/llama-3.1-8b-instruct:free",
-            "microsoft/phi-3-mini-4k-instruct:free",
-            "mistralai/mistral-7b-instruct:free"
+        const ZIM_VENUES = [
+            "The Gardens at Belgravia, Harare",
+            "The Pavilion at Harare Gardens, Harare",
+            "Rainbow Towers, Harare",
+            "Meikles Hotel, Harare",
+            "Victoria Falls Hotel, Victoria Falls",
+            "Elephant Hills Resort, Victoria Falls",
+            "Monomotapa Hotel, Harare",
+            "Holiday Inn, Harare",
+            "Cresta Lodge, Harare",
+            "Bulawayo Club, Bulawayo",
+            "Nesbitt Castle, Bulawayo",
+            "Amphitheatre, Harare Gardens"
         ];
 
         const granularServices = [
@@ -1101,44 +1167,27 @@
             "Cleaning Services", "Ushers & Hostesses"
         ];
 
-        let currentSessionId = null;
-        let currentEventData = null;
-
-        // Package state
-        let userPackage = null;
-        let userPackageName = null;
-        let userPackageLimit = Infinity;
-        let currentUser = null;
-
         // ============================================================
         //  PACKAGE DEFINITIONS
         // ============================================================
         const PACKAGES = {
-            small: {
-                id: 'small',
-                name: 'Small Event',
-                maxAttendees: 35,
-                label: 'Small',
-                budgetHint: 'Recommended budget: $100 – $1,500',
-                limitDisplay: '≤ 35'
-            },
-            medium: {
-                id: 'medium',
-                name: 'Medium Event',
-                maxAttendees: 355,
-                label: 'Medium',
-                budgetHint: 'Recommended budget: $1,500 – $15,000',
-                limitDisplay: '≤ 355'
-            },
-            large: {
-                id: 'large',
-                name: 'Large / Enterprise',
-                maxAttendees: Infinity,
-                label: 'Enterprise',
-                budgetHint: 'Unlimited budget (enterprise tier)',
-                limitDisplay: '∞'
-            }
+            small: { id: 'small', name: 'Small Event', maxAttendees: 35, label: 'Small', budgetHint: '$100 – $1,500',
+                limitDisplay: '≤ 35' },
+            medium: { id: 'medium', name: 'Medium Event', maxAttendees: 355, label: 'Medium', budgetHint: '$1,500 – $15,000',
+                limitDisplay: '≤ 355' },
+            large: { id: 'large', name: 'Large / Enterprise', maxAttendees: Infinity, label: 'Enterprise',
+                budgetHint: 'Unlimited', limitDisplay: '∞' }
         };
+
+        // ============================================================
+        //  STATE
+        // ============================================================
+        let currentSessionId = null;
+        let currentEventData = null;
+        let userPackage = null;
+        let userPackageName = null;
+        let userPackageLimit = Infinity;
+        let currentUser = null;
 
         // ============================================================
         //  DOM REFS
@@ -1159,7 +1208,6 @@
         const eventBudget = document.getElementById('eventBudget');
         const eventAttendees = document.getElementById('eventAttendees');
         const eventNotes = document.getElementById('eventNotes');
-
         const attendeeLimitBadge = document.getElementById('attendee-limit-badge');
         const attendeeHint = document.getElementById('attendee-hint');
         const budgetHint = document.getElementById('budget-hint');
@@ -1170,39 +1218,69 @@
         const pkgBannerName = document.getElementById('pkg-banner-name');
         const pkgBannerLimit = document.getElementById('pkg-banner-limit');
         const pkgBannerAction = document.getElementById('pkg-banner-action');
+        const sidebarPackageBadge = document.getElementById('sidebar-package-badge');
 
         // ============================================================
-        //  POPULATE SERVICES CHECKBOXES
+        //  POPULATE SERVICES
         // ============================================================
         granularServices.forEach(service => {
+            const isExclusive = service === "Zone21 Security - EXCLUSIVE";
+            const isChecked = isExclusive ||
+                service === "Venue / Space Rental" ||
+                service === "Catering (Food & Buffet)" ||
+                service === "DJ Services" ||
+                service === "Photographer" ||
+                service === "Cake Designer / Baker" ||
+                service === "Event Planner / Coordinator";
+
             container.innerHTML += `
                     <label class="service-item">
-                        <input type="checkbox" name="services" value="${service}">
+                        <input type="checkbox" name="services" value="${service}" ${isChecked ? 'checked' : ''}>
                         ${service}
+                        ${isExclusive ? '<span class="zone21-badge">Zone21</span>' : ''}
                     </label>
                 `;
         });
 
         // ============================================================
-        //  TOAST SYSTEM
+        //  TOAST
         // ============================================================
         function showToast(msg, type = 'info') {
-            const container = document.getElementById('toast-container');
-            if (!container) {
-                alert(msg);
-                return;
-            }
+            const c = document.getElementById('toast-container');
+            if (!c) { alert(msg); return; }
             const t = document.createElement('div');
             t.className = `toast ${type}`;
-            const iconMap = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-            t.innerHTML = `<i class="fa-solid ${iconMap[type] || 'fa-circle-info'}"></i> ${msg}`;
-            container.appendChild(t);
+            const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+            t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
+            c.appendChild(t);
             setTimeout(() => { t.style.opacity = '0';
                 setTimeout(() => t.remove(), 300); }, 4800);
         }
 
         // ============================================================
-        //  AUTH & SUBSCRIPTION — fully active, no demo mode
+        //  SIDEBAR
+        // ============================================================
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        function closeSidebar() { sidebar.classList.remove('active');
+            overlay.classList.remove('active'); }
+        if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active');
+            overlay.classList.add('active'); });
+        if (overlay) overlay.addEventListener('click', closeSidebar);
+
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (e) {
+                showToast('Logout failed', 'error');
+            }
+        }
+
+        // ============================================================
+        //  AUTH & SUBSCRIPTION
         // ============================================================
         async function loadUserAndPackage() {
             try {
@@ -1265,6 +1343,7 @@
                     headerPackageTag.textContent = 'No Plan';
                     headerPackageTag.style.background = '#888';
                     sidebarPackageLabel.textContent = 'Package: No active plan';
+                    sidebarPackageBadge.textContent = 'No Plan';
                     attendeeLimitBadge.textContent = '—';
                     attendeeHint.textContent = 'Please subscribe to a package to generate blueprints.';
                     eventAttendees.disabled = true;
@@ -1282,6 +1361,7 @@
                 headerPackageTag.textContent = pkg.label;
                 headerPackageTag.style.background = 'var(--lime)';
                 headerPackageTag.style.color = 'var(--navy)';
+                sidebarPackageBadge.textContent = pkg.label;
                 sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay})`;
 
                 pkgBanner.style.display = 'flex';
@@ -1322,31 +1402,6 @@
         }
 
         // ============================================================
-        //  LOGOUT
-        // ============================================================
-        async function handleLogout() {
-            try {
-                await auth.signOut();
-                window.location.href = 'index.html';
-            } catch (e) {
-                showToast('Logout failed', 'error');
-            }
-        }
-
-        // ============================================================
-        //  SIDEBAR TOGGLE
-        // ============================================================
-        const menuBtn = document.getElementById('menu-btn');
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-
-        function closeSidebar() { sidebar.classList.remove('active');
-            overlay.classList.remove('active'); }
-        if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active');
-            overlay.classList.add('active'); });
-        if (overlay) overlay.addEventListener('click', closeSidebar);
-
-        // ============================================================
         //  FORM SUBMIT
         // ============================================================
         form.addEventListener('submit', function(e) {
@@ -1376,13 +1431,13 @@
             }
 
             currentEventData = {
-                name: eventName.value,
-                location: eventLocation.value,
-                type: eventType.value,
-                contact: eventContact.value,
-                budget: eventBudget.value,
-                attendees: eventAttendees.value,
-                notes: eventNotes.value,
+                name: eventName.value || 'Untitled Event',
+                location: eventLocation.value || 'Harare, Zimbabwe',
+                type: eventType.value || 'Social & Private Events',
+                contact: eventContact.value || 'Not provided',
+                budget: eventBudget.value || '500',
+                attendees: eventAttendees.value || '50',
+                notes: eventNotes.value || 'None',
                 services: selectedServices.join(", "),
                 package: userPackage,
                 packageName: userPackageName,
@@ -1393,211 +1448,216 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — with corrected contact handling
+        //  SAFE HTML
+        // ============================================================
+        function safeHtml(input) {
+            if (!input) return '<p>No content generated.</p>';
+            let cleaned = input.replace(/<script[\s\S]*?<\/script>/gi, '');
+            cleaned = cleaned.replace(/<table/g, '<div class="table-responsive"><table');
+            cleaned = cleaned.replace(/<\/table>/g, '</table></div>');
+            cleaned = cleaned.replace(/<div class="table-responsive">\s*<div class="table-responsive">/g, '<div class="table-responsive">');
+            cleaned = cleaned.replace(/<\/div>\s*<\/div>/g, '</div>');
+            return cleaned;
+        }
+
+        // ============================================================
+        //  GENERATE BLUEPRINT — DEEPSEEK
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
             blueprintContainer.style.display = 'none';
             loadingDiv.style.display = 'block';
-            loadingStatus.textContent = 'Processing your request...';
+            loadingStatus.textContent = 'Zone21 Ultimate is analyzing your event...';
 
             if (!currentSessionId || !isRegenerating) {
                 currentSessionId = 'evt_' + Date.now();
             }
 
-            const pkg = PACKAGES[userPackage] || PACKAGES.small;
-            const limitText = pkg.maxAttendees === Infinity ? 'unlimited' : `up to ${pkg.maxAttendees} people`;
+            const pkg = PACKAGES[userPackage] || PACKAGES.medium;
+            const perPerson = (parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees)))
+                .toFixed(2);
 
-            let modelsToTry = [DEFAULT_MODEL, ...FALLBACK_MODELS];
-            let lastError = null;
+            // ============================================================
+            //  COMPREHENSIVE PROMPT — WITH CONTACT FIX
+            // ============================================================
+            const prompt = `You are ZONE21 ULTIMATE – the world's most advanced event planning AI system. Generate a COMPLETE, PROFESSIONAL, DATA-DRIVEN event blueprint.
 
-            for (let attempt = 0; attempt < modelsToTry.length; attempt++) {
-                const model = modelsToTry[attempt];
-                if (attempt === 0) {
-                    loadingStatus.textContent = 'Analyzing event requirements...';
-                } else {
-                    loadingStatus.textContent = 'Optimizing allocations...';
+            ## EVENT DETAILS
+            - Event Name: ${currentEventData.name}
+            - Location: ${currentEventData.location}
+            - Event Type: ${currentEventData.type}
+            - Total Budget: $${currentEventData.budget}
+            - Expected Attendees: ${currentEventData.attendees}
+            - Additional Notes: ${currentEventData.notes}
+            - Selected Services: ${currentEventData.services}
+            - User Package: ${currentEventData.packageName} (Max ${currentEventData.packageLimit} attendees)
+
+            ## CRITICAL CONTACT RULE
+            The user provided the following contact: "${currentEventData.contact}".
+            You MUST use this EXACT contact information in the blueprint, typically in the event details section.
+            DO NOT invent a name or change the contact. If it's a phone number, display only the number. If it's an email, display only the email. Do not add a name. Use the contact exactly as given, without any modification.
+
+            ## OTHER RULES
+            1. For "Event Planner / Coordinator" — PRIMARY MUST be "Zone21 Event Management" with phone ${ZONE21.phone}, email ${ZONE21.email}, Instagram ${ZONE21.instagram}.
+            2. For "Zone21 Security - EXCLUSIVE" — ONLY use Zone21 Security.
+            3. For VENUES — use real popular Zimbabwe venues like: ${ZIM_VENUES.join(', ')}.
+            4. ALL vendors must have REAL phone numbers, emails, and social media handles.
+            5. Provide PRIMARY (recommended) and SECONDARY (alternative) for every service.
+            6. Budget must be allocated with exact dollar amounts summing to the total.
+            7. Include a 10% contingency reserve.
+            8. Return ONLY clean HTML — no markdown, no backticks.
+
+            ## OUTPUT STRUCTURE (MUST INCLUDE ALL SECTIONS)
+            <h1>🎪 ZONE21 ULTIMATE BLUEPRINT</h1>
+            <p><strong>${currentEventData.name}</strong> • ${currentEventData.location} • Generated by DeepSeek</p>
+
+            <h2>1. EXECUTIVE SUMMARY</h2>
+            <p>Brief overview, budget, attendees, vendors, feasibility score (1-10), key recommendations.</p>
+
+            <h2>2. BUDGET ANALYSIS & ALLOCATION</h2>
+            <div class="budget-success OR budget-neutral OR budget-warning">
+                <p><strong>Budget Verdict:</strong> SUFFICIENT / TIGHT / INSUFFICIENT</p>
+                <p>Per-person cost: $${perPerson}</p>
+                <ul>
+                    <li>Venue: $X (X%)</li>
+                    <li>Catering: $X (X%)</li>
+                    <li>Entertainment: $X (X%)</li>
+                    <li>Décor: $X (X%)</li>
+                    <li>Photography: $X (X%)</li>
+                    <li>Security: $X (X%)</li>
+                    <li>Transport: $X (X%)</li>
+                    <li>Marketing: $X (X%)</li>
+                    <li>Contingency (10%): $X</li>
+                    <li>Miscellaneous: $X</li>
+                </ul>
+                <p><strong>Recommendations:</strong> ...</p>
+            </div>
+
+            <h2>3. VENDOR ALLOCATION</h2>
+            For EACH selected service, provide:
+            <h3>Service Name</h3>
+            <p><strong>Primary (Recommended):</strong> Business Name, Contact Person, Phone, Email, Website, Social Media, Address, Price Quote, What's Included, Why Recommended.</p>
+            <p><strong>Secondary (Alternative):</strong> Same details, price difference.</p>
+
+            <h2>4. VENUE RECOMMENDATIONS</h2>
+            <p><strong>Primary Venue:</strong> Name, Capacity, Address, Contact, Price, Rating, Deposit, Availability.</p>
+            <p><strong>Secondary Venue:</strong> Same details.</p>
+            <div class="table-responsive"><table>
+                <tr><th>Feature</th><th>Primary</th><th>Secondary</th></tr>
+                <tr><td>Price</td><td>$X</td><td>$X</td></tr>
+                <tr><td>Capacity</td><td>X</td><td>X</td></tr>
+                <tr><td>Rating</td><td>X★</td><td>X★</td></tr>
+            </table></div>
+
+            <h2>5. MARKETING & PROMOTION STRATEGY</h2>
+            <p>30-day plan with platforms, content types, budgets, and target reach.</p>
+
+            <h2>6. RISK ASSESSMENT & CONTINGENCY</h2>
+            <p>3-5 risks with probability, impact, mitigation. Emergency contacts list.</p>
+
+            <h2>7. TIMELINE & CHECKLIST</h2>
+            <p>30-day checklist + day-of hour-by-hour schedule.</p>
+
+            <h2>8. SECOND OPTIONS & ALTERNATIVES</h2>
+            <p>Alternative vendors with pros/cons and price differences.</p>
+
+            <h2>9. PRICE COMPARISON TABLE</h2>
+            <div class="table-responsive"><table>
+                <tr><th>Service</th><th>Primary</th><th>Price</th><th>Secondary</th><th>Price</th><th>Savings</th></tr>
+                <tr><td>Venue</td><td>X</td><td>$X</td><td>X</td><td>$X</td><td>$X</td></tr>
+                <!-- all services -->
+                <tr><td><strong>TOTAL</strong></td><td></td><td><strong>$X</strong></td><td></td><td><strong>$X</strong></td><td><strong>$X</strong></td></tr>
+            </table></div>
+
+            <h2>10. FINAL RECOMMENDATIONS</h2>
+            <p>Overall score, best value, premium upgrade, savings opportunities, final verdict.</p>
+
+            <p style="text-align:center;color:#888;font-size:0.85rem;margin-top:20px;">— Prepared by Zone21 Ultimate AI • All rights reserved —</p>
+
+            IMPORTANT: The total allocated budget must equal $${currentEventData.budget}. Use real Zimbabwean vendors. For planning and security, always recommend Zone21. Keep the layout clean — no dark backgrounds, single column, responsive tables.`;
+
+            try {
+                loadingStatus.textContent = 'Generating your comprehensive blueprint with DeepSeek...';
+
+                const response = await fetch(DEEPSEEK_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: DEEPSEEK_MODEL,
+                        messages: [{ role: "user", content: prompt }],
+                        max_tokens: 8192,
+                        temperature: 0.6,
+                        top_p: 0.95,
+                        frequency_penalty: 0.3,
+                        presence_penalty: 0.3
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    let errMsg = `API Error ${response.status}`;
+                    try {
+                        const errJson = JSON.parse(errText);
+                        if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+                    } catch (_) {}
+                    throw new Error(errMsg);
                 }
 
-                try {
-                    // ============================================================
-                    //  PROMPT — strict contact handling: use provided details verbatim
-                    // ============================================================
-                    const prompt = `
-                            You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message || 'API error');
 
-                            USER'S SUBSCRIPTION PACKAGE: ${pkg.name} (${limitText})
-                            This means the event size is capped at ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.
-                            Allocate budget and services appropriately for this package size.
+                let htmlOutput = data.choices[0].message.content.trim()
+                    .replace(/^```html/i, '')
+                    .replace(/^```/i, '')
+                    .replace(/```$/i, '');
 
-                            EVENT DETAILS:
-                            - Event Name: ${currentEventData.name}
-                            - Location: ${currentEventData.location}
-                            - Event Type: ${currentEventData.type}
-                            - Total Budget: $${currentEventData.budget}
-                            - Expected Attendees: ${currentEventData.attendees}
-                            - Additional Notes: ${currentEventData.notes || 'None'}
-                            - Specific Services Required: ${currentEventData.services}
+                htmlOutput = safeHtml(htmlOutput);
 
-                            CONTACT INFORMATION:
-                            The user provided the following contact: "${currentEventData.contact}".
-                            You MUST include this exact contact information in the blueprint, typically in the event details section.
-                            Do NOT invent a name or change the contact. If it's a phone number, display it as is; if it's an email, display it as is.
-                            If the contact is a phone number, do not add a name — just show the number. If it's an email, show only the email.
-                            Use the contact exactly as given, without any modification.
-
-                            CRITICAL INSTRUCTIONS — BUDGET ASSESSMENT (MUST BE BALANCED AND OBJECTIVE):
-
-                            You MUST evaluate the budget fairly and realistically. DO NOT automatically say the budget is insufficient.
-                            Instead, follow this structured approach:
-
-                            1. FIRST, assess if $${currentEventData.budget} is REASONABLE for ${currentEventData.attendees} people with the requested services in ${currentEventData.location}.
-                               - Calculate a rough per-person cost: $${currentEventData.budget} / ${currentEventData.attendees} = $${(parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees))).toFixed(2)} per attendee.
-                               - For ${pkg.name} package, typical per-person costs range from $15–$80 depending on services.
-
-                            2. CLASSIFY the budget into ONE of these categories:
-                               - "SUFFICIENT" — The budget comfortably covers all requested services with room for quality vendors.
-                               - "TIGHT BUT WORKABLE" — The budget covers essentials but may require trade-offs or careful vendor selection.
-                               - "INSUFFICIENT" — The budget is clearly below the minimum needed for the requested services.
-
-                            3. For EACH category, provide:
-                               - A clear heading showing the classification (e.g., "✅ Budget Assessment: SUFFICIENT" or "⚠️ Budget Assessment: TIGHT BUT WORKABLE" or "❌ Budget Assessment: INSUFFICIENT")
-                               - A balanced explanation of WHY it falls into that category.
-                               - If SUFFICIENT: highlight what makes it work and suggest areas for possible upgrades.
-                               - If TIGHT BUT WORKABLE: suggest specific trade-offs, which services to prioritize, and which to scale back.
-                               - If INSUFFICIENT: explain the gap and recommend a realistic budget range, but also offer a "bare-bones" version that fits the current budget.
-
-                            4. IMPORTANT — Do NOT default to "insufficient". Most budgets between $500–$5,000 for 50–150 people are workable. Be pragmatic.
-
-                            VENDOR ALLOCATION:
-                            - Allocate the budget across the requested services. Suggest REAL, popular local vendors for ${currentEventData.location}.
-                            - For ${pkg.name} package, recommend vendors that match the scale.
-                            - Include realistic contact details (phone, email, or social) for suggested vendors.
-
-                            ZONE21 SECURITY RULE:
-                            - If "Zone21 Security - EXCLUSIVE" was selected, allocate security budget strictly to "Zone21 Security Team".
-
-                            FORMAT:
-                            - Output strictly in clean HTML.
-                            - Use <h2> for main sections, <h3> for sub-sections, <ul>/<li> for lists.
-                            - For the budget assessment section, use these CSS classes on the wrapper div:
-                              - If SUFFICIENT: class="budget-success"
-                              - If TIGHT BUT WORKABLE: class="budget-neutral"
-                              - If INSUFFICIENT: class="budget-warning"
-                            - Do NOT include markdown blocks like \`\`\`html.
-                            - IMPORTANT: Do NOT include any contact details, phone numbers, emails, or call-to-action buttons. Those will be added separately.
-                            `;
-
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                            'HTTP-Referer': window.location.origin,
-                            'X-Title': 'Zone21 Event Blueprint Generator'
-                        },
-                        body: JSON.stringify({
-                            model: model,
-                            messages: [{ role: "user", content: prompt }],
-                            max_tokens: 4096,
-                            temperature: 0.7,
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        let errMsg = `API Error ${response.status}`;
-                        try {
-                            const errJson = JSON.parse(errText);
-                            if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
-                        } catch (_) { /* ignore */ }
-                        throw new Error(`${errMsg} (${response.status})`);
-                    }
-
-                    const data = await response.json();
-                    if (data.error) throw new Error(data.error.message || 'OpenRouter returned an error');
-
-                    let htmlOutput = data.choices[0].message.content.trim()
-                        .replace(/^```html/i, '')
-                        .replace(/^```/i, '')
-                        .replace(/```$/i, '');
-
-                    // Auto-wrap budget sections with appropriate classes
-                    if (!htmlOutput.includes('budget-success') && !htmlOutput.includes('budget-neutral') && !htmlOutput
-                        .includes('budget-warning')) {
-                        if (htmlOutput.includes('SUFFICIENT') || htmlOutput.includes('sufficient')) {
-                            htmlOutput = htmlOutput.replace(
-                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                                '<div class="budget-success">$1</div>'
-                            );
-                        } else if (htmlOutput.includes('TIGHT') || htmlOutput.includes('tight') || htmlOutput.includes(
-                                'WORKABLE')) {
-                            htmlOutput = htmlOutput.replace(
-                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                                '<div class="budget-neutral">$1</div>'
-                            );
-                        } else {
-                            htmlOutput = htmlOutput.replace(
-                                /(<h[23]>.*?Budget.*?<\/h[23]>[\s\S]*?(?=<(h[23]|div)>|$))/i,
-                                '<div class="budget-neutral">$1</div>'
-                            );
-                        }
-                    }
-
-                    // ============================================================
-                    //  APPEND ZONE21 HELP SECTION — injected, not AI-generated
-                    // ============================================================
-                    const helpSection = `
+                // Append Zone21 help if missing
+                if (!htmlOutput.includes('zone21-help')) {
+                    const help = `
                                 <div class="zone21-help">
-                                    <h2>🎯 Need a Hand? Let Zone21 Take Over!</h2>
-                                    <p class="help-question"><i class="fas fa-question-circle"></i> Feeling overwhelmed with planning? Our professional team at <strong>Zone21 Event Management</strong> is here to make your event seamless and spectacular.</p>
-                                    <p>We offer full-service support to bring your vision to life — from concept to execution. Here's how we can help you:</p>
-                                    <ul>
-                                        <li><strong>Vendor Matchmaking</strong> — We connect you with trusted, vetted service providers (caterers, DJs, decorators, and more).</li>
-                                        <li><strong>Venue Sourcing</strong> — We secure the perfect venue or spot that fits your style and budget.</li>
-                                        <li><strong>Entertainment Booking</strong> — We book top-tier DJs, MCs, live bands, and performers.</li>
-                                        <li><strong>Full Coordination</strong> — From timeline management to on-the-day execution, we handle it all.</li>
-                                        <li><strong>Budget Optimization</strong> — We help you get the most value out of every dollar spent.</li>
-                                        <li><strong>Stress-Free Experience</strong> — You enjoy the event; we handle the logistics.</li>
-                                    </ul>
-                                    <p><strong>📞 Reach out to us today — let's create something unforgettable together!</strong></p>
+                                    <h2>Need Expert Help? Let Zone21 Take Over</h2>
+                                    <p>Our team handles everything — vendor sourcing, venue booking, entertainment, and on-the-day coordination. Get a stress-free event.</p>
                                     <div class="help-actions">
-                                        <a href="mailto:zone21services@gmail.com" class="help-btn email"><i class="fas fa-envelope"></i> Email Us</a>
-                                        <a href="https://wa.me/263789912268" target="_blank" class="help-btn whatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-                                        <a href="tel:+263789912268" class="help-btn call"><i class="fas fa-phone"></i> Call Us</a>
+                                        <a href="mailto:${ZONE21.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a>
+                                        <a href="https://wa.me/${ZONE21.whatsapp.replace('+', '')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                                        <a href="tel:${ZONE21.phone}" class="help-btn"><i class="fas fa-phone"></i> Call</a>
+                                        <a href="${ZONE21.instagram}" target="_blank" class="help-btn"><i class="fab fa-instagram"></i> Instagram</a>
                                     </div>
-                                    <p class="help-tagline">✨ Zone21 — Your event, our passion. Let's make magic together. ✨</p>
                                 </div>
                             `;
-
-                    htmlOutput = htmlOutput.trim() + helpSection;
-
-                    loadingDiv.style.display = 'none';
-                    blueprintContainer.style.display = 'block';
-                    finalBlueprint.innerHTML = htmlOutput;
-
-                    saveBlueprintState(htmlOutput);
-                    return; // Success
-
-                } catch (error) {
-                    console.error(`Attempt ${attempt+1} failed:`, error);
-                    lastError = error;
-                    continue;
+                    htmlOutput = htmlOutput.trim() + help;
                 }
-            }
 
-            // All attempts failed
-            loadingDiv.style.display = 'none';
-            formSection.style.display = 'block';
-            let msg = lastError ? lastError.message : 'Unknown error';
-            if (msg.includes('404') || msg.includes('unavailable') || msg.includes('not found')) {
-                msg = 'The service is temporarily unavailable. Please try again later.';
+                loadingDiv.style.display = 'none';
+                blueprintContainer.style.display = 'block';
+                finalBlueprint.innerHTML = htmlOutput;
+
+                saveBlueprintState(htmlOutput);
+                showToast('✅ Comprehensive blueprint generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Generation Error:', error);
+                loadingDiv.style.display = 'none';
+                formSection.style.display = 'block';
+                let msg = error.message;
+                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('503')) {
+                    msg = '⚠️ DeepSeek service temporarily unavailable. Please try again.';
+                } else if (msg.includes('401') || msg.includes('auth') || msg.includes('key')) {
+                    msg = '⚠️ Invalid DeepSeek API key. Please check your key.';
+                } else if (msg.includes('insufficient') || msg.includes('balance')) {
+                    msg = '⚠️ Insufficient DeepSeek balance. Please top up.';
+                }
+                showToast('Error: ' + msg, 'error');
             }
-            showToast('System error: ' + msg, 'error');
         }
 
         // ============================================================
-        //  HISTORY (localStorage)
+        //  HISTORY
         // ============================================================
         function saveBlueprintState(htmlOutput) {
             const title = currentEventData.name || `${currentEventData.location} Event`;
@@ -1624,11 +1684,8 @@
                     const item = document.createElement('div');
                     item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
                     item.innerHTML = `
-                            <div class="item-info">
-                                <i class="fas fa-clipboard-list" style="color:var(--lime);"></i>
-                                <span class="item-title">${session.title}</span>
-                            </div>
-                            <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteBlueprintSession('${session.id}', event)"></i>
+                            <span class="title"><i class="fas fa-clipboard-list" style="color:var(--lime);margin-right:8px;"></i>${session.title}</span>
+                            <button class="delete-btn" onclick="deleteBlueprintSession('${session.id}', event)" title="Delete"><i class="fas fa-trash"></i></button>
                         `;
                     item.onclick = () => loadBlueprintSession(session.id);
                     historyList.appendChild(item);

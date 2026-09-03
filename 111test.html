@@ -1185,11 +1185,17 @@
         const DEMO_MODE = true;
 
         // ============================================================
-        //  GEMINI API CONFIGURATION
+        //  GEMINI API CONFIGURATION - FIXED
+        //  NOTE: You need a valid Gemini API key from Google AI Studio
+        //  Get your key at: https://aistudio.google.com/apikey
         // ============================================================
+        // ⚠️ REPLACE THIS WITH YOUR ACTUAL VALID GEMINI API KEY
         const GEMINI_API_KEY = "AQ.Ab8RN6Jq_JVfBgdvBlLvvWXrNPwEYE4o3jvwzDhcrrR7xClJJg";
         const MODEL = "gemini-3.5-flash-lite";
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+        // If the above doesn't work, try this alternative endpoint
+        // const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
 
         // ============================================================
         //  ZONE21 CONTACT DETAILS
@@ -1330,7 +1336,6 @@
         // ============================================================
         function handleLogout() {
             showToast('👋 Logged out from demo mode', 'info');
-            // Just reload the page
             location.reload();
         }
 
@@ -1388,6 +1393,12 @@
         //  GENERATE BLUEPRINT — GEMINI API
         // ============================================================
         async function generateBlueprint(isRegenerating) {
+            // Check if API key is set
+            if (GEMINI_API_KEY === "YOUR_VALID_GEMINI_API_KEY_HERE") {
+                showToast('⚠️ Please set your valid Gemini API key in the code. Get one at https://aistudio.google.com/apikey', 'error');
+                return;
+            }
+
             formSection.style.display = 'none';
             blueprintContainer.style.display = 'none';
             loadingDiv.style.display = 'block';
@@ -1402,11 +1413,8 @@
             const perPerson = (parseFloat(currentEventData.budget) / Math.max(1, parseFloat(currentEventData.attendees)))
             .toFixed(2);
 
-            // ============================================================
-            //  ULTIMATE MASTER PROMPT
-            // ============================================================
             const prompt = `
-                    You are ZONE21 ULTIMATE – the world's most advanced event planning AI system. Generate a COMPLETE, PROFESSIONAL, DATA-DRIVEN event blueprint.
+                    You are ZONE21 ULTIMATE – event planning AI. Generate a COMPLETE, PROFESSIONAL, DATA-DRIVEN event blueprint.
 
                     EVENT DETAILS:
                     - Event Name: ${currentEventData.name}
@@ -1421,60 +1429,27 @@
                     OUTPUT STRUCTURE (11 SECTIONS):
 
                     1. EXECUTIVE SUMMARY
-                    - Brief overview, budget, attendees, vendors count, feasibility score (1-10), key recommendations
-
-                    2. BUDGET ANALYSIS & ALLOCATION
-                    - Per-person cost: $${currentEventData.budget} ÷ ${currentEventData.attendees} = $${perPerson}
-                    - Category breakdown: Venue, Catering, Entertainment, Décor, Photography, Security, Transport, Marketing, Contingency (10%), Miscellaneous
-                    - Budget Classification: SUFFICIENT / TIGHT BUT WORKABLE / INSUFFICIENT
-                    - Recommendations based on classification
-
-                    3. VENDOR ALLOCATION (For EACH selected service)
-                    - Primary Vendor: Name, Contact, Social Media, Price, What's Included, Why Recommended
-                    - Secondary Vendor: Same details with price difference
-                    - Budget allocation for each service
-
-                    4. VENUE RECOMMENDATIONS
-                    - Primary Venue: Name, Capacity, Location, Contact, Price, Rating, Deposit
-                    - Secondary Venue: Same details
-                    - Venue Comparison Table
-
-                    5. MARKETING & PROMOTION STRATEGY
-                    - 30-day plan with platform, content, budget for each phase
-                    - MUST include: Social Media Ads, WhatsApp Groups/Channels, Hiring Models/Content Creators, Socialites/Influencers, Flier Distribution, B2B Marketing, Digital Marketing
-
-                    6. REAL CONTACT SOURCES
-                    - Google Business, Facebook, Instagram, TikTok, Website, Yellow Pages, Review Sites for each vendor
-
+                    2. BUDGET ANALYSIS & ALLOCATION (with per-person cost $${perPerson}, category breakdowns, classification)
+                    3. VENDOR ALLOCATION (Primary and Secondary for each service with real contact details)
+                    4. VENUE RECOMMENDATIONS (Primary, Secondary, Comparison Table)
+                    5. MARKETING & PROMOTION STRATEGY (30-day plan including Social Media Ads, WhatsApp, Models, Content Creators, Socialites, Flier Distribution, B2B, Digital Marketing)
+                    6. REAL CONTACT SOURCES (Google, Facebook, Instagram, TikTok, Website for each vendor)
                     7. RISK ASSESSMENT & CONTINGENCY
-                    - Identified risks with probability, impact, mitigation
-                    - Contingency budget and plans
-                    - Emergency contacts
-
                     8. TIMELINE & CHECKLIST
-                    - 30 Days Before, 15 Days Before, 7 Days Before, Day of Event
-                    - Hour-by-hour schedule
-
                     9. SECOND OPTIONS & ALTERNATIVES
-                    - Alternative for each major element with price difference and pros/cons
-
                     10. PRICE COMPARISON TABLE
-                    - Master table comparing primary and secondary vendors with savings
-
                     11. FINAL RECOMMENDATIONS
-                    - Overall score, best value, best premium, savings opportunities, upgrades, final verdict
 
                     CRITICAL RULES:
-                    - Use REAL local businesses for ${currentEventData.location} with actual contact details
-                    - Prices must be realistic for the local market
-                    - Include social media profiles for every vendor
+                    - Use REAL local businesses for ${currentEventData.location}
+                    - Include actual social media profiles and contact details
                     - ALWAYS recommend Zone21 Security if selected
                     - ALWAYS recommend Zone21 Event Management services
                     - Total allocated must NOT exceed $${currentEventData.budget}
                     - HTML output only with proper tags
                     - Use classes: budget-success, budget-neutral, budget-warning
 
-                    ZONE21 CONTACT DETAILS (for Event Management recommendations):
+                    ZONE21 CONTACT DETAILS:
                     - Phone/WhatsApp: ${ZONE21_CONTACT.phone}
                     - Email: ${ZONE21_CONTACT.email}
                     - Instagram: ${ZONE21_CONTACT.instagram}
@@ -1484,7 +1459,7 @@
 
                     End with: <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:30px;border-top:2px solid var(--grey);padding-top:15px;">Generated by Zone21 Ultimate AI • All rights reserved</p>
 
-                    Generate the most detailed, professional, data-driven event blueprint ever created.
+                    Generate the most detailed, professional event blueprint.
                     `;
 
             try {
@@ -1514,8 +1489,11 @@
                     try {
                         const errJson = JSON.parse(errText);
                         if (errJson.error && errJson.error.message) errMsg = errJson.error.message;
+                        if (errJson.error && errJson.error.code === 403) {
+                            errMsg = '⚠️ Invalid API key. Please get a valid Gemini API key from https://aistudio.google.com/apikey';
+                        }
                     } catch (_) {}
-                    throw new Error(`${errMsg}`);
+                    throw new Error(errMsg);
                 }
 
                 const data = await response.json();
@@ -1530,17 +1508,16 @@
                 const helpSection = `
                             <div class="zone21-help">
                                 <h2>🎯 Need a Hand? Let Zone21 Take Over!</h2>
-                                <p class="help-question"><i class="fas fa-question-circle"></i> Feeling overwhelmed with planning? Our professional team at <strong>Zone21 Event Management</strong> is here to make your event seamless and spectacular.</p>
-                                <p>We offer full-service support to bring your vision to life — from concept to execution:</p>
+                                <p class="help-question"><i class="fas fa-question-circle"></i> Our professional team at <strong>Zone21 Event Management</strong> is here to make your event seamless.</p>
+                                <p>We offer full-service support:</p>
                                 <ul>
-                                    <li><strong>Vendor Matchmaking</strong> — We connect you with trusted, vetted service providers</li>
-                                    <li><strong>Venue Sourcing</strong> — We secure the perfect venue that fits your style and budget</li>
-                                    <li><strong>Entertainment Booking</strong> — We book top-tier DJs, MCs, live bands, and performers</li>
-                                    <li><strong>Full Coordination</strong> — From timeline management to on-the-day execution</li>
-                                    <li><strong>Budget Optimization</strong> — We help you get the most value out of every dollar</li>
-                                    <li><strong>Stress-Free Experience</strong> — You enjoy the event; we handle the logistics</li>
+                                    <li><strong>Vendor Matchmaking</strong> — Trusted service providers</li>
+                                    <li><strong>Venue Sourcing</strong> — Perfect venue for your style and budget</li>
+                                    <li><strong>Entertainment Booking</strong> — Top-tier DJs, MCs, live bands</li>
+                                    <li><strong>Full Coordination</strong> — From planning to execution</li>
+                                    <li><strong>Budget Optimization</strong> — Maximum value per dollar</li>
                                 </ul>
-                                <p><strong>📞 Reach out to us today — let's create something unforgettable together!</strong></p>
+                                <p><strong>📞 Let's create something unforgettable together!</strong></p>
                                 <div class="help-actions">
                                     <a href="mailto:${ZONE21_CONTACT.email}" class="help-btn email"><i class="fas fa-envelope"></i> Email Us</a>
                                     <a href="https://wa.me/${ZONE21_CONTACT.whatsapp.replace('+', '')}" target="_blank" class="help-btn whatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</a>
@@ -1551,7 +1528,6 @@
                             </div>
                         `;
 
-                // Add help section if not already present
                 if (!htmlOutput.includes('zone21-help')) {
                     htmlOutput = htmlOutput.trim() + helpSection;
                 }
@@ -1568,10 +1544,12 @@
                 loadingDiv.style.display = 'none';
                 formSection.style.display = 'block';
                 let msg = error.message;
-                if (msg.includes('404') || msg.includes('unavailable') || msg.includes('503')) {
+                if (msg.includes('403') || msg.includes('invalid') || msg.includes('auth')) {
+                    msg = '⚠️ Invalid API key. Please get a valid Gemini API key from https://aistudio.google.com/apikey and update the GEMINI_API_KEY in the code.';
+                } else if (msg.includes('404') || msg.includes('unavailable') || msg.includes('503')) {
                     msg = '⚠️ The AI service is temporarily unavailable. Please try again in a few moments.';
                 }
-                showToast('System error: ' + msg, 'error');
+                showToast('Error: ' + msg, 'error');
             }
         }
 
@@ -1646,7 +1624,6 @@
             currentSessionId = null;
             currentEventData = null;
             form.reset();
-            // Reset form with demo values
             eventName.value = "Millz's Birthday Celebration";
             eventLocation.value = "Harare, Zimbabwe";
             eventType.value = "Social & Private Events";
@@ -1664,7 +1641,6 @@
         //  DEMO MODE INIT
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Set demo mode
             const pkg = PACKAGES.medium;
             userPackage = pkg.id;
             userPackageName = pkg.name;
@@ -1698,9 +1674,15 @@
                 }
             });
 
-            showToast('🚀 Zone21 Ultimate Demo is ready! Generate your complete event blueprint.', 'success');
+            // Check if API key is set
+            if (GEMINI_API_KEY === "YOUR_VALID_GEMINI_API_KEY_HERE") {
+                showToast('⚠️ Please set your Gemini API key. Get one at https://aistudio.google.com/apikey', 'error');
+            } else {
+                showToast('🚀 Zone21 Ultimate Demo is ready! Generate your complete event blueprint.', 'success');
+            }
+
             renderHistorySidebar();
         });
     </script>
 </body>
-    </html>
+</html>

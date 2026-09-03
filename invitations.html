@@ -126,12 +126,19 @@
             margin: 0 auto;
             border: 2px solid var(--gold);
             border-radius: 12px;
-            padding: 30px 25px;
+            padding: 0; /* Adjusted for image */
             text-align: center;
             position: relative;
-            background: #fffdf8;
+            background: #ffffff;
+            overflow: hidden;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
+        .preview-card img {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 100%;
         }
 
         /* Add Guest Section */
@@ -152,8 +159,6 @@
         .btn-regen { background: #f0f4f8; color: var(--navy); border: 1px solid var(--grey); }
         .btn-regen:hover { background: var(--navy); color: white; }
 
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
         @media (max-width: 768px) {
             body { padding: 0; gap: 0; }
             .workspace { border-radius: 0; box-shadow: none; }
@@ -163,39 +168,21 @@
             .sidebar-overlay.active { display: block; opacity: 1; }
             .workspace-content { padding: 15px 10px; }
             .form-section { padding: 15px; border-radius: 12px; }
-            .preview-card { padding: 20px 15px; }
         }
 
-        /* Print Styles - STRICT A4 single page */
+        /* Print Styles */
         @media print {
             @page { size: A4 portrait; margin: 0; }
             body * { visibility: hidden; }
             .card-item-body, .card-item-body * { visibility: visible; }
             .card-item-body {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 210mm;
-                height: 297mm;
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
+                margin: 0; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
             }
             .preview-card {
-                width: 210mm;
-                height: 297mm;
-                max-width: 210mm;
-                min-height: 297mm;
-                margin: 0;
-                border-radius: 0;
-                box-shadow: none;
-                page-break-after: always;
-                page-break-inside: avoid;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                width: 210mm; height: 297mm; max-width: 210mm; min-height: 297mm;
+                margin: 0; border: none; border-radius: 0; box-shadow: none;
+                page-break-after: always; page-break-inside: avoid;
             }
             .card-item-header, .invitation-controls, .add-guest-section, .sidebar, .workspace-header { display: none !important; }
             .workspace { box-shadow: none; overflow: visible; }
@@ -225,7 +212,7 @@
         <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
         <div>
             <h1>Zone21 Invitation Developer</h1>
-            <p>Create beautiful invitation cards for your events</p>
+            <p>Create beautiful AI invitation cards for your events</p>
         </div>
     </div>
 
@@ -278,7 +265,7 @@
                 </div>
 
                 <button type="submit" class="submit-btn" id="generateBtn">
-                    <i class="fas fa-wand-magic-sparkles"></i> Generate Invitation Card
+                    <i class="fas fa-wand-magic-sparkles"></i> Generate AI Invitation
                 </button>
             </form>
         </div>
@@ -287,7 +274,7 @@
         <div id="loading">
             <div class="spinner"></div>
             <h3 style="color: var(--navy);">Designing your invitation...</h3>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Crafting a unique, beautiful design.</p>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Using Cloudflare AI to generate a beautiful design.</p>
         </div>
 
         <!-- Invitation Result -->
@@ -305,7 +292,7 @@
             
             <div class="invitation-controls">
                 <button class="action-btn btn-download" onclick="downloadAllInvitations()">
-                    <i class="fas fa-file-pdf"></i> Download All Invitations (PDF)
+                    <i class="fas fa-print"></i> Print All Invitations
                 </button>
                 <button class="action-btn btn-regen" onclick="regenerateCard()">
                     <i class="fas fa-rotate"></i> Regenerate Design
@@ -316,13 +303,16 @@
 </div>
 
 <script>
-    const OPENROUTER_API_KEY = "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";
-    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    // ==========================================
+    // CLOUDFLARE WORKER CONFIGURATION
+    // ==========================================
+    const INVITATION_API_URL = "https://blueprint.zone21services.workers.dev/";
 
     let currentSessionId = null;
     let currentCardData = null;
     let guestNames = [];
-    let currentDesignTemplate = '';
+    let currentDesignImage = '';
+    let isGenerating = false;
 
     // Mobile Sidebar Toggle
     const menuBtn = document.getElementById('menu-btn');
@@ -332,11 +322,21 @@
     if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
     if (overlay) overlay.addEventListener('click', closeSidebar);
 
+    // Escape HTML to prevent injection
+    function escapeHTML(value) {
+        if (!value) return "";
+        return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
     // Guest Management
     function addGuest() {
         const input = document.getElementById('guestNameInput');
         const name = input.value.trim();
         if (!name) return;
+        if (guestNames.map(g => g.toLowerCase()).includes(name.toLowerCase())) {
+            alert("Guest already added!");
+            return;
+        }
         guestNames.push(name);
         input.value = '';
         updateGuestDisplay();
@@ -345,7 +345,7 @@
     function updateGuestDisplay() {
         const display = document.getElementById('guestListDisplay');
         display.innerHTML = guestNames.map((name, index) => 
-            `<span class="guest-tag">${name} <i class="fas fa-times" style="cursor:pointer; margin-left:5px;" onclick="removeGuest(${index})"></i></span>`
+            `<span class="guest-tag">${escapeHTML(name)} <i class="fas fa-times" style="cursor:pointer; margin-left:5px;" onclick="removeGuest(${index})"></i></span>`
         ).join('');
         document.getElementById('guestsHidden').value = JSON.stringify(guestNames);
     }
@@ -355,82 +355,103 @@
         updateGuestDisplay();
     }
 
+    // Allow Enter key to add guests
+    document.getElementById('guestNameInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); addGuest(); }
+    });
+
     // Form Submit
     document.getElementById('cardForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        if (isGenerating) return;
+
         currentCardData = {
-            eventTitle: document.getElementById('eventTitle').value,
-            hostName: document.getElementById('hostName').value,
-            guestOfHonor: document.getElementById('guestOfHonor').value || '',
+            eventTitle: document.getElementById('eventTitle').value.trim(),
+            hostName: document.getElementById('hostName').value.trim(),
+            guestOfHonor: document.getElementById('guestOfHonor').value.trim(),
             date: document.getElementById('eventDate').value,
-            venue: document.getElementById('venue').value,
-            dressCode: document.getElementById('dressCode').value || '',
-            message: document.getElementById('specialMessage').value || '',
+            venue: document.getElementById('venue').value.trim(),
+            dressCode: document.getElementById('dressCode').value.trim(),
+            message: document.getElementById('specialMessage').value.trim(),
             guests: [...guestNames]
         };
         generateInvitation(false);
     });
 
+    // Build Prompt for Cloudflare Flux Worker
+    function buildInvitationPrompt(data) {
+        let dateObj = new Date(data.date);
+        let formattedDate = isNaN(dateObj) ? data.date : new Intl.DateTimeFormat("en-ZA", {
+            weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+        }).format(dateObj);
+
+        let prompt = `A highly professional, elegant, and premium invitation card design.
+Event Title: ${data.eventTitle}
+Hosted by: ${data.hostName}\n`;
+        if (data.guestOfHonor) prompt += `Guest of Honor: ${data.guestOfHonor}\n`;
+        prompt += `Date: ${formattedDate}\nVenue: ${data.venue}\n`;
+        if (data.dressCode) prompt += `Dress code: ${data.dressCode}\n`;
+        if (data.message) prompt += `Message: ${data.message}\n`;
+
+        prompt += `
+Design Requirements:
+- The text must be perfectly legible, centered, and written in a beautiful serif or calligraphy font.
+- Premium visual aesthetic suitable for printing.
+- Clean layout, beautiful borders based on the event type.
+- Portrait orientation.
+- Do NOT generate fake QR codes, watermarks, or "sample" text.`;
+        return prompt;
+    }
+
     async function generateInvitation(isRegenerating) {
+        isGenerating = true;
         document.getElementById('form-section').style.display = 'none';
         document.getElementById('invitation-container').style.display = 'none';
         document.getElementById('loading').style.display = 'block';
         if (!currentSessionId || !isRegenerating) currentSessionId = 'inv_' + Date.now();
 
-        const guestsList = currentCardData.guests.length > 0 ? currentCardData.guests : ['Guest'];
-        const dressCodeLine = currentCardData.dressCode ? `Dress Code: ${currentCardData.dressCode}` : '';
-        const gohLine = currentCardData.guestOfHonor ? `Guest of Honor: ${currentCardData.guestOfHonor}` : '';
-
-        const prompt = `You are an elite invitation card designer. Create ONE invitation card design template using <div class="preview-card"> with inline CSS. DO NOT use doves, birds, or animal emojis. Use abstract patterns, geometric shapes, or botanical lines. Vary the style: minimal, luxurious, playful, elegant.
-
-DETAILS:
-Event Title: ${currentCardData.eventTitle}
-Host: ${currentCardData.hostName}
-${gohLine}
-Date & Time: ${currentCardData.date}
-Venue: ${currentCardData.venue}
-${dressCodeLine}
-Special Message: ${currentCardData.message || 'None'}
-Guest Name Placeholder: use [GUEST_NAME]
-
-REQUIREMENTS:
-- Return ONLY the HTML (no markdown, no explanations)
-- Use background colors where appropriate (dark navy, forest green, burgundy, etc.)
-- Include date, time, venue, host, and guest name placeholder
-- Make it print-ready with -webkit-print-color-adjust: exact
-- Keep font sizes reasonable so it fits on ONE A4 page`;
+        const prompt = buildInvitationPrompt(currentCardData);
 
         try {
-            const response = await fetch(API_URL, {
+            // CALL CLOUDFLARE WORKER
+            const response = await fetch(INVITATION_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENROUTER_API_KEY}` },
-                body: JSON.stringify({ model: "openrouter/auto", messages: [{ role: "user", content: prompt }] })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: prompt })
             });
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            
-            let raw = data.choices[0].message.content;
-            // Sanitize: remove any leaked prompt or API content
-            currentDesignTemplate = raw
-                .replace(/```html/gi, '')
-                .replace(/```/g, '')
-                .replace(/You are an elite invitation card designer[\s\S]*?DETAILS:/i, '')
-                .replace(/REQUIREMENTS:[\s\S]*?$/i, '')
-                .trim();
-            
-            if (!currentDesignTemplate.includes('preview-card')) {
-                currentDesignTemplate = `<div class="preview-card" style="background:#fff;padding:40px;text-align:center;border:3px solid #D4AF37;border-radius:12px;"><h1 style="color:#102838;font-family:Georgia,serif;">${currentCardData.eventTitle}</h1><p style="font-size:1.2rem;color:#666;">${currentCardData.hostName}</p><div style="font-size:1.1rem;margin:20px 0;">[GUEST_NAME]</div><p><strong>Date:</strong> ${currentCardData.date}</p><p><strong>Venue:</strong> ${currentCardData.venue}</p></div>`;
+
+            if (!response.ok) {
+                let errText = await response.text();
+                throw new Error(errText || `Server error: ${response.status}`);
             }
+
+            const data = await response.json();
+            
+            if (!data.image) {
+                throw new Error("No image returned from server.");
+            }
+
+            let image = data.image;
+            if (!image.startsWith("data:") && !image.startsWith("http")) {
+                image = "data:image/jpeg;base64," + image;
+            }
+
+            currentDesignImage = image;
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('invitation-container').style.display = 'block';
             renderCardsList();
             saveInvitationState();
+            
+            document.getElementById('invitation-container').scrollIntoView({ behavior: "smooth", block: "start" });
+
         } catch (error) {
             console.error("Design Error:", error);
             document.getElementById('loading').style.display = 'none';
             document.getElementById('form-section').style.display = 'block';
-            alert("Error generating invitation. Please try again.");
+            alert("Error generating invitation: " + error.message);
+        } finally {
+            isGenerating = false;
         }
     }
 
@@ -440,17 +461,24 @@ REQUIREMENTS:
         cardsList.innerHTML = '';
         
         guests.forEach((guest, index) => {
-            const cardHtml = currentDesignTemplate.replace(/\[GUEST_NAME\]/g, guest);
+            const safeGuest = escapeHTML(guest);
             const cardItem = document.createElement('div');
             cardItem.className = 'card-item';
+            
+            // Text to overlay if you want to composite the guest name on the frontend.
+            // For now, it places the AI generated image.
             cardItem.innerHTML = `
                 <div class="card-item-header">
-                    <span class="guest-label"><i class="fas fa-user"></i> Guest: ${guest}</span>
+                    <span class="guest-label"><i class="fas fa-user"></i> Guest: ${safeGuest}</span>
                     <div class="card-actions">
-                        <button class="action-btn btn-download" onclick="downloadSingleCard('${guest}', ${index})"><i class="fas fa-download"></i> Download</button>
+                        <button class="action-btn btn-download" onclick="downloadSingleCard('${safeGuest}', ${index})"><i class="fas fa-download"></i> Download</button>
                     </div>
                 </div>
-                <div class="card-item-body" id="card-body-${index}">${cardHtml}</div>
+                <div class="card-item-body" id="card-body-${index}">
+                    <div class="preview-card">
+                        <img src="${currentDesignImage}" alt="Invitation for ${safeGuest}">
+                    </div>
+                </div>
             `;
             cardsList.appendChild(cardItem);
         });
@@ -461,45 +489,70 @@ REQUIREMENTS:
         const input = document.getElementById('newGuestInput');
         const name = input.value.trim();
         if (!name) return;
+        if (currentCardData.guests.map(g => g.toLowerCase()).includes(name.toLowerCase())) {
+            alert("Guest already added!"); return;
+        }
+        
         currentCardData.guests.push(name);
         guestNames.push(name);
         input.value = '';
-        const cardHtml = currentDesignTemplate.replace(/\[GUEST_NAME\]/g, name);
+        
+        const safeGuest = escapeHTML(name);
+        const index = currentCardData.guests.length - 1;
+        
         const cardsList = document.getElementById('cardsList');
         const cardItem = document.createElement('div');
         cardItem.className = 'card-item';
         cardItem.innerHTML = `
             <div class="card-item-header">
-                <span class="guest-label"><i class="fas fa-user"></i> Guest: ${name}</span>
+                <span class="guest-label"><i class="fas fa-user"></i> Guest: ${safeGuest}</span>
                 <div class="card-actions">
-                    <button class="action-btn btn-download" onclick="downloadSingleCard('${name}', ${currentCardData.guests.length - 1})"><i class="fas fa-download"></i> Download</button>
+                    <button class="action-btn btn-download" onclick="downloadSingleCard('${safeGuest}', ${index})"><i class="fas fa-download"></i> Download</button>
                 </div>
             </div>
-            <div class="card-item-body" id="card-body-${currentCardData.guests.length - 1}">${cardHtml}</div>
+            <div class="card-item-body" id="card-body-${index}">
+                <div class="preview-card">
+                    <img src="${currentDesignImage}" alt="Invitation for ${safeGuest}">
+                </div>
+            </div>
         `;
         cardsList.appendChild(cardItem);
         saveInvitationState();
     }
 
-    function downloadSingleCard(guestName, index) {
+    document.getElementById('newGuestInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); addNewGuest(); }
+    });
+
+    // Download Logic for Base64 Images
+    async function downloadSingleCard(guestName, index) {
         const cardBody = document.getElementById(`card-body-${index}`);
         if (!cardBody) return;
-        const printWindow = window.open('', '_blank', 'width=800,height=1100');
-        printWindow.document.write(`
-            <html><head><title>Invitation - ${guestName}</title>
-            <style>
-                @page { size: A4 portrait; margin: 0; }
-                * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                .preview-card {
-                    width: 210mm; height: 297mm; max-width: 210mm;
-                    border-radius: 0; box-shadow: none; margin: 0;
-                    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-                }
-            </style></head>
-            <body>${cardBody.innerHTML}<script>window.onload=function(){window.print();};<\/script></body></html>
-        `);
-        printWindow.document.close();
+        
+        const image = cardBody.querySelector("img");
+        if (!image) return alert("Image not ready.");
+
+        try {
+            const response = await fetch(image.src);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement("a");
+            link.href = url;
+            const safeName = String(guestName).replace(/[<>:"/\\|?*\x00-\x1F]/g, "").replace(/\s+/g, "_");
+            link.download = `${currentCardData.eventTitle.replace(/\s+/g, "_")}_${safeName}.png`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            console.error("Download failed, opening in new tab", error);
+            const link = document.createElement("a");
+            link.href = image.src;
+            link.target = "_blank";
+            link.download = "Invitation.png";
+            link.click();
+        }
     }
 
     function downloadAllInvitations() { window.print(); }
@@ -509,28 +562,45 @@ REQUIREMENTS:
     function saveInvitationState() {
         const title = `${currentCardData.hostName} - ${currentCardData.eventTitle}`;
         const cardData = {
-            id: currentSessionId, title: title,
-            formData: currentCardData, designTemplate: currentDesignTemplate,
+            id: currentSessionId, 
+            title: title,
+            formData: currentCardData, 
+            designImage: currentDesignImage,
             updatedAt: new Date().toISOString()
         };
         let localSessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
         localSessions[currentSessionId] = cardData;
-        localStorage.setItem('zone21_invitations', JSON.stringify(localSessions));
+        
+        try {
+            localStorage.setItem('zone21_invitations', JSON.stringify(localSessions));
+        } catch (error) {
+            console.warn("Storage full. Saving without image payload.");
+            localSessions[currentSessionId].designImage = "";
+            localStorage.setItem('zone21_invitations', JSON.stringify(localSessions));
+        }
         renderHistorySidebar();
     }
 
     function renderHistorySidebar() {
         const historyList = document.getElementById('history-list');
+        if (!historyList) return;
         historyList.innerHTML = '';
         let localSessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
+        
         Object.values(localSessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(session => {
             const item = document.createElement('div');
             item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
             item.innerHTML = `
-                <div class="item-info"><i class="fas fa-envelope" style="color: var(--lime);"></i><span class="item-title">${session.title}</span></div>
-                <i class="fas fa-trash delete-btn" title="Delete" onclick="deleteInvitationSession('${session.id}', event)"></i>
+                <div class="item-info"><i class="fas fa-envelope" style="color: var(--lime);"></i><span class="item-title">${escapeHTML(session.title)}</span></div>
+                <i class="fas fa-trash delete-btn" title="Delete"></i>
             `;
-            item.onclick = () => loadInvitationSession(session.id);
+            
+            item.querySelector('.delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteInvitationSession(session.id);
+            });
+            
+            item.addEventListener('click', () => loadInvitationSession(session.id));
             historyList.appendChild(item);
         });
     }
@@ -540,10 +610,18 @@ REQUIREMENTS:
         let localSessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
         const session = localSessions[sessionId];
         if (!session) return;
+        
         currentSessionId = session.id;
         currentCardData = session.formData;
-        currentDesignTemplate = session.designTemplate;
+        currentDesignImage = session.designImage || "";
         guestNames = session.formData.guests || [];
+        
+        if (!currentDesignImage) {
+            // Image was cleared due to storage limits, regenerate it
+            generateInvitation(true);
+            return;
+        }
+
         document.getElementById('form-section').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
         document.getElementById('invitation-container').style.display = 'block';
@@ -551,8 +629,7 @@ REQUIREMENTS:
         renderHistorySidebar();
     }
 
-    function deleteInvitationSession(sessionId, event) {
-        if (event) event.stopPropagation();
+    function deleteInvitationSession(sessionId) {
         if (!confirm("Delete this invitation?")) return;
         let localSessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
         delete localSessions[sessionId];
@@ -562,7 +639,7 @@ REQUIREMENTS:
 
     function startNewCard() {
         closeSidebar();
-        currentSessionId = null; currentCardData = null; currentDesignTemplate = ''; guestNames = [];
+        currentSessionId = null; currentCardData = null; currentDesignImage = ''; guestNames = [];
         document.getElementById('cardForm').reset();
         document.getElementById('guestListDisplay').innerHTML = '';
         document.getElementById('guestsHidden').value = '';

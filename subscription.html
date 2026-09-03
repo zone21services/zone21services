@@ -835,7 +835,7 @@
             </div>
         </div>
 
-        <!-- ===== VIEW: INVOICE (KEPT EXACTLY AS REDESIGNED) ===== -->
+        <!-- ===== VIEW: INVOICE ===== -->
         <div class="view" id="view-invoice">
             <div class="invoice-wrapper">
                 <div class="invoice-header-bar">
@@ -1020,6 +1020,7 @@
             };
 
             try {
+                // Get approved subscriptions to self-heal any pending events
                 const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
                 const subsSnapshot = await getDocs(subsQ);
                 const activeInvoices = [];
@@ -1051,7 +1052,7 @@
                         <div class="empty-state" style="grid-column:1/-1;">
                             <i class="fas fa-clock"></i>
                             <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
-                            <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
+                            <p style="font-size:0.9rem;">Purchase a package and after approval, create your event from the dashboard.</p>
                         </div>
                     `;
                     return;
@@ -1123,8 +1124,8 @@
                             buttonHtml = `
                                 <div style="display:flex; gap:0.5rem; flex-direction:column;">
                                     <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
-                                    <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
-                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Create Another</button>
+                                    <button class="btn btn-outline" onclick="window.location.href='dashboard.html'"><i class="fa-solid fa-list"></i> Go To Dashboard</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')"><i class="fa-solid fa-plus"></i> Buy Another</button>
                                 </div>
                             `;
                         } else if (subData.status === 'rejected') {
@@ -1220,7 +1221,7 @@
         };
 
         // ==========================================
-        // GENERATE INVOICE - FIXED
+        // GENERATE INVOICE (NO GHOST EVENT)
         // ==========================================
         window.generateInvoice = async function() {
             if (!currentUser) { 
@@ -1265,7 +1266,7 @@
                 const subRef = doc(db, 'subscriptions', subId);
 
                 // ============================================================
-                // 1. CREATE INVOICE (Always create a new one)
+                // 1. CREATE INVOICE
                 // ============================================================
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
@@ -1290,12 +1291,11 @@
                 console.log('✅ Invoice created:', invNumber);
 
                 // ============================================================
-                // 2. CHECK IF SUBSCRIPTION EXISTS - UPDATE OR CREATE
+                // 2. CREATE OR UPDATE SUBSCRIPTION (NO EVENT CREATED)
                 // ============================================================
                 const subSnap = await getDoc(subRef);
                 
                 if (subSnap.exists()) {
-                    // UPDATE existing subscription with new invoice
                     await setDoc(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
@@ -1316,7 +1316,6 @@
                     }, { merge: true });
                     console.log('✅ Subscription UPDATED:', subId);
                 } else {
-                    // CREATE new subscription
                     await setDoc(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
@@ -1350,45 +1349,7 @@
                 console.log('✅ User updated');
 
                 // ============================================================
-                // 4. CREATE EVENT
-                // ============================================================
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
-                    organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
-                    package: selectedPlan.name,
-                    packageId: selectedPlan.id,
-                    status: 'pending_payment',
-                    createdAt: serverTimestamp(),
-                    location: '',
-                    date: null,
-                    budget: 0,
-                    attendees: 0,
-                    notes: '',
-                    ticketsSold: 0,
-                    grossRevenue: 0,
-                    blueprint: null,
-                    invoiceNumber: invNumber
-                });
-                console.log('✅ Event created:', newEventRef.id);
-                localStorage.setItem('zone21_latest_event', newEventRef.id);
-
-                // ============================================================
-                // 5. UPDATE INVOICE WITH EVENT ID
-                // ============================================================
-                await setDoc(doc(db, "invoices", invNumber), {
-                    eventId: newEventRef.id
-                }, { merge: true });
-
-                // ============================================================
-                // 6. UPDATE SUBSCRIPTION WITH EVENT ID
-                // ============================================================
-                await setDoc(subRef, {
-                    eventId: newEventRef.id
-                }, { merge: true });
-
-                // ============================================================
-                // 7. DISPLAY INVOICE
+                // 4. DISPLAY INVOICE
                 // ============================================================
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
@@ -1401,7 +1362,7 @@
                 localStorage.setItem('zone21_package', selectedPlan.name);
                 localStorage.setItem('zone21_invoice', invNumber);
 
-                showToast('✅ Invoice generated successfully!', 'success');
+                showToast('✅ Invoice generated successfully! Once payment is approved, go to your dashboard to create your event.', 'success');
                 window.showView('view-invoice');
                 updatePlanButtons();
 
@@ -1453,4 +1414,4 @@
         window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-                                    </html>
+</html>

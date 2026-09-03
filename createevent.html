@@ -13,7 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        /* ========== (All styles unchanged – same as before) ========== */
+        /* ===== All styles unchanged – same as before ===== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -32,6 +32,7 @@
         
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
         .dashboard-header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
+        .dashboard-header .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         
         .btn-create {
             background: var(--lime); color: var(--navy); border: none; border-radius: 30px;
@@ -44,6 +45,12 @@
             cursor: not-allowed;
             transform: none;
         }
+        .btn-refresh {
+            background: var(--navy); color: white; border: none; border-radius: 30px;
+            padding: 12px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .btn-refresh:hover { background: #1a3a4a; transform: translateY(-2px); }
         
         .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px; margin-bottom: 25px; }
         .card h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
@@ -85,6 +92,7 @@
         .status-rejected { background: #f8d7da; color: #721c24; }
         .status-cancelled { background: #e2e3e5; color: #383d41; }
         .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
+        .status-pending_payment { background: #f8d7da; color: #856404; }
         
         .event-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .event-card .actions button { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; padding: 5px 8px; border-radius: 50%; }
@@ -160,7 +168,6 @@
         .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .event-card .event-title-row strong { font-size: 1rem; }
 
-        /* package limit banner */
         .package-info {
             background: var(--navy);
             color: var(--lime);
@@ -197,7 +204,10 @@
         <!-- Dashboard Header -->
         <div class="dashboard-header">
             <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
-            <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
+            <div class="header-actions">
+                <button class="btn-refresh" onclick="loadMyEvents()"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
+            </div>
         </div>
 
         <!-- Package Info Banner -->
@@ -306,8 +316,6 @@
         <!-- Terms & Submit -->
         <div class="card hidden" id="terms-submit-card">
             <h2>Terms & Conditions</h2>
-
-            <!-- 2% Commission Highlight Box -->
             <div class="commission-box">
                 <div>
                     <div class="label"><i class="fas fa-percent" style="color:var(--pink);"></i> Zone21 Ticketing Fee</div>
@@ -345,13 +353,11 @@
         <div class="modal-content">
             <button class="modal-close" id="close-terms">&times;</button>
             <h3>Zone21 Organizer Terms &amp; Conditions</h3>
-            
             <div class="highlight-box">
                 <strong><i class="fas fa-percent" style="color:var(--pink);"></i> 2% ZONE21 TICKETING COMMISSION</strong><br>
                 For every ticket sold through the Zone21 platform, the Organizer agrees that Zone21 will receive a <strong>2% ticketing commission</strong>.
                 The commission is calculated on the ticket price paid by the customer for each ticket sold through Zone21.
             </div>
-
             <h4>Example</h4>
             <p>If a customer purchases a ticket for US$100:</p>
             <ul>
@@ -365,15 +371,11 @@
                 <li><strong>Zone21 2% commission:</strong> US$2,000</li>
                 <li><strong>Remaining amount:</strong> US$98,000</li>
             </ul>
-
             <hr style="margin: 20px 0; border-color: #e2e8f0;">
-
             <h4>Ticket Sales and Settlement</h4>
             <p>Where Zone21 receives ticket payments on behalf of the Organizer, Zone21 may deduct its 2% ticketing commission before transferring the applicable balance to the Organizer.</p>
-
             <h4>Organiser Acknowledgement</h4>
             <p>By accepting this Agreement, the Organizer expressly acknowledges and agrees that Zone21 charges a 2% commission on every ticket sold through the Zone21 platform.</p>
-
             <button class="btn-close-modal" id="accept-terms-btn">I Understand &amp; Agree</button>
         </div>
     </div>
@@ -402,8 +404,8 @@
 
         // ============ GLOBAL VARIABLES ============
         let currentOrganizerId = null;
-        let totalPackages = 0;          // computed from approved subscriptions
-        let activeEventsCount = 0;      // events with status not cancelled/rejected
+        let totalPackages = 0;          // approved/active subscriptions
+        let activeEventsCount = 0;      // events with status not cancelled/rejected/pending_payment
 
         // ============ TOAST ============
         function showToast(message, type = 'success') {
@@ -487,7 +489,7 @@
             showCreateBtn.style.display = (activeEventsCount < totalPackages) ? 'flex' : 'none';
         });
 
-        // ============ IMAGE HANDLING ============
+        // ============ IMAGE HANDLING (unchanged) ============
         function fileToBase64(file, maxDimension = 800, quality = 0.7) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -613,7 +615,7 @@
             return ticketTypes;
         }
 
-        // ============ EVENT SUBMISSION ============
+        // ============ EVENT SUBMISSION (unchanged) ============
         document.getElementById('submit-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
             const eventForm = document.getElementById('event-form');
@@ -624,7 +626,6 @@
                 return;
             }
 
-            // For new events, check package limit
             if (!editId && activeEventsCount >= totalPackages) {
                 showToast('You have used all your packages. Please purchase additional packages.', 'error');
                 return;
@@ -702,7 +703,7 @@
             }
         });
 
-        // ============ LOAD MY EVENTS (FIXED) ============
+        // ============ LOAD MY EVENTS – FIXED ============
         function loadMyEvents() {
             if (!currentOrganizerId) {
                 console.warn('loadMyEvents: No organizer ID');
@@ -716,7 +717,7 @@
 
             let approvedInvoiceNumbers = [];
 
-            // Step 1: get approved subscriptions to self-heal pending events
+            // Step 1: get approved subscriptions
             db.collection('subscriptions')
                 .where('userId', '==', currentOrganizerId)
                 .where('status', 'in', ['approved', 'active'])
@@ -726,7 +727,7 @@
                         const data = doc.data();
                         if (data.invoiceNumber) approvedInvoiceNumbers.push(data.invoiceNumber);
                     });
-                    // Step 2: fetch events (even if subscriptions query returns nothing)
+                    // Step 2: fetch events
                     return db.collection('events')
                         .where('organizerId', '==', currentOrganizerId)
                         .get();
@@ -734,16 +735,16 @@
                 .then(snapshot => {
                     const events = [];
                     const batch = db.batch();
-                    let hasUpdates = false;  // ✅ FIX: use a flag instead of batch._operations
+                    let hasUpdates = false;
 
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        // Self‑heal: if event is pending_payment and its invoice is now approved, update to approved
+                        // Self‑heal: if pending_payment and invoice is approved, set to approved
                         if (data.status === 'pending_payment' && data.invoiceNumber && approvedInvoiceNumbers.includes(data.invoiceNumber)) {
                             const ref = db.collection('events').doc(doc.id);
                             batch.update(ref, { status: 'approved' });
                             hasUpdates = true;
-                            data.status = 'approved'; // update local copy
+                            data.status = 'approved';
                         }
                         events.push({
                             id: data.id || doc.id,
@@ -752,7 +753,6 @@
                         });
                     });
 
-                    // Commit any self‑heal updates only if we added any
                     if (hasUpdates) {
                         batch.commit().catch(err => console.warn('Self‑heal batch failed:', err));
                     }
@@ -764,27 +764,33 @@
                         return dateB - dateA;
                     });
 
-                    // Count active events (not cancelled or rejected)
+                    // ✅ Count active events: exclude cancelled, rejected, and pending_payment
                     activeEventsCount = events.filter(ev => 
-                        ev.status !== 'cancelled' && ev.status !== 'rejected'
+                        ev.status !== 'cancelled' && 
+                        ev.status !== 'rejected' && 
+                        ev.status !== 'pending_payment'
                     ).length;
 
-                    // Update package info and button visibility
-                    updateCreateButton();
-
-                    if (events.length === 0) {
-                        listDiv.innerHTML = '';
-                        noMsg.style.display = 'block';
-                        noMsg.textContent = 'No events created yet. Click "Create New Event" to get started.';
-                        return;
-                    }
-
-                    displayEvents(events);
+                    // Step 3: Now also fetch total packages from subscriptions (approved/active)
+                    return db.collection('subscriptions')
+                        .where('userId', '==', currentOrganizerId)
+                        .where('status', 'in', ['approved', 'active'])
+                        .get()
+                        .then(subsSnap => {
+                            totalPackages = subsSnap.size; // simple count
+                            updateCreateButton();
+                            if (events.length === 0) {
+                                listDiv.innerHTML = '';
+                                noMsg.style.display = 'block';
+                                noMsg.textContent = 'No events created yet. Click "Create New Event" to get started.';
+                                return;
+                            }
+                            displayEvents(events);
+                        });
                 })
                 .catch(err => {
                     console.error('loadMyEvents: ERROR', err);
-                    // Even if the subscription query fails, try to load events directly
-                    // as a fallback (some users may not have subscriptions yet)
+                    // Fallback: try loading events without subscriptions
                     db.collection('events')
                         .where('organizerId', '==', currentOrganizerId)
                         .get()
@@ -804,9 +810,20 @@
                                 return dateB - dateA;
                             });
                             activeEventsCount = events.filter(ev => 
-                                ev.status !== 'cancelled' && ev.status !== 'rejected'
+                                ev.status !== 'cancelled' && 
+                                ev.status !== 'rejected' && 
+                                ev.status !== 'pending_payment'
                             ).length;
-                            updateCreateButton();
+                            // Try to get package count anyway (if possible)
+                            db.collection('subscriptions')
+                                .where('userId', '==', currentOrganizerId)
+                                .where('status', 'in', ['approved', 'active'])
+                                .get()
+                                .then(subsSnap => {
+                                    totalPackages = subsSnap.size;
+                                    updateCreateButton();
+                                })
+                                .catch(() => { totalPackages = 0; updateCreateButton(); });
                             if (events.length === 0) {
                                 listDiv.innerHTML = '';
                                 noMsg.style.display = 'block';
@@ -824,7 +841,7 @@
                 });
         }
 
-        // ============ DISPLAY EVENTS ============
+        // ============ DISPLAY EVENTS (unchanged) ============
         function displayEvents(events) {
             const listDiv = document.getElementById('my-events-list');
             const noMsg = document.getElementById('no-events-msg');
@@ -885,7 +902,7 @@
             });
         }
 
-        // ============ EVENT ACTIONS ============
+        // ============ EVENT ACTIONS (unchanged) ============
         window.editEvent = function(eventId) {
             if (!eventId || eventId === 'undefined') {
                 showToast('Invalid event ID.', 'error');
@@ -1004,28 +1021,6 @@
             document.getElementById('agreeTerms').checked = true;
         });
 
-        // ============ FETCH USER PACKAGE COUNT FROM SUBSCRIPTIONS ============
-        async function loadUserPackages(uid) {
-            try {
-                const subsSnapshot = await db.collection('subscriptions')
-                    .where('userId', '==', uid)
-                    .get();
-                let count = 0;
-                subsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.status === 'approved' || data.status === 'active') {
-                        count++;
-                    }
-                });
-                totalPackages = count;
-                console.log('Approved subscriptions count:', totalPackages);
-            } catch (err) {
-                console.error('Error fetching subscriptions:', err);
-                totalPackages = 0;
-            }
-            updateCreateButton();
-        }
-
         // ============ INIT ============
         document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
         document.getElementById('posterUpload').addEventListener('change', async function() {
@@ -1037,7 +1032,6 @@
             if (user) {
                 console.log("Logged in Organizer:", user.uid);
                 currentOrganizerId = user.uid;
-                await loadUserPackages(user.uid);
                 loadMyEvents();
                 if (document.querySelectorAll('.ticket-type-row').length === 0) {
                     addTicketType();

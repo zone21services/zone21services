@@ -13,6 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
+        /* ========== (Same styles as before – no changes) ========== */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -38,6 +39,11 @@
             display: flex; align-items: center; gap: 8px; transition: 0.2s;
         }
         .btn-create:hover { background: #d0d800; transform: translateY(-2px); }
+        .btn-create:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
         
         .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px; margin-bottom: 25px; }
         .card h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
@@ -154,6 +160,28 @@
         .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .event-card .event-title-row strong { font-size: 1rem; }
 
+        /* package limit banner */
+        .package-info {
+            background: var(--navy);
+            color: var(--lime);
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-weight: 600;
+        }
+        .package-info .count {
+            background: var(--lime);
+            color: var(--navy);
+            padding: 2px 14px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 768px) {
             .form-row { grid-template-columns: 1fr; }
             .card { padding: 20px; }
@@ -170,6 +198,12 @@
         <div class="dashboard-header">
             <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
             <button class="btn-create" id="show-create-form"><i class="fas fa-plus"></i> Create New Event</button>
+        </div>
+
+        <!-- Package Info Banner -->
+        <div class="package-info" id="packageInfo">
+            <span><i class="fas fa-boxes"></i> Your Packages</span>
+            <span><span id="usedPackages">0</span> / <span id="totalPackages">0</span> used</span>
         </div>
 
         <!-- Event Creation Form (hidden by default) -->
@@ -368,6 +402,8 @@
 
         // ============ GLOBAL VARIABLES ============
         let currentOrganizerId = null;
+        let totalPackages = 0;          // from user document
+        let activeEventsCount = 0;      // events with status not cancelled/rejected
 
         // ============ TOAST ============
         function showToast(message, type = 'success') {
@@ -396,9 +432,37 @@
         const ticketTypesCard = document.getElementById('ticket-types-card');
         const termsSubmitCard = document.getElementById('terms-submit-card');
         const cancelCreateBtn = document.getElementById('cancel-create');
+        const packageInfo = document.getElementById('packageInfo');
+        const usedPackagesSpan = document.getElementById('usedPackages');
+        const totalPackagesSpan = document.getElementById('totalPackages');
+
+        // ============ UPDATE CREATE BUTTON VISIBILITY ============
+        function updateCreateButton() {
+            const canCreate = activeEventsCount < totalPackages;
+            showCreateBtn.style.display = canCreate ? 'flex' : 'none';
+            // Update package banner
+            usedPackagesSpan.textContent = activeEventsCount;
+            totalPackagesSpan.textContent = totalPackages;
+            if (activeEventsCount >= totalPackages && totalPackages > 0) {
+                packageInfo.style.background = '#f8d7da';
+                packageInfo.style.color = '#721c24';
+                packageInfo.innerHTML = `<span><i class="fas fa-exclamation-triangle"></i> Package limit reached</span>
+                                         <span>${activeEventsCount} / ${totalPackages} used</span>`;
+            } else {
+                packageInfo.style.background = 'var(--navy)';
+                packageInfo.style.color = 'var(--lime)';
+                packageInfo.innerHTML = `<span><i class="fas fa-boxes"></i> Your Packages</span>
+                                         <span><span id="usedPackages">${activeEventsCount}</span> / <span id="totalPackages">${totalPackages}</span> used</span>`;
+            }
+        }
 
         // ============ SHOW/HIDE FORM ============
         showCreateBtn.addEventListener('click', () => {
+            // Double-check limit before opening form
+            if (activeEventsCount >= totalPackages) {
+                showToast('You have used all your event packages. Please purchase additional packages.', 'error');
+                return;
+            }
             eventFormCard.classList.remove('hidden');
             ticketTypesCard.classList.remove('hidden');
             termsSubmitCard.classList.remove('hidden');
@@ -416,7 +480,7 @@
             eventFormCard.classList.add('hidden');
             ticketTypesCard.classList.add('hidden');
             termsSubmitCard.classList.add('hidden');
-            showCreateBtn.style.display = 'flex';
+            showCreateBtn.style.display = (activeEventsCount < totalPackages) ? 'flex' : 'none';
         });
 
         // ============ IMAGE HANDLING ============
@@ -556,7 +620,11 @@
                 return;
             }
 
-            // ✅ REMOVED: the one-event check – now you can create multiple events
+            // For new events, check package limit
+            if (!editId && activeEventsCount >= totalPackages) {
+                showToast('You have used all your event packages. Please purchase additional packages.', 'error');
+                return;
+            }
 
             const submitBtn = this;
             const originalBtnHtml = submitBtn.innerHTML;
@@ -611,7 +679,7 @@
                 eventFormCard.classList.add('hidden');
                 ticketTypesCard.classList.add('hidden');
                 termsSubmitCard.classList.add('hidden');
-                showCreateBtn.style.display = 'flex';
+                showCreateBtn.style.display = (activeEventsCount < totalPackages) ? 'flex' : 'none';
                 document.getElementById('event-form').reset();
                 document.getElementById('ticket-types-container').innerHTML = '';
                 ticketCount = 0;
@@ -663,6 +731,14 @@
                         const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
                         return dateB - dateA;
                     });
+
+                    // Count active events (not cancelled or rejected)
+                    activeEventsCount = events.filter(ev => 
+                        ev.status !== 'cancelled' && ev.status !== 'rejected'
+                    ).length;
+
+                    // Update package info and button visibility
+                    updateCreateButton();
 
                     if (events.length === 0) {
                         listDiv.innerHTML = '';
@@ -862,6 +938,24 @@
             document.getElementById('agreeTerms').checked = true;
         });
 
+        // ============ FETCH USER PACKAGE COUNT ============
+        async function loadUserPackages(uid) {
+            try {
+                const userDoc = await getDoc(doc(db, 'users', uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    totalPackages = data.packageCount || 1;  // default to 1 if not set
+                } else {
+                    totalPackages = 1; // fallback
+                }
+            } catch (err) {
+                console.error('Error fetching packages:', err);
+                totalPackages = 1;
+            }
+            // Update UI after package count is known
+            updateCreateButton();
+        }
+
         // ============ INIT ============
         document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
         document.getElementById('posterUpload').addEventListener('change', async function() {
@@ -869,10 +963,13 @@
         });
 
         // ============ AUTH ============
-        auth.onAuthStateChanged((user) => {
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log("Logged in Organizer:", user.uid);
                 currentOrganizerId = user.uid;
+                // Load package count first
+                await loadUserPackages(user.uid);
+                // Then load events
                 loadMyEvents();
                 if (document.querySelectorAll('.ticket-type-row').length === 0) {
                     addTicketType();

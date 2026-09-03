@@ -581,7 +581,11 @@
             }
         }
 
+        /* ---- LAYOUT FIX: Force single column, no side-by-side cards ---- */
         .blueprint-result {
+            display: block;
+            width: 100%;
+            max-width: 100%;
             background: transparent;
             padding: 0;
             border: none;
@@ -590,10 +594,65 @@
             overflow-x: auto;
             line-height: 1.7;
             color: #2d3748;
-            width: 100%;
             font-size: 0.95rem;
         }
 
+        /* Override any inline flex/grid from AI output */
+        .blueprint-result * {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            word-wrap: break-word !important;
+        }
+
+        .blueprint-result [style*="display: flex"],
+        .blueprint-result [style*="display: grid"],
+        .blueprint-result .flex-row,
+        .blueprint-result .grid-row,
+        .blueprint-result .vendor-grid,
+        .blueprint-result .card-container {
+            display: block !important;
+            flex-direction: unset !important;
+            grid-template-columns: unset !important;
+            grid-gap: unset !important;
+            gap: unset !important;
+            flex-wrap: unset !important;
+            justify-content: unset !important;
+            align-items: unset !important;
+        }
+
+        /* Tables: scrollable on small screens */
+        .blueprint-result table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+            max-width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0 20px;
+            font-size: 0.82rem;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .blueprint-result table th {
+            background: var(--navy);
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .blueprint-result table td {
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--grey);
+        }
+        .blueprint-result table tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+        .blueprint-result table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Headings */
         .blueprint-result h1 {
             color: var(--navy);
             font-size: 1.6rem;
@@ -650,34 +709,6 @@
         .blueprint-result p {
             margin-bottom: 12px;
             font-size: 0.92rem;
-        }
-
-        .blueprint-result table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 14px 0 20px;
-            font-size: 0.82rem;
-            border-radius: var(--radius);
-            overflow: hidden;
-            background: white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-        .blueprint-result table th {
-            background: var(--navy);
-            color: white;
-            padding: 10px 14px;
-            text-align: left;
-            font-weight: 600;
-        }
-        .blueprint-result table td {
-            padding: 8px 14px;
-            border-bottom: 1px solid var(--grey);
-        }
-        .blueprint-result table tr:nth-child(even) td {
-            background: #f8fafc;
-        }
-        .blueprint-result table tr:last-child td {
-            border-bottom: none;
         }
 
         /* Budget classes — clean, light */
@@ -935,6 +966,7 @@
             }
             .blueprint-result table {
                 font-size: 0.72rem;
+                white-space: nowrap;
             }
             .blueprint-result table th,
             .blueprint-result table td {
@@ -1295,13 +1327,13 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — DEEPSEEK API (CLEAN, STRICT LAYOUT)
+        //  GENERATE BLUEPRINT — WITH WEB SEARCH ENABLED
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
             blueprintContainer.style.display = 'none';
             loadingDiv.style.display = 'block';
-            loadingStatus.textContent = 'Zone21 System is processing your allocation...';
+            loadingStatus.textContent = 'Zone21 System is processing your allocation (with web search)...';
 
             if (!currentSessionId || !isRegenerating) {
                 currentSessionId = 'evt_' + Date.now();
@@ -1312,47 +1344,48 @@
                 .toFixed(2);
 
             // ============================================================
-            //  STRICT, CLEAN PROMPT — NO CRAZY LAYOUTS
+            //  PROMPT — WITH INSTRUCTIONS FOR WEB SEARCH & LAYOUT
             // ============================================================
-            const prompt = `Generate a clean, professional event blueprint in HTML format for the following event. Use simple, clean styling with NO dark backgrounds. NO decorative headers. NO emojis in headings. Keep it full-width and clean like a professional document.
+            const prompt = `Generate a clean, professional event blueprint in HTML format for the following event. Use simple, clean styling with NO dark backgrounds. NO decorative headers. NO emojis in headings. Keep it full‑width and clean like a professional document.
 
-EVENT: ${currentEventData.name}
-LOCATION: ${currentEventData.location}
-TYPE: ${currentEventData.type}
-BUDGET: $${currentEventData.budget} (${perPerson} per person)
-ATTENDEES: ${currentEventData.attendees}
-SELECTED SERVICES: ${currentEventData.services}
-PACKAGE: ${currentEventData.packageName} (max ${currentEventData.packageLimit} attendees)
-ADDITIONAL NOTES: ${currentEventData.notes}
+**IMPORTANT LAYOUT RULES (strictly follow)**:
+- Use a **single‑column layout** throughout. Do not use flex, grid, or any technique that places items side‑by‑side.
+- All content must stack vertically.
+- Do not output any cards or side‑by‑side boxes.
 
-CRITICAL LAYOUT RULES (follow strictly):
-1. Use ONLY clean white/light backgrounds. NO dark navy, black, or dark backgrounds anywhere.
-2. NO header bar with "Zone21 System" — start directly with the content.
-3. Begin with a small blueprint ID and date line, then the Event Overview.
-4. Use h2 for main sections, h3 for subsections.
-5. Tables must have a clean header row (navy background is acceptable for table headers only).
-6. Use the classes "budget-success", "budget-neutral", or "budget-warning" on wrapper divs — these have clean, light backgrounds with a left border.
-7. Keep all text readable (dark text on light background).
-8. NO custom CSS, NO inline styles — just clean HTML with the classes provided.
+**USE WEB SEARCH** to find real, current vendors for the specified location. Search for actual businesses, their phone numbers, emails, and social media links. Provide diverse vendor names – do not repeat the same vendor across different categories.
 
-CONTENT REQUIREMENTS:
-1. EXECUTIVE SUMMARY: Brief overview.
-2. BUDGET ANALYSIS & ALLOCATION: Show per-person cost, percentage breakdown, and a clear verdict. Use the appropriate budget class wrapper.
-3. VENDOR ALLOCATION: For each service, list Primary (affordable) and Secondary (premium) with full contact details (name, phone, email, social media).
-4. VENUE RECOMMENDATIONS: Primary and Secondary venues with a comparison table.
-5. MARKETING & PROMOTION STRATEGY: Social media, WhatsApp, influencers, fliers, B2B.
-6. RISK ASSESSMENT & CONTINGENCY: 3-5 risks with probability, impact, mitigation.
-7. TIMELINE & CHECKLIST: 30-day checklist and day-of schedule.
-8. PRICE COMPARISON TABLE: Compare all primary vs secondary vendors with savings.
-9. FINAL RECOMMENDATIONS: Summary and next steps.
+EVENT DETAILS:
+- Name: ${currentEventData.name}
+- Location: ${currentEventData.location}
+- Type: ${currentEventData.type}
+- Budget: $${currentEventData.budget} (≈ $${perPerson} per person)
+- Attendees: ${currentEventData.attendees}
+- Selected Services: ${currentEventData.services}
+- Package: ${currentEventData.packageName} (max ${currentEventData.packageLimit} attendees)
+- Notes: ${currentEventData.notes}
 
-End with a clean "— Prepared by the Zone21 Event System." line.
+**CONTENT SECTIONS** (use <h2> for main, <h3> for subsections):
+1. Executive Summary
+2. Budget Analysis & Allocation — use one of the classes: budget-success, budget-neutral, or budget-warning on a wrapper <div>.
+3. Vendor Allocation — for each service, list Primary (affordable) and Secondary (premium) with full contact details (name, phone, email, social media). *Mark the recommended option with an asterisk.
+4. Venue Recommendations — primary and secondary with a comparison table.
+5. Marketing & Promotion Strategy — social media, WhatsApp, influencers, fliers, B2B.
+6. Risk Assessment & Contingency — 3‑5 risks with probability, impact, mitigation.
+7. Timeline & Checklist — 30‑day checklist and day‑of schedule.
+8. Price Comparison Table — compare primary vs secondary vendors with savings.
+9. Final Recommendations
+
+**End with a clean line:** "— Prepared by the Zone21 Event System."
 
 Return ONLY clean HTML. No markdown, no backticks.`;
 
             try {
-                loadingStatus.textContent = 'Generating your blueprint with DeepSeek...';
+                loadingStatus.textContent = 'Searching the web for current vendors...';
 
+                // ============================================================
+                //  API REQUEST WITH WEB SEARCH TOOL
+                // ============================================================
                 const response = await fetch(DEEPSEEK_API_URL, {
                     method: 'POST',
                     headers: {
@@ -1362,6 +1395,7 @@ Return ONLY clean HTML. No markdown, no backticks.`;
                     body: JSON.stringify({
                         model: DEEPSEEK_MODEL,
                         messages: [{ role: "user", content: prompt }],
+                        tools: [{ type: "web_search" }],   // <-- Enable web search
                         max_tokens: 4096,
                         temperature: 0.7,
                         top_p: 0.95,
@@ -1394,7 +1428,7 @@ Return ONLY clean HTML. No markdown, no backticks.`;
                 const helpSection = `
                             <div class="zone21-help">
                                 <h2>Need Expert Help? Let Zone21 Take Over</h2>
-                                <p>Our team handles everything—vendor sourcing, venue booking, entertainment, and on-the-day coordination. Get a stress-free event.</p>
+                                <p>Our team handles everything—vendor sourcing, venue booking, entertainment, and on‑the‑day coordination. Get a stress‑free event.</p>
                                 <div class="help-actions">
                                     <a href="mailto:${ZONE21_CONTACT.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a>
                                     <a href="https://wa.me/${ZONE21_CONTACT.whatsapp.replace('+', '')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a>
@@ -1404,7 +1438,6 @@ Return ONLY clean HTML. No markdown, no backticks.`;
                             </div>
                         `;
 
-                // Only inject if not already present
                 if (!htmlOutput.includes('zone21-help')) {
                     htmlOutput = htmlOutput.trim() + helpSection;
                 }
@@ -1414,7 +1447,7 @@ Return ONLY clean HTML. No markdown, no backticks.`;
                 finalBlueprint.innerHTML = htmlOutput;
 
                 saveBlueprintState(htmlOutput);
-                showToast('✅ Blueprint generated successfully!', 'success');
+                showToast('✅ Blueprint generated with live web search!', 'success');
 
             } catch (error) {
                 console.error('Generation Error:', error);
@@ -1543,9 +1576,9 @@ Return ONLY clean HTML. No markdown, no backticks.`;
                 }
             });
 
-            showToast('🚀 Zone21 Ultimate Demo is ready!', 'success');
+            showToast('🚀 Zone21 Ultimate with web search enabled!', 'success');
             renderHistorySidebar();
         });
     </script>
 </body>
-                                                                                             </html>
+</html>

@@ -1077,7 +1077,6 @@
 
         // ============================================================
         //  OPENROUTER API — fixed free model, no user selection
-        //  FIXED: using a valid model as default instead of the fake "openrouter/free"
         // ============================================================
         const OPENROUTER_API_KEY = "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";
         const API_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -1203,7 +1202,7 @@
         }
 
         // ============================================================
-        //  AUTH & SUBSCRIPTION
+        //  AUTH & SUBSCRIPTION — fully active, no demo mode
         // ============================================================
         async function loadUserAndPackage() {
             try {
@@ -1394,8 +1393,7 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT — completely silent, no AI mentions
-        //  FIXED: First call now uses a valid model (Gemma) so no wasted time
+        //  GENERATE BLUEPRINT — with corrected contact handling
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
@@ -1410,14 +1408,11 @@
             const pkg = PACKAGES[userPackage] || PACKAGES.small;
             const limitText = pkg.maxAttendees === Infinity ? 'unlimited' : `up to ${pkg.maxAttendees} people`;
 
-            // Models to try: Gemma first (valid), then fallbacks if needed
             let modelsToTry = [DEFAULT_MODEL, ...FALLBACK_MODELS];
-
             let lastError = null;
 
             for (let attempt = 0; attempt < modelsToTry.length; attempt++) {
                 const model = modelsToTry[attempt];
-                // Update status without revealing technical details
                 if (attempt === 0) {
                     loadingStatus.textContent = 'Analyzing event requirements...';
                 } else {
@@ -1426,7 +1421,7 @@
 
                 try {
                     // ============================================================
-                    //  PROMPT — no AI references, pure business logic
+                    //  PROMPT — strict contact handling: use provided details verbatim
                     // ============================================================
                     const prompt = `
                             You are the Zone21 Event System. Generate a formal, highly detailed Event Blueprint based on these criteria:
@@ -1443,6 +1438,13 @@
                             - Expected Attendees: ${currentEventData.attendees}
                             - Additional Notes: ${currentEventData.notes || 'None'}
                             - Specific Services Required: ${currentEventData.services}
+
+                            CONTACT INFORMATION:
+                            The user provided the following contact: "${currentEventData.contact}".
+                            You MUST include this exact contact information in the blueprint, typically in the event details section.
+                            Do NOT invent a name or change the contact. If it's a phone number, display it as is; if it's an email, display it as is.
+                            If the contact is a phone number, do not add a name — just show the number. If it's an email, show only the email.
+                            Use the contact exactly as given, without any modification.
 
                             CRITICAL INSTRUCTIONS — BUDGET ASSESSMENT (MUST BE BALANCED AND OBJECTIVE):
 
@@ -1580,7 +1582,6 @@
                 } catch (error) {
                     console.error(`Attempt ${attempt+1} failed:`, error);
                     lastError = error;
-                    // Continue to next fallback model
                     continue;
                 }
             }

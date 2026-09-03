@@ -6,6 +6,14 @@
     <title>Zone21 Ultimate | Event Blueprint Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
+    <!-- Firebase SDK (Compat) v10.8.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
+
     <style>
         /* ============================================================
            ROOT — Clean, stable, no overflow
@@ -281,44 +289,6 @@
         }
 
         /* ============================================================
-           DEMO BANNER
-           ============================================================ */
-        .demo-banner {
-            background: var(--lime);
-            color: var(--navy);
-            padding: 6px 16px;
-            border-radius: var(--radius);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        .demo-banner i {
-            color: var(--navy);
-        }
-        .demo-banner .label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .demo-banner .status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(16, 40, 56, 0.08);
-            padding: 2px 12px;
-            border-radius: 20px;
-        }
-        .demo-banner .info {
-            margin-left: auto;
-            font-weight: 400;
-            opacity: 0.8;
-        }
-
-        /* ============================================================
            PACKAGE BANNER
            ============================================================ */
         .package-banner {
@@ -577,7 +547,6 @@
             }
         }
 
-        /* The blueprint container — safe max-width, auto-scroll */
         .blueprint-result {
             background: white;
             padding: 24px 28px;
@@ -593,7 +562,6 @@
             font-size: 0.95rem;
         }
 
-        /* Force table containment */
         .blueprint-result table {
             width: 100%;
             min-width: 600px;
@@ -627,7 +595,6 @@
             border-bottom: none;
         }
 
-        /* Responsive table wrapper — added by JS for safety */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -643,7 +610,6 @@
             min-width: 600px;
         }
 
-        /* Headings */
         .blueprint-result h1 {
             color: var(--navy);
             font-size: 1.6rem;
@@ -708,7 +674,6 @@
             margin: 20px 0;
         }
 
-        /* Budget classes */
         .budget-success {
             background: rgba(192, 200, 0, 0.06);
             border-left: 4px solid var(--lime);
@@ -807,9 +772,6 @@
             font-size: 0.9rem;
         }
 
-        /* ============================================================
-           CONTROLS
-           ============================================================ */
         .blueprint-controls {
             display: flex;
             flex-wrap: wrap;
@@ -942,14 +904,6 @@
                 width: 100%;
                 justify-content: center;
             }
-            .demo-banner {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-            }
-            .demo-banner .info {
-                margin-left: 0;
-            }
             .package-banner {
                 flex-direction: column;
                 align-items: stretch;
@@ -1023,7 +977,7 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2><i class="fas fa-calendar-check" style="color:var(--lime);margin-right:8px;"></i>Past Events</h2>
-            <span class="badge" id="sidebar-package-badge">Demo</span>
+            <span class="badge" id="sidebar-package-badge">—</span>
         </div>
         <div class="sidebar-body">
             <button class="new-chat-btn" onclick="startNewSession()">
@@ -1032,7 +986,7 @@
             <div id="history-list"></div>
         </div>
         <div class="sidebar-footer">
-            <span id="sidebar-package-label">Package: Medium Event</span>
+            <span id="sidebar-package-label">Package: —</span>
         </div>
     </div>
 
@@ -1049,8 +1003,8 @@
                 <p>Event Allocation &amp; Blueprint Generator</p>
             </div>
             <div class="right">
-                <span class="package-tag" id="header-package-tag">Demo</span>
-                <span class="user-email" id="header-user-email">demo@zone21.com</span>
+                <span class="package-tag" id="header-package-tag">—</span>
+                <span class="user-email" id="header-user-email">user@example.com</span>
                 <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
             </div>
         </div>
@@ -1058,21 +1012,14 @@
         <!-- CONTENT -->
         <div class="workspace-content" id="workspace-content">
 
-            <!-- DEMO BANNER -->
-            <div class="demo-banner">
-                <span class="label"><i class="fas fa-flask"></i> DEMO MODE</span>
-                <span class="status"><i class="fas fa-check-circle"></i> Fully functional • No login required</span>
-                <span class="info"><i class="fas fa-info-circle"></i> All features available for testing</span>
-            </div>
-
             <!-- PACKAGE BANNER -->
-            <div class="package-banner" id="package-banner">
+            <div class="package-banner" id="package-banner" style="display:none;">
                 <div>
                     <div class="pkg-label">Your Active Package</div>
-                    <div class="pkg-name" id="pkg-banner-name">Medium Event</div>
+                    <div class="pkg-name" id="pkg-banner-name">—</div>
                 </div>
-                <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">≤ 355</span></div>
-                <span class="pkg-action" style="background:var(--gold);">Demo Mode</span>
+                <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
+                <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage</a>
             </div>
 
             <!-- FORM -->
@@ -1081,17 +1028,17 @@
                     <div class="form-grid">
                         <div class="input-group">
                             <label>1. Event Name</label>
-                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" value="Millz's Birthday Celebration" />
+                            <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" />
                         </div>
                         <div class="input-group">
                             <label>2. Location (City/Area)</label>
-                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" value="Harare, Zimbabwe" />
+                            <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
                         </div>
                         <div class="input-group">
                             <label>3. Event Type</label>
                             <select id="eventType" required>
-                                <option value="" disabled>Select Event Type...</option>
-                                <option value="Social & Private Events" selected>Social & Private Events</option>
+                                <option value="" disabled selected>Select Event Type...</option>
+                                <option value="Social & Private Events">Social & Private Events</option>
                                 <option value="Weddings & Traditional">Weddings & Traditional</option>
                                 <option value="Entertainment Events">Entertainment (Concerts/Shows)</option>
                                 <option value="Business & Corporate">Business & Corporate</option>
@@ -1103,23 +1050,23 @@
                         </div>
                         <div class="input-group">
                             <label>4. Contact Details</label>
-                            <input type="text" id="eventContact" required placeholder="Email or Phone" value="millz@example.com" />
+                            <input type="text" id="eventContact" required placeholder="Email or Phone" />
                         </div>
                         <div class="input-group">
                             <label>5. Total Budget (USD)</label>
-                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" value="3500" />
-                            <span class="hint" id="budget-hint">Recommended: $1,500 – $15,000</span>
+                            <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" />
+                            <span class="hint" id="budget-hint">Recommended range for your package</span>
                         </div>
                         <div class="input-group">
-                            <label>6. Expected Attendees <span class="limit-badge" id="attendee-limit-badge">≤ 355</span></label>
-                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" value="100" />
-                            <span class="hint" id="attendee-hint">Maximum 355 for your package</span>
+                            <label>6. Expected Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label>
+                            <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" />
+                            <span class="hint" id="attendee-hint">Maximum allowed for your package</span>
                         </div>
                     </div>
 
                     <div class="input-group" style="margin-bottom:14px;">
                         <label>7. Additional Notes (Optional)</label>
-                        <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system over decorations...">High‑end birthday celebration with premium touches. Focus on entertainment, food, and photography.</textarea>
+                        <textarea id="eventNotes" placeholder="e.g. The budget is strict, prioritizing a good PA system over decorations..."></textarea>
                     </div>
 
                     <div class="services-wrapper">
@@ -1160,16 +1107,32 @@
 
     <script>
         // ============================================================
-        //  CONFIGURATION
+        //  FIREBASE CONFIG
         // ============================================================
-        const DEMO_MODE = true;
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
 
-        // DeepSeek API — use your own key
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ============================================================
+        //  DEEPSEEK API
+        // ============================================================
         const DEEPSEEK_API_KEY = "sk-6cde0fb5cf124bc28a52135d2acf47a0";
         const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
         const DEEPSEEK_MODEL = "deepseek-chat";
 
-        // Zone21 contact details
+        // ============================================================
+        //  ZONE21 CONTACT
+        // ============================================================
         const ZONE21 = {
             phone: "+263789912268",
             whatsapp: "+263789912268",
@@ -1179,7 +1142,6 @@
             website: "https://zone21.co.zw"
         };
 
-        // Popular Zimbabwe venues (to be referenced in prompt)
         const ZIM_VENUES = [
             "The Gardens at Belgravia, Harare",
             "The Pavilion at Harare Gardens, Harare",
@@ -1205,12 +1167,9 @@
             "Cleaning Services", "Ushers & Hostesses"
         ];
 
-        let currentSessionId = null;
-        let currentEventData = null;
-        let userPackage = 'medium';
-        let userPackageName = 'Medium Event';
-        let userPackageLimit = 355;
-
+        // ============================================================
+        //  PACKAGE DEFINITIONS
+        // ============================================================
         const PACKAGES = {
             small: { id: 'small', name: 'Small Event', maxAttendees: 35, label: 'Small', budgetHint: '$100 – $1,500',
                 limitDisplay: '≤ 35' },
@@ -1220,7 +1179,19 @@
                 budgetHint: 'Unlimited', limitDisplay: '∞' }
         };
 
-        // DOM refs
+        // ============================================================
+        //  STATE
+        // ============================================================
+        let currentSessionId = null;
+        let currentEventData = null;
+        let userPackage = null;
+        let userPackageName = null;
+        let userPackageLimit = Infinity;
+        let currentUser = null;
+
+        // ============================================================
+        //  DOM REFS
+        // ============================================================
         const container = document.getElementById('servicesContainer');
         const form = document.getElementById('eventForm');
         const generateBtn = document.getElementById('generateBtn');
@@ -1243,8 +1214,11 @@
         const headerPackageTag = document.getElementById('header-package-tag');
         const headerUserEmail = document.getElementById('header-user-email');
         const sidebarPackageLabel = document.getElementById('sidebar-package-label');
+        const pkgBanner = document.getElementById('package-banner');
         const pkgBannerName = document.getElementById('pkg-banner-name');
         const pkgBannerLimit = document.getElementById('pkg-banner-limit');
+        const pkgBannerAction = document.getElementById('pkg-banner-action');
+        const sidebarPackageBadge = document.getElementById('sidebar-package-badge');
 
         // ============================================================
         //  POPULATE SERVICES
@@ -1296,9 +1270,135 @@
             overlay.classList.add('active'); });
         if (overlay) overlay.addEventListener('click', closeSidebar);
 
-        function handleLogout() {
-            showToast('👋 Logged out from demo mode', 'info');
-            location.reload();
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (e) {
+                showToast('Logout failed', 'error');
+            }
+        }
+
+        // ============================================================
+        //  AUTH & SUBSCRIPTION
+        // ============================================================
+        async function loadUserAndPackage() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    showToast('Please log in to access the blueprint generator.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                    return false;
+                }
+
+                currentUser = user;
+                headerUserEmail.textContent = user.email || 'user@example.com';
+
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists) {
+                    showToast('User profile not found. Please complete registration.', 'error');
+                    return false;
+                }
+
+                const subSnapshot = await db.collection('subscriptions')
+                    .where('userId', '==', user.uid)
+                    .where('status', '==', 'active')
+                    .limit(1)
+                    .get();
+
+                let foundPackage = null;
+
+                if (!subSnapshot.empty) {
+                    const subDoc = subSnapshot.docs[0];
+                    const subData = subDoc.data();
+                    const planId = subData.planId || subData.plan;
+                    if (planId && PACKAGES[planId]) {
+                        foundPackage = planId;
+                    }
+                }
+
+                if (!foundPackage) {
+                    const pendingSnap = await db.collection('subscriptions')
+                        .where('userId', '==', user.uid)
+                        .where('status', '==', 'pending_payment')
+                        .limit(1)
+                        .get();
+                    if (!pendingSnap.empty) {
+                        const pDoc = pendingSnap.docs[0];
+                        const pData = pDoc.data();
+                        const planId = pData.planId || pData.plan;
+                        if (planId && PACKAGES[planId]) {
+                            foundPackage = planId;
+                            showToast('Your payment is pending. You can still generate blueprints.', 'info');
+                        }
+                    }
+                }
+
+                if (!foundPackage) {
+                    pkgBanner.style.display = 'flex';
+                    pkgBannerName.textContent = 'No active package';
+                    pkgBannerLimit.textContent = '—';
+                    pkgBannerAction.textContent = 'Subscribe Now';
+                    pkgBannerAction.href = 'subscription.html';
+                    headerPackageTag.textContent = 'No Plan';
+                    headerPackageTag.style.background = '#888';
+                    sidebarPackageLabel.textContent = 'Package: No active plan';
+                    sidebarPackageBadge.textContent = 'No Plan';
+                    attendeeLimitBadge.textContent = '—';
+                    attendeeHint.textContent = 'Please subscribe to a package to generate blueprints.';
+                    eventAttendees.disabled = true;
+                    generateBtn.disabled = true;
+                    generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe to Generate';
+                    showToast('Please subscribe to a package first.', 'info');
+                    return false;
+                }
+
+                userPackage = foundPackage;
+                const pkg = PACKAGES[foundPackage];
+                userPackageName = pkg.name;
+                userPackageLimit = pkg.maxAttendees;
+
+                headerPackageTag.textContent = pkg.label;
+                headerPackageTag.style.background = 'var(--lime)';
+                headerPackageTag.style.color = 'var(--navy)';
+                sidebarPackageBadge.textContent = pkg.label;
+                sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay})`;
+
+                pkgBanner.style.display = 'flex';
+                pkgBannerName.textContent = pkg.name;
+                pkgBannerLimit.textContent = pkg.limitDisplay;
+                pkgBannerAction.textContent = 'Manage';
+                pkgBannerAction.href = 'subscription.html';
+
+                const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
+                attendeeLimitBadge.textContent = limitDisplay;
+                attendeeLimitBadge.className = 'limit-badge';
+                attendeeHint.textContent =
+                    `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees for your package.`;
+                eventAttendees.disabled = false;
+                eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
+
+                budgetHint.textContent = pkg.budgetHint || 'Set your total budget.';
+
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate System Blueprint';
+
+                eventAttendees.addEventListener('input', function() {
+                    const val = parseInt(this.value);
+                    if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
+                        this.value = pkg.maxAttendees;
+                        showToast(`Attendees limited to ${pkg.maxAttendees} for your ${pkg.name} package.`, 'info');
+                    }
+                });
+
+                showToast(`Welcome! You're on the ${pkg.name} package.`, 'success');
+                return true;
+
+            } catch (err) {
+                console.error('Package load error:', err);
+                showToast('Failed to load subscription data. Please refresh.', 'error');
+                return false;
+            }
         }
 
         // ============================================================
@@ -1306,6 +1406,15 @@
         // ============================================================
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            if (!currentUser) {
+                showToast('Please log in first.', 'error');
+                return;
+            }
+            if (!userPackage) {
+                showToast('Please subscribe to a package first.', 'error');
+                return;
+            }
 
             const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb
                 .value);
@@ -1339,23 +1448,20 @@
         });
 
         // ============================================================
-        //  SAFE HTML SANITIZER — prevents broken layout
+        //  SAFE HTML
         // ============================================================
         function safeHtml(input) {
             if (!input) return '<p>No content generated.</p>';
-            // Remove any dangerous script tags
             let cleaned = input.replace(/<script[\s\S]*?<\/script>/gi, '');
-            // Wrap tables in responsive container if not already
             cleaned = cleaned.replace(/<table/g, '<div class="table-responsive"><table');
             cleaned = cleaned.replace(/<\/table>/g, '</table></div>');
-            // Fix multiple responsive wrappers
             cleaned = cleaned.replace(/<div class="table-responsive">\s*<div class="table-responsive">/g, '<div class="table-responsive">');
             cleaned = cleaned.replace(/<\/div>\s*<\/div>/g, '</div>');
             return cleaned;
         }
 
         // ============================================================
-        //  GENERATE BLUEPRINT — DEEPSEEK WITH COMPREHENSIVE PROMPT
+        //  GENERATE BLUEPRINT — DEEPSEEK
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
@@ -1372,7 +1478,7 @@
                 .toFixed(2);
 
             // ============================================================
-            //  COMPREHENSIVE, DATA-DRIVEN PROMPT
+            //  COMPREHENSIVE PROMPT — WITH CONTACT FIX
             // ============================================================
             const prompt = `You are ZONE21 ULTIMATE – the world's most advanced event planning AI system. Generate a COMPLETE, PROFESSIONAL, DATA-DRIVEN event blueprint.
 
@@ -1386,7 +1492,12 @@
             - Selected Services: ${currentEventData.services}
             - User Package: ${currentEventData.packageName} (Max ${currentEventData.packageLimit} attendees)
 
-            ## CRITICAL RULES
+            ## CRITICAL CONTACT RULE
+            The user provided the following contact: "${currentEventData.contact}".
+            You MUST use this EXACT contact information in the blueprint, typically in the event details section.
+            DO NOT invent a name or change the contact. If it's a phone number, display only the number. If it's an email, display only the email. Do not add a name. Use the contact exactly as given, without any modification.
+
+            ## OTHER RULES
             1. For "Event Planner / Coordinator" — PRIMARY MUST be "Zone21 Event Management" with phone ${ZONE21.phone}, email ${ZONE21.email}, Instagram ${ZONE21.instagram}.
             2. For "Zone21 Security - EXCLUSIVE" — ONLY use Zone21 Security.
             3. For VENUES — use real popular Zimbabwe venues like: ${ZIM_VENUES.join(', ')}.
@@ -1503,14 +1614,9 @@
                     .replace(/^```/i, '')
                     .replace(/```$/i, '');
 
-                // ============================================================
-                //  SANITIZE & WRAP TABLES
-                // ============================================================
                 htmlOutput = safeHtml(htmlOutput);
 
-                // ============================================================
-                //  INJECT ZONE21 HELP IF MISSING
-                // ============================================================
+                // Append Zone21 help if missing
                 if (!htmlOutput.includes('zone21-help')) {
                     const help = `
                                 <div class="zone21-help">
@@ -1618,13 +1724,6 @@
             currentSessionId = null;
             currentEventData = null;
             form.reset();
-            eventName.value = "Millz's Birthday Celebration";
-            eventLocation.value = "Harare, Zimbabwe";
-            eventType.value = "Social & Private Events";
-            eventContact.value = "millz@example.com";
-            eventBudget.value = "3500";
-            eventAttendees.value = "100";
-            eventNotes.value = "High‑end birthday celebration with premium touches. Focus on entertainment, food, and photography.";
             blueprintContainer.style.display = 'none';
             loadingDiv.style.display = 'none';
             formSection.style.display = 'block';
@@ -1634,35 +1733,25 @@
         // ============================================================
         //  INIT
         // ============================================================
-        document.addEventListener('DOMContentLoaded', function() {
-            const pkg = PACKAGES.medium;
-            userPackage = pkg.id;
-            userPackageName = pkg.name;
-            userPackageLimit = pkg.maxAttendees;
-
-            headerPackageTag.textContent = 'Demo';
-            headerPackageTag.style.background = 'var(--lime)';
-            headerPackageTag.style.color = 'var(--navy)';
-            sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay}) • Demo`;
-            pkgBannerName.textContent = pkg.name;
-            pkgBannerLimit.textContent = pkg.limitDisplay;
-
-            const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
-            attendeeLimitBadge.textContent = limitDisplay;
-            attendeeHint.textContent = `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.`;
-            eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
-            budgetHint.textContent = `Recommended: ${pkg.budgetHint}`;
-
-            eventAttendees.addEventListener('input', function() {
-                const val = parseInt(this.value);
-                if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
-                    this.value = pkg.maxAttendees;
-                    showToast(`Attendees limited to ${pkg.maxAttendees} for your package.`, 'info');
+        document.addEventListener('DOMContentLoaded', async function() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    headerUserEmail.textContent = user.email || 'user@example.com';
+                    await loadUserAndPackage();
+                    renderHistorySidebar();
+                } else {
+                    showToast('Please log in to continue.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
                 }
             });
 
-            showToast('🚀 Zone21 Ultimate is ready! Generate your comprehensive blueprint.', 'success');
-            renderHistorySidebar();
+            if (auth.currentUser) {
+                currentUser = auth.currentUser;
+                headerUserEmail.textContent = auth.currentUser.email || 'user@example.com';
+                await loadUserAndPackage();
+                renderHistorySidebar();
+            }
         });
     </script>
 

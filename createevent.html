@@ -261,10 +261,9 @@
             flex-wrap: wrap;
             gap: 10px;
         }
-        /* Status badges – now visible and styled */
         .event-card .status {
             display: inline-block;
-            padding: 4px 12px;
+            padding: 4px 14px;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -290,6 +289,21 @@
         .status-cancellation_requested {
             background: #ffeaa7;
             color: #6c5200;
+        }
+        /* ── NEW: Click To Add style ── */
+        .status-click-to-add {
+            background: #e8ecf0;
+            color: #1a1a2e;
+            cursor: pointer;
+            border: 2px dashed var(--navy);
+            font-weight: 700;
+            transition: 0.15s;
+            padding: 4px 16px;
+        }
+        .status-click-to-add:hover {
+            background: #d0d6de;
+            transform: scale(1.03);
+            border-color: var(--pink);
         }
         .event-card .event-title-row {
             display: flex;
@@ -937,7 +951,7 @@
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  UPDATE EVENT (save) – now sets status to 'pending'
+        //  UPDATE EVENT (save) – sets status to 'pending'
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('submit-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
@@ -964,7 +978,6 @@
                 const ticketTypes = await collectTicketTypes();
                 if (!ticketTypes) throw new Error('Ticket validation failed');
 
-                // 🔁 Any edit forces the event back to "pending" (In Review)
                 await db.collection('events').doc(editId).update({
                     eventName: document.getElementById('eventName').value.trim(),
                     type: document.getElementById('eventType').value,
@@ -980,7 +993,7 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
-                    status: 'pending',   // ⬅️ go back to review
+                    status: 'pending', // ⬅️ goes back to In Review
                     updatedAt: new Date().toISOString()
                 });
 
@@ -997,7 +1010,7 @@
         });
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  SUBMIT FOR REVIEW (already sets status to 'pending')
+        //  SUBMIT FOR REVIEW (status → 'pending')
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('submit-review-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
@@ -1039,7 +1052,7 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
-                    status: 'pending',   // keep in review
+                    status: 'pending', // stay in review
                     updatedAt: new Date().toISOString()
                 });
 
@@ -1097,7 +1110,7 @@
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  DISPLAY EVENTS – show status with friendly labels
+        //  DISPLAY EVENTS – with "Click To Add" for incomplete events
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function displayEvents(events) {
             const listDiv = document.getElementById('my-events-list');
@@ -1109,53 +1122,68 @@
                 const eventId = ev.id || ev.docId;
                 if (!eventId) return;
 
+                // ── Check required fields ──
+                const hasRequiredFields = ev.eventName && ev.eventName.trim() !== '' &&
+                    ev.location && ev.location.trim() !== '' &&
+                    ev.startDate && ev.startDate.trim() !== '';
+
                 const card = document.createElement('div');
                 card.className = 'event-card';
 
                 let actionsHtml = '';
 
-                // Edit
+                // ── Edit button (always present) ──
                 actionsHtml +=
                     `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
 
-                // Submit for Review (only if not already pending)
-                if (ev.status !== 'pending' && ev.status !== 'approved') {
+                // ── Submit for Review (only if complete and not already pending/approved) ──
+                if (hasRequiredFields && ev.status !== 'pending' && ev.status !== 'approved') {
                     actionsHtml +=
                         `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
                 }
 
-                // Cancellation
-                if (ev.status === 'approved') {
-                    actionsHtml +=
-                        `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
-                } else if (ev.status === 'pending' || ev.status === 'draft') {
-                    actionsHtml +=
-                        `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
+                // ── Cancellation (only for complete events) ──
+                if (hasRequiredFields) {
+                    if (ev.status === 'approved') {
+                        actionsHtml +=
+                            `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+                    } else if (ev.status === 'pending' || ev.status === 'draft') {
+                        actionsHtml +=
+                            `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
+                    }
                 }
 
                 if (!actionsHtml) {
                     actionsHtml = `<span style="color:var(--text-muted);font-size:0.8rem;">No actions</span>`;
                 }
 
-                // Friendly status label
-                let statusLabel = ev.status ? ev.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
-                // Map specific statuses for clarity
-                const statusMap = {
-                    'pending': 'In Review',
-                    'approved': 'Published',
-                    'rejected': 'Rejected',
-                    'cancelled': 'Cancelled',
-                    'cancellation_requested': 'Cancellation Requested'
-                };
-                if (statusMap[ev.status]) statusLabel = statusMap[ev.status];
+                // ── Determine status display ──
+                let statusLabel, statusClass;
+                if (!hasRequiredFields) {
+                    // Incomplete event → "Click To Add"
+                    statusLabel = 'Click To Add';
+                    statusClass = 'status-click-to-add';
+                } else {
+                    // Complete event → use stored status
+                    const statusMap = {
+                        'pending': 'In Review',
+                        'approved': 'Published',
+                        'rejected': 'Rejected',
+                        'cancelled': 'Cancelled',
+                        'cancellation_requested': 'Cancellation Requested'
+                    };
+                    statusLabel = statusMap[ev.status] ||
+                        (ev.status ? ev.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN');
+                    statusClass = `status-${ev.status || 'pending'}`;
+                }
 
-                // Event name fallback
                 const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'New Event';
 
+                // ── Build card ──
                 card.innerHTML = `
                     <div class="event-title-row">
                         <strong>${displayName}</strong>
-                        <span class="status status-${ev.status || 'pending'}">${statusLabel}</span>
+                        <span class="status ${statusClass}" data-event-id="${eventId}" style="${!hasRequiredFields ? 'cursor:pointer;' : ''}">${statusLabel}</span>
                         <div style="font-size:0.85rem; color:var(--text-muted); display:inline-block;">
                             ${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : 'No date'} – ${ev.location || 'No location'}
                         </div>
@@ -1165,6 +1193,15 @@
                     </div>
                 `;
                 listDiv.appendChild(card);
+            });
+
+            // ── Attach click handler to "Click To Add" badges ──
+            document.querySelectorAll('.status-click-to-add').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const id = this.dataset.eventId;
+                    if (id) editEvent(id);
+                });
             });
         }
 

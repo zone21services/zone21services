@@ -6,13 +6,11 @@
     <title>Zone21 Organizer Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
     <style>
-        /* ===== All styles unchanged – same as before ===== */
+        /* … all styles unchanged from your original … */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -52,22 +50,23 @@
         .checkbox-group { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
         .checkbox-group input[type="checkbox"] { margin-top: 4px; width: auto; }
         .checkbox-group label { font-weight: 500; color: var(--navy); }
-        .btn-submit { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 14px 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        .btn-submit:hover:not(:disabled) { background: #d0d800; transform: translateY(-2px); }
-        .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .btn-submit, .btn-submit-review { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 14px 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-submit:hover:not(:disabled), .btn-submit-review:hover:not(:disabled) { background: #d0d800; transform: translateY(-2px); }
+        .btn-submit:disabled, .btn-submit-review:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
         .btn-cancel-form { background: #f0f0f0; color: var(--navy); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
         .my-events { margin-top: 40px; }
         .event-card { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
         .event-card .status { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status-draft { background: #e2e3e5; color: #383d41; }
         .status-pending { background: #fff3cd; color: #856404; }
         .status-approved { background: #d4edda; color: #155724; }
         .status-rejected { background: #f8d7da; color: #721c24; }
         .status-cancelled { background: #e2e3e5; color: #383d41; }
         .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
-        .status-pending_payment { background: #f8d7da; color: #856404; }
         .event-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .event-card .actions button { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; padding: 5px 8px; border-radius: 50%; }
         .event-card .edit-btn { color: var(--navy); }
+        .event-card .submit-btn { color: #28a745; }
         .event-card .cancel-btn { color: #ffc107; }
         .toast {
             position: fixed; bottom: 20px; right: 20px;
@@ -112,6 +111,8 @@
         .commission-box .detail { font-size: 0.9rem; color: var(--text-muted); }
         .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .event-card .event-title-row strong { font-size: 1rem; }
+        .btn-submit-review { background: #28a745; color: white; }
+        .btn-submit-review:hover { background: #218838; }
         @media (max-width: 768px) {
             .form-row { grid-template-columns: 1fr; }
             .card { padding: 20px; }
@@ -124,7 +125,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Dashboard Header -->
         <div class="dashboard-header">
             <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
             <button class="btn-refresh" onclick="loadMyEvents()"><i class="fas fa-sync"></i> Refresh</button>
@@ -227,7 +227,7 @@
             <p style="margin-top:10px; color:var(--text-muted);">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</p>
         </div>
 
-        <!-- Terms & Submit (for editing) -->
+        <!-- Terms & Submit -->
         <div class="card hidden" id="terms-submit-card">
             <h2>Terms & Conditions</h2>
             <div class="commission-box">
@@ -251,6 +251,7 @@
             </div>
 
             <button type="button" class="btn-submit" id="submit-event"><i class="fas fa-save"></i> <span>Update Event</span></button>
+            <button type="button" class="btn-submit-review" id="submit-review-event" style="margin-top:12px;"><i class="fas fa-paper-plane"></i> <span>Submit for Review</span></button>
             <button type="button" class="btn-cancel-form" id="cancel-edit">Cancel Edit</button>
         </div>
 
@@ -316,11 +317,9 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ============ GLOBAL ============
         let currentOrganizerId = null;
-        let editingEventId = null; // track which event is being edited
+        let editingEventId = null;
 
-        // ============ TOAST ============
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             const msgEl = document.getElementById('toast-message');
@@ -339,21 +338,19 @@
         const termsSubmitCard = document.getElementById('terms-submit-card');
         const cancelEditBtn = document.getElementById('cancel-edit');
 
-        // ============ SHOW EDIT FORM ============
         function showEditForm() {
             eventFormCard.classList.remove('hidden');
             ticketTypesCard.classList.remove('hidden');
             termsSubmitCard.classList.remove('hidden');
         }
-
         function hideEditForm() {
             eventFormCard.classList.add('hidden');
             ticketTypesCard.classList.add('hidden');
             termsSubmitCard.classList.add('hidden');
             editingEventId = null;
             document.getElementById('submit-event').dataset.editId = '';
+            document.getElementById('submit-review-event').dataset.editId = '';
         }
-
         cancelEditBtn.addEventListener('click', hideEditForm);
 
         // ============ IMAGE HANDLING ============
@@ -482,25 +479,51 @@
             return ticketTypes;
         }
 
-        // ============ EVENT UPDATE (EDIT) ============
+        // ============ VALIDATE REQUIRED FIELDS ============
+        function validateEventFields() {
+            const name = document.getElementById('eventName').value.trim();
+            const location = document.getElementById('location').value.trim();
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const capacity = parseInt(document.getElementById('capacity').value);
+            const organizerName = document.getElementById('organizerName').value.trim();
+            const organizerEmail = document.getElementById('organizerEmail').value.trim();
+            if (!name) { showToast('Event Name is required.', 'error'); return false; }
+            if (!location) { showToast('Location is required.', 'error'); return false; }
+            if (!start || !end) { showToast('Start and End dates are required.', 'error'); return false; }
+            if (isNaN(capacity) || capacity < 1) { showToast('Valid Capacity is required.', 'error'); return false; }
+            if (!organizerName) { showToast('Organizer Name is required.', 'error'); return false; }
+            if (!organizerEmail) { showToast('Organizer Email is required.', 'error'); return false; }
+            // Check ticket types
+            const ticketRows = document.querySelectorAll('.ticket-type-row');
+            if (ticketRows.length === 0) { showToast('At least one ticket type is required.', 'error'); return false; }
+            // Check each ticket row has name, price, quantity
+            for (let row of ticketRows) {
+                const nameInput = row.querySelector('.ticket-name');
+                const priceInput = row.querySelector('.ticket-price');
+                const qtyInput = row.querySelector('.ticket-quantity');
+                if (!nameInput.value.trim() || isNaN(parseFloat(priceInput.value)) || isNaN(parseInt(qtyInput.value))) {
+                    showToast('All ticket types must have name, price, and quantity.', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // ============ UPDATE EVENT (SAVE CHANGES, NO STATUS CHANGE) ============
         document.getElementById('submit-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
-            if (!editId) {
-                showToast('No event selected for editing.', 'error');
-                return;
-            }
-
-            const eventForm = document.getElementById('event-form');
-            if (!eventForm.checkValidity()) { eventForm.reportValidity(); return; }
+            if (!editId) { showToast('No event selected for editing.', 'error'); return; }
             if (!document.getElementById('agreeTerms').checked) {
                 showToast('You must agree to the Terms & Conditions.', 'error');
                 return;
             }
+            if (!validateEventFields()) return;
 
             const submitBtn = this;
             const originalBtnHtml = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Updating Event...</span>';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving...</span>';
 
             try {
                 const posterInput = document.getElementById('posterUpload');
@@ -510,7 +533,6 @@
                 } else if (!posterBase64 || posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1) {
                     posterBase64 = null;
                 }
-
                 const ticketTypes = await collectTicketTypes();
                 if (!ticketTypes) throw new Error("Ticket validation failed");
 
@@ -533,13 +555,71 @@
                 };
 
                 await db.collection('events').doc(editId).update(eventData);
-                showToast('Event updated successfully!', 'success');
+                showToast('Event saved successfully!', 'success');
                 hideEditForm();
                 loadMyEvents();
-
             } catch (error) {
                 console.error('Error updating event:', error);
-                showToast('Failed to update event: ' + error.message, 'error');
+                showToast('Failed to save: ' + error.message, 'error');
+            } finally {
+                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // ============ SUBMIT FOR REVIEW ============
+        document.getElementById('submit-review-event').addEventListener('click', async function() {
+            const editId = this.dataset.editId;
+            if (!editId) { showToast('No event selected.', 'error'); return; }
+            if (!document.getElementById('agreeTerms').checked) {
+                showToast('You must agree to the Terms & Conditions.', 'error');
+                return;
+            }
+            if (!validateEventFields()) return;
+
+            const submitBtn = this;
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Submitting...</span>';
+
+            try {
+                // First save the current data (same as update)
+                const posterInput = document.getElementById('posterUpload');
+                let posterBase64 = document.getElementById('posterPreview').src || null;
+                if (posterInput.files && posterInput.files[0]) {
+                    posterBase64 = await handlePosterUpload(posterInput.files[0]);
+                } else if (!posterBase64 || posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1) {
+                    posterBase64 = null;
+                }
+                const ticketTypes = await collectTicketTypes();
+                if (!ticketTypes) throw new Error("Ticket validation failed");
+
+                const eventData = {
+                    eventName: document.getElementById('eventName').value.trim(),
+                    type: document.getElementById('eventType').value,
+                    description: document.getElementById('eventDescription').value.trim(),
+                    startDate: document.getElementById('startDate').value,
+                    endDate: document.getElementById('endDate').value,
+                    location: document.getElementById('location').value.trim(),
+                    capacity: parseInt(document.getElementById('capacity').value),
+                    organizerName: document.getElementById('organizerName').value.trim(),
+                    organizerEmail: document.getElementById('organizerEmail').value.trim(),
+                    organizerPhone: document.getElementById('organizerPhone').value.trim(),
+                    ageRestriction: document.getElementById('ageRestriction').value.trim(),
+                    dressCode: document.getElementById('dressCode').value.trim(),
+                    posterImage: posterBase64,
+                    ticketTypes: ticketTypes,
+                    updatedAt: new Date().toISOString(),
+                    status: 'pending'   // 🔥 change status to pending
+                };
+
+                await db.collection('events').doc(editId).update(eventData);
+                showToast('✅ Event submitted for admin review!', 'success');
+                hideEditForm();
+                loadMyEvents();
+            } catch (error) {
+                console.error('Error submitting event:', error);
+                showToast('Failed to submit: ' + error.message, 'error');
             } finally {
                 submitBtn.innerHTML = originalBtnHtml;
                 submitBtn.disabled = false;
@@ -567,13 +647,11 @@
                             ...data
                         });
                     });
-                    // Sort newest first
                     events.sort((a, b) => {
                         const da = a.createdAt ? new Date(a.createdAt) : new Date(0);
                         const db2 = b.createdAt ? new Date(b.createdAt) : new Date(0);
                         return db2 - da;
                     });
-
                     if (events.length === 0) {
                         listDiv.innerHTML = '';
                         noMsg.style.display = 'block';
@@ -607,16 +685,19 @@
 
                 let actionsHtml = '';
 
-                // Always allow editing (even if status is cancelled/rejected, but we can allow editing)
+                // Always allow editing
                 actionsHtml += `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
 
-                // Allow cancellation only if status is not already cancelled or rejected
-                if (ev.status !== 'cancelled' && ev.status !== 'rejected') {
-                    if (ev.status === 'approved') {
-                        actionsHtml += `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
-                    } else if (ev.status === 'pending' || ev.status === 'pending_payment') {
-                        actionsHtml += `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
-                    }
+                // Submit for Review: only if status is 'draft' or 'rejected'
+                if (ev.status === 'draft' || ev.status === 'rejected') {
+                    actionsHtml += `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
+                }
+
+                // Cancellation actions
+                if (ev.status === 'approved') {
+                    actionsHtml += `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+                } else if (ev.status === 'pending' || ev.status === 'draft') {
+                    actionsHtml += `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
                 }
 
                 if (!actionsHtml) {
@@ -648,7 +729,6 @@
                 if (!doc.exists) { showToast('Event not found.', 'error'); return; }
                 const ev = doc.data();
 
-                // Populate form
                 document.getElementById('eventName').value = ev.eventName || '';
                 document.getElementById('eventType').value = ev.type || '';
                 document.getElementById('eventDescription').value = ev.description || '';
@@ -669,7 +749,6 @@
                     document.getElementById('posterPreview').style.display = 'none';
                 }
 
-                // Ticket types
                 document.getElementById('ticket-types-container').innerHTML = '';
                 ticketCount = 0;
                 if (ev.ticketTypes && ev.ticketTypes.length) {
@@ -694,18 +773,43 @@
                     addTicketType();
                 }
 
-                // Set edit mode
-                const submitBtn = document.getElementById('submit-event');
-                submitBtn.innerHTML = '<i class="fas fa-save"></i> <span>Update Event</span>';
-                submitBtn.dataset.editId = eventId;
+                document.getElementById('submit-event').dataset.editId = eventId;
+                document.getElementById('submit-review-event').dataset.editId = eventId;
                 editingEventId = eventId;
-
                 showEditForm();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }).catch(err => {
                 console.error('Error loading event for edit:', err);
                 showToast('Failed to load event details.', 'error');
             });
+        };
+
+        window.submitForReview = async function(eventId) {
+            if (!eventId) return;
+            if (!confirm('Submit this event for admin review? You must have filled in all required fields.')) return;
+            // Validate again
+            const evSnap = await db.collection('events').doc(eventId).get();
+            if (!evSnap.exists) { showToast('Event not found.', 'error'); return; }
+            const ev = evSnap.data();
+            // Simple validation
+            if (!ev.eventName || !ev.location || !ev.startDate || !ev.endDate || !ev.capacity) {
+                showToast('Please fill in all required fields (name, location, dates, capacity) before submitting.', 'error');
+                return;
+            }
+            if (!ev.ticketTypes || ev.ticketTypes.length === 0) {
+                showToast('Please add at least one ticket type.', 'error');
+                return;
+            }
+            try {
+                await db.collection('events').doc(eventId).update({
+                    status: 'pending',
+                    updatedAt: new Date().toISOString()
+                });
+                showToast('Event submitted for review!', 'success');
+                loadMyEvents();
+            } catch (err) {
+                showToast('Failed to submit: ' + err.message, 'error');
+            }
         };
 
         window.cancelEvent = async function(eventId) {
@@ -753,7 +857,6 @@
             if (this.files[0]) await handlePosterUpload(this.files[0]);
         });
 
-        // ============ AUTH ============
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentOrganizerId = user.uid;
@@ -778,7 +881,6 @@
             }
         });
 
-        // Ensure at least one ticket type row exists on load
         if (document.querySelectorAll('.ticket-type-row').length === 0) {
             addTicketType();
         }

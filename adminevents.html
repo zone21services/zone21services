@@ -66,7 +66,6 @@
         .btn-download:hover { background: #5a32a3; }
         .btn-copy { background: #fd7e14; color: white; }
         .btn-copy:hover { background: #dc6a0e; }
-        /* NEW DELETE BUTTON */
         .btn-danger { background: #dc3545; color: white; }
         .btn-danger:hover { background: #c82333; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
@@ -96,8 +95,8 @@
         <!-- Stats -->
         <div class="stats" id="stats-container">
             <div class="stat-card"><div class="stat-value" id="total-events">0</div><div class="stat-label">Total Events</div></div>
-            <div class="stat-card"><div class="stat-value" id="pending-events">0</div><div class="stat-label">Pending</div></div>
-            <div class="stat-card"><div class="stat-value" id="approved-events">0</div><div class="stat-label">Approved</div></div>
+            <div class="stat-card"><div class="stat-value" id="pending-events">0</div><div class="stat-label">In Review</div></div>
+            <div class="stat-card"><div class="stat-value" id="approved-events">0</div><div class="stat-label">Published</div></div>
             <div class="stat-card"><div class="stat-value" id="rejected-events">0</div><div class="stat-label">Rejected</div></div>
             <div class="stat-card"><div class="stat-value" id="cancelled-events">0</div><div class="stat-label">Cancelled</div></div>
         </div>
@@ -105,8 +104,8 @@
         <!-- Filter -->
         <div class="filter-bar" id="filter-bar">
             <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="pending">Pending</button>
-            <button class="filter-btn" data-filter="approved">Approved</button>
+            <button class="filter-btn" data-filter="pending">In Review</button>
+            <button class="filter-btn" data-filter="approved">Published</button>
             <button class="filter-btn" data-filter="rejected">Rejected</button>
             <button class="filter-btn" data-filter="cancelled">Cancelled</button>
             <button class="filter-btn" data-filter="cancellation_requested">Cancellation Requested</button>
@@ -200,12 +199,16 @@
                 : `<div class="poster" style="display:flex; align-items:center; justify-content:center; color:#aaa;"><i class="fas fa-image fa-3x"></i></div>`;
 
             const statusClass = `status-${event.status}`;
-            const statusText = event.status.replace(/_/g, ' ').toUpperCase();
+            // Use friendly labels for display
+            let statusText = event.status.replace(/_/g, ' ').toUpperCase();
+            if (event.status === 'pending') statusText = 'In Review';
+            else if (event.status === 'approved') statusText = 'Published';
+            // others remain as is
 
             let actionsHtml = '';
             if (event.status === 'pending') {
                 actionsHtml = `
-                    <button class="btn btn-approve" onclick="approveEvent('${event.id}')"><i class="fas fa-check"></i> Approve</button>
+                    <button class="btn btn-approve" onclick="approveEvent('${event.id}')"><i class="fas fa-check"></i> Approve & Publish</button>
                     <button class="btn btn-reject" onclick="rejectEvent('${event.id}')"><i class="fas fa-times"></i> Reject</button>
                 `;
             } else if (event.status === 'approved') {
@@ -214,16 +217,16 @@
                 `;
             } else if (event.status === 'rejected') {
                 actionsHtml = `
-                    <button class="btn btn-restore" onclick="restoreToPending('${event.id}')"><i class="fas fa-undo"></i> Restore to Pending</button>
+                    <button class="btn btn-restore" onclick="restoreToPending('${event.id}')"><i class="fas fa-undo"></i> Restore to In Review</button>
                 `;
             } else if (event.status === 'cancellation_requested') {
                 actionsHtml = `
                     <button class="btn btn-cancel" onclick="approveCancellation('${event.id}')"><i class="fas fa-check-circle"></i> Approve Cancellation</button>
-                    <button class="btn btn-restore" onclick="restoreToApproved('${event.id}')"><i class="fas fa-undo"></i> Keep Approved</button>
+                    <button class="btn btn-restore" onclick="restoreToApproved('${event.id}')"><i class="fas fa-undo"></i> Keep Published</button>
                 `;
             }
 
-            // Add the permanent Delete button for all statuses
+            // Permanent Delete button
             actionsHtml += `
                 <button class="btn btn-danger" onclick="deleteEvent('${event.id}')"><i class="fas fa-trash"></i> Delete</button>
             `;
@@ -245,26 +248,24 @@
             return card;
         }
 
-        // ------------------- NEW DELETE FUNCTION -------------------
+        // ------------------- DELETE FUNCTION -------------------
         async function deleteEvent(id) {
             if (!confirm('⚠️ PERMANENT DELETE: This action cannot be undone. Are you sure you want to delete this event?')) return;
-            
-            // Optional: second confirmation
             if (!confirm('Really delete this event permanently? All associated data will be removed.')) return;
 
             try {
                 await db.collection('events').doc(id).delete();
                 alert('Event permanently deleted.');
-                loadEvents(); // Refresh the list
+                loadEvents();
             } catch (err) {
                 console.error('Delete failed:', err);
                 alert('Failed to delete event: ' + err.message);
             }
         }
 
-        // Event actions (unchanged)
+        // Event actions (unchanged, but with clearer labels)
         async function approveEvent(id) {
-            if (!confirm('Approve this event? It will go live for ticket sales.')) return;
+            if (!confirm('Approve this event? It will be published and visible to the public.')) return;
             try {
                 await db.collection('events').doc(id).update({ 
                     status: 'approved', 
@@ -297,7 +298,7 @@
         }
 
         async function cancelApprovedEvent(id) {
-            if (!confirm('Cancel this approved event? It will no longer be publicly visible.')) return;
+            if (!confirm('Cancel this published event? It will no longer be publicly visible.')) return;
             try {
                 await db.collection('events').doc(id).update({ 
                     status: 'cancelled',
@@ -312,10 +313,10 @@
         }
 
         async function restoreToPending(id) {
-            if (!confirm('Restore this rejected event back to pending?')) return;
+            if (!confirm('Restore this rejected event back to "In Review"?')) return;
             try {
                 await db.collection('events').doc(id).update({ status: 'pending' });
-                alert('Event restored to pending.');
+                alert('Event restored to In Review.');
                 loadEvents();
             } catch (err) {
                 console.error('Restore failed:', err);
@@ -339,10 +340,10 @@
         }
 
         async function restoreToApproved(id) {
-            if (!confirm('Reject cancellation request and keep event approved?')) return;
+            if (!confirm('Reject cancellation request and keep event published?')) return;
             try {
                 await db.collection('events').doc(id).update({ status: 'approved' });
-                alert('Cancellation request rejected. Event remains approved.');
+                alert('Cancellation request rejected. Event remains published.');
                 loadEvents();
             } catch (err) {
                 console.error('Update failed:', err);
@@ -470,7 +471,7 @@
                 </div>
 
                 <div class="detail-grid">
-                    <div class="detail-item"><label>Status</label><span class="status-badge status-${event.status}">${event.status.replace(/_/g, ' ').toUpperCase()}</span></div>
+                    <div class="detail-item"><label>Status</label><span class="status-badge status-${event.status}">${event.status === 'pending' ? 'In Review' : event.status === 'approved' ? 'Published' : event.status.replace(/_/g, ' ').toUpperCase()}</span></div>
                     <div class="detail-item"><label>Organizer</label><p>${event.organizerName || 'N/A'} (${event.organizerEmail || 'no email'})</p></div>
                     <div class="detail-item"><label>Type</label><p>${event.type}</p></div>
                     <div class="detail-item"><label>Location</label><p>${event.location}</p></div>

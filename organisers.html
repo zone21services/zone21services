@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+l<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
@@ -1334,7 +1334,7 @@
         const searchInput = document.getElementById('searchInput');
 
         // ============================================================
-        //  AUTH – CHECK VENDOR ROLE
+        //  AUTH – CHECK VENDOR ROLE (FIXED: uses 'service_provider')
         // ============================================================
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
@@ -1351,10 +1351,13 @@
                 }
 
                 const data = userDoc.data();
-                if (data.role !== 'serviceProvider' && data.role !== 'vendor') {
-                    // If they're an organizer, redirect to organizer directory
-                    if (data.role === 'organiser' || data.role === 'organizer') {
-                        window.location.href = 'organizer-directory.html';
+                // FIX: Use 'service_provider' (underscore) to match your index page
+                const role = data.role || '';
+
+                if (role !== 'service_provider') {
+                    // If they're an organizer, redirect to organizer dashboard
+                    if (role === 'organizer') {
+                        window.location.href = 'dashboard.html';
                     } else {
                         window.location.href = 'index.html';
                     }
@@ -1366,7 +1369,7 @@
                     name: data.name || user.email.split('@')[0],
                     email: user.email,
                     avatarUrl: data.avatarUrl || null,
-                    role: data.role || 'serviceProvider'
+                    role: 'service_provider'
                 };
 
                 document.getElementById('topbar-name').textContent = currentUser.name;
@@ -1394,7 +1397,7 @@
         });
 
         // ============================================================
-        //  LOAD ORGANIZERS
+        //  LOAD ORGANIZERS – query users with role 'organizer'
         // ============================================================
         function loadOrganizers() {
             grid.innerHTML = `
@@ -1405,7 +1408,7 @@
             `;
 
             db.collection('users')
-                .where('role', '==', 'organiser')
+                .where('role', '==', 'organizer')
                 .onSnapshot((snapshot) => {
                     allOrganizers = [];
                     snapshot.forEach(doc => {

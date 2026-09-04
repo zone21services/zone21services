@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes" />
-    <title>Zone21 · Organiser</title>
+    <title>Zone21 · Organizer Inbox</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
@@ -1450,6 +1450,9 @@
             serverTimestamp
         };
 
+        // ============================================================
+        // FIXED: Correct role names and redirects
+        // ============================================================
         onAuthStateChanged(window.auth, async (user) => {
             if (user) {
                 const docRef = doc(window.db, "users", user.uid);
@@ -1459,21 +1462,25 @@
                     return;
                 }
                 const data = docSnap.data();
-                if (data.role !== 'organiser') {
-                    if (data.role === 'serviceProvider') {
-                        window.location.href = 'service-provider-inbox.html';
+
+                // Use 'organizer' (not 'organiser')
+                if (data.role !== 'organizer') {
+                    // Service providers go to vendorinbox.html (not service-provider-inbox.html)
+                    if (data.role === 'service_provider') {
+                        window.location.href = 'vendorinbox.html';
                     } else {
                         window.location.href = 'index.html';
                     }
                     return;
                 }
+
                 const name = data.name || user.email.split('@')[0];
                 window.currentUser = {
                     uid: user.uid,
                     name,
                     email: user.email,
                     avatarUrl: data.avatarUrl || null,
-                    role: 'organiser'
+                    role: 'organizer' // store as 'organizer' consistently
                 };
                 window.setupRealtimeInbox();
             } else {
@@ -1533,7 +1540,7 @@
                         <div class="brand-icon">Z21</div>
                         <span class="brand-title">
                             Zone<span class="highlight">21</span>
-                            <span class="role-tag">Organiser</span>
+                            <span class="role-tag">Organizer</span>
                         </span>
                         <span class="badge-unread-count" id="global-unread-badge">0</span>
                     </div>
@@ -1638,13 +1645,13 @@
         window.lastReadTimestamps = {};
 
         try {
-            const stored = localStorage.getItem('zone21_organiser_lastReadTimestamps');
+            const stored = localStorage.getItem('zone21_organizer_lastReadTimestamps');
             if (stored) window.lastReadTimestamps = JSON.parse(stored);
         } catch (e) { window.lastReadTimestamps = {}; }
 
         function saveLastReadTimestamps() {
             try {
-                localStorage.setItem('zone21_organiser_lastReadTimestamps', JSON.stringify(window
+                localStorage.setItem('zone21_organizer_lastReadTimestamps', JSON.stringify(window
                 .lastReadTimestamps));
             } catch (e) { /* ignore */ }
         }
@@ -1910,7 +1917,7 @@
                 const userData = await getUserData(otherUid);
                 window.activeChatOtherData = userData;
                 otherAvatar = userData.avatarUrl || null;
-                const roleLabel = userData.role === 'serviceProvider' ? 'Provider' : 'Organiser';
+                const roleLabel = userData.role === 'service_provider' ? 'Provider' : 'Organizer';
                 document.getElementById('chat-subtitle').textContent = jobTitle || roleLabel;
             }
             const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
@@ -2206,7 +2213,7 @@
         };
 
         function renderProfileModal(user) {
-            const isProvider = user.role === 'serviceProvider';
+            const isProvider = user.role === 'service_provider';
             document.getElementById('pm-name').textContent = user.name || 'Unnamed User';
             document.getElementById('pm-avatar').src = user.avatarUrl ||
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name||'U')}&background=0A2540&color=84CC16&size=180`;
@@ -2229,7 +2236,7 @@
             document.getElementById('pm-badges').innerHTML = badges;
 
             document.getElementById('pm-summary-title').textContent = isProvider ? 'About the Provider' :
-                'About the Organiser';
+                'About the Organizer';
             document.getElementById('pm-details-title').textContent = isProvider ? 'Service Details' :
                 'Organisation Details';
 

@@ -473,6 +473,26 @@
         // Allowed statuses for this page: only 'pending' and 'approved'
         const ALLOWED_STATUSES = new Set(['pending', 'approved']);
 
+        // ─── Helper: check if event has all required fields ───
+        function isEventComplete(ev) {
+            // Required fields: eventName, location, startDate, endDate, capacity, organizerName, organizerEmail, ticketTypes (with name, price, quantity)
+            if (!ev.eventName || ev.eventName.trim() === '') return false;
+            if (!ev.location || ev.location.trim() === '') return false;
+            if (!ev.startDate || ev.startDate.trim() === '') return false;
+            if (!ev.endDate || ev.endDate.trim() === '') return false;
+            if (!ev.capacity || ev.capacity <= 0) return false;
+            if (!ev.organizerName || ev.organizerName.trim() === '') return false;
+            if (!ev.organizerEmail || ev.organizerEmail.trim() === '') return false;
+            // Check ticketTypes
+            if (!ev.ticketTypes || !Array.isArray(ev.ticketTypes) || ev.ticketTypes.length === 0) return false;
+            for (let t of ev.ticketTypes) {
+                if (!t.name || t.name.trim() === '') return false;
+                if (t.price === undefined || t.price === null || isNaN(parseFloat(t.price))) return false;
+                if (!t.quantity || t.quantity <= 0) return false;
+            }
+            return true;
+        }
+
         // ============================================================
         //  LOAD EVENTS
         // ============================================================
@@ -487,12 +507,12 @@
                     allEvents = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        // Only include if status is defined and is 'pending' or 'approved'
                         const status = data.status;
-                        if (status && ALLOWED_STATUSES.has(status)) {
+                        // Only include if status is pending/approved AND the event is complete
+                        if (status && ALLOWED_STATUSES.has(status) && isEventComplete(data)) {
                             allEvents.push({ id: doc.id, ...data });
                         }
-                        // Events with other statuses (rejected, cancelled, pending_payment, undefined, etc.) are IGNORED.
+                        // Incomplete events (like "Untitled Event") are excluded entirely.
                     });
                     updateStats();
                     applyFilter();
@@ -528,7 +548,7 @@
 
             let filtered;
             if (currentFilter === 'all') {
-                filtered = allEvents; // already only pending + approved
+                filtered = allEvents; // already only pending + approved + complete
             } else {
                 filtered = allEvents.filter(e => e.status === currentFilter);
             }
@@ -537,7 +557,7 @@
                 listDiv.innerHTML = `
                     <div class="no-events">
                         <i class="fas fa-inbox"></i>
-                        No events found for this filter.
+                        No complete events found for this filter.
                     </div>`;
                 return;
             }

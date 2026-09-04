@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zone21 Organizer Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
     <style>
-        /* … all styles unchanged from your original … */
+        /* ── root ── */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -23,126 +26,511 @@
             --radius: 16px;
             --shadow: 0 8px 30px rgba(16, 40, 56, 0.08);
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
-        .dashboard-header h1 { font-size: 2rem; font-weight: 800; color: var(--navy); }
-        .btn-refresh { background: var(--navy); color: white; border: none; border-radius: 30px; padding: 12px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
-        .btn-refresh:hover { background: #1a3a4a; transform: translateY(-2px); }
-        .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px; margin-bottom: 25px; }
-        .card h2 { font-size: 1.4rem; font-weight: 700; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--navy); }
-        .form-group input, .form-group textarea, .form-group select {
-            width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; transition: border 0.2s;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
         }
-        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--lime); }
-        .form-group textarea { min-height: 100px; resize: vertical; }
-        .form-group .helper { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
-        .poster-preview { width: 100%; max-width: 300px; height: auto; border-radius: 12px; margin-top: 10px; border: 1px solid var(--border); }
-        .ticket-type-row { background: #fafbfc; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 15px; position: relative; }
-        .ticket-type-row .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--pink); font-size: 1.2rem; cursor: pointer; }
-        .ticket-type-row .ticket-preview { max-width: 120px; height: auto; margin-top: 10px; border-radius: 8px; }
-        .add-ticket-btn { background: var(--navy); color: var(--lime); border: none; border-radius: 30px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .add-ticket-btn:hover { background: #1a3a4a; }
-        .checkbox-group { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
-        .checkbox-group input[type="checkbox"] { margin-top: 4px; width: auto; }
-        .checkbox-group label { font-weight: 500; color: var(--navy); }
-        .btn-submit, .btn-submit-review { background: var(--lime); color: var(--navy); border: none; border-radius: 30px; padding: 14px 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer; width: 100%; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        .btn-submit:hover:not(:disabled), .btn-submit-review:hover:not(:disabled) { background: #d0d800; transform: translateY(-2px); }
-        .btn-submit:disabled, .btn-submit-review:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-        .btn-cancel-form { background: #f0f0f0; color: var(--navy); border: none; border-radius: 30px; padding: 12px 24px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 10px; }
-        .my-events { margin-top: 40px; }
-        .event-card { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
-        .event-card .status { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-        .status-draft { background: #e2e3e5; color: #383d41; }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-approved { background: #d4edda; color: #155724; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .status-cancelled { background: #e2e3e5; color: #383d41; }
-        .status-cancellation_requested { background: #ffeaa7; color: #6c5200; }
-        .event-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .event-card .actions button { background: none; border: none; cursor: pointer; font-size: 1.1rem; transition: 0.2s; padding: 5px 8px; border-radius: 50%; }
-        .event-card .edit-btn { color: var(--navy); }
-        .event-card .submit-btn { color: #28a745; }
-        .event-card .cancel-btn { color: #ffc107; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* ── header ── */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .dashboard-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .btn-refresh {
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-refresh:hover {
+            background: #1a3a4a;
+            transform: translateY(-2px);
+        }
+
+        /* ── cards ── */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+        .card h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 20px;
+            border-bottom: 3px solid var(--lime);
+            padding-bottom: 10px;
+        }
+
+        /* ── form ── */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--navy);
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--lime);
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .form-group .helper {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .poster-preview {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            border-radius: 12px;
+            margin-top: 10px;
+            border: 1px solid var(--border);
+        }
+
+        /* ── ticket rows ── */
+        .ticket-type-row {
+            background: #fafbfc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .ticket-type-row .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--pink);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .ticket-type-row .ticket-preview {
+            max-width: 120px;
+            height: auto;
+            margin-top: 10px;
+            border-radius: 8px;
+        }
+        .add-ticket-btn {
+            background: var(--navy);
+            color: var(--lime);
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .add-ticket-btn:hover {
+            background: #1a3a4a;
+        }
+
+        /* ── checkboxes ── */
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-top: 4px;
+            width: auto;
+        }
+        .checkbox-group label {
+            font-weight: 500;
+            color: var(--navy);
+        }
+
+        /* ── buttons ── */
+        .btn-submit,
+        .btn-submit-review {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+            border-radius: 30px;
+            padding: 14px 30px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-submit:hover:not(:disabled),
+        .btn-submit-review:hover:not(:disabled) {
+            background: #d0d800;
+            transform: translateY(-2px);
+        }
+        .btn-submit:disabled,
+        .btn-submit-review:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-submit-review {
+            background: #28a745;
+            color: white;
+        }
+        .btn-submit-review:hover:not(:disabled) {
+            background: #218838;
+        }
+        .btn-cancel-form {
+            background: #f0f0f0;
+            color: var(--navy);
+            border: none;
+            border-radius: 30px;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* ── event list ── */
+        .my-events {
+            margin-top: 40px;
+        }
+        .event-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        /* Status badges – now visible and styled */
+        .event-card .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-cancelled {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .status-cancellation_requested {
+            background: #ffeaa7;
+            color: #6c5200;
+        }
+        .event-card .event-title-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .event-card .event-title-row strong {
+            font-size: 1rem;
+        }
+        .event-card .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .event-card .actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: 0.2s;
+            padding: 5px 8px;
+            border-radius: 50%;
+        }
+        .event-card .edit-btn {
+            color: var(--navy);
+        }
+        .event-card .submit-btn {
+            color: #28a745;
+        }
+        .event-card .cancel-btn {
+            color: #ffc107;
+        }
+
+        /* ── commission box ── */
+        .commission-box {
+            background: #f0f7ff;
+            border: 2px solid var(--pink);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .commission-box .label {
+            font-weight: 700;
+            color: var(--navy);
+            font-size: 1.1rem;
+        }
+        .commission-box .rate {
+            background: var(--pink);
+            color: white;
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 1.5rem;
+        }
+        .commission-box .detail {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .terms-link {
+            color: var(--pink);
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+
+        /* ── toast ── */
         .toast {
-            position: fixed; bottom: 20px; right: 20px;
-            background: var(--navy); color: white;
-            padding: 16px 24px; border-radius: 12px;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--navy);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
             box-shadow: 0 8px 30px rgba(16, 40, 56, 0.2);
-            display: flex; align-items: center; gap: 12px;
-            font-weight: 600; z-index: 9999;
-            transform: translateY(150%); opacity: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            z-index: 9999;
+            transform: translateY(150%);
+            opacity: 0;
             transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast i { font-size: 1.2rem; }
-        .toast-success { border-left: 5px solid var(--lime); }
-        .toast-error { border-left: 5px solid var(--pink); }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast i {
+            font-size: 1.2rem;
+        }
+        .toast-success {
+            border-left: 5px solid var(--lime);
+        }
+        .toast-error {
+            border-left: 5px solid var(--pink);
+        }
+
+        /* ── modal ── */
         .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
             backdrop-filter: blur(3px);
         }
         .modal-content {
-            background: white; border-radius: 16px; padding: 30px;
-            max-width: 750px; width: 92%; max-height: 85vh; overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 750px;
+            width: 92%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             position: relative;
         }
-        .modal-content h3 { font-size: 1.8rem; color: var(--navy); margin-bottom: 20px; border-bottom: 3px solid var(--lime); padding-bottom: 10px; }
-        .modal-content h4 { font-size: 1.2rem; color: var(--navy); margin-top: 20px; margin-bottom: 8px; }
-        .modal-content p { margin-bottom: 12px; line-height: 1.7; color: #2d3748; }
-        .modal-content ul { margin: 10px 0 15px 20px; }
-        .modal-content li { margin-bottom: 6px; }
-        .modal-content .highlight-box { background: #f0f7ff; border-left: 5px solid var(--pink); padding: 15px 20px; border-radius: 8px; margin: 15px 0; }
-        .modal-close { position: sticky; top: 0; float: right; background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
-        .modal-close:hover { color: var(--pink); }
-        .btn-close-modal { background: var(--navy); color: white; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 700; cursor: pointer; margin-top: 15px; transition: 0.2s; }
-        .btn-close-modal:hover { background: #1a3a4a; }
-        .terms-link { color: var(--pink); cursor: pointer; text-decoration: underline; font-weight: 600; }
-        .hidden { display: none; }
-        .commission-box { background: #f0f7ff; border: 2px solid var(--pink); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-        .commission-box .label { font-weight: 700; color: var(--navy); font-size: 1.1rem; }
-        .commission-box .rate { background: var(--pink); color: white; padding: 6px 18px; border-radius: 30px; font-weight: 800; font-size: 1.5rem; }
-        .commission-box .detail { font-size: 0.9rem; color: var(--text-muted); }
-        .event-card .event-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .event-card .event-title-row strong { font-size: 1rem; }
-        .btn-submit-review { background: #28a745; color: white; }
-        .btn-submit-review:hover { background: #218838; }
+        .modal-content h3 {
+            font-size: 1.8rem;
+            color: var(--navy);
+            margin-bottom: 20px;
+            border-bottom: 3px solid var(--lime);
+            padding-bottom: 10px;
+        }
+        .modal-content h4 {
+            font-size: 1.2rem;
+            color: var(--navy);
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        .modal-content p {
+            margin-bottom: 12px;
+            line-height: 1.7;
+            color: #2d3748;
+        }
+        .modal-content ul {
+            margin: 10px 0 15px 20px;
+        }
+        .modal-content li {
+            margin-bottom: 6px;
+        }
+        .modal-content .highlight-box {
+            background: #f0f7ff;
+            border-left: 5px solid var(--pink);
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .modal-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: 0.2s;
+        }
+        .modal-close:hover {
+            color: var(--pink);
+        }
+        .btn-close-modal {
+            background: var(--navy);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.2s;
+        }
+        .btn-close-modal:hover {
+            background: #1a3a4a;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ── responsive ── */
         @media (max-width: 768px) {
-            .form-row { grid-template-columns: 1fr; }
-            .card { padding: 20px; }
-            .dashboard-header { flex-direction: column; align-items: flex-start; }
-            .commission-box { flex-direction: column; align-items: flex-start; }
-            .event-card { flex-direction: column; align-items: stretch; }
-            .event-card .actions { justify-content: flex-end; }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .card {
+                padding: 20px;
+            }
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .commission-box {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .event-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .event-card .actions {
+                justify-content: flex-end;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+
+        <!-- HEADER -->
         <div class="dashboard-header">
             <h1><i class="fas fa-calendar-check" style="color:var(--pink);"></i> Zone21 Organizer Dashboard</h1>
             <button class="btn-refresh" onclick="loadMyEvents()"><i class="fas fa-sync"></i> Refresh</button>
         </div>
 
-        <!-- Event Creation Form (hidden by default, only shown when editing an existing event) -->
+        <!-- EVENT FORM (hidden until edit) -->
         <div class="card hidden" id="event-form-card">
             <h2>Edit Event</h2>
             <form id="event-form">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Event Name *</label>
-                        <input type="text" id="eventName" required>
+                        <input type="text" id="eventName" required />
                     </div>
                     <div class="form-group">
                         <label>Event Type *</label>
                         <select id="eventType" required>
-                            <option value="">Select type...</option>
+                            <option value="">Select type…</option>
                             <option>Conference</option>
                             <option>Music Festival</option>
                             <option>Corporate Gala</option>
@@ -161,51 +549,51 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Start Date & Time *</label>
-                        <input type="datetime-local" id="startDate" required>
+                        <label>Start Date &amp; Time *</label>
+                        <input type="datetime-local" id="startDate" required />
                     </div>
                     <div class="form-group">
-                        <label>End Date & Time *</label>
-                        <input type="datetime-local" id="endDate" required>
+                        <label>End Date &amp; Time *</label>
+                        <input type="datetime-local" id="endDate" required />
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Location / Venue *</label>
-                        <input type="text" id="location" placeholder="e.g., Harare International Conference Centre" required>
+                        <input type="text" id="location" placeholder="e.g., Harare International Conference Centre" required />
                     </div>
                     <div class="form-group">
                         <label>Total Capacity *</label>
-                        <input type="number" id="capacity" min="1" required>
+                        <input type="number" id="capacity" min="1" required />
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Organizer Contact Name *</label>
-                        <input type="text" id="organizerName" required>
+                        <input type="text" id="organizerName" required />
                     </div>
                     <div class="form-group">
                         <label>Organizer Email *</label>
-                        <input type="email" id="organizerEmail" required>
+                        <input type="email" id="organizerEmail" required />
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Organizer Phone</label>
-                    <input type="tel" id="organizerPhone">
+                    <input type="tel" id="organizerPhone" />
                 </div>
                 <div class="form-group">
                     <label>Event Poster Image</label>
-                    <input type="file" id="posterUpload" accept="image/*">
-                    <div class="helper">Recommended size: 1200x800px, JPG/PNG. Max 500KB (will be compressed).</div>
-                    <img id="posterPreview" class="poster-preview" style="display:none;" alt="Poster Preview">
+                    <input type="file" id="posterUpload" accept="image/*" />
+                    <div class="helper">Recommended size: 1200×800px, JPG/PNG. Max 500KB (will be compressed).</div>
+                    <img id="posterPreview" class="poster-preview" style="display:none;" alt="Poster Preview" />
                 </div>
                 <div class="form-group">
                     <label>Age Restriction (optional)</label>
-                    <input type="text" id="ageRestriction" placeholder="e.g., 18+">
+                    <input type="text" id="ageRestriction" placeholder="e.g., 18+" />
                 </div>
                 <div class="form-group">
                     <label>Dress Code (optional)</label>
-                    <input type="text" id="dressCode" placeholder="e.g., Formal / Smart Casual">
+                    <input type="text" id="dressCode" placeholder="e.g., Formal / Smart Casual" />
                 </div>
                 <div class="form-group">
                     <label>Choose Default Ticket Template</label>
@@ -219,7 +607,7 @@
             </form>
         </div>
 
-        <!-- Ticket Types Card (for editing) -->
+        <!-- TICKET TYPES -->
         <div class="card hidden" id="ticket-types-card">
             <h2>Ticket Types</h2>
             <div id="ticket-types-container"></div>
@@ -227,9 +615,9 @@
             <p style="margin-top:10px; color:var(--text-muted);">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</p>
         </div>
 
-        <!-- Terms & Submit -->
+        <!-- TERMS & SUBMIT -->
         <div class="card hidden" id="terms-submit-card">
-            <h2>Terms & Conditions</h2>
+            <h2>Terms &amp; Conditions</h2>
             <div class="commission-box">
                 <div>
                     <div class="label"><i class="fas fa-percent" style="color:var(--pink);"></i> Zone21 Ticketing Fee</div>
@@ -239,14 +627,14 @@
             </div>
 
             <div class="checkbox-group">
-                <input type="checkbox" id="agreeTerms" required>
+                <input type="checkbox" id="agreeTerms" required />
                 <label for="agreeTerms">
-                    I agree to the <span class="terms-link" id="open-terms">Zone21 Organizer Terms &amp; Conditions</span>, 
+                    I agree to the <span class="terms-link" id="open-terms">Zone21 Organizer Terms &amp; Conditions</span>,
                     including the <strong>2% ticketing commission</strong> on all ticket sales. *
                 </label>
             </div>
             <div class="checkbox-group">
-                <input type="checkbox" id="agreeRights">
+                <input type="checkbox" id="agreeRights" />
                 <label for="agreeRights">I confirm that I have the rights to use all uploaded images and information provided.</label>
             </div>
 
@@ -255,7 +643,7 @@
             <button type="button" class="btn-cancel-form" id="cancel-edit">Cancel Edit</button>
         </div>
 
-        <!-- My Events List -->
+        <!-- MY EVENTS LIST -->
         <div class="card my-events">
             <h2>My Events</h2>
             <div id="my-events-list"></div>
@@ -263,13 +651,13 @@
         </div>
     </div>
 
-    <!-- Terms Modal -->
+    <!-- TERMS MODAL -->
     <div class="modal" id="terms-modal">
         <div class="modal-content">
             <button class="modal-close" id="close-terms">&times;</button>
             <h3>Zone21 Organizer Terms &amp; Conditions</h3>
             <div class="highlight-box">
-                <strong><i class="fas fa-percent" style="color:var(--pink);"></i> 2% ZONE21 TICKETING COMMISSION</strong><br>
+                <strong><i class="fas fa-percent" style="color:var(--pink);"></i> 2% ZONE21 TICKETING COMMISSION</strong><br />
                 For every ticket sold through the Zone21 platform, the Organizer agrees that Zone21 will receive a <strong>2% ticketing commission</strong>.
                 The commission is calculated on the ticket price paid by the customer for each ticket sold through Zone21.
             </div>
@@ -286,7 +674,7 @@
                 <li><strong>Zone21 2% commission:</strong> US$2,000</li>
                 <li><strong>Remaining amount:</strong> US$98,000</li>
             </ul>
-            <hr style="margin: 20px 0; border-color: #e2e8f0;">
+            <hr style="margin:20px 0; border-color:#e2e8f0;" />
             <h4>Ticket Sales and Settlement</h4>
             <p>Where Zone21 receives ticket payments on behalf of the Organizer, Zone21 may deduct its 2% ticketing commission before transferring the applicable balance to the Organizer.</p>
             <h4>Organiser Acknowledgement</h4>
@@ -295,14 +683,16 @@
         </div>
     </div>
 
-    <!-- Toast Notification -->
+    <!-- TOAST -->
     <div id="toast" class="toast">
         <i class="fas fa-check-circle" id="toast-icon"></i>
         <span id="toast-message">Event updated successfully!</span>
     </div>
 
     <script>
-        // ============ FIREBASE CONFIG ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  FIREBASE CONFIG
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -320,6 +710,9 @@
         let currentOrganizerId = null;
         let editingEventId = null;
 
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  TOAST
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             const msgEl = document.getElementById('toast-message');
@@ -332,7 +725,9 @@
             toast._timer = setTimeout(() => toast.classList.remove('show'), 4000);
         }
 
-        // ============ UI ELEMENTS ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  UI HELPERS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         const eventFormCard = document.getElementById('event-form-card');
         const ticketTypesCard = document.getElementById('ticket-types-card');
         const termsSubmitCard = document.getElementById('terms-submit-card');
@@ -343,6 +738,7 @@
             ticketTypesCard.classList.remove('hidden');
             termsSubmitCard.classList.remove('hidden');
         }
+
         function hideEditForm() {
             eventFormCard.classList.add('hidden');
             ticketTypesCard.classList.add('hidden');
@@ -353,7 +749,9 @@
         }
         cancelEditBtn.addEventListener('click', hideEditForm);
 
-        // ============ IMAGE HANDLING ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  IMAGE HELPERS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function fileToBase64(file, maxDimension = 800, quality = 0.7) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -361,12 +759,19 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        let width = img.width, height = img.height;
+                        let width = img.width,
+                            height = img.height;
                         if (width > maxDimension || height > maxDimension) {
-                            if (width > height) { height = Math.round((height * maxDimension) / width); width = maxDimension; } 
-                            else { width = Math.round((width * maxDimension) / height); height = maxDimension; }
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
                         }
-                        canvas.width = width; canvas.height = height;
+                        canvas.width = width;
+                        canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         resolve(canvas.toDataURL('image/jpeg', quality));
@@ -386,7 +791,10 @@
                 document.getElementById('posterPreview').src = base64;
                 document.getElementById('posterPreview').style.display = 'block';
                 return base64;
-            } catch (e) { showToast('Failed to process poster image.', 'error'); return null; }
+            } catch (_) {
+                showToast('Failed to process poster image.', 'error');
+                return null;
+            }
         }
 
         async function handleTicketImageUpload(file, previewId) {
@@ -394,13 +802,22 @@
             try {
                 const base64 = await fileToBase64(file, 400, 0.7);
                 const preview = document.getElementById(previewId);
-                if (preview) { preview.src = base64; preview.style.display = 'block'; }
+                if (preview) {
+                    preview.src = base64;
+                    preview.style.display = 'block';
+                }
                 return base64;
-            } catch (e) { showToast('Failed to process ticket image.', 'error'); return null; }
+            } catch (_) {
+                showToast('Failed to process ticket image.', 'error');
+                return null;
+            }
         }
 
-        // ============ TICKET TYPES MANAGEMENT ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  TICKET TYPES MANAGEMENT
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         let ticketCount = 0;
+
         function addTicketType() {
             ticketCount++;
             const container = document.getElementById('ticket-types-container');
@@ -412,33 +829,35 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Ticket Name *</label>
-                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP" required>
+                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP" required />
                     </div>
                     <div class="form-group">
                         <label>Price (USD) *</label>
-                        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required>
+                        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required />
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Quantity Available *</label>
-                        <input type="number" class="ticket-quantity" min="1" value="100" required>
+                        <input type="number" class="ticket-quantity" min="1" value="100" required />
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge access">
+                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge access" />
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Custom Ticket Design (optional)</label>
-                    <input type="file" class="ticket-image-upload" accept="image/*" onchange="previewTicketImage(this, ${ticketCount})">
-                    <img id="ticket-preview-${ticketCount}" class="ticket-preview" style="display:none;" alt="Ticket Design Preview">
+                    <input type="file" class="ticket-image-upload" accept="image/*" onchange="previewTicketImage(this, ${ticketCount})" />
+                    <img id="ticket-preview-${ticketCount}" class="ticket-preview" style="display:none;" alt="Ticket Design Preview" />
                 </div>
             `;
             container.appendChild(ticketDiv);
         }
 
-        function removeTicketType(id) { document.getElementById(`ticket-row-${id}`)?.remove(); }
+        function removeTicketType(id) {
+            document.getElementById(`ticket-row-${id}`)?.remove();
+        }
 
         function previewTicketImage(input, id) {
             const file = input.files[0];
@@ -474,12 +893,21 @@
                     showToast('Please fill all required ticket fields.', 'error');
                     return null;
                 }
-                ticketTypes.push({ name, price, quantity, description, imageBase64: imageBase64 || null, template: document.getElementById('ticketTemplate').value || 'classic' });
+                ticketTypes.push({
+                    name,
+                    price,
+                    quantity,
+                    description,
+                    imageBase64: imageBase64 || null,
+                    template: document.getElementById('ticketTemplate').value || 'classic'
+                });
             }
             return ticketTypes;
         }
 
-        // ============ VALIDATE REQUIRED FIELDS ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  VALIDATE FIELDS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function validateEventFields() {
             const name = document.getElementById('eventName').value.trim();
             const location = document.getElementById('location').value.trim();
@@ -494,10 +922,8 @@
             if (isNaN(capacity) || capacity < 1) { showToast('Valid Capacity is required.', 'error'); return false; }
             if (!organizerName) { showToast('Organizer Name is required.', 'error'); return false; }
             if (!organizerEmail) { showToast('Organizer Email is required.', 'error'); return false; }
-            // Check ticket types
             const ticketRows = document.querySelectorAll('.ticket-type-row');
             if (ticketRows.length === 0) { showToast('At least one ticket type is required.', 'error'); return false; }
-            // Check each ticket row has name, price, quantity
             for (let row of ticketRows) {
                 const nameInput = row.querySelector('.ticket-name');
                 const priceInput = row.querySelector('.ticket-price');
@@ -510,7 +936,9 @@
             return true;
         }
 
-        // ============ UPDATE EVENT (SAVE CHANGES, NO STATUS CHANGE) ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  UPDATE EVENT (save) – now sets status to 'pending'
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('submit-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
             if (!editId) { showToast('No event selected for editing.', 'error'); return; }
@@ -521,22 +949,23 @@
             if (!validateEventFields()) return;
 
             const submitBtn = this;
-            const originalBtnHtml = submitBtn.innerHTML;
+            const originalHtml = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving...</span>';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving…</span>';
 
             try {
                 const posterInput = document.getElementById('posterUpload');
                 let posterBase64 = document.getElementById('posterPreview').src || null;
                 if (posterInput.files && posterInput.files[0]) {
                     posterBase64 = await handlePosterUpload(posterInput.files[0]);
-                } else if (!posterBase64 || posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1) {
+                } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
                     posterBase64 = null;
                 }
                 const ticketTypes = await collectTicketTypes();
-                if (!ticketTypes) throw new Error("Ticket validation failed");
+                if (!ticketTypes) throw new Error('Ticket validation failed');
 
-                const eventData = {
+                // 🔁 Any edit forces the event back to "pending" (In Review)
+                await db.collection('events').doc(editId).update({
                     eventName: document.getElementById('eventName').value.trim(),
                     type: document.getElementById('eventType').value,
                     description: document.getElementById('eventDescription').value.trim(),
@@ -551,23 +980,25 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
+                    status: 'pending',   // ⬅️ go back to review
                     updatedAt: new Date().toISOString()
-                };
+                });
 
-                await db.collection('events').doc(editId).update(eventData);
-                showToast('Event saved successfully!', 'success');
+                showToast('Event saved and sent back for review!', 'success');
                 hideEditForm();
                 loadMyEvents();
-            } catch (error) {
-                console.error('Error updating event:', error);
-                showToast('Failed to save: ' + error.message, 'error');
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to save: ' + err.message, 'error');
             } finally {
-                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.innerHTML = originalHtml;
                 submitBtn.disabled = false;
             }
         });
 
-        // ============ SUBMIT FOR REVIEW ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  SUBMIT FOR REVIEW (already sets status to 'pending')
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('submit-review-event').addEventListener('click', async function() {
             const editId = this.dataset.editId;
             if (!editId) { showToast('No event selected.', 'error'); return; }
@@ -578,23 +1009,22 @@
             if (!validateEventFields()) return;
 
             const submitBtn = this;
-            const originalBtnHtml = submitBtn.innerHTML;
+            const originalHtml = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Submitting...</span>';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Submitting…</span>';
 
             try {
-                // First save the current data (same as update)
                 const posterInput = document.getElementById('posterUpload');
                 let posterBase64 = document.getElementById('posterPreview').src || null;
                 if (posterInput.files && posterInput.files[0]) {
                     posterBase64 = await handlePosterUpload(posterInput.files[0]);
-                } else if (!posterBase64 || posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1) {
+                } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
                     posterBase64 = null;
                 }
                 const ticketTypes = await collectTicketTypes();
-                if (!ticketTypes) throw new Error("Ticket validation failed");
+                if (!ticketTypes) throw new Error('Ticket validation failed');
 
-                const eventData = {
+                await db.collection('events').doc(editId).update({
                     eventName: document.getElementById('eventName').value.trim(),
                     type: document.getElementById('eventType').value,
                     description: document.getElementById('eventDescription').value.trim(),
@@ -609,29 +1039,30 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
-                    updatedAt: new Date().toISOString(),
-                    status: 'pending'   // 🔥 change status to pending
-                };
+                    status: 'pending',   // keep in review
+                    updatedAt: new Date().toISOString()
+                });
 
-                await db.collection('events').doc(editId).update(eventData);
                 showToast('✅ Event submitted for admin review!', 'success');
                 hideEditForm();
                 loadMyEvents();
-            } catch (error) {
-                console.error('Error submitting event:', error);
-                showToast('Failed to submit: ' + error.message, 'error');
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to submit: ' + err.message, 'error');
             } finally {
-                submitBtn.innerHTML = originalBtnHtml;
+                submitBtn.innerHTML = originalHtml;
                 submitBtn.disabled = false;
             }
         });
 
-        // ============ LOAD MY EVENTS ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  LOAD MY EVENTS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function loadMyEvents() {
             if (!currentOrganizerId) return;
             const listDiv = document.getElementById('my-events-list');
             const noMsg = document.getElementById('no-events-msg');
-            listDiv.innerHTML = '<p class="helper" style="text-align:center; padding:20px;">Loading your events...</p>';
+            listDiv.innerHTML = '<p class="helper" style="text-align:center;padding:20px;">Loading your events…</p>';
             noMsg.style.display = 'none';
 
             db.collection('events')
@@ -641,11 +1072,7 @@
                     const events = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        events.push({
-                            id: doc.id,
-                            docId: doc.id,
-                            ...data
-                        });
+                        events.push({ id: doc.id, docId: doc.id, ...data });
                     });
                     events.sort((a, b) => {
                         const da = a.createdAt ? new Date(a.createdAt) : new Date(0);
@@ -661,7 +1088,7 @@
                     displayEvents(events);
                 })
                 .catch(err => {
-                    console.error('Error loading events:', err);
+                    console.error(err);
                     listDiv.innerHTML = '';
                     noMsg.style.display = 'block';
                     noMsg.textContent = '❌ Failed to load events: ' + (err.message || 'unknown error');
@@ -669,7 +1096,9 @@
                 });
         }
 
-        // ============ DISPLAY EVENTS ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  DISPLAY EVENTS – show status with friendly labels
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function displayEvents(events) {
             const listDiv = document.getElementById('my-events-list');
             const noMsg = document.getElementById('no-events-msg');
@@ -685,31 +1114,48 @@
 
                 let actionsHtml = '';
 
-                // Always allow editing
-                actionsHtml += `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
+                // Edit
+                actionsHtml +=
+                    `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
 
-                // Submit for Review: only if status is 'draft' or 'rejected'
-                if (ev.status === 'draft' || ev.status === 'rejected') {
-                    actionsHtml += `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
+                // Submit for Review (only if not already pending)
+                if (ev.status !== 'pending' && ev.status !== 'approved') {
+                    actionsHtml +=
+                        `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
                 }
 
-                // Cancellation actions
+                // Cancellation
                 if (ev.status === 'approved') {
-                    actionsHtml += `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+                    actionsHtml +=
+                        `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
                 } else if (ev.status === 'pending' || ev.status === 'draft') {
-                    actionsHtml += `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
+                    actionsHtml +=
+                        `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
                 }
 
                 if (!actionsHtml) {
                     actionsHtml = `<span style="color:var(--text-muted);font-size:0.8rem;">No actions</span>`;
                 }
 
-                const statusText = (ev.status || 'unknown').replace(/_/g, ' ').toUpperCase();
+                // Friendly status label
+                let statusLabel = ev.status ? ev.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
+                // Map specific statuses for clarity
+                const statusMap = {
+                    'pending': 'In Review',
+                    'approved': 'Published',
+                    'rejected': 'Rejected',
+                    'cancelled': 'Cancelled',
+                    'cancellation_requested': 'Cancellation Requested'
+                };
+                if (statusMap[ev.status]) statusLabel = statusMap[ev.status];
+
+                // Event name fallback
+                const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'New Event';
 
                 card.innerHTML = `
                     <div class="event-title-row">
-                        <strong>${ev.eventName || 'Unnamed Event'}</strong>
-                        <span class="status status-${ev.status || 'pending'}">${statusText}</span>
+                        <strong>${displayName}</strong>
+                        <span class="status status-${ev.status || 'pending'}">${statusLabel}</span>
                         <div style="font-size:0.85rem; color:var(--text-muted); display:inline-block;">
                             ${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : 'No date'} – ${ev.location || 'No location'}
                         </div>
@@ -722,7 +1168,9 @@
             });
         }
 
-        // ============ EVENT ACTIONS ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  EVENT ACTIONS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         window.editEvent = function(eventId) {
             if (!eventId) { showToast('Invalid event ID.', 'error'); return; }
             db.collection('events').doc(eventId).get().then(doc => {
@@ -779,7 +1227,7 @@
                 showEditForm();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }).catch(err => {
-                console.error('Error loading event for edit:', err);
+                console.error(err);
                 showToast('Failed to load event details.', 'error');
             });
         };
@@ -787,20 +1235,18 @@
         window.submitForReview = async function(eventId) {
             if (!eventId) return;
             if (!confirm('Submit this event for admin review? You must have filled in all required fields.')) return;
-            // Validate again
-            const evSnap = await db.collection('events').doc(eventId).get();
-            if (!evSnap.exists) { showToast('Event not found.', 'error'); return; }
-            const ev = evSnap.data();
-            // Simple validation
-            if (!ev.eventName || !ev.location || !ev.startDate || !ev.endDate || !ev.capacity) {
-                showToast('Please fill in all required fields (name, location, dates, capacity) before submitting.', 'error');
-                return;
-            }
-            if (!ev.ticketTypes || ev.ticketTypes.length === 0) {
-                showToast('Please add at least one ticket type.', 'error');
-                return;
-            }
             try {
+                const snap = await db.collection('events').doc(eventId).get();
+                if (!snap.exists) { showToast('Event not found.', 'error'); return; }
+                const ev = snap.data();
+                if (!ev.eventName || !ev.location || !ev.startDate || !ev.endDate || !ev.capacity) {
+                    showToast('Please fill in all required fields before submitting.', 'error');
+                    return;
+                }
+                if (!ev.ticketTypes || ev.ticketTypes.length === 0) {
+                    showToast('Please add at least one ticket type.', 'error');
+                    return;
+                }
                 await db.collection('events').doc(eventId).update({
                     status: 'pending',
                     updatedAt: new Date().toISOString()
@@ -836,7 +1282,9 @@
             }
         };
 
-        // ============ TERMS MODAL ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  TERMS MODAL
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('open-terms').addEventListener('click', () => {
             document.getElementById('terms-modal').style.display = 'flex';
         });
@@ -851,7 +1299,9 @@
             document.getElementById('agreeTerms').checked = true;
         });
 
-        // ============ INIT ============
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  INIT
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
         document.getElementById('posterUpload').addEventListener('change', async function() {
             if (this.files[0]) await handlePosterUpload(this.files[0]);
@@ -872,7 +1322,8 @@
                         auth.signInWithEmailAndPassword(email, password)
                             .then(() => showToast("Login successful!", "success"))
                             .catch((err) => {
-                                document.body.innerHTML = `<h2 style='padding:20px; color:var(--navy);'>Access Denied. ${err.message}</h2>`;
+                                document.body.innerHTML =
+                                    `<h2 style='padding:20px; color:var(--navy);'>Access Denied. ${err.message}</h2>`;
                             });
                     }
                 } else {

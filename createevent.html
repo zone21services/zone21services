@@ -1,3 +1,6 @@
+<!-- ============================================================
+     FILE 1: ORGANIZER DASHBOARD (with cancellation request modal)
+     ============================================================ -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -290,7 +293,6 @@
             background: #ffeaa7;
             color: #6c5200;
         }
-        /* ── NEW: Click To Add style ── */
         .status-click-to-add {
             background: #e8ecf0;
             color: #1a1a2e;
@@ -336,6 +338,11 @@
         }
         .event-card .cancel-btn {
             color: #ffc107;
+        }
+        .event-card .cancel-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         /* ── commission box ── */
@@ -426,7 +433,7 @@
             background: white;
             border-radius: 16px;
             padding: 30px;
-            max-width: 750px;
+            max-width: 600px;
             width: 92%;
             max-height: 85vh;
             overflow-y: auto;
@@ -450,19 +457,6 @@
             margin-bottom: 12px;
             line-height: 1.7;
             color: #2d3748;
-        }
-        .modal-content ul {
-            margin: 10px 0 15px 20px;
-        }
-        .modal-content li {
-            margin-bottom: 6px;
-        }
-        .modal-content .highlight-box {
-            background: #f0f7ff;
-            border-left: 5px solid var(--pink);
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin: 15px 0;
         }
         .modal-close {
             position: sticky;
@@ -492,7 +486,6 @@
         .btn-close-modal:hover {
             background: #1a3a4a;
         }
-
         .hidden {
             display: none !important;
         }
@@ -665,6 +658,33 @@
         </div>
     </div>
 
+    <!-- ─── CANCELLATION REQUEST MODAL ─── -->
+    <div class="modal" id="cancellation-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-cancel-modal">&times;</button>
+            <h3><i class="fas fa-times-circle" style="color:var(--pink);"></i> Request Cancellation</h3>
+            <p style="margin-bottom:16px; color:var(--text-muted);">Please provide a reason and your contact details. The admin will review your request.</p>
+            <form id="cancellation-form">
+                <div class="form-group">
+                    <label>Reason for Cancellation *</label>
+                    <textarea id="cancelReason" required placeholder="Explain why you need to cancel this event…"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" id="cancelPhone" required placeholder="e.g., +263 77 123 4567" />
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="cancelEmail" required placeholder="your@email.com" />
+                </div>
+                <button type="submit" class="btn-submit" style="background:var(--pink); color:white;">
+                    <i class="fas fa-paper-plane"></i> Send Cancellation Request
+                </button>
+                <button type="button" class="btn-cancel-form" id="cancel-cancel-btn" style="width:100%;">Cancel</button>
+            </form>
+        </div>
+    </div>
+
     <!-- TERMS MODAL -->
     <div class="modal" id="terms-modal">
         <div class="modal-content">
@@ -723,6 +743,7 @@
 
         let currentOrganizerId = null;
         let editingEventId = null;
+        let cancelRequestEventId = null;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         //  TOAST
@@ -993,7 +1014,7 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
-                    status: 'pending', // ⬅️ goes back to In Review
+                    status: 'pending',
                     updatedAt: new Date().toISOString()
                 });
 
@@ -1052,7 +1073,7 @@
                     dressCode: document.getElementById('dressCode').value.trim(),
                     posterImage: posterBase64,
                     ticketTypes: ticketTypes,
-                    status: 'pending', // stay in review
+                    status: 'pending',
                     updatedAt: new Date().toISOString()
                 });
 
@@ -1065,6 +1086,71 @@
             } finally {
                 submitBtn.innerHTML = originalHtml;
                 submitBtn.disabled = false;
+            }
+        });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  CANCELLATION REQUEST — show modal
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function openCancelModal(eventId) {
+            cancelRequestEventId = eventId;
+            document.getElementById('cancelReason').value = '';
+            document.getElementById('cancelPhone').value = '';
+            document.getElementById('cancelEmail').value = '';
+            document.getElementById('cancellation-modal').style.display = 'flex';
+        }
+
+        function closeCancelModal() {
+            document.getElementById('cancellation-modal').style.display = 'none';
+            cancelRequestEventId = null;
+        }
+
+        document.getElementById('close-cancel-modal').addEventListener('click', closeCancelModal);
+        document.getElementById('cancel-cancel-btn').addEventListener('click', closeCancelModal);
+        document.getElementById('cancellation-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeCancelModal();
+        });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  SUBMIT CANCELLATION REQUEST
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        document.getElementById('cancellation-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const eventId = cancelRequestEventId;
+            if (!eventId) { showToast('No event selected.', 'error'); return; }
+
+            const reason = document.getElementById('cancelReason').value.trim();
+            const phone = document.getElementById('cancelPhone').value.trim();
+            const email = document.getElementById('cancelEmail').value.trim();
+
+            if (!reason) { showToast('Please provide a reason for cancellation.', 'error'); return; }
+            if (!phone) { showToast('Please provide your phone number.', 'error'); return; }
+            if (!email) { showToast('Please provide your email.', 'error'); return; }
+            if (!email.includes('@')) { showToast('Please enter a valid email.', 'error'); return; }
+
+            const btn = this.querySelector('button[type="submit"]');
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+
+            try {
+                await db.collection('events').doc(eventId).update({
+                    status: 'cancellation_requested',
+                    cancellationReason: reason,
+                    cancellationPhone: phone,
+                    cancellationEmail: email,
+                    cancellationRequestedAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                showToast('✅ Cancellation request sent to admin!', 'success');
+                closeCancelModal();
+                loadMyEvents();
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to send request: ' + err.message, 'error');
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
             }
         });
 
@@ -1110,7 +1196,7 @@
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  DISPLAY EVENTS – with "Click To Add" for incomplete events
+        //  DISPLAY EVENTS
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function displayEvents(events) {
             const listDiv = document.getElementById('my-events-list');
@@ -1122,7 +1208,6 @@
                 const eventId = ev.id || ev.docId;
                 if (!eventId) return;
 
-                // ── Check required fields ──
                 const hasRequiredFields = ev.eventName && ev.eventName.trim() !== '' &&
                     ev.location && ev.location.trim() !== '' &&
                     ev.startDate && ev.startDate.trim() !== '';
@@ -1132,24 +1217,30 @@
 
                 let actionsHtml = '';
 
-                // ── Edit button (always present) ──
+                // ── Edit button ──
                 actionsHtml +=
                     `<button class="edit-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-edit"></i></button>`;
 
-                // ── Submit for Review (only if complete and not already pending/approved) ──
-                if (hasRequiredFields && ev.status !== 'pending' && ev.status !== 'approved') {
+                // ── Submit for Review (only if complete and not pending/approved/cancellation_requested) ──
+                if (hasRequiredFields && ev.status !== 'pending' && ev.status !== 'approved' && ev.status !==
+                    'cancellation_requested') {
                     actionsHtml +=
                         `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
                 }
 
-                // ── Cancellation (only for complete events) ──
+                // ── Cancellation ──
                 if (hasRequiredFields) {
                     if (ev.status === 'approved') {
+                        // Show cancellation request button (opens modal)
                         actionsHtml +=
-                            `<button class="cancel-btn" title="Request Cancellation" onclick="requestCancellation('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+                            `<button class="cancel-btn" title="Request Cancellation" onclick="openCancelModal('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
                     } else if (ev.status === 'pending' || ev.status === 'draft') {
                         actionsHtml +=
                             `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
+                    } else if (ev.status === 'cancellation_requested') {
+                        // Show disabled icon (request pending)
+                        actionsHtml +=
+                            `<span title="Cancellation request pending admin approval" style="color:var(--text-muted);font-size:0.8rem;display:flex;align-items:center;gap:4px;"><i class="fas fa-clock"></i> Pending</span>`;
                     }
                 }
 
@@ -1157,20 +1248,18 @@
                     actionsHtml = `<span style="color:var(--text-muted);font-size:0.8rem;">No actions</span>`;
                 }
 
-                // ── Determine status display ──
+                // ── Status ──
                 let statusLabel, statusClass;
                 if (!hasRequiredFields) {
-                    // Incomplete event → "Click To Add"
                     statusLabel = 'Click To Add';
                     statusClass = 'status-click-to-add';
                 } else {
-                    // Complete event → use stored status
                     const statusMap = {
                         'pending': 'In Review',
                         'approved': 'Published',
                         'rejected': 'Rejected',
                         'cancelled': 'Cancelled',
-                        'cancellation_requested': 'Cancellation Requested'
+                        'cancellation_requested': 'Cancellation Pending'
                     };
                     statusLabel = statusMap[ev.status] ||
                         (ev.status ? ev.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN');
@@ -1179,7 +1268,6 @@
 
                 const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'New Event';
 
-                // ── Build card ──
                 card.innerHTML = `
                     <div class="event-title-row">
                         <strong>${displayName}</strong>
@@ -1187,6 +1275,7 @@
                         <div style="font-size:0.85rem; color:var(--text-muted); display:inline-block;">
                             ${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : 'No date'} – ${ev.location || 'No location'}
                         </div>
+                        ${ev.status === 'cancellation_requested' ? `<span style="font-size:0.7rem;background:#fff3cd;padding:2px 10px;border-radius:20px;color:#6c5200;">⏳ Awaiting admin review</span>` : ''}
                     </div>
                     <div class="actions">
                         ${actionsHtml}
@@ -1195,7 +1284,7 @@
                 listDiv.appendChild(card);
             });
 
-            // ── Attach click handler to "Click To Add" badges ──
+            // ── Click-to-add handler ──
             document.querySelectorAll('.status-click-to-add').forEach(el => {
                 el.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1304,18 +1393,6 @@
                 loadMyEvents();
             } catch (err) {
                 showToast('Failed to cancel event: ' + err.message, 'error');
-            }
-        };
-
-        window.requestCancellation = async function(eventId) {
-            if (!eventId) return;
-            if (!confirm('Send cancellation request to admin?')) return;
-            try {
-                await db.collection('events').doc(eventId).update({ status: 'cancellation_requested' });
-                showToast('Cancellation request sent to admin.', 'success');
-                loadMyEvents();
-            } catch (err) {
-                showToast('Failed to send request: ' + err.message, 'error');
             }
         };
 

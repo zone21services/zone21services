@@ -1,5 +1,5 @@
 <!-- ============================================================
-     FILE 1: ORGANIZER DASHBOARD (with cancellation request modal)
+     FILE 1: ORGANIZER DASHBOARD (unified cancellation request)
      ============================================================ -->
 <!DOCTYPE html>
 <html lang="en">
@@ -1112,7 +1112,7 @@
         });
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  SUBMIT CANCELLATION REQUEST
+        //  SUBMIT CANCELLATION REQUEST (stores previousStatus)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         document.getElementById('cancellation-form').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -1134,8 +1134,14 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
 
             try {
+                // Get current status to store as previousStatus
+                const docSnap = await db.collection('events').doc(eventId).get();
+                if (!docSnap.exists) { throw new Error('Event not found.'); }
+                const currentStatus = docSnap.data().status || 'pending';
+
                 await db.collection('events').doc(eventId).update({
                     status: 'cancellation_requested',
+                    previousStatus: currentStatus, // store original status for admin revert
                     cancellationReason: reason,
                     cancellationPhone: phone,
                     cancellationEmail: email,
@@ -1196,7 +1202,7 @@
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //  DISPLAY EVENTS
+        //  DISPLAY EVENTS (unified cancellation request)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         function displayEvents(events) {
             const listDiv = document.getElementById('my-events-list');
@@ -1228,17 +1234,14 @@
                         `<button class="submit-btn" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
                 }
 
-                // ── Cancellation ──
+                // ── Cancellation: now unified – all cancellations go through admin approval ──
                 if (hasRequiredFields) {
-                    if (ev.status === 'approved') {
+                    if (ev.status === 'approved' || ev.status === 'pending' || ev.status === 'draft') {
                         // Show cancellation request button (opens modal)
                         actionsHtml +=
                             `<button class="cancel-btn" title="Request Cancellation" onclick="openCancelModal('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
-                    } else if (ev.status === 'pending' || ev.status === 'draft') {
-                        actionsHtml +=
-                            `<button class="cancel-btn" title="Cancel Event" onclick="cancelEvent('${eventId}')"><i class="fas fa-ban"></i></button>`;
                     } else if (ev.status === 'cancellation_requested') {
-                        // Show disabled icon (request pending)
+                        // Show pending indicator
                         actionsHtml +=
                             `<span title="Cancellation request pending admin approval" style="color:var(--text-muted);font-size:0.8rem;display:flex;align-items:center;gap:4px;"><i class="fas fa-clock"></i> Pending</span>`;
                     }
@@ -1384,17 +1387,8 @@
             }
         };
 
-        window.cancelEvent = async function(eventId) {
-            if (!eventId) return;
-            if (!confirm('Mark this event as cancelled? This will remove it from public view.')) return;
-            try {
-                await db.collection('events').doc(eventId).update({ status: 'cancelled' });
-                showToast('Event has been cancelled.', 'success');
-                loadMyEvents();
-            } catch (err) {
-                showToast('Failed to cancel event: ' + err.message, 'error');
-            }
-        };
+        // ─── remove the old cancelEvent function – not used anymore ───
+        // (kept for reference but not called)
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         //  TERMS MODAL

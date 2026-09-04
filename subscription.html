@@ -835,7 +835,7 @@
             </div>
         </div>
 
-        <!-- ===== VIEW: INVOICE (KEPT EXACTLY AS REDESIGNED) ===== -->
+        <!-- ===== VIEW: INVOICE ===== -->
         <div class="view" id="view-invoice">
             <div class="invoice-wrapper">
                 <div class="invoice-header-bar">
@@ -1020,58 +1020,42 @@
             };
 
             try {
-                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
-                const subsSnapshot = await getDocs(subsQ);
-                const activeInvoices = [];
-                subsSnapshot.forEach(docSnap => {
-                    const sub = docSnap.data();
-                    if (sub.status === 'active' || sub.status === 'approved') {
-                        if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
-                    }
-                });
-
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const events = [];
-                
                 querySnapshot.forEach(docSnap => {
                     let eventData = docSnap.data();
                     let eventId = docSnap.id;
-                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
-                        eventData.status = 'approved';
-                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
-                    }
                     events.push({ id: eventId, ...eventData });
                 });
 
-                const validEvents = events.filter(e => e.status !== 'pending_payment');
-
-                if (validEvents.length === 0) {
-                    grid.innerHTML = `
-                        <div class="empty-state" style="grid-column:1/-1;">
-                            <i class="fas fa-clock"></i>
-                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
-                            <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                validEvents.sort((a, b) => {
+                // Filter out draft events from the "Your Events" section? No, we show all.
+                // Sort by newest
+                events.sort((a, b) => {
                     const da = getSafeDate(a.createdAt);
                     const db2 = getSafeDate(b.createdAt);
                     return db2 - da;
                 });
 
-                grid.innerHTML = validEvents.map(event => {
+                if (events.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column:1/-1;">
+                            <i class="fas fa-clock"></i>
+                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No events yet</h4>
+                            <p style="font-size:0.9rem;">Purchase a package to create your first event.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                grid.innerHTML = events.map(event => {
                     const packageName = event.package || 'Unknown Package';
-                    let status = event.status || 'approved';
-                    if (status.toLowerCase() === 'draft') status = 'approved';
+                    let status = event.status || 'draft';
                     const dateObj = getSafeDate(event.createdAt);
                     const dateStr = dateObj.getTime() > 0 ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
                     return `
                         <div class="event-card">
-                            <div class="event-name">${event.name || 'Untitled Event'}</div>
+                            <div class="event-name">${event.eventName || 'Unnamed Event'}</div>
                             <div class="event-package"><i class="fas fa-tag" style="color:var(--lime);"></i> ${packageName}</div>
                             <div class="event-status"><i class="fas fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> ${status.toUpperCase()}</div>
                             <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
@@ -1220,7 +1204,7 @@
         };
 
         // ==========================================
-        // GENERATE INVOICE - FIXED
+        // GENERATE INVOICE - FIXED: event starts as draft
         // ==========================================
         window.generateInvoice = async function() {
             if (!currentUser) { 
@@ -1258,15 +1242,10 @@
                 const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
-                console.log('📝 Generating invoice for:', selectedPlan.name);
-                console.log('📝 Invoice number:', invNumber);
-
                 const subId = `${currentUser.uid}_${selectedPlan.id}`;
                 const subRef = doc(db, 'subscriptions', subId);
 
-                // ============================================================
-                // 1. CREATE INVOICE (Always create a new one)
-                // ============================================================
+                // 1. Create invoice
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
@@ -1287,15 +1266,10 @@
                     status: 'pending',
                     createdAt: serverTimestamp()
                 });
-                console.log('✅ Invoice created:', invNumber);
 
-                // ============================================================
-                // 2. CHECK IF SUBSCRIPTION EXISTS - UPDATE OR CREATE
-                // ============================================================
+                // 2. Create/update subscription
                 const subSnap = await getDoc(subRef);
-                
                 if (subSnap.exists()) {
-                    // UPDATE existing subscription with new invoice
                     await setDoc(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
@@ -1314,9 +1288,7 @@
                             address: { street, city, country }
                         }
                     }, { merge: true });
-                    console.log('✅ Subscription UPDATED:', subId);
                 } else {
-                    // CREATE new subscription
                     await setDoc(subRef, {
                         userId: currentUser.uid,
                         planId: selectedPlan.id,
@@ -1336,60 +1308,48 @@
                             address: { street, city, country }
                         }
                     });
-                    console.log('✅ Subscription CREATED:', subId);
                 }
 
-                // ============================================================
-                // 3. UPDATE USER
-                // ============================================================
+                // 3. Update user
                 await setDoc(doc(db, "users", currentUser.uid), {
                     activePlan: selectedPlan.name,
                     subscriptionStatus: 'pending_payment',
                     latestInvoiceId: invNumber
                 }, { merge: true });
-                console.log('✅ User updated');
 
-                // ============================================================
-                // 4. CREATE EVENT
-                // ============================================================
+                // 4. CREATE EVENT WITH STATUS 'draft' (placeholder name)
                 const eventsRef = collection(db, 'events');
                 const newEventRef = await addDoc(eventsRef, {
                     organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
+                    eventName: `My ${selectedPlan.name} – edit me`,
                     package: selectedPlan.name,
                     packageId: selectedPlan.id,
-                    status: 'pending_payment',
+                    status: 'draft',                // 🔥 changed from 'pending_payment'
                     createdAt: serverTimestamp(),
                     location: '',
-                    date: null,
-                    budget: 0,
-                    attendees: 0,
-                    notes: '',
-                    ticketsSold: 0,
-                    grossRevenue: 0,
-                    blueprint: null,
+                    startDate: null,
+                    endDate: null,
+                    capacity: 0,
+                    description: '',
+                    organizerName: fName + ' ' + lName,
+                    organizerEmail: email,
+                    organizerPhone: phone,
+                    posterImage: null,
+                    ticketTypes: [],
                     invoiceNumber: invNumber
                 });
-                console.log('✅ Event created:', newEventRef.id);
+                console.log('✅ Draft event created:', newEventRef.id);
                 localStorage.setItem('zone21_latest_event', newEventRef.id);
 
-                // ============================================================
-                // 5. UPDATE INVOICE WITH EVENT ID
-                // ============================================================
+                // 5. Link event to subscription and invoice
                 await setDoc(doc(db, "invoices", invNumber), {
                     eventId: newEventRef.id
                 }, { merge: true });
-
-                // ============================================================
-                // 6. UPDATE SUBSCRIPTION WITH EVENT ID
-                // ============================================================
                 await setDoc(subRef, {
                     eventId: newEventRef.id
                 }, { merge: true });
 
-                // ============================================================
-                // 7. DISPLAY INVOICE
-                // ============================================================
+                // 6. Display invoice
                 document.getElementById('inv-number').innerText = invNumber;
                 document.getElementById('inv-name').innerText = `${fName} ${lName}`;
                 document.getElementById('inv-email').innerText = email;
@@ -1401,13 +1361,12 @@
                 localStorage.setItem('zone21_package', selectedPlan.name);
                 localStorage.setItem('zone21_invoice', invNumber);
 
-                showToast('✅ Invoice generated successfully!', 'success');
+                showToast('✅ Invoice generated! Please edit your event details and submit for review.', 'success');
                 window.showView('view-invoice');
                 updatePlanButtons();
 
             } catch (error) {
-                console.error("❌ Database Error:", error);
-                console.error("❌ Error details:", error.message);
+                console.error("Database Error:", error);
                 showToast('Failed to generate invoice: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = originalText;
@@ -1453,5 +1412,4 @@
         window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-                                    </html>
-
+</html>

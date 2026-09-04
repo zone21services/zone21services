@@ -498,7 +498,7 @@
     window.closeModal = () => document.getElementById('detail-modal').classList.remove('active');
 
     // ================================================================
-    //  APPROVE PAYMENT - UPDATED TO ALSO UPDATE EVENTS
+    //  APPROVE PAYMENT - UPDATED: ONLY UPDATES THE SPECIFIC EVENT
     // ================================================================
     window.approvePayment = async (docId) => {
       if (!confirm('Approve payment and activate this Zone21 package?')) return;
@@ -516,35 +516,25 @@
           showToast('Subscription not found.', 'error');
           return;
         }
-        
-        // Check if the invoice document exists
-        if (sub.invoiceNumber) {
-          const invDoc = await getDoc(doc(db, 'invoices', sub.invoiceNumber));
-          if (!invDoc.exists()) {
-            showToast('Invoice not found in system. Cannot approve orphaned subscription.', 'error');
-            return;
-          }
-        } else {
-          showToast('No invoice number associated. Cannot approve.', 'error');
-          return;
-        }
-        
-        // 1. Mark the subscription as active
+
+        // 1. Mark subscription as active
         await updateDoc(doc(db, 'subscriptions', docId), {
           status: 'active',
           approvedBy: currentAdmin.uid,
           approvedAt: serverTimestamp()
         });
 
-        // 2. Update the invoice document
-        await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
-          status: 'approved',
-          paymentStatus: 'approved',
-          approvedBy: currentAdmin.uid,
-          approvedAt: serverTimestamp()
-        });
+        // 2. Update invoice if exists
+        if (sub.invoiceNumber) {
+          await updateDoc(doc(db, 'invoices', sub.invoiceNumber), {
+            status: 'approved',
+            paymentStatus: 'approved',
+            approvedBy: currentAdmin.uid,
+            approvedAt: serverTimestamp()
+          });
+        }
 
-        // 3. Update the user document
+        // 3. Update user profile
         if (sub.userId) {
           await updateDoc(doc(db, 'users', sub.userId), {
             subscriptionStatus: 'active',
@@ -553,97 +543,38 @@
           });
         }
 
-        // 4. ============================================================
-        //    CRITICAL: Find and update ANY pending events for this user
-        //    to 'approved' status so they appear in My Events
-        //    ============================================================
-        if (sub.userId) {
-          // Query all events for this user with pending_payment status
-          const eventsQuery = query(
-            collection(db, 'events'),
-            where('organizerId', '==', sub.userId),
-            where('status', '==', 'pending_payment')
-          );
-          
-          const eventsSnapshot = await getDocs(eventsQuery);
-          let updatedEventCount = 0;
-          
-          // Also check events that might have the invoice number but different status
-          const allEventsQuery = query(
-            collection(db, 'events'),
-            where('organizerId', '==', sub.userId)
-          );
-          const allEventsSnapshot = await getDocs(allEventsQuery);
-          
-          // Process all events for this user
-          const updatePromises = [];
-          
-          allEventsSnapshot.forEach(eventDoc => {
-            const eventData = eventDoc.data();
-            const eventStatus = (eventData.status || '').toLowerCase();
-            
-            // Update if pending_payment OR if it has matching invoice number
-            if (eventStatus === 'pending_payment' || 
-                (eventData.invoiceNumber && eventData.invoiceNumber === sub.invoiceNumber)) {
-              
-              console.log(`Found matching event ${eventDoc.id} with status ${eventStatus}, promoting to approved`);
-              
-              updatePromises.push(
-                updateDoc(doc(db, 'events', eventDoc.id), {
-                  status: 'approved',
-                  updatedAt: serverTimestamp()
-                }).then(() => {
-                  updatedEventCount++;
-                })
-              );
-            }
+        // 4. 🟢 FIX: Update ONLY the event that belongs to this subscription
+        if (sub.eventId) {
+          await updateDoc(doc(db, 'events', sub.eventId), {
+            status: 'approved',
+            updatedAt: serverTimestamp()
           });
-          
-          // Wait for all event updates to complete
-          if (updatePromises.length > 0) {
-            await Promise.all(updatePromises);
-            console.log(`✅ Updated ${updatedEventCount} events from pending_payment to approved for user ${sub.userId}`);
-          } else {
-            console.log(`ℹ️ No pending events found for user ${sub.userId}`);
-          }
-          
-          // Also check if there's an event with the same package but no status
-          // This handles edge cases where event was created without status
-          if (updatedEventCount === 0) {
-            // Try to find events without status or with 'draft' status
-            const draftEventsQuery = query(
+          console.log(`✅ Event ${sub.eventId} approved.`);
+        } else {
+          // Safety net: try to find an event with matching invoiceNumber (fallback)
+          console.warn('⚠️ No eventId in subscription, searching by invoiceNumber...');
+          if (sub.invoiceNumber) {
+            const eventsQuery = query(
               collection(db, 'events'),
-              where('organizerId', '==', sub.userId)
+              where('invoiceNumber', '==', sub.invoiceNumber)
             );
-            const draftSnapshot = await getDocs(draftEventsQuery);
-            
-            const draftPromises = [];
-            draftSnapshot.forEach(eventDoc => {
-              const eventData = eventDoc.data();
-              // If event has no status or is draft, and has matching invoice or package
-              if ((!eventData.status || eventData.status === 'draft' || eventData.status === '') &&
-                  (eventData.invoiceNumber === sub.invoiceNumber || 
-                   eventData.packageId === sub.planId ||
-                   eventData.package === sub.planName)) {
-                
-                console.log(`Found draft event ${eventDoc.id}, promoting to approved`);
-                draftPromises.push(
-                  updateDoc(doc(db, 'events', eventDoc.id), {
-                    status: 'approved',
-                    updatedAt: serverTimestamp()
-                  })
-                );
-              }
-            });
-            
-            if (draftPromises.length > 0) {
-              await Promise.all(draftPromises);
-              console.log(`✅ Updated ${draftPromises.length} draft events to approved`);
+            const snap = await getDocs(eventsQuery);
+            if (!snap.empty) {
+              const eventDoc = snap.docs[0];
+              await updateDoc(doc(db, 'events', eventDoc.id), {
+                status: 'approved',
+                updatedAt: serverTimestamp()
+              });
+              console.log(`✅ Event ${eventDoc.id} approved via invoiceNumber.`);
+            } else {
+              console.warn('⚠️ No matching event found for invoice:', sub.invoiceNumber);
             }
+          } else {
+            console.warn('⚠️ No invoiceNumber or eventId – cannot update event.');
           }
         }
 
-        showToast('✅ Payment verified! Package activated and events updated.', 'success');
+        showToast('✅ Payment verified! Package activated and event approved.', 'success');
         
         // Reload the data
         await loadSubscriptions();
@@ -699,31 +630,16 @@
             subscriptionStatus: 'rejected'
           });
           
-          // Also update any pending events to rejected status
-          try {
-            const eventsQuery = query(
-              collection(db, 'events'),
-              where('organizerId', '==', sub.userId),
-              where('status', '==', 'pending_payment')
-            );
-            const eventsSnapshot = await getDocs(eventsQuery);
-            
-            const updatePromises = [];
-            eventsSnapshot.forEach(eventDoc => {
-              updatePromises.push(
-                updateDoc(doc(db, 'events', eventDoc.id), {
-                  status: 'rejected',
-                  updatedAt: serverTimestamp()
-                })
-              );
-            });
-            
-            if (updatePromises.length > 0) {
-              await Promise.all(updatePromises);
-              console.log(`✅ Updated ${updatePromises.length} events to rejected`);
+          // Also update the linked event to rejected (if any)
+          if (sub.eventId) {
+            try {
+              await updateDoc(doc(db, 'events', sub.eventId), {
+                status: 'rejected',
+                updatedAt: serverTimestamp()
+              });
+            } catch(e) {
+              console.warn('Could not update event for rejection:', e);
             }
-          } catch (e) {
-            console.warn('Could not update events for rejection:', e);
           }
         }
         

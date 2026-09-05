@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes" />
-    <title>Zone21 · Discover Vendors</title>
+    <title>Zone21 · Discover Vendors & Venues</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -1583,13 +1583,13 @@
                 <div class="logo-icon"><i class="fas fa-crown"></i></div>
                 <div>
                     <h1>Zone<span>21</span></h1>
-                    <span class="sub">Organizer · Discover Vendors</span>
+                    <span class="sub">Organizer · Discover Vendors & Venues</span>
                 </div>
             </div>
 
             <div class="search-bar">
                 <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search vendors, services, locations..." />
+                <input type="text" id="searchInput" placeholder="Search vendors, venues, services..." />
             </div>
 
             <div class="topbar-right">
@@ -1615,39 +1615,40 @@
             <div class="hero-banner">
                 <div class="icon"><i class="fas fa-handshake"></i></div>
                 <div class="content">
-                    <h2>Find Trusted Service Providers</h2>
-                    <p>Discover and connect with professional vendors for your events — from photographers and DJs to caterers and decor specialists.</p>
+                    <h2>Find Trusted Vendors & Venues</h2>
+                    <p>Discover and connect with professional service providers and venues for your events — from photographers and DJs to marquee tents and banquet halls.</p>
                     <div class="badge-list">
-                        <span class="lime"><i class="fas fa-star" style="font-size:0.5rem; margin-right:4px;"></i> Verified Vendors</span>
+                        <span class="lime"><i class="fas fa-star" style="font-size:0.5rem; margin-right:4px;"></i> Verified</span>
                         <span><i class="fas fa-camera" style="font-size:0.5rem; margin-right:4px;"></i> Photography & Video</span>
                         <span><i class="fas fa-music" style="font-size:0.5rem; margin-right:4px;"></i> Entertainment & Sound</span>
+                        <span><i class="fas fa-building" style="font-size:0.5rem; margin-right:4px;"></i> Venues</span>
                     </div>
                 </div>
             </div>
 
-            <!-- ===== VENDORS SECTION ===== -->
+            <!-- ===== VENDORS / VENUES SECTION ===== -->
             <div class="card">
                 <div class="card-accent"></div>
                 <div class="card-header">
-                    <h3><i class="fas fa-shield-alt"></i> Service Providers</h3>
+                    <h3><i class="fas fa-shield-alt"></i> Service Providers & Venues</h3>
                     <div class="card-actions">
                         <button class="btn btn-outline btn-sm" onclick="refreshVendors()">
                             <i class="fas fa-sync"></i> Refresh
                         </button>
-                        <span class="filter-stats" id="vendorCount"><strong>0</strong> vendors</span>
+                        <span class="filter-stats" id="vendorCount"><strong>0</strong> listings</span>
                     </div>
                 </div>
 
                 <div id="vendorsGrid" class="vendors-grid">
                     <div class="loading-state">
                         <div class="spinner"></div>
-                        <p>Loading service providers...</p>
+                        <p>Loading service providers and venues...</p>
                     </div>
                 </div>
                 <div id="emptyState" class="empty-state" style="display:none;">
                     <i class="fas fa-users-slash"></i>
-                    <h3>No vendors found</h3>
-                    <p>Try adjusting your search filters.</p>
+                    <h3>No results found</h3>
+                    <p>Try adjusting your search.</p>
                 </div>
             </div>
 
@@ -1655,7 +1656,7 @@
     </div><!-- /main-wrapper -->
 
     <!-- ============================================================ -->
-    <!--  FIREBASE – ORGANIZER CHECK & VENDORS QUERY                   -->
+    <!--  FIREBASE – ORGANIZER CHECK & PROVIDERS QUERY                 -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
@@ -1677,8 +1678,8 @@
         // ============================================================
         //  STATE
         // ============================================================
-        let allVendors = [];
-        let filteredVendors = [];
+        let allListings = [];       // array of provider objects merged with user data
+        let filteredListings = [];
         let currentUser = null;
 
         // Chat modal state
@@ -1743,7 +1744,7 @@
                         `<span>${currentUser.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase() || 'O'}</span>`;
                 }
 
-                loadVendors();
+                loadListings();
 
             } catch (error) {
                 console.error('Auth error:', error);
@@ -1759,26 +1760,60 @@
         });
 
         // ============================================================
-        //  LOAD VENDORS – query users with role 'service_provider'
+        //  LOAD LISTINGS – from serviceProviders collection
         // ============================================================
-        function loadVendors() {
+        function loadListings() {
             grid.innerHTML = `
                 <div class="loading-state">
                     <div class="spinner"></div>
-                    <p>Loading service providers...</p>
+                    <p>Loading service providers and venues...</p>
                 </div>
             `;
 
-            db.collection('users')
-                .where('role', '==', 'service_provider')
-                .onSnapshot((snapshot) => {
-                    allVendors = [];
+            // Query all documents in serviceProviders
+            db.collection('serviceProviders')
+                .onSnapshot(async (snapshot) => {
+                    const providers = [];
+                    const userPromises = [];
+
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        allVendors.push({ id: doc.id, ...data });
+                        const uid = doc.id; // document ID is the user's UID
+                        providers.push({ uid, ...data });
+                        // Fetch corresponding user doc for name and avatar
+                        userPromises.push(
+                            db.collection('users').doc(uid).get()
+                            .then(userSnap => {
+                                if (userSnap.exists) {
+                                    const userData = userSnap.data();
+                                    return { uid, ...userData };
+                                } else {
+                                    return { uid, name: data.name || 'Unnamed' };
+                                }
+                            })
+                            .catch(() => ({ uid, name: data.name || 'Unnamed' }))
+                        );
                     });
 
-                    allVendors.sort((a, b) => {
+                    // Wait for all user data
+                    const users = await Promise.all(userPromises);
+                    // Merge provider data with user data
+                    allListings = providers.map(provider => {
+                        const user = users.find(u => u.uid === provider.uid) || {};
+                        return {
+                            ...provider,
+                            // Use user fields as fallback
+                            name: provider.name || user.name || 'Unnamed',
+                            avatarUrl: provider.avatar || user.avatarUrl || null,
+                            email: user.email || '',
+                            // Determine type: if category contains 'Venue' or services includes 'Venue / Space Rental', treat as venue
+                            type: (provider.category && provider.category.toLowerCase().includes('venue')) ||
+                                  (provider.services && provider.services.includes('Venue / Space Rental')) ?
+                                  'venue' : 'vendor'
+                        };
+                    });
+
+                    allListings.sort((a, b) => {
                         const aTime = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
                         const bTime = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
                         return bTime - aTime;
@@ -1786,20 +1821,20 @@
 
                     applyFilters();
                 }, (error) => {
-                    console.error('Error loading vendors:', error);
+                    console.error('Error loading listings:', error);
                     grid.innerHTML = `
                         <div class="empty-state" style="color:var(--pink);">
                             <i class="fas fa-exclamation-triangle" style="color:var(--pink);"></i>
-                            <h3 style="color:var(--navy);">Failed to load vendors</h3>
+                            <h3 style="color:var(--navy);">Failed to load listings</h3>
                             <p>${error.message}</p>
-                            <button class="btn btn-primary" onclick="loadVendors()" style="margin-top:12px;">Retry</button>
+                            <button class="btn btn-primary" onclick="loadListings()" style="margin-top:12px;">Retry</button>
                         </div>
                     `;
                 });
         }
 
         function refreshVendors() {
-            loadVendors();
+            loadListings();
         }
 
         // ============================================================
@@ -1808,25 +1843,25 @@
         function applyFilters() {
             const term = searchInput.value.trim().toLowerCase();
 
-            filteredVendors = allVendors.filter(v => {
+            filteredListings = allListings.filter(item => {
                 if (!term) return true;
                 const searchable =
-                    `${v.name||''} ${v.serviceType||''} ${v.services||''} ${v.location||''} ${v.country||''} ${v.specialties||''}`
+                    `${item.name||''} ${item.category||''} ${item.services||''} ${item.location||''} ${item.secondaryServices||''} ${item.amenities||''}`
                     .toLowerCase();
                 return searchable.includes(term);
             });
 
-            renderVendors(filteredVendors);
-            vendorCount.innerHTML = `<strong>${filteredVendors.length}</strong> vendors`;
+            renderListings(filteredListings);
+            vendorCount.innerHTML = `<strong>${filteredListings.length}</strong> listings`;
         }
 
         searchInput.addEventListener('input', applyFilters);
 
         // ============================================================
-        //  RENDER VENDORS
+        //  RENDER LISTINGS
         // ============================================================
-        function renderVendors(vendors) {
-            if (vendors.length === 0) {
+        function renderListings(listings) {
+            if (listings.length === 0) {
                 grid.innerHTML = '';
                 emptyState.style.display = 'block';
                 return;
@@ -1834,27 +1869,27 @@
             emptyState.style.display = 'none';
             grid.innerHTML = '';
 
-            vendors.forEach((vendor, index) => {
+            listings.forEach((item, index) => {
                 const card = document.createElement('div');
                 card.className = 'vendor-card animate-in';
                 card.style.animationDelay = `${(index % 12) * 0.04}s`;
 
-                const initials = (vendor.name || '?')
+                const initials = (item.name || '?')
                     .split(' ')
                     .map(w => w.charAt(0))
                     .join('')
                     .substring(0, 2)
                     .toUpperCase();
 
-                const avatarHtml = vendor.avatarUrl ?
-                    `<img src="${vendor.avatarUrl}" alt="Avatar">` :
+                const avatarHtml = item.avatarUrl ?
+                    `<img src="${item.avatarUrl}" alt="Avatar">` :
                     initials;
 
-                const onlineDot = vendor.isOnline !== false ?
+                const onlineDot = item.isOnline !== false ?
                     '<div class="online-dot"></div>' : '';
 
-                const ratingNum = vendor.rating || 0;
-                const reviewsCount = vendor.reviewsCount || 0;
+                const ratingNum = item.rating || 0;
+                const reviewsCount = item.reviewsCount || 0;
                 const fullStars = Math.floor(ratingNum);
                 const hasHalf = ratingNum % 1 >= 0.5;
                 let starHtml = '';
@@ -1870,23 +1905,37 @@
                     `<span class="stars"><span class="empty">☆☆☆☆☆</span></span>
                              <span class="review-count" style="color:var(--text-muted);">New</span>`;
 
+                // Services: use services array, if empty fallback to secondaryServices or amenities
+                let tags = [];
+                if (item.services && item.services.length) {
+                    tags = item.services;
+                } else if (item.amenities && item.amenities.length) {
+                    tags = item.amenities;
+                } else if (item.secondaryServices) {
+                    tags = item.secondaryServices.split(',').map(s => s.trim());
+                }
+
                 let tagsHtml = '';
-                const services = vendor.services || vendor.specialties || [];
-                if (services.length > 0) {
-                    const display = services.slice(0, 3);
+                if (tags.length > 0) {
+                    const display = tags.slice(0, 3);
                     tagsHtml = display.map(t => `<span>${t}</span>`).join('');
-                    if (services.length > 3) {
-                        tagsHtml += `<span class="more">+${services.length - 3} more</span>`;
+                    if (tags.length > 3) {
+                        tagsHtml += `<span class="more">+${tags.length - 3} more</span>`;
                     }
                 }
 
-                const serviceType = vendor.serviceType || vendor.category || 'Service Provider';
-                const verifiedBadge = vendor.verified ?
-                    `<span class="verified" title="Verified Vendor"><i class="fas fa-check-circle"></i></span>` :
+                const typeLabel = item.type === 'venue' ? 'Venue' : 'Service Provider';
+                const category = item.category || item.serviceType || typeLabel;
+
+                const verifiedBadge = item.verified ?
+                    `<span class="verified" title="Verified"><i class="fas fa-check-circle"></i></span>` :
                     '';
 
-                const location = vendor.location || vendor.country || 'Location not set';
-                const basePrice = vendor.basePrice || vendor.price || 0;
+                const location = item.location || 'Location not set';
+                const basePrice = item.basePrice || 0;
+
+                // Description: prefer description, else bio, else fallback
+                const description = item.description || item.bio || '';
 
                 card.innerHTML = `
                             <div class="card-top">
@@ -1896,24 +1945,24 @@
                                 </div>
                                 <div class="card-info">
                                     <div class="name">
-                                        ${vendor.name || 'Unnamed Vendor'}
+                                        ${item.name || 'Unnamed'}
                                         ${verifiedBadge}
                                     </div>
-                                    <div class="service-type"><i class="fas fa-tag"></i> ${serviceType}</div>
+                                    <div class="service-type"><i class="fas fa-tag"></i> ${category}</div>
                                     <div class="rating-row">${ratingDisplay}</div>
                                 </div>
                             </div>
                             ${tagsHtml ? `<div class="service-tags">${tagsHtml}</div>` : ''}
-                            <div class="description">${vendor.bio || vendor.description || 'Professional service provider.'}</div>
+                            ${description ? `<div class="description">${description}</div>` : ''}
                             <div class="details-row">
                                 <span class="loc"><i class="fas fa-map-pin"></i> ${location}</span>
                                 <span class="price"><i class="fas fa-tag"></i> $${basePrice}</span>
                             </div>
                             <div class="card-actions">
-                                <button class="btn btn-message btn-sm" onclick="openChatForVendor('${vendor.id}')">
+                                <button class="btn btn-message btn-sm" onclick="openChatForVendor('${item.uid}')">
                                     <i class="fas fa-paper-plane"></i> Message
                                 </button>
-                                <button class="btn btn-primary btn-sm" onclick="openVendorProfile('${vendor.id}')">
+                                <button class="btn btn-primary btn-sm" onclick="openVendorProfile('${item.uid}')">
                                     <i class="fas fa-eye"></i> Profile
                                 </button>
                             </div>
@@ -1925,47 +1974,52 @@
         // ============================================================
         //  VENDOR PROFILE MODAL (FULL PUBLIC VIEW)
         // ============================================================
-        async function openVendorProfile(vendorId) {
-            const vendor = allVendors.find(v => v.id === vendorId);
-            if (!vendor) {
-                showToast('Vendor not found', 'error');
+        async function openVendorProfile(uid) {
+            const listing = allListings.find(l => l.uid === uid);
+            if (!listing) {
+                showToast('Listing not found', 'error');
                 return;
             }
 
+            // Fetch the provider document again to get latest data (optional)
             try {
-                const providerDoc = await db.collection('serviceProviders').doc(vendor.uid).get();
-                const providerData = providerDoc.exists ? providerDoc.data() : null;
+                const providerDoc = await db.collection('serviceProviders').doc(uid).get();
+                const providerData = providerDoc.exists ? providerDoc.data() : listing;
 
-                if (providerDoc.exists) {
-                    renderVendorProfileModal(vendor, providerData);
-                } else {
-                    // Fallback: show basic info from users collection
-                    renderVendorProfileModal(vendor, null);
-                    showToast('Full profile not found, showing basic info.', 'info');
-                }
+                // Also get user data for name/avatar if not in provider
+                const userSnap = await db.collection('users').doc(uid).get();
+                const userData = userSnap.exists ? userSnap.data() : {};
+
+                const merged = {
+                    ...listing,
+                    ...providerData,
+                    name: providerData.name || userData.name || listing.name || 'Unnamed',
+                    avatarUrl: providerData.avatar || userData.avatarUrl || listing.avatarUrl || null,
+                };
+
+                renderVendorProfileModal(merged);
             } catch (error) {
-                console.error('Error fetching provider profile:', error);
-                renderVendorProfileModal(vendor, null);
+                console.error('Error fetching full profile:', error);
+                renderVendorProfileModal(listing);
                 showToast('Failed to load full profile.', 'error');
             }
         }
 
-        function renderVendorProfileModal(vendor, providerData) {
-            const name = vendor.name || 'Unnamed Vendor';
+        function renderVendorProfileModal(item) {
+            const name = item.name || 'Unnamed';
             const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
 
-            // Avatar: use providerData.avatar first, fallback to vendor.avatarUrl, then initials
             let avatarHtml = initials;
-            const avatarUrl = providerData?.avatar || vendor.avatarUrl;
+            const avatarUrl = item.avatarUrl;
             if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
                 avatarHtml = `<img src="${avatarUrl}" alt="Avatar" />`;
             }
 
-            const category = providerData?.category || vendor.serviceType || 'Service Provider';
-            const rating = providerData?.rating || vendor.rating || 0;
-            const reviewsCount = providerData?.reviewsCount || vendor.reviewsCount || 0;
-            const description = providerData?.description || vendor.bio || vendor.description || 'No description provided.';
-            const basePrice = providerData?.basePrice || vendor.basePrice || 0;
+            const category = item.category || item.serviceType || (item.type === 'venue' ? 'Venue' : 'Service Provider');
+            const rating = item.rating || 0;
+            const reviewsCount = item.reviewsCount || 0;
+            const description = item.description || item.bio || 'No description provided.';
+            const basePrice = item.basePrice || 0;
 
             // Stars
             const fullStars = Math.floor(rating);
@@ -1977,49 +2031,78 @@
                 else starsHtml += '<i class="far fa-star"></i>';
             }
 
-            // Services
-            const services = providerData?.services || vendor.services || vendor.specialties || [];
+            // Services / Amenities
+            let services = [];
+            if (item.services && item.services.length) {
+                services = item.services;
+            } else if (item.amenities && item.amenities.length) {
+                services = item.amenities;
+            } else if (item.secondaryServices) {
+                services = item.secondaryServices.split(',').map(s => s.trim());
+            }
             const servicesHtml = services.map(s => `<span class="service-tag">${s}</span>`).join('');
 
             // Details Grid
             const detailItems = [];
-            if (providerData?.secondaryServices) {
-                detailItems.push({ icon: 'fa-chevron-circle-right', label: 'Secondary Services', value: providerData
+            if (item.secondaryServices) {
+                detailItems.push({ icon: 'fa-chevron-circle-right', label: 'Secondary Services', value: item
                         .secondaryServices });
             }
-            if (providerData?.businessHours) {
-                detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: providerData.businessHours });
+            if (item.businessHours) {
+                detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: item.businessHours });
             }
-            if (providerData?.yearsExperience) {
-                detailItems.push({ icon: 'fa-award', label: 'Years of Experience', value: providerData
-                        .yearsExperience + ' years' });
+            if (item.yearsExperience) {
+                detailItems.push({ icon: 'fa-award', label: 'Years of Experience', value: item.yearsExperience +
+                        ' years' });
             }
-            if (providerData?.serviceAreas) {
-                detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: providerData.serviceAreas });
+            if (item.serviceAreas) {
+                detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: item.serviceAreas });
             }
-            if (providerData?.languages) {
-                detailItems.push({ icon: 'fa-language', label: 'Languages', value: providerData.languages });
+            if (item.languages) {
+                detailItems.push({ icon: 'fa-language', label: 'Languages', value: item.languages });
             }
-            if (providerData?.paymentMethods) {
-                detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods', value: providerData
-                        .paymentMethods });
+            if (item.paymentMethods) {
+                detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods', value: item.paymentMethods });
             }
-            if (providerData?.cancellationPolicy) {
-                detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy', value: providerData
+            if (item.cancellationPolicy) {
+                detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy', value: item
                         .cancellationPolicy });
             }
-            if (providerData?.location || vendor.location) {
-                detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: providerData?.location ||
-                        vendor.location || 'Not set' });
+            if (item.capacity) {
+                detailItems.push({ icon: 'fa-users', label: 'Capacity', value: item.capacity + ' guests' });
+            }
+            if (item.venueType) {
+                detailItems.push({ icon: 'fa-archway', label: 'Venue Type', value: item.venueType });
+            }
+            if (item.pricingPackages) {
+                detailItems.push({ icon: 'fa-layer-group', label: 'Pricing Packages', value: item.pricingPackages });
+            }
+            if (item.rentalPolicies) {
+                detailItems.push({ icon: 'fa-file-contract', label: 'Rental Policies', value: item.rentalPolicies });
+            }
+            if (item.deposit) {
+                detailItems.push({ icon: 'fa-hand-holding-usd', label: 'Deposit Required', value: item.deposit });
+            }
+            if (item.operatingHours) {
+                detailItems.push({ icon: 'fa-clock', label: 'Operating Hours', value: item.operatingHours });
+            }
+            if (item.parking) {
+                detailItems.push({ icon: 'fa-parking', label: 'Parking', value: item.parking });
+            }
+            if (item.catering) {
+                detailItems.push({ icon: 'fa-utensils', label: 'Catering', value: item.catering });
+            }
+            if (item.location) {
+                detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: item.location });
             }
 
             const detailHtml = detailItems.length > 0 ?
-                detailItems.map(item =>
+                detailItems.map(d =>
                     `<div class="detail-item">
-                                <i class="fas ${item.icon}"></i>
+                                <i class="fas ${d.icon}"></i>
                                 <div>
-                                    <span class="label">${item.label}</span>
-                                    <div class="value">${item.value}</div>
+                                    <span class="label">${d.label}</span>
+                                    <div class="value">${d.value}</div>
                                 </div>
                             </div>`
                 ).join('') :
@@ -2027,27 +2110,25 @@
 
             // Social Links
             const socialLinks = [];
-            if (providerData?.facebook || vendor.facebook) {
-                const url = providerData?.facebook || vendor.facebook;
-                socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: url, label: 'Facebook' });
+            if (item.facebook) {
+                socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: item.facebook,
+                    label: 'Facebook' });
             }
-            if (providerData?.instagram || vendor.instagram) {
-                const url = providerData?.instagram || vendor.instagram;
-                socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: url, label: 'Instagram' });
+            if (item.instagram) {
+                socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: item.instagram,
+                    label: 'Instagram' });
             }
-            if (providerData?.tiktok || vendor.tiktok) {
-                const url = providerData?.tiktok || vendor.tiktok;
-                socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: url, label: 'TikTok' });
+            if (item.tiktok) {
+                socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: item.tiktok, label: 'TikTok' });
             }
-            if (providerData?.youtube || vendor.youtube) {
-                const url = providerData?.youtube || vendor.youtube;
-                socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: url, label: 'YouTube' });
+            if (item.youtube) {
+                socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: item.youtube,
+                    label: 'YouTube' });
             }
-            if (providerData?.website || vendor.website) {
-                const url = providerData?.website || vendor.website;
-                socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: url, label: 'Website' });
+            if (item.website) {
+                socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: item.website,
+                label: 'Website' });
             }
-
             const socialHtml = socialLinks.length > 0 ?
                 socialLinks.map(link =>
                     `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`
@@ -2055,7 +2136,7 @@
                 '';
 
             // Gallery
-            const images = providerData?.images || vendor.images || [];
+            const images = item.images || [];
             let galleryHtml = '';
             if (images.length > 0) {
                 const validImages = images.filter(url => url && typeof url === 'string' && (url.startsWith('data:') || url
@@ -2072,13 +2153,12 @@
                 }
             }
 
-            // Actions
             const actionsHtml = `
                         <div class="modal-actions">
-                            <button class="btn btn-message" onclick="closeVendorProfileModal(); openChatForVendor('${vendor.id}')">
+                            <button class="btn btn-message" onclick="closeVendorProfileModal(); openChatForVendor('${item.uid}')">
                                 <i class="fas fa-paper-plane"></i> Message
                             </button>
-                            <button class="btn btn-outline" onclick="copyVendorProfileLink('${vendor.id}')">
+                            <button class="btn btn-outline" onclick="copyVendorProfileLink('${item.uid}')">
                                 <i class="fas fa-share-alt"></i> Share
                             </button>
                         </div>
@@ -2158,7 +2238,7 @@
         }
 
         // ============================================================
-        //  FIXED CHAT FUNCTIONS – single array-contains + client filter
+        //  CHAT FUNCTIONS – single array-contains + client filter
         // ============================================================
         let modalVendorId = null;
 
@@ -2168,20 +2248,19 @@
                 return;
             }
 
-            const vendor = allVendors.find(v => v.id === vendorId);
-            if (!vendor) {
+            const listing = allListings.find(l => l.uid === vendorId);
+            if (!listing) {
                 showToast('Vendor not found', 'error');
                 return;
             }
 
             modalVendorId = vendorId;
-            chatOtherUid = vendor.uid || vendor.id;
-            chatOtherName = vendor.name || 'Vendor';
-            chatOtherAvatar = vendor.avatarUrl || null;
+            chatOtherUid = vendorId;
+            chatOtherName = listing.name || 'Vendor';
+            chatOtherAvatar = listing.avatarUrl || null;
 
             document.getElementById('modalChatName').textContent = chatOtherName;
-            document.getElementById('modalChatSub').textContent = vendor.serviceType || vendor.category ||
-                'Service Provider';
+            document.getElementById('modalChatSub').textContent = listing.category || listing.serviceType || 'Service Provider';
 
             const avatarEl = document.getElementById('modalChatAvatar');
             const initialsEl = document.getElementById('modalChatInitials');
@@ -2213,7 +2292,7 @@
             msgContainer.innerHTML =
                 '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
 
-            findOrCreateThread(vendor);
+            findOrCreateThread(listing);
         }
 
         function closeChatModal() {
@@ -2227,13 +2306,11 @@
             modalVendorId = null;
         }
 
-        // FIXED: use single array-contains, then filter client-side
         async function findOrCreateThread(vendor) {
             if (!currentUser) return;
 
             try {
                 const threadsRef = db.collection('threads');
-                // Query only for threads where current user is a participant
                 const q = threadsRef.where('participants', 'array-contains', currentUser.uid);
                 const snap = await q.get();
                 let threadId = null;
@@ -2249,10 +2326,9 @@
                     chatThreadId = threadId;
                     subscribeToMessages(threadId);
                 } else {
-                    // Create new thread
                     const newThread = {
                         participants: [currentUser.uid, chatOtherUid],
-                        jobTitle: vendor.serviceType || vendor.category || 'Service Provider',
+                        jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
                         lastMessageText: 'Start your conversation',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2409,14 +2485,14 @@
         window.closeChatModal = closeChatModal;
         window.sendModalMessage = sendModalMessage;
         window.refreshVendors = refreshVendors;
-        window.loadVendors = loadVendors;
+        window.loadListings = loadListings;
         window.applyFilters = applyFilters;
         window.showToast = showToast;
         window.openVendorProfile = openVendorProfile;
         window.closeVendorProfileModal = closeVendorProfileModal;
         window.copyVendorProfileLink = copyVendorProfileLink;
 
-        console.log('✅ Zone21 Organizer Directory – Discover Vendors loaded (fixed).');
+        console.log('✅ Zone21 Organizer Directory – Discover Vendors & Venues (using serviceProviders)');
     </script>
 </body>
 </html>

@@ -210,6 +210,15 @@
             background: var(--lime);
             color: var(--navy);
         }
+        .brand-title .lock-badge.loading {
+            background: #9CA3AF;
+            color: #fff;
+            animation: pulse-badge 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
 
         .brand-sub {
             font-size: 0.7rem;
@@ -259,6 +268,7 @@
             gap: 12px;
             flex-shrink: 0;
             flex-wrap: wrap;
+            transition: opacity 0.3s ease;
         }
         .lock-banner .lock-msg {
             display: flex;
@@ -271,6 +281,16 @@
         .lock-banner .lock-msg i {
             font-size: 1.1rem;
             color: #D97706;
+        }
+        .lock-banner .lock-msg .spinner-sm {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(245, 158, 11, 0.3);
+            border-top-color: #D97706;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
         }
         .lock-banner .btn-subscribe-lock {
             background: var(--lime);
@@ -298,6 +318,10 @@
         }
         .lock-banner.hidden {
             display: none;
+        }
+        .lock-banner.loading {
+            opacity: 0.7;
+            pointer-events: none;
         }
 
         .thread-list {
@@ -1651,17 +1675,15 @@
                 // Update global state
                 if (window.hasActiveSubscription !== isUnlocked) {
                     window.hasActiveSubscription = isUnlocked;
-                    window.subscriptionChecked = true;
-                    updateLockUI();
-                    // Re-render threads to update lock icons and click handlers
-                    if (window.allThreads && window.allThreads.length > 0) {
-                        window.renderThreads(window.allThreads);
-                    }
-                    console.log("🔓 Inbox status updated:", isUnlocked ? "Unlocked (approved event found)" : "Locked (no approved events)");
-                } else {
-                    // Still ensure UI reflects current state
-                    updateLockUI();
                 }
+                window.subscriptionChecked = true;
+                updateLockUI();
+
+                // Re-render threads to update lock icons and click handlers
+                if (window.allThreads && window.allThreads.length > 0) {
+                    window.renderThreads(window.allThreads);
+                }
+                console.log("🔓 Inbox status:", isUnlocked ? "Unlocked (approved event found)" : "Locked (no approved events)");
 
             }, (error) => {
                 console.warn("Event listener error:", error);
@@ -1690,13 +1712,13 @@
                 });
                 if (window.hasActiveSubscription !== hasApproved) {
                     window.hasActiveSubscription = hasApproved;
-                    window.subscriptionChecked = true;
-                    updateLockUI();
-                    if (window.allThreads && window.allThreads.length > 0) {
-                        window.renderThreads(window.allThreads);
-                    }
-                    console.log("🔓 Manual check:", hasApproved ? "Unlocked" : "Locked");
                 }
+                window.subscriptionChecked = true;
+                updateLockUI();
+                if (window.allThreads && window.allThreads.length > 0) {
+                    window.renderThreads(window.allThreads);
+                }
+                console.log("🔓 Manual check:", hasApproved ? "Unlocked" : "Locked");
             } catch (e) {
                 console.warn("Manual event check failed:", e);
                 // If all fails, default to locked
@@ -1753,6 +1775,25 @@
             const lockBadge = document.getElementById('lock-badge');
             const overlayBtn = document.getElementById('btn-subscribe-overlay');
             const bannerBtn = document.getElementById('btn-subscribe-lock');
+            const lockMsgSpan = lockBanner?.querySelector('.lock-msg span');
+
+            // Loading state
+            if (!window.subscriptionChecked) {
+                lockBanner.classList.remove('hidden');
+                lockBanner.classList.add('loading');
+                if (lockMsgSpan) {
+                    lockMsgSpan.innerHTML = '<span class="spinner-sm"></span> Checking your status...';
+                }
+                lockBadge.textContent = 'Loading';
+                lockBadge.className = 'lock-badge loading';
+                lockBadge.style.display = 'inline-block';
+                if (overlayBtn) overlayBtn.style.display = 'none';
+                if (bannerBtn) bannerBtn.style.display = 'none';
+                return;
+            }
+
+            // Done loading
+            lockBanner.classList.remove('loading');
 
             if (window.hasActiveSubscription) {
                 lockBanner.classList.add('hidden');
@@ -1763,6 +1804,9 @@
                 if (bannerBtn) bannerBtn.style.display = 'none';
             } else {
                 lockBanner.classList.remove('hidden');
+                if (lockMsgSpan) {
+                    lockMsgSpan.textContent = 'Your inbox is locked. Subscribe to read & reply.';
+                }
                 lockBadge.textContent = 'Locked';
                 lockBadge.className = 'lock-badge';
                 lockBadge.style.display = 'inline-block';
@@ -2736,7 +2780,7 @@
         window.closeImageView = window.closeImageView;
         window.viewActiveProfile = window.viewActiveProfile;
 
-        console.log('✅ Organizer Inbox – status determined by approved events (like My Events page)');
+        console.log('✅ Organizer Inbox – loading state added, no more flicker.');
     </script>
 
     <!-- ── CLEAN IMAGE VIEW MODAL ── -->
@@ -2772,7 +2816,7 @@
                         <span class="brand-title">
                             Zone<span class="highlight">21</span>
                             <span class="role-tag">Organizer</span>
-                            <span class="lock-badge" id="lock-badge">Locked</span>
+                            <span class="lock-badge" id="lock-badge">Loading</span>
                         </span>
                         <span class="badge-unread-count" id="global-unread-badge">0</span>
                     </div>
@@ -2785,7 +2829,7 @@
                 <div class="lock-banner" id="lock-banner">
                     <div class="lock-msg">
                         <i class="fas fa-lock"></i>
-                        <span>Your inbox is locked. Subscribe to read &amp; reply.</span>
+                        <span><span class="spinner-sm"></span> Checking your status...</span>
                     </div>
                     <button class="btn-subscribe-lock" id="btn-subscribe-lock">
                         <i class="fas fa-unlock"></i> Subscribe Now

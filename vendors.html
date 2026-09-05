@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
     <style>
-        /* ===== ZONE21 STYLES (same as before – kept for consistency) ===== */
+        /* ── ZONE21 · LIME · NAVY · PINK ── (same as before) */
         :root {
             --bg-page: #F0F4F0;
             --bg-surface: #FFFFFF;
@@ -728,7 +728,7 @@
             color: var(--text-primary);
         }
 
-        /* ===== CHAT MODAL ===== (same as before) ===== */
+        /* ===== CHAT MODAL ===== */
         .chat-modal-overlay {
             position: fixed;
             inset: 0;
@@ -932,7 +932,7 @@
             transform: scale(0.96);
         }
 
-        /* ===== PROFILE MODAL (full) ===== */
+        /* ===== PROFILE MODAL ===== */
         .profile-modal-overlay {
             position: fixed;
             inset: 0;
@@ -1689,23 +1689,24 @@
                         return bTime - aTime;
                     });
 
-                    // Now fetch user data for each to get name/avatar if missing
+                    // Now fetch user data for each to get name/avatar if missing (fallback only)
                     const userFetchPromises = allListings.map(item => {
                         return db.collection('users').doc(item.uid).get()
                             .then(userSnap => {
                                 if (userSnap.exists) {
                                     const userData = userSnap.data();
-                                    item.userName = userData.name || item.name || 'Unnamed';
-                                    item.userAvatar = userData.avatarUrl || item.avatar || null;
+                                    // Store as fallback
+                                    item._userName = userData.name || '';
+                                    item._userAvatar = userData.avatarUrl || null;
                                 } else {
-                                    item.userName = item.name || 'Unnamed';
-                                    item.userAvatar = item.avatar || null;
+                                    item._userName = '';
+                                    item._userAvatar = null;
                                 }
                                 return item;
                             })
                             .catch(() => {
-                                item.userName = item.name || 'Unnamed';
-                                item.userAvatar = item.avatar || null;
+                                item._userName = '';
+                                item._userAvatar = null;
                                 return item;
                             });
                     });
@@ -1734,21 +1735,18 @@
         }
 
         // ============================================================
-        //  FILTER & SEARCH (with type tab)
+        //  FILTER & SEARCH
         // ============================================================
         function applyFilters() {
             const term = searchInput.value.trim().toLowerCase();
             const typeFilter = currentFilter;
 
             filteredListings = allListings.filter(item => {
-                // Type filter
                 if (typeFilter === 'venue' && item.type !== 'venue') return false;
                 if (typeFilter === 'provider' && item.type !== 'provider') return false;
-
-                // Search term
                 if (!term) return true;
                 const searchable =
-                    `${item.userName||''} ${item.name||''} ${item.category||''} ${item.services||''} ${item.location||''} ${item.secondaryServices||''} ${item.amenities||''}`
+                    `${item.name||''} ${item.category||''} ${item.services||''} ${item.location||''} ${item.secondaryServices||''} ${item.amenities||''}`
                     .toLowerCase();
                 return searchable.includes(term);
             });
@@ -1765,7 +1763,6 @@
             if (!btn) return;
             const filter = btn.dataset.filter;
             if (filter === currentFilter) return;
-            // Update active class
             typeTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentFilter = filter;
@@ -1773,7 +1770,7 @@
         });
 
         // ============================================================
-        //  RENDER LISTINGS
+        //  RENDER LISTINGS – now uses item.name and item.avatar primarily
         // ============================================================
         function renderListings(listings) {
             if (listings.length === 0) {
@@ -1789,8 +1786,11 @@
                 card.className = 'vendor-card animate-in';
                 card.style.animationDelay = `${(index % 12) * 0.04}s`;
 
-                const displayName = item.userName || item.name || 'Unnamed';
-                const avatarUrl = item.userAvatar || item.avatar || null;
+                // Use venue/provider name first, fallback to user name
+                const displayName = item.name || item._userName || 'Unnamed';
+                // Use venue/provider avatar first, fallback to user avatar
+                const avatarUrl = item.avatar || item._userAvatar || null;
+
                 const initials = displayName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
 
                 const avatarHtml = avatarUrl ?
@@ -1842,7 +1842,7 @@
                 const location = item.location || 'Location not set';
                 const basePrice = item.basePrice || 0;
 
-                // If venue, show capacity; else show experience or years
+                // Extra detail: capacity for venue, experience for provider
                 let extraDetail = '';
                 if (item.type === 'venue' && item.capacity) {
                     extraDetail = `<span><i class="fas fa-users"></i> Capacity: ${item.capacity}</span>`;
@@ -1895,13 +1895,14 @@
                     return;
                 }
                 const data = doc.data();
-                // Also get user data
+                // Also get user data for fallback
                 const userSnap = await db.collection('users').doc(uid).get();
                 const userData = userSnap.exists ? userSnap.data() : {};
 
                 const merged = {
                     uid: uid,
                     ...data,
+                    // Use provider/venue name first
                     name: data.name || userData.name || 'Unnamed',
                     avatarUrl: data.avatar || userData.avatarUrl || null,
                     type: collectionName === 'venues' ? 'venue' : 'provider',
@@ -1914,6 +1915,9 @@
             }
         }
 
+        // ============================================================
+        //  RENDER MODAL – shows ALL details for the type
+        // ============================================================
         function renderVendorProfileModal(item) {
             const name = item.name || 'Unnamed';
             const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
@@ -1937,7 +1941,7 @@
                 else starsHtml += '<i class="far fa-star"></i>';
             }
 
-            // Services / Amenities
+            // Services / Amenities (tags)
             let services = [];
             if (item.services && item.services.length) {
                 services = item.services;
@@ -1948,9 +1952,11 @@
             }
             const servicesHtml = services.map(s => `<span class="service-tag">${s}</span>`).join('');
 
-            // Details – vary by type
+            // ---- DETAILS GRID (all fields for the type) ----
             const detailItems = [];
+
             if (item.type === 'venue') {
+                // Venue-specific fields
                 if (item.capacity) detailItems.push({ icon: 'fa-users', label: 'Capacity', value: item.capacity +
                         ' guests' });
                 if (item.venueType) detailItems.push({ icon: 'fa-archway', label: 'Venue Type', value: item
@@ -1963,10 +1969,13 @@
                     value: item.deposit });
                 if (item.operatingHours) detailItems.push({ icon: 'fa-clock', label: 'Operating Hours', value: item
                         .operatingHours });
-                if (item.parking) detailItems.push({ icon: 'fa-parking', label: 'Parking', value: item.parking });
-                if (item.catering) detailItems.push({ icon: 'fa-utensils', label: 'Catering', value: item.catering });
+                if (item.parking) detailItems.push({ icon: 'fa-parking', label: 'Parking Information', value: item
+                        .parking });
+                if (item.catering) detailItems.push({ icon: 'fa-utensils', label: 'Catering Options', value: item
+                        .catering });
+                // Also include amenities as tags already, so we don't duplicate
             } else {
-                // Provider
+                // Provider-specific fields
                 if (item.secondaryServices) detailItems.push({ icon: 'fa-chevron-circle-right',
                     label: 'Secondary Services', value: item.secondaryServices });
                 if (item.businessHours) detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: item
@@ -1975,13 +1984,15 @@
                     value: item.yearsExperience + ' years' });
                 if (item.serviceAreas) detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: item
                         .serviceAreas });
-                if (item.languages) detailItems.push({ icon: 'fa-language', label: 'Languages', value: item
+                if (item.languages) detailItems.push({ icon: 'fa-language', label: 'Languages Spoken', value: item
                         .languages });
                 if (item.paymentMethods) detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods',
                     value: item.paymentMethods });
                 if (item.cancellationPolicy) detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy',
                     value: item.cancellationPolicy });
             }
+
+            // Common: location and price (already shown in header, but we can add if needed)
             if (item.location) detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: item
                     .location });
 
@@ -2108,7 +2119,7 @@
         }
 
         // ============================================================
-        //  CHAT FUNCTIONS – unchanged (works with any vendor)
+        //  CHAT FUNCTIONS (unchanged)
         // ============================================================
         let modalVendorId = null;
 
@@ -2125,8 +2136,8 @@
 
             modalVendorId = vendorId;
             chatOtherUid = vendorId;
-            chatOtherName = listing.userName || listing.name || 'Vendor';
-            chatOtherAvatar = listing.userAvatar || listing.avatar || null;
+            chatOtherName = listing.name || listing._userName || 'Vendor';
+            chatOtherAvatar = listing.avatar || listing._userAvatar || null;
 
             document.getElementById('modalChatName').textContent = chatOtherName;
             document.getElementById('modalChatSub').textContent = listing.category || listing.serviceType || 'Service Provider';
@@ -2333,7 +2344,7 @@
         window.closeVendorProfileModal = closeVendorProfileModal;
         window.copyVendorProfileLink = copyVendorProfileLink;
 
-        console.log('✅ Zone21 Organizer Directory – Venues & Providers separated');
+        console.log('✅ Zone21 Organizer Directory – Venues & Providers (names/avatars fixed)');
     </script>
 </body>
 </html>

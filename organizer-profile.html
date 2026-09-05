@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Organizer Profile | Zone21</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
+    <style>
+        /* ===== ROOT & RESET ===== */
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --muted: #6c757d;
+            --border: #e0e0e8;
+            --radius: 20px;
+            --shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
+            --gold: #ffb400;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .header .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .header .logo span {
+            color: var(--pink);
+        }
+        .back-btn {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: var(--navy);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .back-btn:hover {
+            background: var(--lime);
+            color: var(--navy);
+        }
+
+        /* ===== PROFILE CARD ===== */
+        .profile-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-bottom: 24px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .profile-cover {
+            height: 140px;
+            background: linear-gradient(135deg, var(--pink) 0%, #b80055 100%);
+            position: relative;
+        }
+
+        .profile-avatar {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: var(--lime);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: var(--navy);
+            border: 4px solid white;
+            margin-top: -55px;
+            margin-left: 30px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .avatar-edit-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: 0.3s;
+            font-size: 1.4rem;
+        }
+        .profile-avatar.editable:hover .avatar-edit-overlay {
+            opacity: 1;
+        }
+
+        .profile-body {
+            padding: 20px 30px 30px;
+        }
+
+        .name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 2px;
+        }
+
+        .main-service-badge {
+            display: inline-block;
+            background: var(--lime);
+            color: var(--navy);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 4px 16px;
+            border-radius: 30px;
+            letter-spacing: 0.04em;
+            margin-bottom: 14px;
+        }
+
+        .about-text {
+            line-height: 1.7;
+            color: #333;
+            margin: 12px 0 20px;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+        }
+
+        .edit-about-btn {
+            background: transparent;
+            border: 1px dashed var(--border);
+            color: var(--muted);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .edit-about-btn:hover {
+            border-color: var(--navy);
+            color: var(--navy);
+            background: #f0f4f8;
+        }
+
+        /* ===== GALLERY ===== */
+        .gallery-section h2 {
+            font-size: 1.1rem;
+            color: var(--navy);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .gallery-section h2 i {
+            color: var(--pink);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+        }
+
+        .gallery-item {
+            border-radius: 14px;
+            overflow: hidden;
+            aspect-ratio: 1/1;
+            background: #e9ecef;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+            transition: 0.3s;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+        .gallery-item:hover img {
+            transform: scale(1.04);
+        }
+
+        .gallery-item .delete-img-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: var(--pink);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .gallery-item:hover .delete-img-btn {
+            opacity: 1;
+        }
+        .gallery-item .delete-img-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .upload-tile {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.3s;
+            background: #fafbfc;
+            color: var(--muted);
+            font-size: 0.8rem;
+            gap: 6px;
+        }
+        .upload-tile:hover {
+            border-color: var(--navy);
+            background: #f0f4f8;
+            color: var(--navy);
+        }
+        .upload-tile i {
+            font-size: 1.8rem;
+            color: var(--navy);
+        }
+        .upload-tile span {
+            font-weight: 500;
+        }
+
+        /* ===== TOOLBAR ===== */
+        .profile-toolbar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 18px 0 6px;
+        }
+        .profile-toolbar button,
+        .profile-toolbar .btn {
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .profile-toolbar button:hover,
+        .profile-toolbar .btn:hover {
+            background: #1a3a4a;
+            transform: translateY(-2px);
+        }
+        .profile-toolbar .btn-outline {
+            background: transparent;
+            color: var(--navy);
+            border: 1px solid var(--border);
+        }
+        .profile-toolbar .btn-outline:hover {
+            background: #f0f4f8;
+            transform: none;
+        }
+        .profile-toolbar .btn-danger {
+            background: var(--pink);
+            color: white;
+        }
+        .profile-toolbar .btn-danger:hover {
+            background: #d4005e;
+        }
+
+        /* ===== LOADING / ERROR ===== */
+        .loading,
+        .error {
+            text-align: center;
+            padding: 60px 20px;
+            font-size: 1.1rem;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .btn-create {
+            display: inline-block;
+            padding: 12px 30px;
+            background: var(--navy);
+            color: var(--lime);
+            border-radius: 30px;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 15px;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+        .btn-create:hover {
+            background: #1a3a4a;
+        }
+
+        /* ===== INLINE EDIT ABOUT ===== */
+        .about-edit-area {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--navy);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            background: white;
+            margin: 12px 0 10px;
+            outline: none;
+        }
+        .about-edit-area:focus {
+            box-shadow: 0 0 0 3px rgba(192, 200, 0, 0.25);
+        }
+        .about-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .about-actions button {
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .about-actions .save-about {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .about-actions .save-about:hover {
+            background: #1a3a4a;
+        }
+        .about-actions .cancel-about {
+            background: #e9ecef;
+            color: var(--muted);
+        }
+        .about-actions .cancel-about:hover {
+            background: #dde0e5;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(16, 40, 56, 0.1);
+            border-left-color: var(--pink);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .spinner-sm {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-left-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            .profile-body {
+                padding: 16px;
+            }
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                font-size: 1.8rem;
+                margin-left: 16px;
+                margin-top: -40px;
+            }
+            .profile-cover {
+                height: 100px;
+            }
+            .name {
+                font-size: 1.4rem;
+            }
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 10px;
+            }
+            .back-btn {
+                font-size: 0.75rem;
+                padding: 5px 12px;
+            }
+            .header .logo {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="dashboard.html" class="back-btn" id="dash-btn" style="display:none;"><i class="fas fa-arrow-left"></i> Dashboard</a>
+            <div class="logo">Zone<span>21</span> Organizer</div>
+        </div>
+
+        <div id="profile-content">
+            <div class="loading">
+                <div class="spinner"></div>
+                Loading profile...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== FIREBASE CONFIG =====
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ===== STATE =====
+        let currentOrganizerId = null;
+        let organizerData = null;
+        let isOwner = false;
+        let viewMode = 'public'; // 'public' | 'edit'
+        let uploadedImages = [];
+        let isEditingAbout = false;
+
+        // ===== RESOLVE ORGANIZER ID =====
+        async function resolveOrganizerId(user) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const idFromUrl = urlParams.get('id');
+            if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') {
+                return idFromUrl;
+            }
+            if (user) {
+                try {
+                    const uidDoc = await db.collection('organizers').doc(user.uid).get();
+                    if (uidDoc.exists) return user.uid;
+                    if (user.email) {
+                        const emailSnapshot = await db.collection('organizers').where('email', '==', user.email).limit(1)
+                            .get();
+                        if (!emailSnapshot.empty) return emailSnapshot.docs[0].id;
+                    }
+                } catch (error) { console.error("Error resolving ID:", error); }
+            }
+            return null;
+        }
+
+        auth.onAuthStateChanged(async (user) => {
+            currentOrganizerId = await resolveOrganizerId(user);
+            if (currentOrganizerId) {
+                isOwner = user && (user.uid === currentOrganizerId || (organizerData && organizerData.email === user
+                .email));
+                if (isOwner) document.getElementById('dash-btn').style.display = 'block';
+                loadOrganizerProfile();
+            } else if (user) {
+                showProfileNotFound(true);
+            } else {
+                showProfileNotFound(false);
+            }
+        });
+
+        function showProfileNotFound(isLoggedIn) {
+            const content = document.getElementById('profile-content');
+            if (isLoggedIn) {
+                content.innerHTML = `
+                        <div class="error">
+                            <i class="fas fa-calendar-plus" style="font-size:3rem; color:var(--navy);"></i>
+                            <h3>No Organizer Profile Found</h3>
+                            <p style="margin:10px 0;">Your account does not have an organizer profile yet.</p>
+                            <button class="btn-create" onclick="createOrganizerProfile()"><i class="fas fa-plus"></i> Create My Profile</button>
+                        </div>`;
+            } else {
+                content.innerHTML = `
+                        <div class="error">
+                            <i class="fas fa-lock" style="font-size:3rem; color:var(--navy);"></i>
+                            <h3>Please Sign In</h3>
+                            <p style="margin:10px 0;">Log in to view or create your organizer profile.</p>
+                            <a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+                        </div>`;
+            }
+        }
+
+        async function createOrganizerProfile() {
+            if (!auth.currentUser) return;
+            const uid = auth.currentUser.uid;
+            const email = auth.currentUser.email || '';
+            const defaultData = {
+                name: email.split('@')[0] || 'My Organizer Business',
+                mainService: 'Event Organizer',
+                about: 'I am a passionate event organizer with a keen eye for detail. I create memorable experiences for weddings, corporate events, private parties, and more. Let\'s bring your vision to life!',
+                images: [],
+                avatar: '',
+                email: email,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('organizers').doc(uid).set(defaultData);
+            window.location.reload();
+        }
+
+        async function loadOrganizerProfile() {
+            try {
+                const doc = await db.collection('organizers').doc(currentOrganizerId).get();
+                if (!doc.exists) { showProfileNotFound(auth.currentUser ? true : false); return; }
+                organizerData = doc.data();
+                uploadedImages = organizerData.images || [];
+
+                if (viewMode === 'public') renderPublicView();
+                else renderEditView();
+            } catch (error) {
+                document.getElementById('profile-content').innerHTML =
+                    '<div class="error">Failed to load profile. Please try again.</div>';
+                console.error(error);
+            }
+        }
+
+        function toggleMode() {
+            viewMode = viewMode === 'public' ? 'edit' : 'public';
+            isEditingAbout = false;
+            loadOrganizerProfile();
+        }
+
+        // ===== IMAGE COMPRESSION =====
+        function compressToBase64(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    callback(dataUrl);
+                };
+            };
+        }
+
+        // ===== RENDER PUBLIC VIEW =====
+        function renderPublicView() {
+            const initials = (organizerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
+                .toUpperCase();
+            const avatarHtml = organizerData.avatar ?
+                `<img src="${organizerData.avatar}" alt="Avatar">` :
+                initials;
+
+            // Gallery
+            const hasImages = uploadedImages.length > 0;
+            let galleryHtml = '';
+            if (hasImages) {
+                galleryHtml = uploadedImages.map((url, i) =>
+                    `<div class="gallery-item"><img src="${url}" alt="Gallery ${i+1}"></div>`
+                ).join('');
+            } else {
+                galleryHtml =
+                    `<div style="grid-column:1/-1; padding:20px 0; color:var(--muted); text-align:center; font-size:0.9rem;">No images added yet.</div>`;
+            }
+
+            // About section (public)
+            const aboutText = organizerData.about || 'No about information provided.';
+            const aboutHtml = isEditingAbout ?
+                `
+                        <textarea class="about-edit-area" id="about-edit-text">${aboutText}</textarea>
+                        <div class="about-actions">
+                            <button class="save-about" onclick="saveAbout()"><i class="fas fa-check"></i> Save</button>
+                            <button class="cancel-about" onclick="cancelAboutEdit()"><i class="fas fa-times"></i> Cancel</button>
+                        </div>
+                    ` :
+                `
+                        <div class="about-text">${aboutText}</div>
+                        ${isOwner ? `<button class="edit-about-btn" onclick="startAboutEdit()"><i class="fas fa-pen"></i> Edit About</button>` : ''}
+                    `;
+
+            const html = `
+                    <div class="profile-card">
+                        <div class="profile-cover"></div>
+                        <div class="profile-avatar">${avatarHtml}</div>
+                        <div class="profile-body">
+                            <div class="name">${organizerData.name || 'Organizer'}</div>
+                            <span class="main-service-badge"><i class="fas fa-calendar-check"></i> ${organizerData.mainService || 'Event Organizer'}</span>
+
+                            ${aboutHtml}
+
+                            <div class="profile-toolbar">
+                                ${isOwner ? `<button onclick="toggleMode()"><i class="fas fa-edit"></i> Edit Profile</button>` : ''}
+                                <button class="btn-outline" onclick="copyProfileLink('${currentOrganizerId}')"><i class="fas fa-share-alt"></i> Share</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card" style="padding:24px 30px 30px;">
+                        <div class="gallery-section">
+                            <h2><i class="fas fa-images"></i> Photos</h2>
+                            <div class="gallery-grid">${galleryHtml}</div>
+                        </div>
+                    </div>
+                `;
+            document.getElementById('profile-content').innerHTML = html;
+        }
+
+        // ===== ABOUT EDIT LOGIC =====
+        function startAboutEdit() {
+            isEditingAbout = true;
+            renderPublicView();
+            const ta = document.getElementById('about-edit-text');
+            if (ta) ta.focus();
+        }
+
+        function cancelAboutEdit() {
+            isEditingAbout = false;
+            renderPublicView();
+        }
+
+        async function saveAbout() {
+            const text = document.getElementById('about-edit-text').value.trim();
+            if (!text) return alert('Please write something about yourself.');
+            try {
+                await db.collection('organizers').doc(currentOrganizerId).set({
+                    about: text,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                organizerData.about = text;
+                isEditingAbout = false;
+                renderPublicView();
+            } catch (e) {
+                alert('Failed to save about section.');
+                console.error(e);
+            }
+        }
+
+        // ===== RENDER EDIT VIEW =====
+        function renderEditView() {
+            const initials = (organizerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
+                .toUpperCase();
+            const avatarHtml = organizerData.avatar ?
+                `<img src="${organizerData.avatar}" alt="Avatar">` :
+                initials;
+
+            // Gallery with delete buttons + upload tile
+            let galleryItems = uploadedImages.map((url, i) =>
+                `<div class="gallery-item">
+                        <img src="${url}" alt="Gallery ${i+1}">
+                        <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
+                    </div>`
+            ).join('');
+
+            const canUpload = uploadedImages.length < 6;
+            const uploadTile = canUpload ?
+                `<div class="upload-tile" onclick="document.getElementById('gallery-upload').click()">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Add Photo</span>
+                        <input type="file" id="gallery-upload" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(event)">
+                    </div>` :
+                '';
+
+            const html = `
+                    <div class="profile-card" style="padding:30px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; border-bottom:2px solid var(--lime); padding-bottom:12px;">
+                            <h2 style="color:var(--navy); font-size:1.3rem;"><i class="fas fa-pen"></i> Edit Profile</h2>
+                            <button class="edit-about-btn" style="border:1px solid var(--border); padding:6px 16px; background:white;" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
+                        </div>
+
+                        <!-- Avatar -->
+                        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:24px;">
+                            <div class="profile-avatar editable" style="margin:0; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()" id="avatar-preview-box">
+                                ${avatarHtml}
+                                <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
+                            </div>
+                            <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
+                            <p style="color:var(--muted); font-size:0.8rem; margin-top:8px;">Click avatar to change</p>
+                        </div>
+
+                        <!-- Name & Main Service -->
+                        <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:18px;">
+                            <div class="input-group">
+                                <label>Display Name</label>
+                                <input type="text" id="e-name" value="${organizerData.name || ''}" placeholder="Your business name">
+                            </div>
+                            <div class="input-group">
+                                <label>Main Service</label>
+                                <input type="text" id="e-service" value="${organizerData.mainService || 'Event Organizer'}" placeholder="e.g. Event Organizer">
+                            </div>
+                        </div>
+
+                        <!-- About -->
+                        <div class="input-group" style="margin-bottom:24px;">
+                            <label style="font-weight:600; color:var(--navy);">About You</label>
+                            <textarea id="e-about" rows="4" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:0.95rem; line-height:1.6; resize:vertical; background:#fafbfc;">${organizerData.about || ''}</textarea>
+                        </div>
+
+                        <!-- Gallery -->
+                        <h3 style="color:var(--navy); font-size:1rem; margin:10px 0 14px;"><i class="fas fa-images" style="color:var(--pink);"></i> Photos (max 6)</h3>
+                        <div class="gallery-grid">
+                            ${galleryItems}
+                            ${uploadTile}
+                        </div>
+                        ${!canUpload ? '<p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Maximum 6 images reached.</p>' : ''}
+
+                        <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+                    </div>
+                `;
+            document.getElementById('profile-content').innerHTML = html;
+        }
+
+        // ===== EDIT HANDLERS =====
+        function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const box = document.getElementById('avatar-preview-box');
+            box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
+
+            compressToBase64(file, 400, 0.7, (base64) => {
+                organizerData.avatar = base64;
+                box.innerHTML =
+                    `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+            });
+        }
+
+        function handleGalleryUpload(event) {
+            const files = Array.from(event.target.files);
+            const remaining = 6 - uploadedImages.length;
+            if (files.length > remaining) {
+                alert(`You can only add ${remaining} more image(s).`);
+                return;
+            }
+
+            let processed = 0;
+            files.forEach(file => {
+                compressToBase64(file, 700, 0.6, (base64) => {
+                    uploadedImages.push(base64);
+                    processed++;
+                    if (processed === files.length) {
+                        renderEditView();
+                    }
+                });
+            });
+        }
+
+        function removeImage(index) {
+            uploadedImages.splice(index, 1);
+            renderEditView();
+        }
+
+        async function saveProfileData() {
+            const btn = document.getElementById('save-btn');
+            btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
+            btn.disabled = true;
+
+            const updates = {
+                name: document.getElementById('e-name').value.trim() || 'Organizer',
+                mainService: document.getElementById('e-service').value.trim() || 'Event Organizer',
+                about: document.getElementById('e-about').value.trim(),
+                avatar: organizerData.avatar || null,
+                images: uploadedImages,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('organizers').doc(currentOrganizerId).set(updates, { merge: true });
+                organizerData = { ...organizerData, ...updates };
+                viewMode = 'public';
+                isEditingAbout = false;
+                loadOrganizerProfile();
+            } catch (e) {
+                console.error(e);
+                alert('Error saving profile. Please try again.');
+                btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+                btn.disabled = false;
+            }
+        }
+
+        // ===== SHARE =====
+        function copyProfileLink(pid) {
+            const url = window.location.href.split('?')[0] + '?id=' + pid;
+            navigator.clipboard.writeText(url).then(() => alert('Profile link copied!'));
+        }
+    </script>
+</body>
+</html>

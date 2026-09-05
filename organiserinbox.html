@@ -1832,40 +1832,72 @@
         };
 
         // ============================================================
-        // REAL-TIME SUBSCRIPTION LISTENER
+        // REAL-TIME SUBSCRIPTION + EVENT LISTENER
         // ============================================================
-        let unsubscribeSubscription = null;
+        let unsubscribeSubscriptions = null;
+        let unsubscribeEvents = null;
 
         function listenToSubscriptionStatus(userId) {
-            if (unsubscribeSubscription) {
-                unsubscribeSubscription();
-                unsubscribeSubscription = null;
+            if (unsubscribeSubscriptions) {
+                unsubscribeSubscriptions();
+                unsubscribeSubscriptions = null;
+            }
+            if (unsubscribeEvents) {
+                unsubscribeEvents();
+                unsubscribeEvents = null;
             }
 
-            const q = query(
+            let hasActiveSub = false;
+            let hasActiveEvent = false;
+            let checkCount = 0;
+
+            function updateCombinedStatus() {
+                // Only update when both listeners have returned at least once
+                if (checkCount < 2) return;
+                const isActive = hasActiveSub || hasActiveEvent;
+                if (window.hasActiveSubscription !== isActive) {
+                    window.hasActiveSubscription = isActive;
+                    window.subscriptionChecked = true;
+                    updateLockUI();
+                    if (window.allThreads.length > 0) {
+                        window.renderThreads(window.allThreads);
+                    }
+                    console.log("🔓 Subscription status updated:", isActive ? "Unlocked" : "Locked");
+                }
+            }
+
+            // 1. Query subscriptions
+            const subQ = query(
                 collection(window.db, "subscriptions"),
                 where("userId", "==", userId),
                 where("status", "in", ["active", "approved"])
             );
-
-            unsubscribeSubscription = onSnapshot(q, (snapshot) => {
-                window.hasActiveSubscription = !snapshot.empty;
-                window.subscriptionChecked = true;
-                updateLockUI();
-                // Re-render threads to update lock icons and click handlers
-                if (window.allThreads.length > 0) {
-                    window.renderThreads(window.allThreads);
-                }
-                console.log("🔓 Subscription status updated:", window.hasActiveSubscription ? "Unlocked" : "Locked");
+            unsubscribeSubscriptions = onSnapshot(subQ, (snapshot) => {
+                hasActiveSub = !snapshot.empty;
+                checkCount++;
+                updateCombinedStatus();
             }, (error) => {
-                console.warn("Subscription listener error (fallback to unlocked):", error);
-                // If rules block or any error, default to unlocked so inbox still works
-                window.hasActiveSubscription = true;
-                window.subscriptionChecked = true;
-                updateLockUI();
-                if (window.allThreads.length > 0) {
-                    window.renderThreads(window.allThreads);
-                }
+                console.warn("Subscription listener error:", error);
+                hasActiveSub = false;
+                checkCount++;
+                updateCombinedStatus();
+            });
+
+            // 2. Query events
+            const eventQ = query(
+                collection(window.db, "events"),
+                where("organizerId", "==", userId),
+                where("status", "in", ["active", "approved"])
+            );
+            unsubscribeEvents = onSnapshot(eventQ, (snapshot) => {
+                hasActiveEvent = !snapshot.empty;
+                checkCount++;
+                updateCombinedStatus();
+            }, (error) => {
+                console.warn("Event listener error:", error);
+                hasActiveEvent = false;
+                checkCount++;
+                updateCombinedStatus();
             });
         }
 

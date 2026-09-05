@@ -1695,6 +1695,7 @@
         const searchInput = document.getElementById('searchInput');
         const vendorProfileModal = document.getElementById('vendorProfileModal');
         const vendorProfileBody = document.getElementById('vendorProfileBody');
+        const vendorProfileCloseBtn = document.getElementById('vendorProfileCloseBtn');
 
         // ============================================================
         //  AUTH – CHECK ORGANIZER ROLE
@@ -1952,7 +1953,13 @@
         function renderVendorProfileModal(vendor, providerData) {
             const name = vendor.name || 'Unnamed Vendor';
             const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-            const avatarHtml = vendor.avatarUrl ? `<img src="${vendor.avatarUrl}" alt="Avatar">` : initials;
+
+            // Avatar: use providerData.avatar first, fallback to vendor.avatarUrl, then initials
+            let avatarHtml = initials;
+            const avatarUrl = providerData?.avatar || vendor.avatarUrl;
+            if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.startsWith('http')) {
+                avatarHtml = `<img src="${avatarUrl}" alt="Avatar" />`;
+            }
 
             const category = providerData?.category || vendor.serviceType || 'Service Provider';
             const rating = providerData?.rating || vendor.rating || 0;
@@ -2112,7 +2119,7 @@
             document.body.style.overflow = '';
         }
 
-        // Close modal on backdrop click and escape key
+        // Close modal on backdrop click, escape key, and close button
         vendorProfileModal.addEventListener('click', function(e) {
             if (e.target === this) closeVendorProfileModal();
         });
@@ -2121,6 +2128,7 @@
                 closeVendorProfileModal();
             }
         });
+        vendorProfileCloseBtn.addEventListener('click', closeVendorProfileModal);
 
         function copyVendorProfileLink(vendorId) {
             const url = window.location.origin + window.location.pathname + '?id=' + vendorId;

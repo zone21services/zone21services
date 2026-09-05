@@ -704,6 +704,7 @@
             margin: 20px 0;
         }
 
+        /* Budget Classes */
         .budget-success {
             background: var(--mint-soft);
             border-left: 4px solid var(--mint);
@@ -879,37 +880,55 @@
             border: 1px solid var(--coral);
         }
 
+        /* ============================================================
+           EXTERNAL SOURCE CARD — new format
+           ============================================================ */
         .external-source-card {
             background: var(--grey-light);
-            border: 1px dashed var(--border-strong);
+            border: 1px solid var(--border-strong);
             border-radius: var(--radius);
-            padding: 16px 18px;
-            margin: 10px 0;
+            padding: 16px 20px;
+            margin: 12px 0;
+            border-left: 4px solid var(--slate);
         }
-        .external-source-card .source-name {
-            font-weight: 700;
-            color: var(--navy);
-            font-size: 0.95rem;
-        }
-        .external-source-card .source-detail {
-            font-size: 0.85rem;
+        .external-source-card .source-text {
+            font-size: 0.92rem;
             color: var(--text-secondary);
-            margin: 4px 0;
+            line-height: 1.6;
+            margin-bottom: 8px;
         }
-        .external-source-card .source-link {
-            display: inline-block;
-            margin-top: 6px;
-            color: var(--mint);
+        .external-source-card .source-text strong {
+            color: var(--navy);
+        }
+        .external-source-card .zone21-contact {
+            background: var(--navy);
+            color: white;
+            padding: 10px 16px;
+            border-radius: var(--radius);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+        .external-source-card .zone21-contact a {
+            color: var(--mint-light);
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             font-weight: 600;
-            font-size: 0.8rem;
         }
-        .external-source-card .source-link:hover {
+        .external-source-card .zone21-contact a:hover {
+            color: white;
             text-decoration: underline;
+        }
+        .external-source-card .zone21-contact i {
+            font-size: 0.9rem;
         }
 
         /* ============================================================
-           CHAT MODAL - From discover page, professional
+           CHAT MODAL
            ============================================================ */
         @keyframes slideUp {
             from {
@@ -1365,6 +1384,10 @@
             .chat-modal-footer {
                 padding: 10px 14px 12px;
             }
+            .external-source-card .zone21-contact {
+                flex-direction: column;
+                gap: 8px;
+            }
         }
 
         @media print {
@@ -1391,6 +1414,9 @@
                 display: none !important;
             }
             .zone21-help .help-actions {
+                display: none !important;
+            }
+            .vendor-card .vendor-actions {
                 display: none !important;
             }
         }
@@ -1428,7 +1454,7 @@
     </div>
 
     <!-- ============================================================
-    CHAT MODAL - From discover page
+    CHAT MODAL
     ============================================================ -->
     <div class="chat-modal-overlay" id="chatModal">
         <div class="chat-modal">
@@ -1779,19 +1805,17 @@
         }
 
         // ============================================================
-        //  MATCH VENDORS - Only return relevant matches
+        //  MATCH VENDORS
         // ============================================================
         function matchVenues(location, attendees, budget, requiredServices) {
             const results = [];
             const locationLower = location.toLowerCase();
 
-            // Find venues in the area
             const nearbyVenues = cachedVenues.filter(v => {
                 const venueLoc = (v.location || '').toLowerCase();
                 return venueLoc.includes(locationLower) || locationLower.includes(venueLoc);
             });
 
-            // If no nearby venues, use all venues
             const venuesToConsider = nearbyVenues.length > 0 ? nearbyVenues : cachedVenues;
 
             if (venuesToConsider.length === 0) {
@@ -1805,7 +1829,6 @@
                 const venueServices = venue.services || [];
                 const name = venue.name || 'Unnamed Venue';
 
-                // Check if venue matches required services
                 const serviceMatch = requiredServices.some(s =>
                     venueServices.includes(s) ||
                     amenities.includes(s) ||
@@ -1815,7 +1838,6 @@
                     venueServices.some(vs => vs.includes('Venue'))
                 );
 
-                // Check data completeness
                 const hasLocation = venue.location && venue.location.length > 0;
                 const hasCapacity = venue.capacity && venue.capacity > 0;
                 const hasPrice = venue.basePrice && venue.basePrice > 0;
@@ -1824,13 +1846,11 @@
                 const dataScore = (hasLocation ? 1 : 0) + (hasCapacity ? 1 : 0) + (hasPrice ? 1 : 0) + (hasServices ? 1 :
                     0);
 
-                // Only include if it's a good match or nearby
                 const isNearby = nearbyVenues.includes(venue);
                 const isRelevant = serviceMatch || isNearby;
 
                 if (!isRelevant) return;
 
-                // Reasoning
                 let reasoning = [];
                 let fitScore = 0;
                 let hasSufficientData = true;
@@ -1847,7 +1867,6 @@
                     reasoning.push(`ℹ️ Price not listed - contact for quote`);
                 }
 
-                // Capacity reasoning
                 if (hasCapacity) {
                     if (capacity >= attendees) {
                         reasoning.push(`✅ Can accommodate ${attendees} guests (capacity: ${capacity})`);
@@ -1858,7 +1877,6 @@
                     }
                 }
 
-                // Budget reasoning
                 if (hasPrice && budget > 0) {
                     const percentOfBudget = (price / budget) * 100;
                     if (percentOfBudget <= 30) {
@@ -1873,24 +1891,20 @@
                     }
                 }
 
-                // Service match
                 if (serviceMatch) {
                     reasoning.push(`✅ Matches your service requirements`);
                     fitScore += 2;
                 }
 
-                // Location
                 if (isNearby) {
                     reasoning.push(`📍 Located in ${venue.location || 'your area'} - convenient`);
                     fitScore += 2;
                 }
 
-                // Data completeness
                 if (!hasSufficientData) {
                     reasoning.push(`📋 Profile incomplete - contact for details`);
                 }
 
-                // Only include if fit score is reasonable or it's the only option
                 if (fitScore >= 0 || results.length < 3) {
                     results.push({
                         ...venue,
@@ -1904,13 +1918,11 @@
                 }
             });
 
-            // Sort by fit score (descending) then by data completeness
             results.sort((a, b) => {
                 if (b.fitScore !== a.fitScore) return b.fitScore - a.fitScore;
                 return b.dataScore - a.dataScore;
             });
 
-            // Return top 3 relevant matches
             return results.slice(0, 3);
         }
 
@@ -1939,7 +1951,6 @@
                 const reviews = provider.reviewsCount || 0;
                 const name = provider.name || 'Unnamed Provider';
 
-                // Check data completeness
                 const hasLocation = provider.location && provider.location.length > 0;
                 const hasServices = provider.services && provider.services.length > 0;
                 const hasPrice = provider.basePrice && provider.basePrice > 0;
@@ -1947,7 +1958,6 @@
                 const dataScore = (hasLocation ? 1 : 0) + (hasServices ? 1 : 0) + (hasPrice ? 1 : 0) + (hasRating ? 1 :
                     0);
 
-                // Check service match
                 const matchedServices = requiredServices.filter(s =>
                     services.some(ps => ps.toLowerCase().includes(s.toLowerCase()) ||
                         s.toLowerCase().includes(ps.toLowerCase()))
@@ -1982,7 +1992,6 @@
                     fitScore += 1;
                 }
 
-                // Price reasoning
                 if (hasPrice && budget > 0) {
                     const percent = (price / budget) * 100;
                     if (percent <= 20) {
@@ -1994,7 +2003,6 @@
                     }
                 }
 
-                // Rating reasoning
                 if (hasRating) {
                     if (rating >= 4) {
                         reasoning.push(`⭐ High rated (${rating.toFixed(1)}/5 from ${reviews} reviews)`);
@@ -2007,7 +2015,6 @@
                     reasoning.push(`⭐ New provider - no reviews yet`);
                 }
 
-                // Experience
                 if (provider.yearsExperience) {
                     if (provider.yearsExperience >= 5) {
                         reasoning.push(`🎯 ${provider.yearsExperience}+ years experience`);
@@ -2018,7 +2025,6 @@
                     }
                 }
 
-                // Location
                 if (isNearby) {
                     reasoning.push(`📍 Located in ${provider.location || 'your area'} - convenient`);
                     fitScore += 2;
@@ -2028,7 +2034,6 @@
                     reasoning.push(`📋 Profile incomplete - contact for details`);
                 }
 
-                // Only include if fit score is reasonable or it's the only option
                 if (fitScore >= 0 || results.length < 3) {
                     results.push({
                         ...provider,
@@ -2041,7 +2046,6 @@
                 }
             });
 
-            // Sort by fit score then data completeness
             results.sort((a, b) => {
                 if (b.fitScore !== a.fitScore) return b.fitScore - a.fitScore;
                 return b.dataScore - a.dataScore;
@@ -2051,45 +2055,7 @@
         }
 
         // ============================================================
-        //  GENERATE EXTERNAL SOURCE FALLBACKS
-        // ============================================================
-        function generateExternalSources(service, location) {
-            const sources = [];
-            const searchTerm = encodeURIComponent(`${service} ${location} Zimbabwe`);
-
-            sources.push({
-                name: 'Facebook Marketplace',
-                icon: 'fab fa-facebook',
-                url: `https://www.facebook.com/search/top?q=${searchTerm}`,
-                description: `Find ${service} listings on Facebook Marketplace in ${location}`
-            });
-
-            sources.push({
-                name: 'Instagram',
-                icon: 'fab fa-instagram',
-                url: `https://www.instagram.com/explore/tags/${encodeURIComponent(service.replace(/ /g, ''))}Zimbabwe/`,
-                description: `Search #${service.replace(/ /g, '')}Zimbabwe on Instagram`
-            });
-
-            sources.push({
-                name: 'Google Search',
-                icon: 'fab fa-google',
-                url: `https://www.google.com/search?q=${searchTerm}`,
-                description: `Search Google for "${service} in ${location}"`
-            });
-
-            sources.push({
-                name: 'TikTok',
-                icon: 'fab fa-tiktok',
-                url: `https://www.tiktok.com/search?q=${encodeURIComponent(service)}%20Zimbabwe`,
-                description: `Find ${service} on TikTok`
-            });
-
-            return sources.slice(0, 3);
-        }
-
-        // ============================================================
-        //  GENERATE VENDOR HTML - Professional
+        //  GENERATE VENDOR HTML
         // ============================================================
         function generateVendorHTML(vendors, type) {
             if (!vendors || vendors.length === 0) {
@@ -2117,7 +2083,6 @@
                 const reasoning = v.reasoning || ['Available for your event'];
                 const hasData = v.hasSufficientData !== undefined ? v.hasSufficientData : true;
 
-                // Determine border color
                 let borderColor = 'var(--mint)';
                 let fitLabel = 'Good Match';
                 if (!hasData) {
@@ -2174,7 +2139,7 @@
         }
 
         // ============================================================
-        //  OPEN CHAT FOR VENDOR - From discover page
+        //  OPEN CHAT FOR VENDOR
         // ============================================================
         async function openChatForVendor(vendorId) {
             if (!currentUser) {
@@ -2182,7 +2147,6 @@
                 return;
             }
 
-            // Find vendor in cached data
             let vendor = cachedVenues.find(v => v.id === vendorId);
             if (!vendor) {
                 vendor = cachedProviders.find(p => p.id === vendorId);
@@ -2383,7 +2347,6 @@
                 currentUser = user;
                 headerUserEmail.textContent = user.email || 'user@example.com';
 
-                // Load venues and providers in background
                 await Promise.all([fetchVenues(), fetchServiceProviders()]);
 
                 const userDoc = await db.collection('users').doc(user.uid).get();
@@ -2538,7 +2501,7 @@
         });
 
         // ============================================================
-        //  GENERATE BLUEPRINT
+        //  GENERATE BLUEPRINT — ENHANCED with all new sections
         // ============================================================
         async function generateBlueprint(isRegenerating) {
             formSection.style.display = 'none';
@@ -2553,7 +2516,6 @@
             const pkg = PACKAGES[userPackage] || PACKAGES.medium;
             const perPerson = (currentEventData.budget / Math.max(1, currentEventData.attendees)).toFixed(2);
 
-            // Get matched vendors
             loadingStatus.textContent = 'Finding the best venues and service providers...';
 
             const matchedVenues = matchVenues(
@@ -2570,92 +2532,153 @@
                 currentEventData.attendees
             );
 
-            // Generate vendor HTML
-            const venueHTML = matchedVenues.length > 0 ? generateVendorHTML(matchedVenues, 'Venue') :
-                `<div style="background: var(--grey-light); padding: 14px 18px; border-radius: var(--radius); border-left: 4px solid var(--slate); margin: 10px 0;">
-                    <p style="margin: 0; color: var(--text-secondary); font-weight: 600;">
-                        <i class="fas fa-info-circle"></i> No venues found in our database for your location.
-                    </p>
-                    <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                        Check external sources or contact Zone21 for personalized assistance.
-                    </p>
-                </div>`;
+            // Determine which services are missing
+            const allMatchedServices = new Set();
+            [...matchedVenues, ...matchedProviders].forEach(v => {
+                (v.services || []).forEach(s => allMatchedServices.add(s));
+                (v.amenities || []).forEach(s => allMatchedServices.add(s));
+            });
 
-            const providerHTML = matchedProviders.length > 0 ? generateVendorHTML(matchedProviders, 'Service Provider') :
-                `<div style="background: var(--grey-light); padding: 14px 18px; border-radius: var(--radius); border-left: 4px solid var(--slate); margin: 10px 0;">
-                    <p style="margin: 0; color: var(--text-secondary); font-weight: 600;">
-                        <i class="fas fa-info-circle"></i> No service providers found in our database for your location.
-                    </p>
-                    <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                        Check external sources or contact Zone21 for personalized assistance.
-                    </p>
-                </div>`;
-
-            // Generate external sources for missing services
-            let externalHTML = '';
             const missingServices = currentEventData.services.filter(s => {
-                const hasMatch = [...matchedVenues, ...matchedProviders].some(v =>
-                    (v.services || []).some(ps => ps.includes(s)) ||
-                    (v.amenities || []).some(a => a.includes(s))
+                const hasMatch = Array.from(allMatchedServices).some(ms =>
+                    ms.toLowerCase().includes(s.toLowerCase()) ||
+                    s.toLowerCase().includes(ms.toLowerCase())
                 );
                 return !hasMatch;
             });
 
-            if (missingServices.length > 0) {
-                externalHTML = `<h3>🔍 Find More Options Online</h3>`;
-                missingServices.slice(0, 3).forEach(service => {
-                    const sources = generateExternalSources(service, currentEventData.location);
-                    externalHTML += `
-                                <div class="external-source-card">
-                                    <div class="source-name"><i class="fas fa-globe"></i> Find "${service}"</div>
-                                    <div class="source-detail">We don't have "${service}" in our database yet. Check these sources:</div>
-                                    ${sources.map(s => `
-                                        <div style="margin: 4px 0;">
-                                            <i class="${s.icon}"></i>
-                                            <a href="${s.url}" target="_blank" class="source-link">${s.name}</a>
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);"> - ${s.description}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            `;
-                });
-            }
+            // Build vendor summary for the AI
+            const venueSummary = matchedVenues.map(v =>
+                `${v.name} (${v.location || 'location unknown'}) — ${v.basePrice ? '$' + v.basePrice : 'pricing TBD'} — ${v.capacity ? v.capacity + ' capacity' : 'capacity TBD'}`
+            ).join('; ') || 'No venues found in database.';
+
+            const providerSummary = matchedProviders.map(p =>
+                `${p.name} (${p.location || 'location unknown'}) — ${p.basePrice ? '$' + p.basePrice : 'pricing TBD'} — ${p.services ? p.services.slice(0,3).join(', ') : 'services TBD'}`
+            ).join('; ') || 'No providers found in database.';
 
             loadingStatus.textContent = 'Crafting your comprehensive blueprint with AI...';
 
-            const prompt = `You are ZONE21 ULTIMATE – a professional event planning advisor. Generate a comprehensive event blueprint.
+            // --- ENHANCED PROMPT with all new sections ---
+            const prompt = `You are ZONE21 ULTIMATE – a professional event planning advisor with deep expertise in event management, budget optimization, risk assessment, and vendor coordination. Generate a comprehensive, professional event blueprint.
 
 ## EVENT DETAILS
-- Event: ${currentEventData.name}
+- Event Name: ${currentEventData.name}
 - Location: ${currentEventData.location}
-- Type: ${currentEventData.type}
-- Budget: $${currentEventData.budget}
-- Attendees: ${currentEventData.attendees}
+- Event Type: ${currentEventData.type}
+- Total Budget: $${currentEventData.budget}
+- Expected Attendees: ${currentEventData.attendees}
+- Contact: ${currentEventData.contact}
 - Notes: ${currentEventData.notes}
 - Required Services: ${currentEventData.services.join(', ')}
 
-## DATA AVAILABILITY
-- Venues in Database: ${matchedVenues.length}
-- Providers in Database: ${matchedProviders.length}
-- Missing Services: ${missingServices.length > 0 ? missingServices.join(', ') : 'None'}
+## VENDOR DATA FROM OUR DATABASE
+- Matched Venues (${matchedVenues.length}): ${venueSummary}
+- Matched Providers (${matchedProviders.length}): ${providerSummary}
+- Missing Services (not in database): ${missingServices.length > 0 ? missingServices.join(', ') : 'None — all services available'}
 
-## RULES
-1. **ONLY recommend vendors with sufficient data** - If a vendor has incomplete data, note it but don't force the recommendation.
-2. **Use reasoning** - Explain capacity limits, budget fit, and service matches.
-3. **Zone21 Security & Management** - ALWAYS recommend for every event.
-4. **External sources** - When no matches exist, suggest Google, Facebook, Instagram, TikTok.
-5. **Clean professional format** - Use h1, h2, h3, ul, li, p.
+## YOUR TASK
+Generate a complete event blueprint in clean HTML with these sections in order:
 
-Generate a professional blueprint with:
-1. Executive Summary
-2. Budget Allocation (with reasoning)
-3. Venue Recommendations (if available)
-4. Service Provider Recommendations (if available)
-5. Timeline (30-day countdown)
-6. Risk Assessment
-7. Zone21 Recommendations
+### 1. EXECUTIVE SUMMARY
+- Brief overview of the event
+- Key highlights and what makes this event unique
+- Overall feasibility score (Out of 10)
 
-Return ONLY clean HTML.`;
+### 2. EVENT ANALYSIS & TIPS
+- **Setup Requirements**: List what the organizer needs to arrange (tables, chairs, power, lighting, access points, registration desk, signage, restrooms, etc.)
+- **Event Style & Theme**: Suggest appropriate style based on event type (formal, semi-formal, casual, traditional, modern, etc.)
+- **Dress Code**: Recommend dress code for guests and staff based on event type
+- **Decor Type**: Suggest decor styles (minimalist, elegant, rustic, glamorous, traditional, etc.)
+- **Event Colors**: Recommend color palettes based on event type and season
+
+### 3. BUDGET ANALYSIS (USE CSS CLASSES)
+Analyze the budget and determine if it's:
+- **Sufficient** → use class="budget-success" — Budget comfortably covers all needs with room for extras
+- **Tight** → use class="budget-neutral" — Budget requires careful management and prioritization
+- **Insufficient** → use class="budget-warning" — Budget is too low for the event type; provide urgent recommendations
+
+Include:
+- Budget breakdown by category (venue, catering, entertainment, decor, staff, etc.) as a table or list
+- Cost-cutting tips (DIY decor, off-peak dates, package deals)
+- What to prioritize (must-have services vs. nice-to-have)
+- Negotiation strategies
+- Alternative options (smaller venue, limited menu, shorter duration)
+
+### 4. VENUE RECOMMENDATIONS
+List the matched venues from the data above. For each, include:
+- Name, location, capacity, price
+- Reasoning badges (✅ capacity, 💰 budget fit, 📍 location, ⚠️ warnings)
+- Contact/booking info
+
+### 5. SERVICE PROVIDER RECOMMENDATIONS
+List the matched providers from the data above. For each, include:
+- Name, location, services offered, price
+- Reasoning badges (✅ service match, 💰 pricing, ⭐ rating, 📍 location)
+- Contact/booking info
+
+### 6. EXTERNAL SOURCE RECOMMENDATIONS — IMPORTANT FORMAT
+ONLY for services listed in "Missing Services" above. For EACH missing service, use this EXACT format:
+
+<div class="external-source-card">
+  <div class="source-text">
+    "We don't have a [service name] in our database yet. However, based on my research, I recommend <strong>[realistic provider name]</strong> in <strong>[location]</strong> — they offer high-quality [service] at competitive rates. To contact them or get more details, simply reach out to Zone21 Services and they will handle the enquiry and booking for you."
+  </div>
+  <div class="zone21-contact">
+    <a href="tel:+263789912268"><i class="fas fa-phone"></i> Call: +263789912268</a>
+    <a href="https://wa.me/263789912268" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp: +263789912268</a>
+    <a href="mailto:zone21services@gmail.com"><i class="fas fa-envelope"></i> Email: zone21services@gmail.com</a>
+  </div>
+</div>
+
+If no missing services, skip this section or write a brief note that all services are available.
+
+### 7. TIMELINE (30-Day Countdown)
+- Month Before: Key planning milestones
+- 2 Weeks Out: Confirmations and finalizations
+- 1 Week Out: Final checks and vendor coordination
+- Day Before: Setup and rehearsals
+- Event Day: Timeline from setup to breakdown
+
+### 8. RISK ANALYSIS & SAFETY
+- **Event Risks**: Potential risks (weather, no-shows, technical failures, health emergencies, security threats)
+- **Public Safety Tips**: Crowd management, emergency exits, first aid stations, fire safety
+- **Police Clearances**: When required and how to obtain (for large events, public gatherings, liquor licenses)
+- **Event Security**: Security personnel needs, access control, bag checks, perimeter security
+- **Backup Power**: Generator requirements, UPS for critical equipment (sound, lighting, registration)
+- **Risk Mitigation**: Actionable steps to prevent or handle each risk
+
+### 9. SUCCESS FACTORS CHECKLIST
+Create a checklist of important setup items:
+- Venue setup checklist (tables, chairs, stage, signage, registration desk, restrooms)
+- Vendor arrival times (with buffer)
+- Sound check requirements
+- Lighting setup and testing
+- Catering setup (food stations, serving areas, dietary considerations)
+- Signage placement (directions, sponsors, schedules)
+- Emergency contacts (medical, security, fire, venue manager)
+
+### 10. MARKETING STRATEGIES
+Tailor to the event type:
+- **For Profit Events**: Ticket sales strategy, sponsorship opportunities, early bird pricing, referral programs, social media campaigns
+- **For Non-Profit Events**: Donation drives, awareness campaigns, volunteer recruitment, community partnerships, grant applications
+- **Promotion Channels**: Social media (Instagram, Facebook, TikTok), email marketing, local media (radio, newspapers), flyers, word-of-mouth, community boards
+
+### 11. ZONE21 RECOMMENDATIONS
+- Always recommend Zone21 Security & Event Management
+- Include contact details
+- Suggest how Zone21 can help with coordination, vendor sourcing, and on-the-day management
+
+## FORMAT RULES
+- Use clean, semantic HTML with h1, h2, h3, ul, li, p, table
+- Use the budget CSS classes: budget-success, budget-neutral, budget-warning
+- Use reasoning badges (success, warning, info) for vendor recommendations
+- Keep the design professional, readable, and aligned with the corporate style
+- DO NOT use markdown — output pure HTML
+- DO NOT include external source links as bullet points — use the external-source-card format above
+- Include the Zone21 contact block in every external source card
+- Be specific, actionable, and practical
+
+Generate the complete blueprint now.`;
 
             try {
                 loadingStatus.textContent = 'Generating your comprehensive blueprint...';
@@ -2669,7 +2692,7 @@ Return ONLY clean HTML.`;
                     body: JSON.stringify({
                         model: DEEPSEEK_MODEL,
                         messages: [{ role: "user", content: prompt }],
-                        max_tokens: 8192,
+                        max_tokens: 12288,
                         temperature: 0.6,
                         top_p: 0.95
                     })
@@ -2686,23 +2709,56 @@ Return ONLY clean HTML.`;
                     .replace(/^```/i, '')
                     .replace(/```$/i, '');
 
-                // Inject vendor sections
-                const vendorSection = `
-                            <h2>🏟️ Recommended Venues</h2>
+                // --- Inject vendor lists into the AI output ---
+                // Find where the venue section is and replace it with our vendor HTML
+                const venueHTML = generateVendorHTML(matchedVenues, 'Venue');
+                const providerHTML = generateVendorHTML(matchedProviders, 'Service Provider');
+
+                // Replace the venue section content
+                const venueSectionRegex = /<h2>.*?Venue.*?<\/h2>.*?(?=<h2>|$)/is;
+                const providerSectionRegex = /<h2>.*?Service Provider.*?<\/h2>.*?(?=<h2>|$)/is;
+
+                // Build the vendor sections
+                const vendorSections = `
+                            <h2>🏟️ Venue Recommendations</h2>
                             ${venueHTML}
-                            <h2>🎯 Recommended Service Providers</h2>
+
+                            <h2>🎯 Service Provider Recommendations</h2>
                             ${providerHTML}
-                            ${externalHTML}
                         `;
 
-                htmlOutput = htmlOutput.replace(/<h2>.*?Venue.*?<\/h2>.*?(?=<h2>|$)/is, vendorSection);
+                // Try to replace the venue section
+                if (htmlOutput.match(venueSectionRegex)) {
+                    // Find the venue section and replace it with our vendor sections
+                    const beforeVenue = htmlOutput.split(/<h2>.*?Venue.*?<\/h2>/i)[0];
+                    const afterVenue = htmlOutput.split(/<h2>.*?Venue.*?<\/h2>/i).slice(1).join('');
+                    // Find where the provider section starts in the afterVenue
+                    const providerMatch = afterVenue.match(/<h2>.*?Service Provider.*?<\/h2>/i);
+                    if (providerMatch) {
+                        const providerIndex = afterVenue.indexOf(providerMatch[0]);
+                        const afterProvider = afterVenue.slice(providerIndex).replace(/<h2>.*?Service Provider.*?<\/h2>.*?(?=<h2>|$)/is, '');
+                        htmlOutput = beforeVenue + vendorSections + afterProvider;
+                    } else {
+                        htmlOutput = beforeVenue + vendorSections + afterVenue;
+                    }
+                } else {
+                    // If no venue section, append at the end of the budget section or after budget
+                    const budgetEnd = htmlOutput.indexOf('</div>', htmlOutput.indexOf('budget-'));
+                    if (budgetEnd > 0) {
+                        const before = htmlOutput.slice(0, budgetEnd + 6);
+                        const after = htmlOutput.slice(budgetEnd + 6);
+                        htmlOutput = before + vendorSections + after;
+                    } else {
+                        htmlOutput = htmlOutput + vendorSections;
+                    }
+                }
 
-                // Zone21 Security
+                // --- Ensure Zone21 Security is recommended ---
                 if (!htmlOutput.includes('Zone21 Security')) {
-                    htmlOutput += `
+                    const securityBlock = `
                                 <div style="background: var(--navy); color: white; padding: 16px 20px; border-radius: var(--radius); margin: 20px 0;">
                                     <h3 style="color: var(--mint-light); margin: 0 0 10px 0;">🔒 Zone21 Security & Event Management</h3>
-                                    <p style="margin: 5px 0; color: rgba(255,255,255,0.8);">Professional security and event management for all events.</p>
+                                    <p style="margin: 5px 0; color: rgba(255,255,255,0.8);">Professional security and event management for all events. Our trained personnel ensure safety, crowd control, and seamless coordination.</p>
                                     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
                                         <a href="tel:+263789912268" style="color: var(--mint-light); text-decoration: none;"><i class="fas fa-phone"></i> +263789912268</a>
                                         <a href="https://wa.me/263789912268" target="_blank" style="color: #25D366; text-decoration: none;"><i class="fab fa-whatsapp"></i> WhatsApp</a>
@@ -2710,24 +2766,32 @@ Return ONLY clean HTML.`;
                                     </div>
                                 </div>
                             `;
+                    // Insert before the Zone21 Recommendations section or at the end
+                    if (htmlOutput.includes('Zone21 Recommendations')) {
+                        htmlOutput = htmlOutput.replace(/<h2>.*?Zone21 Recommendations.*?<\/h2>/i,
+                            securityBlock + '\n<h2>🔐 Zone21 Recommendations</h2>');
+                    } else {
+                        htmlOutput = htmlOutput + securityBlock;
+                    }
                 }
 
-                // Zone21 Help
-                const help = `
+                // --- Zone21 Help section ---
+                const helpSection = `
                             <div class="zone21-help">
                                 <h2>Need Expert Help? Let Zone21 Take Over</h2>
-                                <p>Our team handles everything — vendor sourcing, venue booking, entertainment, and on-the-day coordination.</p>
+                                <p>Our team handles everything — vendor sourcing, venue booking, entertainment, and on-the-day coordination. We turn your vision into reality.</p>
                                 <div class="help-actions">
                                     <a href="mailto:${ZONE21.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a>
                                     <a href="https://wa.me/${ZONE21.whatsapp.replace('+', '')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a>
                                     <a href="tel:${ZONE21.phone}" class="help-btn"><i class="fas fa-phone"></i> Call</a>
                                     <a href="${ZONE21.instagram}" target="_blank" class="help-btn"><i class="fab fa-instagram"></i> Instagram</a>
+                                    <a href="${ZONE21.facebook}" target="_blank" class="help-btn"><i class="fab fa-facebook"></i> Facebook</a>
                                 </div>
                             </div>
                         `;
 
                 if (!htmlOutput.includes('zone21-help')) {
-                    htmlOutput = htmlOutput.trim() + help;
+                    htmlOutput = htmlOutput.trim() + helpSection;
                 }
 
                 lastGeneratedHTML = htmlOutput;
@@ -2869,4 +2933,4 @@ Return ONLY clean HTML.`;
     </script>
 
 </body>
-</html>
+                                </html>

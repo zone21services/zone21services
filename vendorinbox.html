@@ -1603,7 +1603,7 @@
         };
 
         // ============================================================
-        // FIXED: Correct role names and redirects for VENDOR
+        // CORRECTED: role mapping and redirects
         // ============================================================
         onAuthStateChanged(window.auth, async (user) => {
             if (user) {
@@ -1629,7 +1629,7 @@
                     uid: user.uid,
                     name,
                     email: user.email,
-                    avatarUrl: data.avatarUrl || null,
+                    avatar: data.avatar || data.avatarUrl || null, // store avatar
                     role: 'service_provider'
                 };
                 window.setupRealtimeInbox();
@@ -1796,17 +1796,20 @@
             } catch (e) { /* ignore */ }
         }
 
+        // ── FIXED: getUserData now returns both avatar and avatarSrc ──
         async function getUserData(uid) {
             if (window.userCache[uid]) return window.userCache[uid];
             try {
                 const snap = await window.fb.getDoc(window.fb.doc(window.db, 'users', uid));
                 if (snap.exists()) {
                     const data = { id: uid, ...snap.data() };
+                    // Compute avatar source: use 'avatar' (base64) or fallback to 'avatarUrl'
+                    data.avatarSrc = data.avatar || data.avatarUrl || null;
                     window.userCache[uid] = data;
                     return data;
                 }
             } catch (e) { /* ignore */ }
-            window.userCache[uid] = { id: uid, name: 'Unknown', avatarUrl: null };
+            window.userCache[uid] = { id: uid, name: 'Unknown', avatarSrc: null };
             return window.userCache[uid];
         }
 
@@ -1944,9 +1947,9 @@
             threadsToRender.forEach((thread) => {
                 const otherUid = thread.participants.find(uid => uid !== window.currentUser.uid);
                 const otherUser = otherUid ? (window.userCache[otherUid] || { name: 'Unknown',
-                    avatarUrl: null }) : { name: 'Unknown', avatarUrl: null };
+                    avatarSrc: null }) : { name: 'Unknown', avatarSrc: null };
                 const organizerName = otherUser.name || 'Unknown Organizer';
-                const organizerAvatar = otherUser.avatarUrl || null;
+                const organizerAvatar = otherUser.avatarSrc || null; // use avatarSrc
                 const jobTitle = thread.jobTitle || 'Event Organizer';
                 const lastMsgPreview = thread.lastMessageText || 'Start a conversation';
                 const updatedAt = thread.updatedAt || null;
@@ -2056,7 +2059,7 @@
             if (otherUid) {
                 const userData = await getUserData(otherUid);
                 window.activeChatOtherData = userData;
-                otherAvatar = userData.avatarUrl || null;
+                otherAvatar = userData.avatarSrc || null; // use avatarSrc
                 const roleLabel = userData.role === 'organizer' ? 'Organizer' : 'User';
                 document.getElementById('chat-subtitle').textContent = jobTitle || roleLabel;
             }
@@ -2327,9 +2330,7 @@
             if (e.key === 'Escape' && profileModal.classList.contains('active')) closeProfileModal();
         });
 
-        // ============================================================
-        // FIXED: ENHANCED SENSITIVE FILTER – hides invoices, payments, etc.
-        // ============================================================
+        // ── SENSITIVE FILTER ──
         const SENSITIVE_KEYS = [
             'uid', 'id', 'role', 'avatarurl', 'videourl', 'name', 'bio',
             'createdat', 'updatedat', 'password', 'email', 'phone', 'telephone', 'mobile',
@@ -2359,9 +2360,7 @@
             return false;
         }
 
-        // ============================================================
-        // RENDER PROFILE – public view (Message button removed)
-        // ============================================================
+        // ── FIXED: PROFILE MODAL uses avatarSrc ──
         window.viewProfileByUid = async function(uid) {
             if (!uid) return window.showToast('User ID not found', 'error');
             try {
@@ -2378,11 +2377,11 @@
         function renderProfileModal(user) {
             const modalBody = document.getElementById('profileModalBody');
 
-            // --- Build profile HTML ---
             const name = user.name || 'Organizer';
             const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-            const avatarHtml = user.avatarUrl ?
-                `<img src="${user.avatarUrl}" alt="Avatar">` :
+            const avatarSrc = user.avatarSrc || null;
+            const avatarHtml = avatarSrc ?
+                `<img src="${avatarSrc}" alt="Avatar">` :
                 initials;
 
             const verifiedBadge = user.verified ?
@@ -2430,13 +2429,13 @@
             let specialtiesHtml = '';
             if (specialties.length > 0) {
                 specialtiesHtml = `
-                            <div class="specialties-section">
-                                <h4><i class="fas fa-tags"></i> Services &amp; Specialties</h4>
-                                <div class="tags">
-                                    ${specialties.map(t => `<span>${t}</span>`).join('')}
-                                </div>
-                            </div>
-                        `;
+                    <div class="specialties-section">
+                        <h4><i class="fas fa-tags"></i> Services &amp; Specialties</h4>
+                        <div class="tags">
+                            ${specialties.map(t => `<span>${t}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
             }
 
             // Gallery
@@ -2446,45 +2445,45 @@
                 const validImages = images.filter(url => url && typeof url === 'string' && url.startsWith('data:'));
                 if (validImages.length > 0) {
                     galleryHtml = `
-                                <div class="gallery-section">
-                                    <h4><i class="fas fa-images"></i> Photos</h4>
-                                    <div class="gallery-grid">
-                                        ${validImages.map((url, i) => `<div class="gallery-item"><img src="${url}" alt="Gallery ${i+1}" loading="lazy"></div>`).join('')}
-                                    </div>
-                                </div>
-                            `;
+                        <div class="gallery-section">
+                            <h4><i class="fas fa-images"></i> Photos</h4>
+                            <div class="gallery-grid">
+                                ${validImages.map((url, i) => `<div class="gallery-item"><img src="${url}" alt="Gallery ${i+1}" loading="lazy"></div>`).join('')}
+                            </div>
+                        </div>
+                    `;
                 }
             }
 
             // Actions — Message button removed
             const actionsHtml = `
-                        <div class="modal-actions">
-                            <a href="organizer-profile.html?id=${user.id}" class="btn btn-primary" target="_blank">
-                                <i class="fas fa-external-link-alt"></i> Full Profile
-                            </a>
-                            <button class="btn btn-outline" onclick="copyProfileLink('${user.id}')">
-                                <i class="fas fa-share-alt"></i> Share
-                            </button>
-                        </div>
-                    `;
+                <div class="modal-actions">
+                    <a href="organizer-profile.html?id=${user.id}" class="btn btn-primary" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> Full Profile
+                    </a>
+                    <button class="btn btn-outline" onclick="copyProfileLink('${user.id}')">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
+                </div>
+            `;
 
             modalBody.innerHTML = `
-                        <div class="profile-cover"></div>
-                        <div class="profile-avatar">${avatarHtml}</div>
-                        <div class="profile-info">
-                            <div class="name">
-                                ${name}
-                                ${verifiedBadge}
-                            </div>
-                            <span class="main-service-badge"><i class="fas fa-calendar-check"></i> ${mainService}</span>
-                            ${metaHtml ? `<div class="profile-meta">${metaHtml}</div>` : ''}
-                            ${linksHtml ? `<div class="profile-links">${linksHtml}</div>` : ''}
-                            <div class="about-text">${about}</div>
-                            ${specialtiesHtml}
-                            ${galleryHtml}
-                            ${actionsHtml}
-                        </div>
-                    `;
+                <div class="profile-cover"></div>
+                <div class="profile-avatar">${avatarHtml}</div>
+                <div class="profile-info">
+                    <div class="name">
+                        ${name}
+                        ${verifiedBadge}
+                    </div>
+                    <span class="main-service-badge"><i class="fas fa-calendar-check"></i> ${mainService}</span>
+                    ${metaHtml ? `<div class="profile-meta">${metaHtml}</div>` : ''}
+                    ${linksHtml ? `<div class="profile-links">${linksHtml}</div>` : ''}
+                    <div class="about-text">${about}</div>
+                    ${specialtiesHtml}
+                    ${galleryHtml}
+                    ${actionsHtml}
+                </div>
+            `;
         }
 
         // ============================================================
@@ -2546,7 +2545,7 @@
         window.closeProfileModal = closeProfileModal;
         window.copyProfileLink = copyProfileLink;
 
-        console.log('✅ Vendor Inbox loaded with rich public profile modal (Message button removed).');
+        console.log('✅ Vendor Inbox fixed: profile pictures now show in chat lists, headers, and profile modal.');
     </script>
 </body>
 </html>

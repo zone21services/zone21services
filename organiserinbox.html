@@ -2014,7 +2014,7 @@
                     uid: user.uid,
                     name,
                     email: user.email,
-                    avatar: data.avatar || data.avatarUrl || null, // store avatar
+                    avatar: data.avatar || data.avatarUrl || null,
                     role: 'organizer'
                 };
 
@@ -2106,21 +2106,44 @@
             } catch (e) { /* ignore */ }
         }
 
-        // ── FIXED: getUserData now computes avatarSrc ──
+        // ── FIXED: getUserData now fetches from both users and serviceProviders for avatar ──
         async function getUserData(uid) {
             if (window.userCache[uid]) return window.userCache[uid];
+
+            let userData = { id: uid, name: 'Unknown', avatarSrc: null, role: '' };
             try {
-                const snap = await getDoc(doc(window.db, 'users', uid));
-                if (snap.exists()) {
-                    const data = { id: uid, ...snap.data() };
-                    // Compute avatar source: use 'avatar' (base64) or fallback to 'avatarUrl'
-                    data.avatarSrc = data.avatar || data.avatarUrl || null;
-                    window.userCache[uid] = data;
-                    return data;
+                const userSnap = await getDoc(doc(window.db, 'users', uid));
+                if (userSnap.exists()) {
+                    const data = userSnap.data();
+                    userData = {
+                        id: uid,
+                        name: data.name || 'Unknown',
+                        avatarSrc: data.avatar || data.avatarUrl || null,
+                        role: data.role || '',
+                        ...data
+                    };
                 }
             } catch (e) { /* ignore */ }
-            window.userCache[uid] = { id: uid, name: 'Unknown', avatarSrc: null };
-            return window.userCache[uid];
+
+            // If avatar is still missing, try to fetch from serviceProviders
+            if (!userData.avatarSrc) {
+                try {
+                    const providerSnap = await getDoc(doc(window.db, 'serviceProviders', uid));
+                    if (providerSnap.exists()) {
+                        const data = providerSnap.data();
+                        if (data.avatar) {
+                            userData.avatarSrc = data.avatar;
+                        }
+                        // If name is still 'Unknown', use provider name
+                        if (userData.name === 'Unknown' && data.name) {
+                            userData.name = data.name;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            window.userCache[uid] = userData;
+            return userData;
         }
 
         async function getProviderData(uid) {
@@ -2255,7 +2278,7 @@
                 const otherUser = otherUid ? (window.userCache[otherUid] || { name: 'Unknown',
                     avatarSrc: null }) : { name: 'Unknown', avatarSrc: null };
                 const providerName = otherUser.name || 'Unknown Provider';
-                const providerAvatar = otherUser.avatarSrc || null; // use avatarSrc
+                const providerAvatar = otherUser.avatarSrc || null;
                 const jobTitle = thread.jobTitle || 'Service Provider';
                 const lastMsgPreview = thread.lastMessageText || 'Start a conversation';
                 const updatedAt = thread.updatedAt || null;
@@ -2332,10 +2355,32 @@
             const statusDot = document.getElementById('chat-status-dot');
             const existingImg = avatarContainer.querySelector('img');
             if (existingImg) existingImg.remove();
-            const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() ||
-            '?';
-            avatarInitialsSpan.style.display = 'inline';
-            avatarInitialsSpan.textContent = initials;
+
+            // Try to get avatar from cache
+            if (otherUid && window.userCache[otherUid]) {
+                const user = window.userCache[otherUid];
+                if (user.avatarSrc) {
+                    avatarInitialsSpan.style.display = 'none';
+                    const img = document.createElement('img');
+                    img.src = user.avatarSrc;
+                    img.alt = providerName;
+                    img.onerror = function() {
+                        this.style.display = 'none';
+                        avatarInitialsSpan.style.display = 'inline';
+                        avatarInitialsSpan.textContent = initials;
+                    };
+                    avatarContainer.appendChild(img);
+                } else {
+                    avatarInitialsSpan.style.display = 'inline';
+                    avatarInitialsSpan.textContent = (providerName || '?').split(' ').map(n => n[0]).join('')
+                        .substring(0, 2).toUpperCase() || '?';
+                }
+            } else {
+                const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() ||
+                '?';
+                avatarInitialsSpan.style.display = 'inline';
+                avatarInitialsSpan.textContent = initials;
+            }
             statusDot.classList.add('online');
 
             document.getElementById('chat-lock-overlay').classList.add('active');
@@ -2415,7 +2460,7 @@
             if (otherUid) {
                 const userData = await getUserData(otherUid);
                 window.activeChatOtherData = userData;
-                otherAvatar = userData.avatarSrc || null; // use avatarSrc
+                otherAvatar = userData.avatarSrc || null;
                 const roleLabel = userData.role === 'service_provider' ? 'Provider' : 'Organizer';
                 document.getElementById('chat-subtitle').textContent = jobTitle || roleLabel;
             }
@@ -2695,14 +2740,16 @@
         window.viewProfileByUid = async function(uid) {
             if (!uid) return window.showToast('User ID not found', 'error');
             try {
+                // First try to get provider data (which includes avatar from serviceProviders)
                 let provider = await getProviderData(uid);
                 if (!provider) {
+                    // Fallback: use user data
                     const user = await getUserData(uid);
                     if (!user || !user.name) return window.showToast('Profile not found', 'error');
                     provider = {
                         id: uid,
                         name: user.name,
-                        avatar: user.avatarSrc || null, // use avatarSrc
+                        avatar: user.avatarSrc || null,
                         category: user.serviceType || 'Service Provider',
                         services: user.specialties || user.services || [],
                         description: user.bio || user.about || 'No description provided.',
@@ -3061,7 +3108,7 @@
         window.closeImageView = window.closeImageView;
         window.viewActiveProfile = window.viewActiveProfile;
 
-        console.log('✅ Organizer Inbox – avatar fixed: uses avatar (base64) with fallback to avatarUrl.');
+        console.log('✅ Organizer Inbox – avatar fixed: fetches from users and serviceProviders.');
     </script>
 
     <!-- ── IMAGE VIEW MODAL ── -->

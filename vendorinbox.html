@@ -1286,15 +1286,6 @@
             background: #14303f;
             box-shadow: 0 4px 16px rgba(10, 31, 46, 0.25);
         }
-        .profile-modal-body .modal-actions .btn-message {
-            background: var(--lime);
-            color: var(--navy);
-        }
-        .profile-modal-body .modal-actions .btn-message:hover {
-            background: var(--lime-bright);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(192, 200, 0, 0.30);
-        }
         .profile-modal-body .modal-actions .btn-outline {
             background: transparent;
             border: 1.5px solid var(--border-light);
@@ -2369,7 +2360,7 @@
         }
 
         // ============================================================
-        // FIXED: RENDER PROFILE – public view (same as discover organizers)
+        // RENDER PROFILE – public view (Message button removed)
         // ============================================================
         window.viewProfileByUid = async function(uid) {
             if (!uid) return window.showToast('User ID not found', 'error');
@@ -2465,12 +2456,9 @@
                 }
             }
 
-            // Actions
+            // Actions — Message button removed
             const actionsHtml = `
                         <div class="modal-actions">
-                            <button class="btn btn-message" onclick="closeProfileModal(); openChatForOrganizer('${user.id}')">
-                                <i class="fas fa-paper-plane"></i> Message
-                            </button>
                             <a href="organizer-profile.html?id=${user.id}" class="btn btn-primary" target="_blank">
                                 <i class="fas fa-external-link-alt"></i> Full Profile
                             </a>
@@ -2497,135 +2485,6 @@
                             ${actionsHtml}
                         </div>
                     `;
-        }
-
-        // ============================================================
-        //  CHAT FOR ORGANIZER (from discover organizers)
-        // ============================================================
-        let modalOrganizerId = null;
-
-        window.openChatForOrganizer = function(organizerId) {
-            if (!window.currentUser) {
-                window.showToast('Please sign in first', 'error');
-                return;
-            }
-
-            // Find organizer in cache
-            let organizer = null;
-            for (const uid in window.userCache) {
-                if (uid === organizerId) {
-                    organizer = window.userCache[uid];
-                    break;
-                }
-            }
-            if (!organizer) {
-                window.showToast('Organizer not found', 'error');
-                return;
-            }
-
-            modalOrganizerId = organizerId;
-            const chatOtherUid = organizer.uid || organizer.id;
-            const chatOtherName = organizer.name || 'Organizer';
-            const chatOtherAvatar = organizer.avatarUrl || null;
-
-            // Populate chat header
-            document.getElementById('chat-title').textContent = chatOtherName;
-            document.getElementById('chat-subtitle').textContent = organizer.company || organizer.organisation ||
-                'Event Organizer';
-
-            const avatarContainer = document.getElementById('chat-avatar');
-            const avatarInitialsSpan = document.getElementById('chat-avatar-initials');
-            const statusDot = document.getElementById('chat-status-dot');
-            const existingImg = avatarContainer.querySelector('img');
-            if (existingImg) existingImg.remove();
-
-            const initials = chatOtherName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase() ||
-                '?';
-            if (chatOtherAvatar) {
-                avatarInitialsSpan.style.display = 'none';
-                const img = document.createElement('img');
-                img.src = chatOtherAvatar;
-                img.alt = chatOtherName;
-                img.onerror = function() {
-                    this.style.display = 'none';
-                    avatarInitialsSpan.style.display = 'inline';
-                    avatarInitialsSpan.textContent = initials;
-                };
-                avatarContainer.appendChild(img);
-                statusDot.classList.add('online');
-            } else {
-                avatarInitialsSpan.style.display = 'inline';
-                avatarInitialsSpan.textContent = initials;
-                statusDot.classList.add('online');
-            }
-
-            // Show chat UI
-            const rightPanel = document.getElementById('right-panel');
-            const emptyState = document.getElementById('empty-chat-state');
-            const chatContent = document.getElementById('chat-content');
-            rightPanel.classList.remove('empty');
-            emptyState.classList.add('hidden');
-            chatContent.classList.remove('hidden');
-            chatContent.classList.add('visible');
-
-            if (window.innerWidth <= 860) {
-                document.getElementById('left-panel').classList.add('hidden-on-mobile');
-                rightPanel.classList.remove('hidden-on-mobile');
-            }
-
-            // Find or create thread
-            const msgContainer = document.getElementById('chat-history');
-            msgContainer.innerHTML =
-                '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-regular fa-comment-dots"></i> Loading conversation…</div>';
-
-            findOrCreateThread(organizer);
-        };
-
-        async function findOrCreateThread(organizer) {
-            if (!window.currentUser) return;
-
-            try {
-                const threadsRef = window.fb.collection(window.db, 'threads');
-                const q = window.fb.query(
-                    threadsRef,
-                    window.fb.where('participants', 'array-contains', window.currentUser.uid)
-                );
-                const snap = await window.fb.getDocs(q);
-                let threadId = null;
-
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    if (data.participants && data.participants.includes(organizer.uid || organizer.id)) {
-                        threadId = doc.id;
-                    }
-                });
-
-                if (threadId) {
-                    // Open the existing thread
-                    window.openChat(threadId, organizer.name || 'Organizer', organizer.company || organizer
-                        .organisation || 'Event Organizer', organizer.uid || organizer.id);
-                } else {
-                    // Create new thread
-                    const newThread = {
-                        participants: [window.currentUser.uid, organizer.uid || organizer.id],
-                        jobTitle: organizer.company || organizer.organisation || 'Event Organizer',
-                        lastMessageText: 'Start your conversation',
-                        createdAt: window.fb.serverTimestamp(),
-                        updatedAt: window.fb.serverTimestamp()
-                    };
-                    const docRef = await window.fb.addDoc(threadsRef, newThread);
-                    threadId = docRef.id;
-                    // Open the new thread
-                    window.openChat(threadId, organizer.name || 'Organizer', organizer.company || organizer
-                        .organisation || 'Event Organizer', organizer.uid || organizer.id);
-                }
-            } catch (err) {
-                console.error('Error finding/creating thread:', err);
-                window.showToast('Failed to start conversation', 'error');
-                const msgContainer = document.getElementById('chat-history');
-                msgContainer.innerHTML =
-                    '<div style="text-align:center;padding:20px;color:var(--pink);"><i class="fas fa-exclamation-circle"></i> Could not load conversation.</div>';
-            }
         }
 
         // ============================================================
@@ -2683,12 +2542,11 @@
         handleResize();
 
         // Expose functions globally for inline onclick handlers
-        window.openChatForOrganizer = window.openChatForOrganizer;
+        window.viewProfileByUid = window.viewProfileByUid;
         window.closeProfileModal = closeProfileModal;
         window.copyProfileLink = copyProfileLink;
-        window.viewProfileByUid = window.viewProfileByUid;
 
-        console.log('✅ Vendor Inbox loaded with rich public profile modal.');
+        console.log('✅ Vendor Inbox loaded with rich public profile modal (Message button removed).');
     </script>
 </body>
 </html>

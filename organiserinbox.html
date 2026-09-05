@@ -1419,6 +1419,73 @@
             background: rgba(10, 31, 46, 0.02);
         }
 
+        /* ── IMAGE VIEW MODAL (CLEAN) ── */
+        .image-view-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 37, 64, 0.92);
+            z-index: 10001;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(12px);
+            cursor: pointer;
+        }
+        .image-view-modal.active {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .image-view-content {
+            position: relative;
+            max-width: 92vw;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: default;
+        }
+        .image-view-img {
+            max-width: 100%;
+            max-height: 75vh;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.06);
+        }
+        .image-view-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+        .image-view-close-btn:hover {
+            background: var(--pink);
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 860px) {
             .app-wrapper {
@@ -1765,31 +1832,46 @@
         };
 
         // ============================================================
-        // AUTH & SUBSCRIPTION CHECK (with fallback so inbox never breaks)
+        // REAL-TIME SUBSCRIPTION LISTENER
         // ============================================================
-        window.hasActiveSubscription = false;
-        window.subscriptionChecked = false;
+        let unsubscribeSubscription = null;
 
-        async function checkSubscriptionStatus(userId) {
-            try {
-                const subsQuery = query(
-                    window.fb.collection(window.db, "subscriptions"),
-                    window.fb.where("userId", "==", userId),
-                    window.fb.where("status", "in", ["active", "approved"])
-                );
-                const snapshot = await window.fb.getDocs(subsQuery);
+        function listenToSubscriptionStatus(userId) {
+            if (unsubscribeSubscription) {
+                unsubscribeSubscription();
+                unsubscribeSubscription = null;
+            }
+
+            const q = query(
+                collection(window.db, "subscriptions"),
+                where("userId", "==", userId),
+                where("status", "in", ["active", "approved"])
+            );
+
+            unsubscribeSubscription = onSnapshot(q, (snapshot) => {
                 window.hasActiveSubscription = !snapshot.empty;
                 window.subscriptionChecked = true;
-                return window.hasActiveSubscription;
-            } catch (err) {
-                console.warn("Subscription check error (fallback to unlocked):", err);
+                updateLockUI();
+                // Re-render threads to update lock icons and click handlers
+                if (window.allThreads.length > 0) {
+                    window.renderThreads(window.allThreads);
+                }
+                console.log("🔓 Subscription status updated:", window.hasActiveSubscription ? "Unlocked" : "Locked");
+            }, (error) => {
+                console.warn("Subscription listener error (fallback to unlocked):", error);
                 // If rules block or any error, default to unlocked so inbox still works
                 window.hasActiveSubscription = true;
                 window.subscriptionChecked = true;
-                return true;
-            }
+                updateLockUI();
+                if (window.allThreads.length > 0) {
+                    window.renderThreads(window.allThreads);
+                }
+            });
         }
 
+        // ============================================================
+        // AUTH
+        // ============================================================
         onAuthStateChanged(window.auth, async (user) => {
             if (user) {
                 const docRef = doc(window.db, "users", user.uid);
@@ -1818,10 +1900,10 @@
                     role: 'organizer'
                 };
 
-                // Check subscription (with fallback)
-                await checkSubscriptionStatus(user.uid);
-                updateLockUI();
+                // Start real-time subscription listener
+                listenToSubscriptionStatus(user.uid);
 
+                // Setup inbox
                 window.setupRealtimeInbox();
             } else {
                 window.location.href = 'index.html';
@@ -1832,16 +1914,23 @@
         function updateLockUI() {
             const lockBanner = document.getElementById('lock-banner');
             const lockBadge = document.getElementById('lock-badge');
+            const overlayBtn = document.getElementById('btn-subscribe-overlay');
+            const bannerBtn = document.getElementById('btn-subscribe-lock');
+
             if (window.hasActiveSubscription) {
                 lockBanner.classList.add('hidden');
                 lockBadge.textContent = 'Unlocked';
                 lockBadge.className = 'lock-badge unlocked';
                 lockBadge.style.display = 'inline-block';
+                if (overlayBtn) overlayBtn.style.display = 'none';
+                if (bannerBtn) bannerBtn.style.display = 'none';
             } else {
                 lockBanner.classList.remove('hidden');
                 lockBadge.textContent = 'Locked';
                 lockBadge.className = 'lock-badge';
                 lockBadge.style.display = 'inline-block';
+                if (overlayBtn) overlayBtn.style.display = 'inline-flex';
+                if (bannerBtn) bannerBtn.style.display = 'inline-flex';
             }
         }
 
@@ -1960,7 +2049,7 @@
             return (bytes / 1048576).toFixed(1) + 'MB';
         }
 
-        // ── IMAGE VIEW ──
+        // ── IMAGE VIEW (CLEAN) ──
         let currentImageUrl = '';
 
         window.openImageView = function(base64Data) {
@@ -1979,23 +2068,6 @@
             modal.classList.remove('active');
             document.body.style.overflow = '';
         };
-
-        window.downloadCurrentImage = function() {
-            const link = document.createElement('a');
-            link.href = currentImageUrl;
-            const fileName = window.chatImageData?.fileName || 'image.png';
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                if (document.getElementById('imageViewModal').classList.contains('active')) closeImageView();
-                if (document.getElementById('profile-modal').classList.contains('active')) closeProfileModal();
-            }
-        });
 
         // ── INBOX ──
         window.setupRealtimeInbox = function() {
@@ -2060,7 +2132,6 @@
                 const isUnread = threadTime > lastReadAt;
                 const isActive = window.activeChatId === thread.id;
 
-                // Build click handler: if locked, show the chat with overlay
                 const clickHandler = isLocked ?
                     `onclick="openLockedChat('${thread.id}', '${providerName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"` :
                     `onclick="openChat('${thread.id}', '${providerName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"`;
@@ -2108,7 +2179,6 @@
 
         // ── OPEN LOCKED CHAT – shows overlay ──
         window.openLockedChat = function(threadId, providerName, jobTitle, otherUid) {
-            // Show the chat UI but with overlay
             const rightPanel = document.getElementById('right-panel');
             const emptyState = document.getElementById('empty-chat-state');
             const chatContent = document.getElementById('chat-content');
@@ -2117,10 +2187,8 @@
             chatContent.classList.remove('hidden');
             chatContent.classList.add('visible');
 
-            // Set header info
             document.getElementById('chat-title').textContent = providerName || 'Provider';
             document.getElementById('chat-subtitle').textContent = jobTitle || 'Service Provider';
-            // Set avatar
             const avatarContainer = document.getElementById('chat-avatar');
             const avatarInitialsSpan = document.getElementById('chat-avatar-initials');
             const statusDot = document.getElementById('chat-status-dot');
@@ -2131,13 +2199,9 @@
             avatarInitialsSpan.textContent = initials;
             statusDot.classList.add('online');
 
-            // Show lock overlay
             document.getElementById('chat-lock-overlay').classList.add('active');
-            // Clear any old messages
             document.getElementById('chat-history').innerHTML = '';
-            // Hide input area
             document.getElementById('chat-input-area').style.display = 'none';
-            // Hide attachment preview
             document.getElementById('attachment-preview').style.display = 'none';
 
             if (window.innerWidth <= 860) {
@@ -2181,15 +2245,13 @@
             if (window.activeChatId) window.deleteThreadById(window.activeChatId);
         };
 
-        // ── CHAT ── (only called when unlocked)
+        // ── CHAT ──
         window.openChat = async function(threadId, providerName, jobTitle, otherUid) {
-            // Double-check: if no active subscription, block and show overlay instead
             if (!window.hasActiveSubscription) {
                 window.openLockedChat(threadId, providerName, jobTitle, otherUid);
                 return;
             }
 
-            // Hide lock overlay if visible
             document.getElementById('chat-lock-overlay').classList.remove('active');
             document.getElementById('chat-input-area').style.display = 'flex';
 
@@ -2311,7 +2373,6 @@
             const chatContent = document.getElementById('chat-content');
             chatContent.classList.remove('visible');
             chatContent.classList.add('hidden');
-            // Hide lock overlay
             document.getElementById('chat-lock-overlay').classList.remove('active');
             document.getElementById('chat-input-area').style.display = 'flex';
             const rightPanel = document.getElementById('right-panel');
@@ -2416,7 +2477,6 @@
 
         // ── SEND ──
         window.sendChatMessage = async function() {
-            // Extra safety: block send if locked
             if (!window.hasActiveSubscription) {
                 window.showToast('🔒 Please subscribe to send messages.', 'error');
                 return;
@@ -2474,7 +2534,7 @@
         });
 
         // ============================================================
-        // PROFILE MODAL – RICH PUBLIC VIEW (extracted from service provider page)
+        // PROFILE MODAL
         // ============================================================
         const profileModal = document.getElementById('profile-modal');
         const profileCloseBtn = document.getElementById('profile-close-btn');
@@ -2493,19 +2553,13 @@
             if (e.target === profileModal) closeProfileModal();
         });
 
-        // ============================================================
-        // VIEW PROFILE – fetches from serviceProviders collection
-        // ============================================================
         window.viewProfileByUid = async function(uid) {
             if (!uid) return window.showToast('User ID not found', 'error');
             try {
-                // First try to get from serviceProviders collection
                 let provider = await getProviderData(uid);
                 if (!provider) {
-                    // Fallback to users collection
                     const user = await getUserData(uid);
                     if (!user || !user.name) return window.showToast('Profile not found', 'error');
-                    // Build a basic profile from user data
                     provider = {
                         id: uid,
                         name: user.name,
@@ -2517,13 +2571,11 @@
                         rating: user.rating || 0,
                         reviewsCount: user.reviewsCount || 0,
                         images: user.images || [],
-                        // Social
                         website: user.website || '',
                         instagram: user.instagram || '',
                         facebook: user.facebook || '',
                         tiktok: user.tiktok || '',
                         youtube: user.youtube || '',
-                        // Extra details
                         secondaryServices: user.secondaryServices || '',
                         businessHours: user.businessHours || '',
                         yearsExperience: user.yearsExperience || 0,
@@ -2562,14 +2614,11 @@
                 else starsHtml += '<i class="far fa-star"></i>';
             }
 
-            // Services
             const services = provider.services || [];
             const servicesHtml = services.map(s => `<span class="service-tag">${s}</span>`).join('');
 
-            // Description
             const description = provider.description || 'No description provided.';
 
-            // Detail items (from service provider page)
             const detailItems = [];
             if (provider.secondaryServices) {
                 detailItems.push({ icon: 'fa-chevron-circle-right', label: 'Secondary Services', value: provider
@@ -2612,7 +2661,6 @@
                 ).join('') :
                 '<p style="grid-column:1/-1; color:var(--text-muted); font-size:0.85rem;">No additional details available.</p>';
 
-            // Social links
             const socialLinks = [];
             if (provider.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
                 url: provider.facebook, label: 'Facebook' });
@@ -2631,7 +2679,6 @@
                     ).join('') :
                 '';
 
-            // Gallery
             const images = provider.images || [];
             let galleryHtml = '';
             if (images.length > 0) {
@@ -2648,7 +2695,6 @@
                 }
             }
 
-            // Actions
             const actionsHtml = `
                         <div class="modal-actions">
                             <button class="btn btn-message" onclick="closeProfileModal(); openChatForProvider('${provider.id}')">
@@ -2690,22 +2736,18 @@
                     `;
         }
 
-        // ── OPEN CHAT FOR PROVIDER ──
         window.openChatForProvider = function(providerId) {
             if (!window.currentUser) {
                 window.showToast('Please sign in first', 'error');
                 return;
             }
 
-            // Find provider in cache or fetch
             const provider = window.userCache[providerId] || { name: 'Provider', avatarUrl: null };
             const name = provider.name || 'Provider';
             const avatar = provider.avatarUrl || null;
 
-            // Close profile modal first
             closeProfileModal();
 
-            // Show the chat UI
             const rightPanel = document.getElementById('right-panel');
             const emptyState = document.getElementById('empty-chat-state');
             const chatContent = document.getElementById('chat-content');
@@ -2714,7 +2756,6 @@
             chatContent.classList.remove('hidden');
             chatContent.classList.add('visible');
 
-            // Set header
             document.getElementById('chat-title').textContent = name;
             document.getElementById('chat-subtitle').textContent = 'Service Provider';
 
@@ -2748,7 +2789,6 @@
                 rightPanel.classList.remove('hidden-on-mobile');
             }
 
-            // Find or create thread
             const msgContainer = document.getElementById('chat-history');
             msgContainer.innerHTML =
                 '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fa-regular fa-comment-dots"></i> Loading conversation…</div>';
@@ -2776,13 +2816,11 @@
                 });
 
                 if (threadId) {
-                    // Open the existing thread
                     const otherUser = await getUserData(providerId);
                     const name = otherUser.name || 'Provider';
                     const jobTitle = otherUser.role === 'service_provider' ? 'Service Provider' : 'User';
                     window.openChat(threadId, name, jobTitle, providerId);
                 } else {
-                    // Create new thread
                     const newThread = {
                         participants: [window.currentUser.uid, providerId],
                         jobTitle: 'Service Provider',
@@ -2806,7 +2844,6 @@
             }
         }
 
-        // ── SHARE PROFILE ──
         function copyProfileLink(providerId) {
             const url = window.location.origin + window.location.pathname + '?id=' + providerId;
             if (navigator.clipboard) {
@@ -2859,15 +2896,11 @@
         handleResize();
 
         // ── SUBSCRIBE BUTTON HANDLER ──
-        document.getElementById('btn-subscribe-lock').addEventListener('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'subscription.html';
-        });
-
-        // Also wire the overlay button
-        document.getElementById('btn-subscribe-overlay').addEventListener('click', function(e) {
-            e.preventDefault();
-            window.location.href = 'subscription.html';
+        document.querySelectorAll('#btn-subscribe-lock, #btn-subscribe-overlay').forEach(el => {
+            el.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = 'subscription.html';
+            });
         });
 
         // Expose functions globally
@@ -2885,28 +2918,22 @@
         window.clearAttachment = window.clearAttachment;
         window.openImageView = window.openImageView;
         window.closeImageView = window.closeImageView;
-        window.downloadCurrentImage = window.downloadCurrentImage;
         window.viewActiveProfile = window.viewActiveProfile;
 
-        console.log('✅ Organizer Inbox fixed – threads load reliably, subscription lock with overlay, rich provider profile modal.');
+        console.log('✅ Organizer Inbox – clean, smooth, and subscription-aware.');
     </script>
 
-    <!-- Image View Modal -->
-    <div id="imageViewModal" class="image-view-modal">
-        <div class="image-view-content">
+    <!-- ── CLEAN IMAGE VIEW MODAL ── -->
+    <div id="imageViewModal" class="image-view-modal" onclick="closeImageView()">
+        <div class="image-view-content" onclick="event.stopPropagation()">
             <img id="imageViewImg" class="image-view-img" src="" alt="Full size" />
-            <div class="image-view-actions">
-                <button class="btn-image-action primary" onclick="downloadCurrentImage()">
-                    <i class="fa-solid fa-download"></i> Download
-                </button>
-                <button class="btn-image-action" onclick="closeImageView()">
-                    <i class="fa-solid fa-xmark"></i> Close
-                </button>
-            </div>
+            <button class="image-view-close-btn" onclick="closeImageView()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
     </div>
 
-    <!-- ===== PROFILE MODAL – RICH PUBLIC VIEW ===== -->
+    <!-- ===== PROFILE MODAL ===== -->
     <div class="profile-modal-overlay" id="profile-modal">
         <div class="profile-modal">
             <button class="close-modal-btn" id="profile-close-btn" title="Close">

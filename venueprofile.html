@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* Same styles as your original venue profile – kept for consistency */
+        /* (styles unchanged – same as before) */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -623,7 +623,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ===== AMENITIES LIST (venue-specific) =====
+        // ===== AMENITIES LIST =====
         const amenitiesList = ["Parking", "Catering Area", "Stage", "Dance Floor", "Air Conditioning", "Bar", "Sound System",
             "WiFi", "Backup Generator", "Security", "VIP Lounge", "Outdoor Space", "Swimming Pool", "Bridal Suite"
         ];
@@ -633,6 +633,7 @@
         let isOwner = false;
         let viewMode = 'public';
         let uploadedImages = [];
+        let currentUser = null;
 
         // ===== RESOLVE VENUE ID =====
         async function resolveVenueId(user) {
@@ -643,10 +644,8 @@
             }
             if (user) {
                 try {
-                    // Check if this user has a venue doc in 'venues' collection
                     const doc = await db.collection('venues').doc(user.uid).get();
                     if (doc.exists) return user.uid;
-                    // fallback: search by email
                     if (user.email) {
                         const snap = await db.collection('venues').where('email', '==', user.email).limit(1).get();
                         if (!snap.empty) return snap.docs[0].id;
@@ -657,6 +656,7 @@
         }
 
         auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
             currentVenueId = await resolveVenueId(user);
             if (currentVenueId) {
                 isOwner = user && (user.uid === currentVenueId || (venueData && venueData.email === user.email));
@@ -771,7 +771,7 @@
                 `<img src="${venueData.avatar}" alt="Avatar">` :
                 initials;
 
-            // Social links (no email)
+            // Social links
             const socialLinks = [];
             if (venueData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
                 url: venueData.facebook, label: 'Facebook' });
@@ -890,6 +890,27 @@
                 ).join('') :
                 '<p style="color:var(--muted); grid-column:1/-1; padding:8px 0;">No additional details provided.</p>';
 
+            // ---- REVIEW FORM: show only if not owner and logged in ----
+            let reviewFormHtml = '';
+            if (!isOwner && currentUser) {
+                reviewFormHtml = `
+                    <div class="review-form" id="review-form-container">
+                        <h3>Rate this venue</h3>
+                        <div class="star-rating-input" id="star-input">
+                            <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i><i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i><i class="far fa-star" data-value="5"></i>
+                        </div>
+                        <input type="text" id="reviewer-name" placeholder="Your name (optional)">
+                        <textarea id="review-comment" placeholder="Write your review..."></textarea>
+                        <button class="submit-review-btn" id="submit-review-btn"><i class="fas fa-paper-plane"></i> Submit Review</button>
+                        <div id="review-status" style="margin-top:8px; font-size:0.85rem; color:var(--muted);"></div>
+                    </div>
+                `;
+            } else if (isOwner) {
+                reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">You cannot review your own venue.</p>`;
+            } else {
+                reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">Please <a href="login.html" style="color:var(--pink);">sign in</a> to leave a review.</p>`;
+            }
+
             const html = `
                 <div class="profile-card">
                     <div class="profile-cover"></div>
@@ -928,24 +949,38 @@
                 <div class="profile-card" style="padding:20px;">
                     <div class="review-section">
                         <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-star" style="color:var(--pink);"></i> Ratings & Reviews</h2>
-                        <div class="review-form">
-                            <h3>Rate this venue</h3>
-                            <div class="star-rating-input" id="star-input">
-                                <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i><i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i><i class="far fa-star" data-value="5"></i>
-                            </div>
-                            <input type="text" id="reviewer-name" placeholder="Your name (optional)">
-                            <textarea id="review-comment" placeholder="Write your review..."></textarea>
-                            <button class="submit-review-btn" onclick="submitReview('${currentVenueId}')"><i class="fas fa-paper-plane"></i> Submit Review</button>
-                        </div>
+                        ${reviewFormHtml}
                         <div class="review-list" id="review-list"></div>
                     </div>
                 </div>
             `;
             document.getElementById('profile-content').innerHTML = html;
-            setupStarRating();
+
+            if (!isOwner && currentUser) {
+                setupStarRating();
+                // Check if user already reviewed
+                checkExistingReview(currentVenueId, 'venues').then(existing => {
+                    if (existing) {
+                        document.getElementById('review-status').textContent = 'You have already reviewed. Edit below.';
+                        document.getElementById('submit-review-btn').textContent = 'Update Review';
+                        // pre-fill
+                        document.getElementById('reviewer-name').value = existing.reviewerName || '';
+                        document.getElementById('review-comment').value = existing.comment || '';
+                        // set rating
+                        selectedRating = existing.rating;
+                        updateStarInputUI(selectedRating);
+                        // store review id for update
+                        document.getElementById('submit-review-btn').dataset.reviewId = existing.id;
+                    } else {
+                        document.getElementById('submit-review-btn').dataset.reviewId = '';
+                    }
+                });
+                document.getElementById('submit-review-btn').addEventListener('click', () => submitReview(currentVenueId,
+                    'venues'));
+            }
         }
 
-        // ===== RENDER EDIT VIEW =====
+        // ===== RENDER EDIT VIEW (unchanged) =====
         function renderEditView() {
             let amenitiesCheckboxes = amenitiesList.map(am => `
                 <label class="amenity-checkbox">
@@ -1044,7 +1079,7 @@
             document.getElementById('profile-content').innerHTML = html;
         }
 
-        // ===== EDIT HANDLERS =====
+        // ===== EDIT HANDLERS (unchanged) =====
         function handleAvatarUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1121,7 +1156,9 @@
             }
         }
 
-        // ===== REVIEWS =====
+        // ============================================================
+        //  REVIEW SYSTEM – venue (and reused for provider)
+        // ============================================================
         let selectedRating = 0;
 
         function setupStarRating() {
@@ -1140,11 +1177,120 @@
             });
         }
 
-        async function loadReviews(pid) {
+        async function checkExistingReview(profileId, collectionName) {
+            if (!currentUser) return null;
+            try {
+                const snap = await db.collection(collectionName).doc(profileId).collection('reviews')
+                    .where('reviewerId', '==', currentUser.uid).get();
+                if (!snap.empty) {
+                    const doc = snap.docs[0];
+                    return { id: doc.id, ...doc.data() };
+                }
+                return null;
+            } catch (e) {
+                console.error('Error checking existing review:', e);
+                return null;
+            }
+        }
+
+        async function submitReview(profileId, collectionName) {
+            if (selectedRating === 0) {
+                alert('Please select a star rating.');
+                return;
+            }
+            const comment = document.getElementById('review-comment').value.trim();
+            if (!comment) {
+                alert('Please write a comment.');
+                return;
+            }
+            const reviewerName = document.getElementById('reviewer-name').value.trim() || 'Anonymous';
+            const btn = document.getElementById('submit-review-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-sm"></span> Sending...';
+
+            const existingReviewId = btn.dataset.reviewId || null;
+
+            try {
+                const reviewData = {
+                    rating: selectedRating,
+                    reviewerName: reviewerName,
+                    comment: comment,
+                    reviewerId: currentUser.uid,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                let reviewRef;
+                if (existingReviewId) {
+                    // Update existing
+                    reviewRef = db.collection(collectionName).doc(profileId).collection('reviews').doc(existingReviewId);
+                    await reviewRef.update(reviewData);
+                    // We also need to update the average rating if rating changed? We'll recompute.
+                    // For simplicity, we'll just recompute average from all reviews.
+                } else {
+                    // Add new
+                    reviewData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    reviewRef = await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
+                }
+
+                // Recompute average rating
+                await updateProfileRating(profileId, collectionName);
+
+                // Reload reviews and form state
+                loadReviews(profileId);
+                // Reset form or show success
+                document.getElementById('review-status').textContent = 'Review saved successfully!';
+                btn.textContent = 'Update Review';
+                btn.dataset.reviewId = existingReviewId || (await reviewRef).id; // if new, we need the id
+                // If new, we need to store the id for future updates. We'll get it from the ref.
+                if (!existingReviewId) {
+                    // We have the doc ref from add, but we didn't store the id. We'll get it from the snapshot.
+                    // Better: we can query again to get the id. But we'll just reload the whole page to avoid complexity.
+                    // Let's just reload reviews and re-check.
+                }
+                // Actually we can just re-check existing review after update.
+                const updatedReview = await checkExistingReview(profileId, collectionName);
+                if (updatedReview) {
+                    btn.dataset.reviewId = updatedReview.id;
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Update Review';
+                // Reload the page? Or just update the list.
+                loadReviews(profileId);
+            } catch (e) {
+                console.error(e);
+                alert('Failed to submit review. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
+            }
+        }
+
+        async function updateProfileRating(profileId, collectionName) {
+            try {
+                const reviewsSnap = await db.collection(collectionName).doc(profileId).collection('reviews').get();
+                let total = 0;
+                let count = 0;
+                reviewsSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.rating) {
+                        total += data.rating;
+                        count++;
+                    }
+                });
+                const avg = count > 0 ? total / count : 0;
+                await db.collection(collectionName).doc(profileId).update({
+                    rating: avg,
+                    reviewsCount: count
+                });
+            } catch (e) {
+                console.error('Error updating profile rating:', e);
+            }
+        }
+
+        async function loadReviews(profileId) {
             const list = document.getElementById('review-list');
             list.innerHTML = '<p style="color:var(--muted);"><span class="spinner-sm" style="border-left-color:var(--navy);"></span> Loading reviews...</p>';
             try {
-                const snap = await db.collection('venues').doc(pid).collection('reviews').orderBy('createdAt',
+                const snap = await db.collection('venues').doc(profileId).collection('reviews').orderBy('createdAt',
                     'desc').get();
                 list.innerHTML = '';
                 if (snap.empty) { list.innerHTML = '<p style="color:var(--muted);">No reviews yet.</p>'; return; }
@@ -1162,29 +1308,6 @@
                     list.appendChild(clone);
                 });
             } catch (e) { list.innerHTML = '<p style="color:var(--pink);">Failed to load reviews.</p>'; }
-        }
-
-        async function submitReview(pid) {
-            if (selectedRating === 0) return alert('Select a star rating.');
-            const comment = document.getElementById('review-comment').value.trim();
-            if (!comment) return alert('Write a comment.');
-            try {
-                await db.collection('venues').doc(pid).collection('reviews').add({
-                    rating: selectedRating,
-                    reviewerName: document.getElementById('reviewer-name').value.trim() || 'Anonymous',
-                    comment: comment,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                await db.runTransaction(async (t) => {
-                    const docRef = db.collection('venues').doc(pid);
-                    const d = await t.get(docRef);
-                    const oldCount = d.data().reviewsCount || 0;
-                    const oldSum = (d.data().rating || 0) * oldCount;
-                    t.update(docRef, { rating: (oldSum + selectedRating) / (oldCount + 1), reviewsCount: oldCount +
-                            1 });
-                });
-                loadVenueProfile();
-            } catch (e) { alert('Failed to submit review.'); }
         }
 
         function copyProfileLink(pid) {

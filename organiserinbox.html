@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
     <style>
-        /* ── ZONE21 · LIME · NAVY · PINK ── */
+        /* ── ZONE21 · LIME · NAVY · PINK ── (same as before) */
         :root {
             --bg-page: #F0F4F0;
             --bg-surface: #FFFFFF;
@@ -1095,7 +1095,7 @@
             max-width: 280px;
         }
 
-        /* ── PROFILE MODAL ── */
+        /* ── PROFILE MODAL ── (same as discover page) ── */
         .profile-modal-overlay {
             position: fixed;
             inset: 0;
@@ -1433,7 +1433,7 @@
             background: rgba(10, 31, 46, 0.02);
         }
 
-        /* ── IMAGE VIEW MODAL (CLEAN) ── */
+        /* ── IMAGE VIEW MODAL ── */
         .image-view-modal {
             display: none;
             position: fixed;
@@ -1846,13 +1846,13 @@
         };
 
         // ============================================================
-        // STATE – inbox status determined by EVENTS, not subscriptions
+        // STATE – inbox status determined by EVENTS
         // ============================================================
         window.hasActiveSubscription = false;
         window.subscriptionChecked = false;
 
         // ============================================================
-        // REAL-TIME EVENT LISTENER (primary source of truth)
+        // REAL-TIME EVENT LISTENER
         // ============================================================
         let unsubscribeEvents = null;
 
@@ -1873,7 +1873,7 @@
                     events.push({ id: docSnap.id, ...docSnap.data() });
                 });
 
-                // ── Self‑heal: promote pending_payment events with active invoices ──
+                // Self‑heal pending_payment events
                 const pendingEvents = events.filter(e =>
                     (e.status || '').toLowerCase() === 'pending_payment'
                 );
@@ -1931,7 +1931,7 @@
                     }
                 }
 
-                // ── Determine unlock status: any event with status 'approved' or 'active' ──
+                // Determine unlock status
                 const hasApprovedEvent = events.some(e => {
                     const status = (e.status || '').toLowerCase();
                     return status === 'approved' || status === 'active';
@@ -2106,54 +2106,94 @@
             } catch (e) { /* ignore */ }
         }
 
-        // ── FIXED: getUserData now fetches from both users and serviceProviders for avatar ──
+        // ── IMPROVED getUserData: fetches from users, venues, serviceProviders ──
         async function getUserData(uid) {
             if (window.userCache[uid]) return window.userCache[uid];
 
-            let userData = { id: uid, name: 'Unknown', avatarSrc: null, role: '' };
+            let combined = {
+                id: uid,
+                name: 'Unknown',
+                avatarSrc: null,
+                role: '',
+                profileType: null, // 'venue' or 'provider'
+                profileData: null
+            };
+
+            // 1. Get user data
             try {
                 const userSnap = await getDoc(doc(window.db, 'users', uid));
                 if (userSnap.exists()) {
                     const data = userSnap.data();
-                    userData = {
-                        id: uid,
-                        name: data.name || 'Unknown',
-                        avatarSrc: data.avatar || data.avatarUrl || null,
-                        role: data.role || '',
-                        ...data
-                    };
+                    combined.name = data.name || 'Unknown';
+                    combined.avatarSrc = data.avatar || data.avatarUrl || null;
+                    combined.role = data.role || '';
+                    // Store user data for fallback
+                    combined.userData = data;
                 }
             } catch (e) { /* ignore */ }
 
-            // If avatar is still missing, try to fetch from serviceProviders
-            if (!userData.avatarSrc) {
+            // 2. Check venues
+            try {
+                const venueSnap = await getDoc(doc(window.db, 'venues', uid));
+                if (venueSnap.exists()) {
+                    const data = venueSnap.data();
+                    combined.profileType = 'venue';
+                    combined.profileData = { ...data, id: uid, type: 'venue', collection: 'venues' };
+                    // Override name and avatar if present in venue
+                    if (data.name) combined.name = data.name;
+                    if (data.avatar) combined.avatarSrc = data.avatar;
+                }
+            } catch (e) { /* ignore */ }
+
+            // 3. Check serviceProviders (if not already set)
+            if (!combined.profileType) {
                 try {
                     const providerSnap = await getDoc(doc(window.db, 'serviceProviders', uid));
                     if (providerSnap.exists()) {
                         const data = providerSnap.data();
-                        if (data.avatar) {
-                            userData.avatarSrc = data.avatar;
-                        }
-                        // If name is still 'Unknown', use provider name
-                        if (userData.name === 'Unknown' && data.name) {
-                            userData.name = data.name;
-                        }
+                        combined.profileType = 'provider';
+                        combined.profileData = { ...data, id: uid, type: 'provider', collection: 'serviceProviders' };
+                        if (data.name) combined.name = data.name;
+                        if (data.avatar) combined.avatarSrc = data.avatar;
                     }
                 } catch (e) { /* ignore */ }
             }
 
-            window.userCache[uid] = userData;
-            return userData;
+            window.userCache[uid] = combined;
+            return combined;
         }
 
-        async function getProviderData(uid) {
-            try {
-                const snap = await getDoc(doc(window.db, 'serviceProviders', uid));
-                if (snap.exists()) {
-                    return { id: uid, ...snap.data() };
-                }
-            } catch (e) { /* ignore */ }
-            return null;
+        // ── Get full profile data for modal ──
+        async function getFullProfile(uid) {
+            const userData = await getUserData(uid);
+            if (userData.profileData) {
+                return userData.profileData;
+            }
+            // fallback: create from user data
+            return {
+                id: uid,
+                name: userData.name,
+                avatar: userData.avatarSrc,
+                category: userData.userData?.serviceType || 'Service Provider',
+                services: userData.userData?.specialties || userData.userData?.services || [],
+                description: userData.userData?.bio || userData.userData?.about || 'No description provided.',
+                location: userData.userData?.location || userData.userData?.country || '',
+                rating: userData.userData?.rating || 0,
+                reviewsCount: userData.userData?.reviewsCount || 0,
+                images: userData.userData?.images || [],
+                website: userData.userData?.website || '',
+                instagram: userData.userData?.instagram || '',
+                facebook: userData.userData?.facebook || '',
+                tiktok: userData.userData?.tiktok || '',
+                youtube: userData.userData?.youtube || '',
+                secondaryServices: userData.userData?.secondaryServices || '',
+                businessHours: userData.userData?.businessHours || '',
+                yearsExperience: userData.userData?.yearsExperience || 0,
+                serviceAreas: userData.userData?.serviceAreas || '',
+                languages: userData.userData?.languages || '',
+                paymentMethods: userData.userData?.paymentMethods || '',
+                cancellationPolicy: userData.userData?.cancellationPolicy || '',
+            };
         }
 
         function formatTimeAgo(timestamp) {
@@ -2269,6 +2309,7 @@
                 const other = t.participants.find(uid => uid !== window.currentUser.uid);
                 if (other) otherUids.add(other);
             });
+            // Fetch all participants
             await Promise.all(Array.from(otherUids).map(uid => getUserData(uid)));
 
             const isLocked = !window.hasActiveSubscription;
@@ -2357,27 +2398,24 @@
             if (existingImg) existingImg.remove();
 
             // Try to get avatar from cache
+            let avatarSrc = null;
             if (otherUid && window.userCache[otherUid]) {
-                const user = window.userCache[otherUid];
-                if (user.avatarSrc) {
-                    avatarInitialsSpan.style.display = 'none';
-                    const img = document.createElement('img');
-                    img.src = user.avatarSrc;
-                    img.alt = providerName;
-                    img.onerror = function() {
-                        this.style.display = 'none';
-                        avatarInitialsSpan.style.display = 'inline';
-                        avatarInitialsSpan.textContent = initials;
-                    };
-                    avatarContainer.appendChild(img);
-                } else {
+                avatarSrc = window.userCache[otherUid].avatarSrc;
+            }
+            const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() ||
+            '?';
+            if (avatarSrc) {
+                avatarInitialsSpan.style.display = 'none';
+                const img = document.createElement('img');
+                img.src = avatarSrc;
+                img.alt = providerName;
+                img.onerror = function() {
+                    this.style.display = 'none';
                     avatarInitialsSpan.style.display = 'inline';
-                    avatarInitialsSpan.textContent = (providerName || '?').split(' ').map(n => n[0]).join('')
-                        .substring(0, 2).toUpperCase() || '?';
-                }
+                    avatarInitialsSpan.textContent = initials;
+                };
+                avatarContainer.appendChild(img);
             } else {
-                const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() ||
-                '?';
                 avatarInitialsSpan.style.display = 'inline';
                 avatarInitialsSpan.textContent = initials;
             }
@@ -2718,7 +2756,7 @@
         });
 
         // ============================================================
-        // PROFILE MODAL
+        // PROFILE MODAL (same as discover page)
         // ============================================================
         const profileModal = document.getElementById('profile-modal');
         const profileCloseBtn = document.getElementById('profile-close-btn');
@@ -2740,38 +2778,11 @@
         window.viewProfileByUid = async function(uid) {
             if (!uid) return window.showToast('User ID not found', 'error');
             try {
-                // First try to get provider data (which includes avatar from serviceProviders)
-                let provider = await getProviderData(uid);
-                if (!provider) {
-                    // Fallback: use user data
-                    const user = await getUserData(uid);
-                    if (!user || !user.name) return window.showToast('Profile not found', 'error');
-                    provider = {
-                        id: uid,
-                        name: user.name,
-                        avatar: user.avatarSrc || null,
-                        category: user.serviceType || 'Service Provider',
-                        services: user.specialties || user.services || [],
-                        description: user.bio || user.about || 'No description provided.',
-                        location: user.location || user.country || '',
-                        rating: user.rating || 0,
-                        reviewsCount: user.reviewsCount || 0,
-                        images: user.images || [],
-                        website: user.website || '',
-                        instagram: user.instagram || '',
-                        facebook: user.facebook || '',
-                        tiktok: user.tiktok || '',
-                        youtube: user.youtube || '',
-                        secondaryServices: user.secondaryServices || '',
-                        businessHours: user.businessHours || '',
-                        yearsExperience: user.yearsExperience || 0,
-                        serviceAreas: user.serviceAreas || '',
-                        languages: user.languages || '',
-                        paymentMethods: user.paymentMethods || '',
-                        cancellationPolicy: user.cancellationPolicy || '',
-                    };
+                const fullProfile = await getFullProfile(uid);
+                if (!fullProfile || !fullProfile.name) {
+                    return window.showToast('Profile not found', 'error');
                 }
-                renderProfileModal(provider);
+                renderProfileModal(fullProfile);
                 openProfileModal();
             } catch (err) {
                 console.error(err);
@@ -2806,31 +2817,40 @@
 
             const description = provider.description || 'No description provided.';
 
+            // Details – venue or provider specific
             const detailItems = [];
-            if (provider.secondaryServices) {
-                detailItems.push({ icon: 'fa-chevron-circle-right', label: 'Secondary Services', value: provider
-                        .secondaryServices });
-            }
-            if (provider.businessHours) {
-                detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: provider.businessHours });
-            }
-            if (provider.yearsExperience) {
-                detailItems.push({ icon: 'fa-award', label: 'Years of Experience', value: provider
-                        .yearsExperience + ' years' });
-            }
-            if (provider.serviceAreas) {
-                detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: provider.serviceAreas });
-            }
-            if (provider.languages) {
-                detailItems.push({ icon: 'fa-language', label: 'Languages', value: provider.languages });
-            }
-            if (provider.paymentMethods) {
-                detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods', value: provider
-                        .paymentMethods });
-            }
-            if (provider.cancellationPolicy) {
-                detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy', value: provider
-                        .cancellationPolicy });
+            if (provider.type === 'venue') {
+                if (provider.capacity) detailItems.push({ icon: 'fa-users', label: 'Capacity', value: provider
+                        .capacity + ' guests' });
+                if (provider.venueType) detailItems.push({ icon: 'fa-archway', label: 'Venue Type', value: provider
+                        .venueType });
+                if (provider.pricingPackages) detailItems.push({ icon: 'fa-layer-group', label: 'Pricing Packages',
+                    value: provider.pricingPackages });
+                if (provider.rentalPolicies) detailItems.push({ icon: 'fa-file-contract', label: 'Rental Policies',
+                    value: provider.rentalPolicies });
+                if (provider.deposit) detailItems.push({ icon: 'fa-hand-holding-usd', label: 'Deposit Required',
+                    value: provider.deposit });
+                if (provider.operatingHours) detailItems.push({ icon: 'fa-clock', label: 'Operating Hours', value: provider
+                        .operatingHours });
+                if (provider.parking) detailItems.push({ icon: 'fa-parking', label: 'Parking Information', value: provider
+                        .parking });
+                if (provider.catering) detailItems.push({ icon: 'fa-utensils', label: 'Catering Options', value: provider
+                        .catering });
+            } else {
+                if (provider.secondaryServices) detailItems.push({ icon: 'fa-chevron-circle-right',
+                    label: 'Secondary Services', value: provider.secondaryServices });
+                if (provider.businessHours) detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: provider
+                        .businessHours });
+                if (provider.yearsExperience) detailItems.push({ icon: 'fa-award', label: 'Years of Experience',
+                    value: provider.yearsExperience + ' years' });
+                if (provider.serviceAreas) detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: provider
+                        .serviceAreas });
+                if (provider.languages) detailItems.push({ icon: 'fa-language', label: 'Languages', value: provider
+                        .languages });
+                if (provider.paymentMethods) detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods',
+                    value: provider.paymentMethods });
+                if (provider.cancellationPolicy) detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy',
+                    value: provider.cancellationPolicy });
             }
             if (provider.location) {
                 detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: provider.location });
@@ -2869,7 +2889,8 @@
             const images = provider.images || [];
             let galleryHtml = '';
             if (images.length > 0) {
-                const validImages = images.filter(url => url && typeof url === 'string' && url.startsWith('data:'));
+                const validImages = images.filter(url => url && typeof url === 'string' && (url.startsWith('data:') || url
+                    .startsWith('http')));
                 if (validImages.length > 0) {
                     galleryHtml = `
                                 <div class="gallery-section">
@@ -2882,12 +2903,34 @@
                 }
             }
 
+            // Determine correct profile page link
+            let profilePage = '';
+            if (provider.type === 'venue') {
+                profilePage = `venueprofile.html?id=${provider.id}`;
+            } else if (provider.type === 'provider') {
+                profilePage = `providerprofile.html?id=${provider.id}`;
+            } else {
+                // fallback: check collection
+                if (provider.collection === 'venues') {
+                    profilePage = `venueprofile.html?id=${provider.id}`;
+                } else if (provider.collection === 'serviceProviders') {
+                    profilePage = `providerprofile.html?id=${provider.id}`;
+                } else {
+                    // try to guess from data
+                    if (provider.capacity !== undefined) {
+                        profilePage = `venueprofile.html?id=${provider.id}`;
+                    } else {
+                        profilePage = `providerprofile.html?id=${provider.id}`;
+                    }
+                }
+            }
+
             const actionsHtml = `
                         <div class="modal-actions">
                             <button class="btn btn-message" onclick="closeProfileModal(); openChatForProvider('${provider.id}')">
                                 <i class="fas fa-paper-plane"></i> Message
                             </button>
-                            <a href="service-provider-profile.html?id=${provider.id}" class="btn btn-primary" target="_blank">
+                            <a href="${profilePage}" class="btn btn-primary" target="_blank">
                                 <i class="fas fa-external-link-alt"></i> Full Profile
                             </a>
                             <button class="btn btn-outline" onclick="copyProfileLink('${provider.id}')">
@@ -3108,7 +3151,7 @@
         window.closeImageView = window.closeImageView;
         window.viewActiveProfile = window.viewActiveProfile;
 
-        console.log('✅ Organizer Inbox – avatar fixed: fetches from users and serviceProviders.');
+        console.log('✅ Organizer Inbox – fixed names, avatar, and full profile modal.');
     </script>
 
     <!-- ── IMAGE VIEW MODAL ── -->

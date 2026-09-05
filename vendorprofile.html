@@ -6,14 +6,11 @@
     <title>Service Provider Profile | Zone21</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* ===== ROOT & RESET ===== */
+        /* Same as your original provider profile – kept for consistency */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -42,7 +39,6 @@
             max-width: 1000px;
             margin: 0 auto;
         }
-
         .header {
             text-align: center;
             margin-bottom: 30px;
@@ -75,7 +71,6 @@
             background: var(--lime);
             color: var(--navy);
         }
-
         .profile-card {
             background: var(--card);
             border-radius: var(--radius);
@@ -89,7 +84,6 @@
             background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%);
             position: relative;
         }
-
         .profile-avatar {
             width: 120px;
             height: 120px;
@@ -129,12 +123,10 @@
         .profile-avatar.editable:hover .avatar-edit-overlay {
             opacity: 1;
         }
-
         .profile-info {
             padding: 20px 30px 30px;
             position: relative;
         }
-
         .edit-toggle-btn {
             position: absolute;
             top: 20px;
@@ -152,7 +144,6 @@
             background: var(--navy);
             color: white;
         }
-
         .name {
             font-size: 1.8rem;
             font-weight: 800;
@@ -166,7 +157,6 @@
             letter-spacing: 0.05em;
             margin-bottom: 10px;
         }
-
         .rating-summary {
             display: flex;
             align-items: center;
@@ -187,7 +177,6 @@
             color: var(--muted);
             font-size: 0.85rem;
         }
-
         .services-tags {
             display: flex;
             flex-wrap: wrap;
@@ -207,8 +196,6 @@
             line-height: 1.6;
             color: #444;
         }
-
-        /* ===== DETAIL GRID (replaces contact grid) ===== */
         .detail-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -254,7 +241,6 @@
             font-size: 0.85rem;
             line-height: 1.5;
         }
-
         .social-links {
             display: flex;
             gap: 12px;
@@ -291,7 +277,6 @@
         .social-website {
             background: var(--navy);
         }
-
         .share-btn {
             background: var(--lime);
             color: var(--navy);
@@ -308,8 +293,6 @@
         .share-btn:hover {
             background: #d4dc00;
         }
-
-        /* Gallery */
         .gallery-section {
             margin: 25px 0;
         }
@@ -337,8 +320,6 @@
         .standard-gallery .gallery-item:hover img {
             transform: scale(1.05);
         }
-
-        /* Reviews */
         .review-section {
             margin: 25px 0;
         }
@@ -405,8 +386,6 @@
             font-size: 0.9rem;
             line-height: 1.5;
         }
-
-        /* Loading / Error */
         .loading,
         .error {
             text-align: center;
@@ -450,8 +429,6 @@
             background: #1a3a4a;
             transform: translateY(-2px);
         }
-
-        /* ===== EDIT FORM ===== */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -510,7 +487,6 @@
         .service-checkbox input {
             accent-color: var(--pink);
         }
-
         .upload-area {
             border: 2px dashed var(--border);
             border-radius: 12px;
@@ -545,8 +521,6 @@
         .delete-img-btn:hover {
             transform: scale(1.1);
         }
-
-        /* Animations */
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -580,7 +554,6 @@
                 transform: rotate(360deg);
             }
         }
-
         @media (max-width: 600px) {
             .profile-info {
                 padding: 15px;
@@ -622,7 +595,6 @@
         </div>
     </div>
 
-    <!-- Review template -->
     <template id="review-template">
         <div class="review-item">
             <div class="review-header">
@@ -649,7 +621,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ===== SERVICES LIST (primary) =====
+        // ===== SERVICES LIST (provider-specific) =====
         const servicesList = [
             "Marquee / Tents & Chairs", "PA System & Basic Sound", "DJ Services",
             "Stage & Decorative Lighting", "Event Décor & Draping", "Catering (Food & Buffet)",
@@ -673,14 +645,14 @@
             }
             if (user) {
                 try {
-                    const uidDoc = await db.collection('serviceProviders').doc(user.uid).get();
-                    if (uidDoc.exists) return user.uid;
+                    const doc = await db.collection('serviceProviders').doc(user.uid).get();
+                    if (doc.exists) return user.uid;
                     if (user.email) {
-                        const emailSnapshot = await db.collection('serviceProviders').where('email', '==', user.email)
+                        const snap = await db.collection('serviceProviders').where('email', '==', user.email)
                             .limit(1).get();
-                        if (!emailSnapshot.empty) return emailSnapshot.docs[0].id;
+                        if (!snap.empty) return snap.docs[0].id;
                     }
-                } catch (error) { console.error("Error resolving ID:", error); }
+                } catch (error) { console.error("Error resolving provider ID:", error); }
             }
             return null;
         }
@@ -705,7 +677,7 @@
                     <div class="error">
                         <i class="fas fa-user-plus" style="font-size:3rem; color:var(--navy);"></i>
                         <h3>No Service Provider Profile Found</h3>
-                        <p style="margin:10px 0;">Your account does not have a provider profile yet.</p>
+                        <p style="margin:10px 0;">You don't have a service provider profile yet.</p>
                         <button class="btn-create" onclick="createProviderProfile()"><i class="fas fa-plus"></i> Create My Profile</button>
                     </div>`;
             } else {
@@ -752,10 +724,8 @@
                 if (!doc.exists) { showProfileNotFound(auth.currentUser ? true : false); return; }
                 providerData = doc.data();
                 uploadedImages = providerData.images || [];
-
                 if (viewMode === 'public') renderPublicView();
                 else renderEditView();
-
                 if (viewMode === 'public') loadReviews(currentProviderId);
             } catch (error) {
                 document.getElementById('profile-content').innerHTML =
@@ -801,7 +771,6 @@
                 `<img src="${providerData.avatar}" alt="Avatar">` :
                 initials;
 
-            // Social links (no email)
             const socialLinks = [];
             if (providerData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
                 url: providerData.facebook, label: 'Facebook' });
@@ -822,7 +791,6 @@
                     ).join('') :
                 '<p style="color:var(--muted); grid-column: 1/-1;">No images available</p>';
 
-            // Rating stars
             const rating = providerData.rating || 0;
             const fullStars = Math.floor(rating);
             const halfStar = rating % 1 >= 0.5;
@@ -833,9 +801,8 @@
                 else starsHtml += '<i class="far fa-star"></i>';
             }
 
-            // ---- DETAIL GRID (replaces contact grid) ----
+            // ---- DETAIL GRID (provider-specific) ----
             const detailItems = [];
-
             if (providerData.secondaryServices) {
                 detailItems.push({
                     icon: 'fa-chevron-circle-right',
@@ -908,59 +875,57 @@
                 '<p style="color:var(--muted); grid-column:1/-1; padding:8px 0;">No additional details provided.</p>';
 
             const html = `
-                    <div class="profile-card">
-                        <div class="profile-cover"></div>
-                        <div class="profile-avatar">${avatarHtml}</div>
-                        <div class="profile-info">
-                            ${isOwner ? `<button class="edit-toggle-btn" onclick="toggleMode()"><i class="fas fa-pen"></i> Edit Profile</button>` : ''}
+                <div class="profile-card">
+                    <div class="profile-cover"></div>
+                    <div class="profile-avatar">${avatarHtml}</div>
+                    <div class="profile-info">
+                        ${isOwner ? `<button class="edit-toggle-btn" onclick="toggleMode()"><i class="fas fa-pen"></i> Edit Profile</button>` : ''}
 
-                            <div class="name">${providerData.name || 'Unnamed Provider'}</div>
-                            <div class="category">${providerData.category || 'General Service'} ${providerData.basePrice ? ` • Starts at $${providerData.basePrice}` : ''}</div>
+                        <div class="name">${providerData.name || 'Unnamed Provider'}</div>
+                        <div class="category">${providerData.category || 'General Service'} ${providerData.basePrice ? ` • Starts at $${providerData.basePrice}` : ''}</div>
 
-                            <div class="rating-summary">
-                                <span class="stars">${starsHtml}</span>
-                                <span class="rating-number">${rating.toFixed(1)}</span>
-                                <span class="reviews-count">(${providerData.reviewsCount || 0} reviews)</span>
-                            </div>
+                        <div class="rating-summary">
+                            <span class="stars">${starsHtml}</span>
+                            <span class="rating-number">${rating.toFixed(1)}</span>
+                            <span class="reviews-count">(${providerData.reviewsCount || 0} reviews)</span>
+                        </div>
 
-                            ${servicesHtml ? `<div class="services-tags">${servicesHtml}</div>` : ''}
-                            ${providerData.description ? `<div class="description">${providerData.description}</div>` : ''}
+                        ${servicesHtml ? `<div class="services-tags">${servicesHtml}</div>` : ''}
+                        ${providerData.description ? `<div class="description">${providerData.description}</div>` : ''}
 
-                            <!-- DETAIL GRID (no phone/email/whatsapp) -->
-                            <div class="detail-grid">${detailHtml}</div>
+                        <div class="detail-grid">${detailHtml}</div>
 
-                            <!-- SOCIAL LINKS (no email) -->
-                            ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
+                        ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
 
-                            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-                                <button class="share-btn" onclick="copyProfileLink('${currentProviderId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
-                            </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                            <button class="share-btn" onclick="copyProfileLink('${currentProviderId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
                         </div>
                     </div>
+                </div>
 
-                    <div class="profile-card" style="padding:20px;">
-                        <div class="gallery-section">
-                            <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-images" style="color:var(--pink);"></i> Gallery</h2>
-                            <div class="standard-gallery">${galleryHtml}</div>
-                        </div>
+                <div class="profile-card" style="padding:20px;">
+                    <div class="gallery-section">
+                        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-images" style="color:var(--pink);"></i> Gallery</h2>
+                        <div class="standard-gallery">${galleryHtml}</div>
                     </div>
+                </div>
 
-                    <div class="profile-card" style="padding:20px;">
-                        <div class="review-section">
-                            <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-star" style="color:var(--pink);"></i> Ratings & Reviews</h2>
-                            <div class="review-form">
-                                <h3>Rate this provider</h3>
-                                <div class="star-rating-input" id="star-input">
-                                    <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i><i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i><i class="far fa-star" data-value="5"></i>
-                                </div>
-                                <input type="text" id="reviewer-name" placeholder="Your name (optional)">
-                                <textarea id="review-comment" placeholder="Write your review..."></textarea>
-                                <button class="submit-review-btn" onclick="submitReview('${currentProviderId}')"><i class="fas fa-paper-plane"></i> Submit Review</button>
+                <div class="profile-card" style="padding:20px;">
+                    <div class="review-section">
+                        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-star" style="color:var(--pink);"></i> Ratings & Reviews</h2>
+                        <div class="review-form">
+                            <h3>Rate this provider</h3>
+                            <div class="star-rating-input" id="star-input">
+                                <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i><i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i><i class="far fa-star" data-value="5"></i>
                             </div>
-                            <div class="review-list" id="review-list"></div>
+                            <input type="text" id="reviewer-name" placeholder="Your name (optional)">
+                            <textarea id="review-comment" placeholder="Write your review..."></textarea>
+                            <button class="submit-review-btn" onclick="submitReview('${currentProviderId}')"><i class="fas fa-paper-plane"></i> Submit Review</button>
                         </div>
+                        <div class="review-list" id="review-list"></div>
                     </div>
-                `;
+                </div>
+            `;
             document.getElementById('profile-content').innerHTML = html;
             setupStarRating();
         }
@@ -968,97 +933,96 @@
         // ===== RENDER EDIT VIEW =====
         function renderEditView() {
             let checkboxesHtml = servicesList.map(svc => `
-                        <label class="service-checkbox">
-                            <input type="checkbox" class="edit-svc-chk" value="${svc}" ${(providerData.services || []).includes(svc) ? 'checked' : ''}>
-                            ${svc}
-                        </label>
-                    `).join('');
+                <label class="service-checkbox">
+                    <input type="checkbox" class="edit-svc-chk" value="${svc}" ${(providerData.services || []).includes(svc) ? 'checked' : ''}>
+                    ${svc}
+                </label>
+            `).join('');
 
             let imagesHtml = uploadedImages.map((url, i) => `
-                        <div class="gallery-item">
-                            <img src="${url}">
-                            <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
-                        </div>
-                    `).join('');
+                <div class="gallery-item">
+                    <img src="${url}">
+                    <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
+                </div>
+            `).join('');
 
             const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
                 .toUpperCase();
             const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
 
             const html = `
-                    <div class="profile-card" style="padding:30px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; border-bottom:2px solid var(--lime); padding-bottom:10px;">
-                            <h2 style="color:var(--navy);"><i class="fas fa-edit"></i> Edit Profile</h2>
-                            <button class="edit-toggle-btn" style="position:relative; top:0; right:0;" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
-                        </div>
-
-                        <!-- Avatar -->
-                        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px;">
-                            <div class="profile-avatar editable" style="margin:0; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()" id="avatar-preview-box">
-                                ${avatarHtml}
-                                <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
-                            </div>
-                            <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
-                            <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
-                        </div>
-
-                        <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
-                        <div class="form-grid">
-                            <div class="input-group"><label>Company Name</label><input type="text" id="e-name" value="${providerData.name || ''}"></div>
-                            <div class="input-group"><label>Location</label><input type="text" id="e-loc" value="${providerData.location || ''}"></div>
-                            <div class="input-group"><label>Primary Category</label><input type="text" id="e-cat" value="${providerData.category || ''}" placeholder="e.g. Wedding DJ"></div>
-                            <div class="input-group"><label>Base Starting Price ($)</label><input type="number" id="e-price" value="${providerData.basePrice || ''}"></div>
-                            <div class="input-group full-width"><label>Description</label><textarea id="e-desc" rows="3">${providerData.description || ''}</textarea></div>
-                        </div>
-
-                        <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Primary Services</h3>
-                        <div class="services-check-grid">${checkboxesHtml}</div>
-
-                        <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Additional Details</h3>
-                        <div class="form-grid">
-                            <div class="input-group full-width"><label>Secondary Services <span style="font-weight:400;color:var(--muted);">(list any additional services not shown above)</span></label>
-                                <textarea id="e-secondary" rows="2">${providerData.secondaryServices || ''}</textarea>
-                            </div>
-                            <div class="input-group"><label>Business Hours</label>
-                                <input type="text" id="e-hours" value="${providerData.businessHours || ''}" placeholder="e.g. Mon–Fri 9am–6pm">
-                            </div>
-                            <div class="input-group"><label>Years of Experience</label>
-                                <input type="number" id="e-experience" value="${providerData.yearsExperience || ''}" placeholder="e.g. 5">
-                            </div>
-                            <div class="input-group"><label>Service Areas</label>
-                                <input type="text" id="e-areas" value="${providerData.serviceAreas || ''}" placeholder="e.g. Lagos, Abuja, Port Harcourt">
-                            </div>
-                            <div class="input-group"><label>Languages Spoken</label>
-                                <input type="text" id="e-languages" value="${providerData.languages || ''}" placeholder="e.g. English, Yoruba, French">
-                            </div>
-                            <div class="input-group"><label>Payment Methods</label>
-                                <input type="text" id="e-payment" value="${providerData.paymentMethods || ''}" placeholder="e.g. Cash, Bank Transfer, Card">
-                            </div>
-                            <div class="input-group full-width"><label>Cancellation Policy</label>
-                                <textarea id="e-cancellation" rows="2">${providerData.cancellationPolicy || ''}</textarea>
-                            </div>
-                        </div>
-
-                        <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media (no phone/email)</h3>
-                        <div class="form-grid">
-                            <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}"></div>
-                            <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${providerData.instagram || ''}"></div>
-                            <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${providerData.facebook || ''}"></div>
-                            <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${providerData.youtube || ''}"></div>
-                            <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}"></div>
-                        </div>
-
-                        <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
-                        <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
-                            <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
-                            <p id="upload-text">Click to add gallery images.</p>
-                            <input type="file" id="gallery-upload" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(event)">
-                        </div>
-                        <div class="standard-gallery" id="edit-gallery">${imagesHtml}</div>
-
-                        <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+                <div class="profile-card" style="padding:30px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; border-bottom:2px solid var(--lime); padding-bottom:10px;">
+                        <h2 style="color:var(--navy);"><i class="fas fa-edit"></i> Edit Profile</h2>
+                        <button class="edit-toggle-btn" style="position:relative; top:0; right:0;" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
                     </div>
-                `;
+
+                    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px;">
+                        <div class="profile-avatar editable" style="margin:0; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()" id="avatar-preview-box">
+                            ${avatarHtml}
+                            <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
+                        </div>
+                        <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
+                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
+                    </div>
+
+                    <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
+                    <div class="form-grid">
+                        <div class="input-group"><label>Company Name</label><input type="text" id="e-name" value="${providerData.name || ''}"></div>
+                        <div class="input-group"><label>Location</label><input type="text" id="e-loc" value="${providerData.location || ''}"></div>
+                        <div class="input-group"><label>Primary Category</label><input type="text" id="e-cat" value="${providerData.category || ''}" placeholder="e.g. Wedding DJ"></div>
+                        <div class="input-group"><label>Base Starting Price ($)</label><input type="number" id="e-price" value="${providerData.basePrice || ''}"></div>
+                        <div class="input-group full-width"><label>Description</label><textarea id="e-desc" rows="3">${providerData.description || ''}</textarea></div>
+                    </div>
+
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Primary Services</h3>
+                    <div class="services-check-grid">${checkboxesHtml}</div>
+
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Additional Details</h3>
+                    <div class="form-grid">
+                        <div class="input-group full-width"><label>Secondary Services <span style="font-weight:400;color:var(--muted);">(list any additional services not shown above)</span></label>
+                            <textarea id="e-secondary" rows="2">${providerData.secondaryServices || ''}</textarea>
+                        </div>
+                        <div class="input-group"><label>Business Hours</label>
+                            <input type="text" id="e-hours" value="${providerData.businessHours || ''}" placeholder="e.g. Mon–Fri 9am–6pm">
+                        </div>
+                        <div class="input-group"><label>Years of Experience</label>
+                            <input type="number" id="e-experience" value="${providerData.yearsExperience || ''}" placeholder="e.g. 5">
+                        </div>
+                        <div class="input-group"><label>Service Areas</label>
+                            <input type="text" id="e-areas" value="${providerData.serviceAreas || ''}" placeholder="e.g. Lagos, Abuja, Port Harcourt">
+                        </div>
+                        <div class="input-group"><label>Languages Spoken</label>
+                            <input type="text" id="e-languages" value="${providerData.languages || ''}" placeholder="e.g. English, Yoruba, French">
+                        </div>
+                        <div class="input-group"><label>Payment Methods</label>
+                            <input type="text" id="e-payment" value="${providerData.paymentMethods || ''}" placeholder="e.g. Cash, Bank Transfer, Card">
+                        </div>
+                        <div class="input-group full-width"><label>Cancellation Policy</label>
+                            <textarea id="e-cancellation" rows="2">${providerData.cancellationPolicy || ''}</textarea>
+                        </div>
+                    </div>
+
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media (no phone/email)</h3>
+                    <div class="form-grid">
+                        <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}"></div>
+                        <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${providerData.instagram || ''}"></div>
+                        <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${providerData.facebook || ''}"></div>
+                        <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${providerData.youtube || ''}"></div>
+                        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}"></div>
+                    </div>
+
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
+                    <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
+                        <p id="upload-text">Click to add gallery images.</p>
+                        <input type="file" id="gallery-upload" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(event)">
+                    </div>
+                    <div class="standard-gallery" id="edit-gallery">${imagesHtml}</div>
+
+                    <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+                </div>
+            `;
             document.getElementById('profile-content').innerHTML = html;
         }
 
@@ -1068,7 +1032,6 @@
             if (!file) return;
             const box = document.getElementById('avatar-preview-box');
             box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
-
             compressToBase64(file, 400, 0.7, (base64) => {
                 providerData.avatar = base64;
                 box.innerHTML =
@@ -1079,18 +1042,14 @@
         function handleGalleryUpload(event) {
             const files = Array.from(event.target.files);
             if (uploadedImages.length + files.length > 5) { alert("Maximum 5 images allowed in the gallery."); return; }
-
             const txt = document.getElementById('upload-text');
             txt.innerHTML = '<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing images...';
-
             let processed = 0;
             files.forEach(file => {
                 compressToBase64(file, 800, 0.6, (base64) => {
                     uploadedImages.push(base64);
                     processed++;
-                    if (processed === files.length) {
-                        renderEditView();
-                    }
+                    if (processed === files.length) renderEditView();
                 });
             });
         }
@@ -1114,7 +1073,6 @@
                 basePrice: Number(document.getElementById('e-price').value) || 0,
                 description: document.getElementById('e-desc').value.trim(),
                 services: selectedSvc,
-                // New fields
                 secondaryServices: document.getElementById('e-secondary').value.trim(),
                 businessHours: document.getElementById('e-hours').value.trim(),
                 yearsExperience: Number(document.getElementById('e-experience').value) || 0,
@@ -1122,7 +1080,6 @@
                 languages: document.getElementById('e-languages').value.trim(),
                 paymentMethods: document.getElementById('e-payment').value.trim(),
                 cancellationPolicy: document.getElementById('e-cancellation').value.trim(),
-                // Social (no email/phone)
                 tiktok: document.getElementById('e-tt').value.trim(),
                 instagram: document.getElementById('e-ig').value.trim(),
                 facebook: document.getElementById('e-fb').value.trim(),
@@ -1181,7 +1138,7 @@
                     if (r.createdAt && r.createdAt.toDate) d = new Date(r.createdAt.toDate()).toLocaleDateString();
                     clone.querySelector('.review-date').textContent = d;
                     clone.querySelector('.review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5 - r
-                    .rating);
+                        .rating);
                     clone.querySelector('.review-comment').textContent = r.comment || '';
                     list.appendChild(clone);
                 });

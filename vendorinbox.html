@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
     <style>
-        /* ── ZONE21 · LIME · NAVY · PINK (same as organiser) ── */
+        /* ── ZONE21 · LIME · NAVY · PINK (same as organizer) ── */
         :root {
             --bg-page: #F0F4F0;
             --bg-surface: #FFFFFF;
@@ -1450,6 +1450,9 @@
             serverTimestamp
         };
 
+        // ============================================================
+        // FIXED: Correct role names and redirects for VENDOR
+        // ============================================================
         onAuthStateChanged(window.auth, async (user) => {
             if (user) {
                 const docRef = doc(window.db, "users", user.uid);
@@ -1459,22 +1462,25 @@
                     return;
                 }
                 const data = docSnap.data();
-                // Service provider / vendor role check
-                if (data.role !== 'serviceProvider') {
-                    if (data.role === 'organiser') {
-                        window.location.href = 'organiser-inbox.html';
+
+                // Use 'service_provider' (underscore)
+                if (data.role !== 'service_provider') {
+                    // Organizers go to organiseinbox.html (your admin inbox)
+                    if (data.role === 'organizer') {
+                        window.location.href = 'organiseinbox.html';
                     } else {
                         window.location.href = 'index.html';
                     }
                     return;
                 }
+
                 const name = data.name || user.email.split('@')[0];
                 window.currentUser = {
                     uid: user.uid,
                     name,
                     email: user.email,
                     avatarUrl: data.avatarUrl || null,
-                    role: 'serviceProvider'
+                    role: 'service_provider' // store consistently
                 };
                 window.setupRealtimeInbox();
             } else {
@@ -1539,14 +1545,14 @@
                         <span class="badge-unread-count" id="global-unread-badge">0</span>
                     </div>
                     <div class="brand-sub">
-                        <i class="fa-solid fa-circle-check"></i> Connect with event organisers
+                        <i class="fa-solid fa-circle-check"></i> Connect with event organizers
                     </div>
                 </div>
                 <div class="thread-list" id="inbox-container"></div>
                 <div class="empty-threads" id="empty-inbox">
                     <i class="fa-regular fa-message"></i>
                     <h3>No conversations</h3>
-                    <p>Start connecting with organisers for your services</p>
+                    <p>Start connecting with organizers for your services</p>
                 </div>
             </div>
 
@@ -1557,7 +1563,7 @@
                         <i class="fa-regular fa-comment-dots"></i>
                     </div>
                     <h3>Select a conversation</h3>
-                    <p>Choose an organiser from the list to start messaging</p>
+                    <p>Choose an organizer from the list to start messaging</p>
                 </div>
 
                 <div id="chat-content" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0;">
@@ -1568,8 +1574,8 @@
                                 <span class="status-dot" id="chat-status-dot"></span>
                             </div>
                             <div>
-                                <h3 id="chat-title">Organiser</h3>
-                                <span id="chat-subtitle">Event organiser</span>
+                                <h3 id="chat-title">Organizer</h3>
+                                <span id="chat-subtitle">Event organizer</span>
                             </div>
                         </div>
                         <div class="chat-header-buttons">
@@ -1799,13 +1805,13 @@
                 const otherUid = thread.participants.find(uid => uid !== window.currentUser.uid);
                 const otherUser = otherUid ? (window.userCache[otherUid] || { name: 'Unknown',
                     avatarUrl: null }) : { name: 'Unknown', avatarUrl: null };
-                const organiserName = otherUser.name || 'Unknown Organiser';
-                const organiserAvatar = otherUser.avatarUrl || null;
-                const jobTitle = thread.jobTitle || 'Event Organiser';
+                const organizerName = otherUser.name || 'Unknown Organizer';
+                const organizerAvatar = otherUser.avatarUrl || null;
+                const jobTitle = thread.jobTitle || 'Event Organizer';
                 const lastMsgPreview = thread.lastMessageText || 'Start a conversation';
                 const updatedAt = thread.updatedAt || null;
                 const timeStr = formatTimeAgo(updatedAt);
-                const initials = organiserName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
+                const initials = organizerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
                 const lastReadAt = window.lastReadTimestamps[thread.id] || 0;
                 let threadTime = 0;
                 if (updatedAt) {
@@ -1814,13 +1820,13 @@
                 const isUnread = threadTime > lastReadAt;
                 const isActive = window.activeChatId === thread.id;
 
-                const avatarHTML = organiserAvatar ?
-                    `<img src="${organiserAvatar}" alt="${organiserName}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>${initials}</span>';" />` :
+                const avatarHTML = organizerAvatar ?
+                    `<img src="${organizerAvatar}" alt="${organizerName}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>${initials}</span>';" />` :
                     `<span>${initials}</span>`;
 
                 const html = `
                 <div class="thread-item ${isUnread ? 'unread' : ''} ${isActive ? 'active' : ''}"
-                     onclick="openChat('${thread.id}', '${organiserName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"
+                     onclick="openChat('${thread.id}', '${organizerName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"
                      data-thread-id="${thread.id}">
                   <div class="thread-avatar">
                     ${avatarHTML}
@@ -1828,7 +1834,7 @@
                   </div>
                   <div class="thread-body">
                     <div class="thread-top-row">
-                      <span class="thread-name">${organiserName}</span>
+                      <span class="thread-name">${organizerName}</span>
                       <span class="thread-time">${timeStr}</span>
                     </div>
                     <div class="thread-subtitle">${jobTitle}</div>
@@ -1888,7 +1894,7 @@
         };
 
         // ── CHAT ──
-        window.openChat = async function(threadId, organiserName, jobTitle, otherUid) {
+        window.openChat = async function(threadId, organizerName, jobTitle, otherUid) {
             window.activeChatId = threadId;
             window.activeChatOtherUid = otherUid || null;
 
@@ -1903,18 +1909,18 @@
             chatContent.classList.remove('hidden');
             chatContent.style.display = 'flex';
 
-            document.getElementById('chat-title').textContent = organiserName || 'Organiser';
-            document.getElementById('chat-subtitle').textContent = jobTitle || 'Event Organiser';
+            document.getElementById('chat-title').textContent = organizerName || 'Organizer';
+            document.getElementById('chat-subtitle').textContent = jobTitle || 'Event Organizer';
 
             let otherAvatar = null;
             if (otherUid) {
                 const userData = await getUserData(otherUid);
                 window.activeChatOtherData = userData;
                 otherAvatar = userData.avatarUrl || null;
-                const roleLabel = userData.role === 'organiser' ? 'Organiser' : 'User';
+                const roleLabel = userData.role === 'organizer' ? 'Organizer' : 'User';
                 document.getElementById('chat-subtitle').textContent = jobTitle || roleLabel;
             }
-            const initials = (organiserName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
+            const initials = (organizerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
             const avatarContainer = document.getElementById('chat-avatar');
             const avatarInitialsSpan = document.getElementById('chat-avatar-initials');
             const statusDot = document.getElementById('chat-status-dot');
@@ -1925,7 +1931,7 @@
                 avatarInitialsSpan.style.display = 'none';
                 const img = document.createElement('img');
                 img.src = otherAvatar;
-                img.alt = organiserName;
+                img.alt = organizerName;
                 img.onerror = function() {
                     this.style.display = 'none';
                     avatarInitialsSpan.style.display = 'inline';
@@ -2207,14 +2213,14 @@
         };
 
         function renderProfileModal(user) {
-            const isOrganiser = user.role === 'organiser';
+            const isOrganizer = user.role === 'organizer';
             document.getElementById('pm-name').textContent = user.name || 'Unnamed User';
             document.getElementById('pm-avatar').src = user.avatarUrl ||
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name||'U')}&background=0A2540&color=84CC16&size=180`;
             document.getElementById('pm-bio').textContent = user.bio || 'No summary provided.';
 
             let badges = '';
-            if (isOrganiser) {
+            if (isOrganizer) {
                 if (user.organisation) badges +=
                     `<span class="badge badge-pink"><i class="fa-solid fa-building"></i> ${user.organisation}</span>`;
                 if (user.location) badges +=
@@ -2229,9 +2235,9 @@
             }
             document.getElementById('pm-badges').innerHTML = badges;
 
-            document.getElementById('pm-summary-title').textContent = isOrganiser ? 'About the Organiser' :
+            document.getElementById('pm-summary-title').textContent = isOrganizer ? 'About the Organizer' :
                 'About the Provider';
-            document.getElementById('pm-details-title').textContent = isOrganiser ? 'Organisation Details' :
+            document.getElementById('pm-details-title').textContent = isOrganizer ? 'Organisation Details' :
                 'Service Details';
 
             const detailsContainer = document.getElementById('pm-dynamic-details');
@@ -2325,5 +2331,3 @@
     </script>
 </body>
 </html>
-
-.

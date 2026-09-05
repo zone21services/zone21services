@@ -322,31 +322,15 @@
             color: var(--navy);
         }
 
-        /* ── LOCKED THREAD OVERLAY ── */
+        /* ── LOCKED THREAD – subtle lock icon only, no grayscale ── */
         .thread-item.locked {
-            cursor: not-allowed;
-            opacity: 0.7;
-            filter: grayscale(0.3);
-            position: relative;
+            cursor: pointer;
         }
-        .thread-item.locked::after {
-            content: '\f023';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.2rem;
-            color: rgba(10, 37, 64, 0.15);
-            pointer-events: none;
-            z-index: 1;
-        }
-        .thread-item.locked .thread-avatar {
-            filter: grayscale(0.5);
-        }
-        .thread-item.locked .thread-body .thread-preview i {
-            color: #9CA3AF;
+        .thread-item.locked .thread-preview .lock-icon {
+            display: inline-block;
+            color: #D97706;
+            margin-right: 4px;
+            font-size: 0.7rem;
         }
         .thread-item.locked .thread-item-actions {
             opacity: 0.3;
@@ -459,6 +443,12 @@
         .thread-item.unread .unread-dot {
             display: inline-block;
         }
+        .thread-preview .lock-icon {
+            display: none;
+        }
+        .thread-item.locked .thread-preview .lock-icon {
+            display: inline-block;
+        }
 
         .thread-item-actions {
             display: flex;
@@ -559,6 +549,83 @@
         }
         #chat-content.visible {
             display: flex;
+        }
+
+        /* ── LOCK OVERLAY INSIDE CHAT ── */
+        .chat-lock-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(8px);
+            z-index: 20;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px;
+            animation: fadeInOverlay 0.3s ease;
+        }
+        .chat-lock-overlay.active {
+            display: flex;
+        }
+        .chat-lock-overlay .lock-icon-big {
+            font-size: 3.2rem;
+            color: #D97706;
+            margin-bottom: 16px;
+        }
+        .chat-lock-overlay h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 6px;
+        }
+        .chat-lock-overlay p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            max-width: 340px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .chat-lock-overlay .btn-subscribe-lock {
+            background: var(--lime);
+            color: var(--navy);
+            border: none;
+            padding: 12px 36px;
+            border-radius: var(--radius-full);
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: var(--font);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 16px rgba(132, 204, 22, 0.3);
+        }
+        .chat-lock-overlay .btn-subscribe-lock:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(132, 204, 22, 0.4);
+        }
+        .chat-lock-overlay .btn-subscribe-lock i {
+            font-size: 1rem;
+        }
+        @keyframes fadeInOverlay {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .chat-content-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
         }
 
         /* ── CHAT HEADER ── */
@@ -1451,6 +1518,16 @@
             .lock-banner .btn-subscribe-lock {
                 justify-content: center;
             }
+            .chat-lock-overlay {
+                padding: 20px;
+            }
+            .chat-lock-overlay h3 {
+                font-size: 1.1rem;
+            }
+            .chat-lock-overlay .btn-subscribe-lock {
+                padding: 10px 24px;
+                font-size: 0.9rem;
+            }
         }
 
         @media (max-width: 420px) {
@@ -1887,9 +1964,9 @@
                 const isUnread = threadTime > lastReadAt;
                 const isActive = window.activeChatId === thread.id;
 
-                // Build click handler: if locked, show toast instead of opening chat
+                // Build click handler: if locked, show the chat with overlay (no toast)
                 const clickHandler = isLocked ?
-                    `onclick="handleLockedClick(event)"` :
+                    `onclick="openLockedChat('${thread.id}', '${providerName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"` :
                     `onclick="openChat('${thread.id}', '${providerName.replace(/'/g, "\\'")}', '${jobTitle.replace(/'/g, "\\'")}', '${otherUid || ''}')"`;
 
                 const avatarHTML = providerAvatar ?
@@ -1914,6 +1991,7 @@
                     <div class="thread-subtitle">${jobTitle}</div>
                     <div class="thread-preview">
                       <span class="unread-dot"></span>
+                      ${isLocked ? '<span class="lock-icon"><i class="fas fa-lock"></i></span>' : ''}
                       <i class="fa-regular fa-comment-dots"></i> ${lastMsgPreview}
                     </div>
                   </div>
@@ -1921,7 +1999,7 @@
                     <button class="btn-icon-sm" onclick="event.stopPropagation(); viewProfileByUid('${otherUid || ''}')" title="Profile">
                       <i class="fa-solid fa-user"></i>
                     </button>
-                    <button class="btn-icon-sm danger" onclick="${isLocked ? `event.stopPropagation(); handleLockedClick(event)` : `deleteThreadById('${thread.id}')`}" title="Delete">
+                    <button class="btn-icon-sm danger" onclick="${isLocked ? `event.stopPropagation(); openLockedChat('${thread.id}')` : `deleteThreadById('${thread.id}')`}" title="Delete">
                       <i class="fa-regular fa-trash-can"></i>
                     </button>
                   </div>
@@ -1932,17 +2010,47 @@
             updateGlobalUnreadBadge();
         };
 
-        // ── LOCKED CLICK HANDLER ──
-        window.handleLockedClick = function(event) {
-            event.stopPropagation();
-            window.showToast('🔒 Your inbox is locked. Subscribe to a plan to read and reply.', 'error');
-            // Also show a subtle notification in the UI
-            const banner = document.getElementById('lock-banner');
-            if (banner.classList.contains('hidden')) {
-                // If banner hidden (shouldn't happen), flash it
-                banner.classList.remove('hidden');
-                setTimeout(() => banner.classList.add('hidden'), 3000);
+        // ── OPEN LOCKED CHAT – shows overlay ──
+        window.openLockedChat = function(threadId, providerName, jobTitle, otherUid) {
+            // Show the chat UI but with overlay
+            const rightPanel = document.getElementById('right-panel');
+            const emptyState = document.getElementById('empty-chat-state');
+            const chatContent = document.getElementById('chat-content');
+            rightPanel.classList.remove('empty');
+            emptyState.classList.add('hidden');
+            chatContent.classList.remove('hidden');
+            chatContent.classList.add('visible');
+
+            // Set header info
+            document.getElementById('chat-title').textContent = providerName || 'Provider';
+            document.getElementById('chat-subtitle').textContent = jobTitle || 'Service Provider';
+            // Set avatar
+            const avatarContainer = document.getElementById('chat-avatar');
+            const avatarInitialsSpan = document.getElementById('chat-avatar-initials');
+            const statusDot = document.getElementById('chat-status-dot');
+            const existingImg = avatarContainer.querySelector('img');
+            if (existingImg) existingImg.remove();
+            const initials = (providerName || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
+            avatarInitialsSpan.style.display = 'inline';
+            avatarInitialsSpan.textContent = initials;
+            statusDot.classList.add('online');
+
+            // Show lock overlay
+            document.getElementById('chat-lock-overlay').classList.add('active');
+            // Clear any old messages
+            document.getElementById('chat-history').innerHTML = '';
+            // Hide input area
+            document.getElementById('chat-input-area').style.display = 'none';
+            // Hide attachment preview
+            document.getElementById('attachment-preview').style.display = 'none';
+
+            if (window.innerWidth <= 860) {
+                document.getElementById('left-panel').classList.add('hidden-on-mobile');
+                rightPanel.classList.remove('hidden-on-mobile');
             }
+
+            // Optionally, we could also show the thread's last messages but we keep it empty with overlay.
+            // We don't subscribe to messages to save reads.
         };
 
         function updateGlobalUnreadBadge() {
@@ -1980,13 +2088,17 @@
             if (window.activeChatId) window.deleteThreadById(window.activeChatId);
         };
 
-        // ── CHAT ──
+        // ── CHAT ── (only called when unlocked)
         window.openChat = async function(threadId, providerName, jobTitle, otherUid) {
-            // Double-check: if no active subscription, block
+            // Double-check: if no active subscription, block and show overlay instead
             if (!window.hasActiveSubscription) {
-                window.handleLockedClick(event);
+                window.openLockedChat(threadId, providerName, jobTitle, otherUid);
                 return;
             }
+
+            // Hide lock overlay if visible
+            document.getElementById('chat-lock-overlay').classList.remove('active');
+            document.getElementById('chat-input-area').style.display = 'flex';
 
             window.activeChatId = threadId;
             window.activeChatOtherUid = otherUid || null;
@@ -2106,6 +2218,9 @@
             const chatContent = document.getElementById('chat-content');
             chatContent.classList.remove('visible');
             chatContent.classList.add('hidden');
+            // Hide lock overlay
+            document.getElementById('chat-lock-overlay').classList.remove('active');
+            document.getElementById('chat-input-area').style.display = 'flex';
             const rightPanel = document.getElementById('right-panel');
             const emptyState = document.getElementById('empty-chat-state');
             rightPanel.classList.add('empty');
@@ -2210,7 +2325,7 @@
         window.sendChatMessage = async function() {
             // Extra safety: block send if locked
             if (!window.hasActiveSubscription) {
-                window.handleLockedClick(event);
+                window.showToast('🔒 Please subscribe to send messages.', 'error');
                 return;
             }
 
@@ -2479,6 +2594,12 @@
 
         // ── SUBSCRIBE BUTTON HANDLER ──
         document.getElementById('btn-subscribe-lock').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'subscription.html';
+        });
+
+        // Also wire the overlay button
+        document.getElementById('btn-subscribe-overlay').addEventListener('click', function(e) {
             e.preventDefault();
             window.location.href = 'subscription.html';
         });

@@ -185,6 +185,25 @@
             background: #f0f4f8;
         }
 
+        .profile-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin: 10px 0 6px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .profile-meta i {
+            width: 18px;
+            color: var(--navy);
+            margin-right: 4px;
+        }
+        .profile-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         /* ===== GALLERY ===== */
         .gallery-section h2 {
             font-size: 1.1rem;
@@ -398,6 +417,46 @@
             background: #dde0e5;
         }
 
+        /* ===== EDIT FORM ===== */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .input-group label {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            background: #fafbfc;
+            transition: 0.2s;
+            font-family: inherit;
+            width: 100%;
+        }
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--navy);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(16, 40, 56, 0.05);
+        }
+
         /* ===== ANIMATIONS ===== */
         @keyframes fadeIn {
             from {
@@ -462,6 +521,15 @@
             .header .logo {
                 font-size: 1.4rem;
             }
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .profile-meta {
+                font-size: 0.75rem;
+                gap: 10px;
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -496,107 +564,104 @@
         const auth = firebase.auth();
 
         // ===== STATE =====
-        let currentOrganizerId = null;
-        let organizerData = null;
+        let currentUserId = null;
+        let userData = null;
         let isOwner = false;
         let viewMode = 'public'; // 'public' | 'edit'
         let uploadedImages = [];
         let isEditingAbout = false;
 
-        // ===== RESOLVE ORGANIZER ID =====
-        async function resolveOrganizerId(user) {
+        // ===== DETERMINE PROFILE OWNER =====
+        async function getProfileOwnerId() {
             const urlParams = new URLSearchParams(window.location.search);
             const idFromUrl = urlParams.get('id');
             if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') {
                 return idFromUrl;
             }
-            if (user) {
-                try {
-                    const uidDoc = await db.collection('organizers').doc(user.uid).get();
-                    if (uidDoc.exists) return user.uid;
-                    if (user.email) {
-                        const emailSnapshot = await db.collection('organizers').where('email', '==', user.email).limit(1)
-                            .get();
-                        if (!emailSnapshot.empty) return emailSnapshot.docs[0].id;
-                    }
-                } catch (error) { console.error("Error resolving ID:", error); }
-            }
+            const user = auth.currentUser;
+            if (user) return user.uid;
             return null;
         }
 
         auth.onAuthStateChanged(async (user) => {
-            currentOrganizerId = await resolveOrganizerId(user);
-            if (currentOrganizerId) {
-                isOwner = user && (user.uid === currentOrganizerId || (organizerData && organizerData.email === user
-                .email));
+            if (user) {
+                currentUserId = await getProfileOwnerId();
+                // If no ID in URL, use current user's UID
+                if (!currentUserId) currentUserId = user.uid;
+                isOwner = (user.uid === currentUserId);
                 if (isOwner) document.getElementById('dash-btn').style.display = 'block';
-                loadOrganizerProfile();
-            } else if (user) {
-                showProfileNotFound(true);
+                await loadUserProfile();
             } else {
-                showProfileNotFound(false);
+                showNotLoggedIn();
             }
         });
 
-        function showProfileNotFound(isLoggedIn) {
+        function showNotLoggedIn() {
             const content = document.getElementById('profile-content');
-            if (isLoggedIn) {
-                content.innerHTML = `
-                        <div class="error">
-                            <i class="fas fa-calendar-plus" style="font-size:3rem; color:var(--navy);"></i>
-                            <h3>No Organizer Profile Found</h3>
-                            <p style="margin:10px 0;">Your account does not have an organizer profile yet.</p>
-                            <button class="btn-create" onclick="createOrganizerProfile()"><i class="fas fa-plus"></i> Create My Profile</button>
-                        </div>`;
-            } else {
-                content.innerHTML = `
-                        <div class="error">
-                            <i class="fas fa-lock" style="font-size:3rem; color:var(--navy);"></i>
-                            <h3>Please Sign In</h3>
-                            <p style="margin:10px 0;">Log in to view or create your organizer profile.</p>
-                            <a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
-                        </div>`;
-            }
+            content.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-lock" style="font-size:3rem; color:var(--navy);"></i>
+                        <h3>Please Sign In</h3>
+                        <p style="margin:10px 0;">Log in to view or manage your organizer profile.</p>
+                        <a href="index.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+                    </div>`;
         }
 
-        async function createOrganizerProfile() {
-            if (!auth.currentUser) return;
-            const uid = auth.currentUser.uid;
-            const email = auth.currentUser.email || '';
-            const defaultData = {
-                name: email.split('@')[0] || 'My Organizer Business',
-                mainService: 'Event Organizer',
-                about: 'I am a passionate event organizer with a keen eye for detail. I create memorable experiences for weddings, corporate events, private parties, and more. Let\'s bring your vision to life!',
-                images: [],
-                avatar: '',
-                email: email,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            await db.collection('organizers').doc(uid).set(defaultData);
-            window.location.reload();
+        function showNoProfile() {
+            const content = document.getElementById('profile-content');
+            content.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-calendar-plus" style="font-size:3rem; color:var(--navy);"></i>
+                        <h3>No Organizer Profile Found</h3>
+                        <p style="margin:10px 0;">Your account does not have an organizer profile yet. Please register as an organizer.</p>
+                        <a href="index.html" class="btn-create"><i class="fas fa-plus"></i> Go to Register</a>
+                    </div>`;
         }
 
-        async function loadOrganizerProfile() {
+        // ===== LOAD PROFILE FROM users COLLECTION =====
+        async function loadUserProfile() {
             try {
-                const doc = await db.collection('organizers').doc(currentOrganizerId).get();
-                if (!doc.exists) { showProfileNotFound(auth.currentUser ? true : false); return; }
-                organizerData = doc.data();
-                uploadedImages = organizerData.images || [];
+                const docRef = db.collection('users').doc(currentUserId);
+                const docSnap = await docRef.get();
+
+                if (!docSnap.exists) {
+                    showNoProfile();
+                    return;
+                }
+
+                userData = docSnap.data();
+
+                // Check if user is an organizer
+                if (userData.role !== 'organizer') {
+                    const content = document.getElementById('profile-content');
+                    content.innerHTML = `
+                            <div class="error">
+                                <i class="fas fa-exclamation-triangle" style="font-size:3rem; color:var(--pink);"></i>
+                                <h3>Not an Organizer Profile</h3>
+                                <p style="margin:10px 0;">This account is registered as a <strong>${userData.role || 'unknown'}</strong>. 
+                                Organizer profiles are only available for users with the "organizer" role.</p>
+                                <a href="dashboard.html" class="btn-create"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                            </div>`;
+                    return;
+                }
+
+                // Load images from userData (stored as array of base64 strings)
+                uploadedImages = userData.images || [];
 
                 if (viewMode === 'public') renderPublicView();
                 else renderEditView();
             } catch (error) {
+                console.error("Error loading profile:", error);
                 document.getElementById('profile-content').innerHTML =
                     '<div class="error">Failed to load profile. Please try again.</div>';
-                console.error(error);
             }
         }
 
+        // ===== TOGGLE VIEW MODE =====
         function toggleMode() {
             viewMode = viewMode === 'public' ? 'edit' : 'public';
             isEditingAbout = false;
-            loadOrganizerProfile();
+            loadUserProfile();
         }
 
         // ===== IMAGE COMPRESSION =====
@@ -626,11 +691,17 @@
 
         // ===== RENDER PUBLIC VIEW =====
         function renderPublicView() {
-            const initials = (organizerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
-                .toUpperCase();
-            const avatarHtml = organizerData.avatar ?
-                `<img src="${organizerData.avatar}" alt="Avatar">` :
+            const name = userData.name || 'Organizer';
+            const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = userData.avatar ?
+                `<img src="${userData.avatar}" alt="Avatar">` :
                 initials;
+
+            const company = userData.company || '';
+            const phone = userData.phone || '';
+            const country = userData.country || '';
+            const about = userData.about || 'No about information provided.';
+            const mainService = userData.mainService || 'Event Organizer';
 
             // Gallery
             const hasImages = uploadedImages.length > 0;
@@ -645,33 +716,38 @@
             }
 
             // About section (public)
-            const aboutText = organizerData.about || 'No about information provided.';
             const aboutHtml = isEditingAbout ?
                 `
-                        <textarea class="about-edit-area" id="about-edit-text">${aboutText}</textarea>
+                        <textarea class="about-edit-area" id="about-edit-text">${about}</textarea>
                         <div class="about-actions">
                             <button class="save-about" onclick="saveAbout()"><i class="fas fa-check"></i> Save</button>
                             <button class="cancel-about" onclick="cancelAboutEdit()"><i class="fas fa-times"></i> Cancel</button>
                         </div>
                     ` :
                 `
-                        <div class="about-text">${aboutText}</div>
+                        <div class="about-text">${about}</div>
                         ${isOwner ? `<button class="edit-about-btn" onclick="startAboutEdit()"><i class="fas fa-pen"></i> Edit About</button>` : ''}
                     `;
+
+            // Meta info
+            let metaHtml = '';
+            if (company) metaHtml += `<span><i class="fas fa-building"></i> ${company}</span>`;
+            if (phone) metaHtml += `<span><i class="fas fa-phone"></i> ${phone}</span>`;
+            if (country) metaHtml += `<span><i class="fas fa-map-marker-alt"></i> ${country}</span>`;
 
             const html = `
                     <div class="profile-card">
                         <div class="profile-cover"></div>
                         <div class="profile-avatar">${avatarHtml}</div>
                         <div class="profile-body">
-                            <div class="name">${organizerData.name || 'Organizer'}</div>
-                            <span class="main-service-badge"><i class="fas fa-calendar-check"></i> ${organizerData.mainService || 'Event Organizer'}</span>
-
+                            <div class="name">${name}</div>
+                            <span class="main-service-badge"><i class="fas fa-calendar-check"></i> ${mainService}</span>
+                            ${metaHtml ? `<div class="profile-meta">${metaHtml}</div>` : ''}
                             ${aboutHtml}
 
                             <div class="profile-toolbar">
                                 ${isOwner ? `<button onclick="toggleMode()"><i class="fas fa-edit"></i> Edit Profile</button>` : ''}
-                                <button class="btn-outline" onclick="copyProfileLink('${currentOrganizerId}')"><i class="fas fa-share-alt"></i> Share</button>
+                                <button class="btn-outline" onclick="copyProfileLink('${currentUserId}')"><i class="fas fa-share-alt"></i> Share</button>
                             </div>
                         </div>
                     </div>
@@ -703,11 +779,11 @@
             const text = document.getElementById('about-edit-text').value.trim();
             if (!text) return alert('Please write something about yourself.');
             try {
-                await db.collection('organizers').doc(currentOrganizerId).set({
+                await db.collection('users').doc(currentUserId).update({
                     about: text,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-                organizerData.about = text;
+                });
+                userData.about = text;
                 isEditingAbout = false;
                 renderPublicView();
             } catch (e) {
@@ -718,11 +794,17 @@
 
         // ===== RENDER EDIT VIEW =====
         function renderEditView() {
-            const initials = (organizerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
-                .toUpperCase();
-            const avatarHtml = organizerData.avatar ?
-                `<img src="${organizerData.avatar}" alt="Avatar">` :
+            const name = userData.name || '';
+            const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = userData.avatar ?
+                `<img src="${userData.avatar}" alt="Avatar">` :
                 initials;
+
+            const company = userData.company || '';
+            const phone = userData.phone || '';
+            const country = userData.country || '';
+            const about = userData.about || '';
+            const mainService = userData.mainService || 'Event Organizer';
 
             // Gallery with delete buttons + upload tile
             let galleryItems = uploadedImages.map((url, i) =>
@@ -759,21 +841,31 @@
                         </div>
 
                         <!-- Name & Main Service -->
-                        <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:18px;">
+                        <div class="form-grid">
                             <div class="input-group">
-                                <label>Display Name</label>
-                                <input type="text" id="e-name" value="${organizerData.name || ''}" placeholder="Your business name">
+                                <label>Display Name *</label>
+                                <input type="text" id="e-name" value="${name}" placeholder="Your name or business name" required>
                             </div>
                             <div class="input-group">
                                 <label>Main Service</label>
-                                <input type="text" id="e-service" value="${organizerData.mainService || 'Event Organizer'}" placeholder="e.g. Event Organizer">
+                                <input type="text" id="e-service" value="${mainService}" placeholder="e.g. Event Organizer">
                             </div>
-                        </div>
-
-                        <!-- About -->
-                        <div class="input-group" style="margin-bottom:24px;">
-                            <label style="font-weight:600; color:var(--navy);">About You</label>
-                            <textarea id="e-about" rows="4" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; font-size:0.95rem; line-height:1.6; resize:vertical; background:#fafbfc;">${organizerData.about || ''}</textarea>
+                            <div class="input-group">
+                                <label>Company / Organization</label>
+                                <input type="text" id="e-company" value="${company}" placeholder="Your company name">
+                            </div>
+                            <div class="input-group">
+                                <label>Phone</label>
+                                <input type="tel" id="e-phone" value="${phone}" placeholder="+263 7xx xxx xxx">
+                            </div>
+                            <div class="input-group" style="grid-column:1/-1;">
+                                <label>Country</label>
+                                <input type="text" id="e-country" value="${country}" placeholder="e.g. Zimbabwe">
+                            </div>
+                            <div class="input-group" style="grid-column:1/-1;">
+                                <label>About You</label>
+                                <textarea id="e-about" rows="4" placeholder="Tell other organizers and vendors about yourself...">${about}</textarea>
+                            </div>
                         </div>
 
                         <!-- Gallery -->
@@ -798,7 +890,7 @@
             box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
 
             compressToBase64(file, 400, 0.7, (base64) => {
-                organizerData.avatar = base64;
+                userData.avatar = base64;
                 box.innerHTML =
                     `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
             });
@@ -809,6 +901,7 @@
             const remaining = 6 - uploadedImages.length;
             if (files.length > remaining) {
                 alert(`You can only add ${remaining} more image(s).`);
+                event.target.value = '';
                 return;
             }
 
@@ -822,6 +915,7 @@
                     }
                 });
             });
+            event.target.value = '';
         }
 
         function removeImage(index) {
@@ -834,23 +928,34 @@
             btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
             btn.disabled = true;
 
+            const name = document.getElementById('e-name').value.trim();
+            if (!name) {
+                alert('Display name is required.');
+                btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+                btn.disabled = false;
+                return;
+            }
+
             const updates = {
-                name: document.getElementById('e-name').value.trim() || 'Organizer',
+                name: name,
                 mainService: document.getElementById('e-service').value.trim() || 'Event Organizer',
-                about: document.getElementById('e-about').value.trim(),
-                avatar: organizerData.avatar || null,
+                company: document.getElementById('e-company').value.trim() || '',
+                phone: document.getElementById('e-phone').value.trim() || '',
+                country: document.getElementById('e-country').value.trim() || '',
+                about: document.getElementById('e-about').value.trim() || '',
+                avatar: userData.avatar || null,
                 images: uploadedImages,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             try {
-                await db.collection('organizers').doc(currentOrganizerId).set(updates, { merge: true });
-                organizerData = { ...organizerData, ...updates };
+                await db.collection('users').doc(currentUserId).update(updates);
+                userData = { ...userData, ...updates };
                 viewMode = 'public';
                 isEditingAbout = false;
-                loadOrganizerProfile();
+                loadUserProfile();
             } catch (e) {
-                console.error(e);
+                console.error('Error saving profile:', e);
                 alert('Error saving profile. Please try again.');
                 btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
                 btn.disabled = false;

@@ -3,730 +3,2845 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Zone21 | Event Blueprint</title>
+    <title>Zone21 | Event Blueprint Generator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase SDK (Compat) v10.8.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
+    </script>
+
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        :root{--navy:#1A2A3A;--mint:#6B9F9F;--mint-light:#B5D4D4;--coral:#D4856B;--slate:#4A6A7F;--grey:#E8EDF0;--grey-light:#F5F7F9;--radius:10px;--shadow:0 2px 12px rgba(26,42,58,0.08)}
-        html,body{height:100%;overflow:hidden;background:#F0F3F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1A2A3A}
-        .app{display:flex;height:100dvh;width:100vw;overflow:hidden}
-        ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:var(--mint);border-radius:3px}
-        
-        /* Sidebar */
-        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(26,42,58,0.4);z-index:999}
-        .sidebar-overlay.active{display:block}
-        .sidebar{width:260px;min-width:260px;background:var(--navy);color:#fff;display:flex;flex-direction:column;height:100dvh;z-index:1000;transition:transform 0.3s}
-        .sidebar-header{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-        .sidebar-header h2{font-size:0.85rem;font-weight:600;color:var(--mint-light)}
-        .sidebar-header h2 i{color:var(--mint-light)}
-        .sidebar-header .badge{font-size:0.5rem;background:var(--mint);color:#fff;padding:2px 12px;border-radius:20px;font-weight:700;text-transform:uppercase}
-        .sidebar-body{flex:1;overflow-y:auto;padding:14px 16px}
-        .new-chat-btn{width:100%;padding:12px;background:var(--mint);color:#fff;border:none;border-radius:var(--radius);font-weight:600;font-size:0.8rem;cursor:pointer;transition:0.2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px}
-        .new-chat-btn:hover{background:#5A8A8A}
-        .history-item{padding:9px 12px;background:rgba(255,255,255,0.04);border-radius:var(--radius);margin-bottom:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;transition:0.2s;border-left:2px solid transparent}
-        .history-item:hover{background:rgba(255,255,255,0.08)}
-        .history-item.active{border-left-color:var(--mint-light);background:rgba(255,255,255,0.06)}
-        .history-item .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.85)}
-        .history-item .title i{color:var(--mint-light);margin-right:6px}
-        .history-item .delete-btn{color:rgba(255,255,255,0.2);padding:2px 6px;border:none;background:none;cursor:pointer;font-size:0.7rem}
-        .history-item .delete-btn:hover{color:var(--coral)}
-        .sidebar-footer{padding:10px 20px;border-top:1px solid rgba(255,255,255,0.05);font-size:0.6rem;color:rgba(255,255,255,0.3);text-align:center;flex-shrink:0}
+        /* ============================================================
+           RESET & ROOT — CLEAN, NORMAL TEXT SIZE
+           ============================================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        /* Workspace */
-        .workspace{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;height:100dvh;background:#F0F3F5}
-        .workspace-header{background:var(--navy);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:14px;border-bottom:2px solid var(--mint);flex-shrink:0}
-        .workspace-header .menu-btn{display:none;background:transparent;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:0 4px}
-        .workspace-header .brand h1{font-size:0.95rem;color:var(--mint-light);font-weight:600}
-        .workspace-header .brand p{font-size:0.55rem;color:rgba(255,255,255,0.4)}
-        .workspace-header .right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
-        .workspace-header .package-tag{background:var(--mint);color:#fff;padding:2px 12px;border-radius:20px;font-size:0.55rem;font-weight:700;text-transform:uppercase}
-        .workspace-header .user-email{font-size:0.6rem;color:rgba(255,255,255,0.4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .workspace-header .logout-btn{background:transparent;border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);padding:3px 12px;border-radius:20px;font-size:0.6rem;cursor:pointer;transition:0.2s}
-        .workspace-header .logout-btn:hover{background:rgba(255,255,255,0.06);border-color:var(--coral);color:#fff}
-        .workspace-content{flex:1;overflow-y:auto;padding:14px 20px 20px}
+        :root {
+            --navy: #1A2A3A;
+            --navy-light: #2C3E50;
+            --slate: #4A6A7F;
+            --mint: #6B9F9F;
+            --mint-light: #B5D4D4;
+            --mint-soft: rgba(107, 159, 159, 0.10);
+            --coral: #D4856B;
+            --coral-soft: rgba(212, 133, 107, 0.08);
+            --grey: #E8EDF0;
+            --grey-light: #F5F7F9;
+            --text-primary: #1A2A3A;
+            --text-secondary: #4A6A7F;
+            --text-muted: #7A9BAE;
+            --bg-page: #F0F3F5;
+            --bg-surface: #FFFFFF;
+            --bg-input: #F5F7F9;
+            --border-light: #E8EDF0;
+            --border-strong: #D5DDE3;
+            --shadow-sm: 0 1px 3px rgba(26, 42, 58, 0.06);
+            --shadow-md: 0 4px 16px rgba(26, 42, 58, 0.08);
+            --shadow-lg: 0 8px 32px rgba(26, 42, 58, 0.10);
+            --shadow-xl: 0 16px 48px rgba(26, 42, 58, 0.14);
+            --radius: 10px;
+            --radius-xl: 18px;
+            --radius-full: 9999px;
+            font-size: 15px;
+        }
 
-        /* Package Banner */
-        .package-banner{background:var(--navy);color:#fff;padding:10px 16px;border-radius:var(--radius);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-        .package-banner .pkg-label{font-size:0.55rem;color:rgba(255,255,255,0.4);font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-        .package-banner .pkg-name{font-size:0.85rem;font-weight:700;color:var(--mint-light)}
-        .package-banner .pkg-limit{font-size:0.6rem;background:rgba(255,255,255,0.06);padding:2px 12px;border-radius:20px;color:rgba(255,255,255,0.7)}
-        .package-banner .pkg-limit span{color:var(--mint-light);font-weight:700}
-        .package-banner .pkg-action{background:var(--mint);color:#fff;border:none;padding:4px 16px;border-radius:20px;font-weight:600;font-size:0.65rem;cursor:pointer;transition:0.2s;text-decoration:none}
-        .package-banner .pkg-action:hover{background:#5A8A8A}
+        html,
+        body {
+            height: 100%;
+            height: -webkit-fill-available;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-page);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }
 
-        /* Form */
-        .form-section{background:#fff;padding:18px 20px;border-radius:var(--radius);border:1px solid var(--grey);box-shadow:var(--shadow)}
-        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-        @media(max-width:640px){.form-grid{grid-template-columns:1fr}}
-        .input-group{display:flex;flex-direction:column;gap:4px}
-        .input-group label{font-weight:600;font-size:0.78rem;color:var(--slate)}
-        .input-group .hint{font-size:0.6rem;color:#7A9BAE}
-        .input-group input,.input-group select,.input-group textarea{padding:8px 12px;border:1px solid var(--grey);border-radius:6px;outline:none;transition:0.2s;font-size:0.82rem;background:var(--grey-light);width:100%;color:var(--navy);font-family:inherit}
-        .input-group input:focus,.input-group select:focus,.input-group textarea:focus{border-color:var(--mint);background:#fff;box-shadow:0 0 0 3px rgba(107,159,159,0.12)}
-        .input-group textarea{resize:vertical;min-height:56px}
-        .limit-badge{display:inline-block;font-size:0.55rem;background:rgba(107,159,159,0.12);color:var(--mint);padding:0 8px;border-radius:10px;font-weight:700;margin-left:4px;border:1px solid var(--mint-light)}
-        .services-wrapper{margin-top:10px}
-        .services-wrapper>label{font-weight:600;font-size:0.82rem;display:block;border-bottom:1px solid var(--grey);padding-bottom:4px;margin-bottom:8px;color:var(--slate)}
-        .services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px}
-        .service-item{display:flex;align-items:center;gap:6px;font-size:0.75rem;background:var(--grey-light);padding:6px 10px;border-radius:6px;border:1px solid var(--grey);cursor:pointer;transition:0.2s;color:var(--slate)}
-        .service-item:hover{background:#fff;border-color:var(--mint)}
-        .service-item input[type="checkbox"]{accent-color:var(--coral);width:14px;height:14px;cursor:pointer;flex-shrink:0}
-        .service-item .zone21-badge{background:var(--mint);color:#fff;padding:0 6px;border-radius:8px;font-size:0.45rem;font-weight:700;text-transform:uppercase;margin-left:auto}
-        .submit-btn{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:0.2s;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px}
-        .submit-btn:hover{background:#2C3E50;transform:translateY(-1px);box-shadow:var(--shadow)}
-        .submit-btn:disabled{background:var(--grey);color:#7A9BAE;cursor:not-allowed;transform:none}
+        .app {
+            display: flex;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            background: var(--bg-page);
+        }
 
-        /* Loading */
-        #loading{display:none;text-align:center;padding:40px 20px;background:#fff;border-radius:var(--radius);border:1px solid var(--grey)}
-        #loading .spinner{border:3px solid var(--grey);width:36px;height:36px;border-radius:50%;border-top-color:var(--mint);animation:spin 0.7s linear infinite;margin:0 auto 12px}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        #loading h3{font-size:0.9rem;color:var(--navy)}
-        #loading p{font-size:0.78rem;color:#7A9BAE;margin-top:2px}
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--mint);
+            border-radius: 5px;
+        }
 
-        /* Blueprint */
-        #blueprint-container{display:none}
-        .blueprint-wrapper{animation:fadeUp 0.35s ease}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        .blueprint-result{background:#fff;padding:20px 24px;border-radius:var(--radius);border:1px solid var(--grey);box-shadow:var(--shadow);line-height:1.6;font-size:0.85rem;overflow-x:auto;word-wrap:break-word;max-width:100%}
-        .blueprint-result *{max-width:100%;word-break:break-word}
-        .blueprint-result h1{font-size:1.3rem;color:var(--navy);border-bottom:2px solid var(--mint-light);padding-bottom:8px;margin-bottom:16px}
-        .blueprint-result h2{font-size:1rem;color:var(--navy);border-bottom:1px solid var(--grey);padding-bottom:4px;margin:20px 0 10px}
-        .blueprint-result h3{font-size:0.88rem;color:var(--coral);margin:14px 0 4px}
-        .blueprint-result h4{font-size:0.82rem;color:var(--navy);margin:10px 0 4px}
-        .blueprint-result p{font-size:0.82rem;color:var(--slate);margin-bottom:6px}
-        .blueprint-result ul{list-style:none;padding-left:0;margin-bottom:10px}
-        .blueprint-result li{font-size:0.8rem;color:var(--slate);padding-left:16px;position:relative;margin-bottom:3px}
-        .blueprint-result li:before{content:"▸";color:var(--mint);position:absolute;left:0}
-        .blueprint-result hr{border:none;border-top:1px dashed var(--grey);margin:14px 0}
-        
-        /* Tables - compact */
-        .table-responsive{overflow-x:auto;margin:8px 0 12px;border-radius:var(--radius);border:1px solid var(--grey)}
-        .table-responsive table{width:100%;border-collapse:collapse;font-size:0.75rem;min-width:0}
-        .table-responsive table th{background:var(--navy);color:#fff;padding:6px 10px;text-align:left;font-weight:600;white-space:nowrap}
-        .table-responsive table td{padding:5px 10px;border-bottom:1px solid var(--grey);color:var(--slate)}
-        .table-responsive table tr:nth-child(even) td{background:var(--grey-light)}
+        /* ============================================================
+           SIDEBAR — clean navy
+           ============================================================ */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: rgba(26, 42, 58, 0.4);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
 
-        /* Budget classes */
-        .budget-success{background:rgba(107,159,159,0.08);border-left:3px solid var(--mint);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px}
-        .budget-neutral{background:rgba(74,106,127,0.06);border-left:3px solid var(--slate);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px}
-        .budget-warning{background:rgba(212,133,107,0.08);border-left:3px solid var(--coral);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px}
-        .budget-success h2,.budget-neutral h2,.budget-warning h2{border-bottom:none!important;margin-top:0!important;font-size:0.95rem}
-        .budget-success h3,.budget-neutral h3,.budget-warning h3{border-bottom:none!important;margin-top:0!important;font-size:0.85rem}
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: var(--navy);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+            height: 100dvh;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
 
-        /* Vendor Cards - compact */
-        .vendor-card{background:#fff;border:1px solid var(--grey);border-radius:var(--radius);padding:12px 14px;margin:8px 0;border-left:3px solid var(--mint);box-shadow:var(--shadow)}
-        .vendor-card .vendor-name{font-weight:600;font-size:0.85rem;color:var(--navy);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-        .vendor-card .vendor-name .type-badge{font-size:0.5rem;font-weight:700;padding:1px 8px;border-radius:12px;background:rgba(107,159,159,0.12);color:var(--mint);border:1px solid var(--mint-light)}
-        .vendor-card .vendor-name .type-badge.venue{background:rgba(212,133,107,0.1);color:var(--coral);border-color:var(--coral)}
-        .vendor-card .vendor-detail{font-size:0.75rem;color:var(--slate);margin:2px 0}
-        .vendor-card .vendor-detail i{width:14px;color:#7A9BAE;flex-shrink:0}
-        .vendor-card .reasoning-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:0.6rem;font-weight:600;margin:2px 2px 2px 0;border:1px solid var(--grey)}
-        .vendor-card .reasoning-badge.success{background:rgba(107,159,159,0.1);color:var(--mint);border-color:var(--mint-light)}
-        .vendor-card .reasoning-badge.warning{background:rgba(212,133,107,0.08);color:var(--coral);border-color:var(--coral)}
-        .vendor-card .reasoning-badge.info{background:rgba(74,106,127,0.06);color:var(--slate)}
-        .vendor-card .vendor-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
-        .vendor-card .contact-btn{padding:4px 12px;border-radius:16px;font-size:0.65rem;font-weight:600;border:none;cursor:pointer;transition:0.2s;display:inline-flex;align-items:center;gap:4px;text-decoration:none;flex-shrink:0}
-        .vendor-card .contact-btn.primary{background:var(--navy);color:#fff}
-        .vendor-card .contact-btn.primary:hover{background:#2C3E50}
-        .vendor-card .contact-btn.whatsapp{background:#25D366;color:#fff}
-        .vendor-card .contact-btn.whatsapp:hover{background:#128C7E}
-        .vendor-card .contact-btn.email{background:#D44638;color:#fff}
-        .vendor-card .contact-btn.email:hover{background:#B23121}
-        .vendor-card .insufficient-badge{font-size:0.55rem;background:rgba(212,133,107,0.1);color:var(--coral);padding:0 8px;border-radius:10px;border:1px solid var(--coral)}
+        .sidebar-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .sidebar-header h2 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--mint-light);
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-header h2 i {
+            color: var(--mint-light);
+            font-size: 0.9rem;
+        }
+        .sidebar-header .badge {
+            font-size: 0.6rem;
+            background: var(--mint);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
 
-        /* External Source Cards */
-        .external-source-card{background:var(--grey-light);border:1px solid var(--grey);border-radius:var(--radius);padding:12px 16px;margin:8px 0;border-left:3px solid var(--slate)}
-        .external-source-card.zone21-planning{border-left-color:var(--mint);background:rgba(107,159,159,0.06)}
-        .external-source-card .source-text{font-size:0.82rem;color:var(--slate);line-height:1.5;margin-bottom:6px}
-        .external-source-card .source-text strong{color:var(--navy)}
-        .external-source-card .zone21-contact{background:var(--navy);color:#fff;padding:8px 14px;border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:8px 16px;font-size:0.75rem;margin-top:6px}
-        .external-source-card .zone21-contact a{color:var(--mint-light);text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-weight:500}
-        .external-source-card .zone21-contact a:hover{color:#fff;text-decoration:underline}
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--mint);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .new-chat-btn:hover {
+            background: #5A8A8A;
+            transform: translateY(-1px);
+        }
+
+        .history-item {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: var(--radius);
+            margin-bottom: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            transition: 0.2s;
+            border-left: 2px solid transparent;
+        }
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .history-item.active {
+            border-left-color: var(--mint-light);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .history-item .title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+        }
+        .history-item .title i {
+            color: var(--mint-light);
+            margin-right: 8px;
+            font-size: 0.75rem;
+        }
+        .history-item .delete-btn {
+            color: rgba(255, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: 0.2s;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 0.75rem;
+        }
+        .history-item .delete-btn:hover {
+            color: var(--coral);
+            background: rgba(212, 133, 107, 0.12);
+        }
+
+        .sidebar-footer {
+            padding: 10px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.25);
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+           WORKSPACE — clean, minimal
+           ============================================================ */
+        .workspace {
+            flex: 1;
+            background: var(--bg-page);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+            height: 100dvh;
+        }
+
+        .workspace-header {
+            background: var(--navy);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 2px solid var(--mint);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .workspace-header .menu-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 2px 4px;
+        }
+        .workspace-header .brand h1 {
+            font-size: 0.95rem;
+            color: var(--mint-light);
+            margin: 0;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+        .workspace-header .brand p {
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.3);
+            margin: 0;
+        }
+        .workspace-header .right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .workspace-header .package-tag {
+            background: var(--mint);
+            color: white;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .workspace-header .user-email {
+            font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.35);
+            max-width: 130px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .workspace-header .logout-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.4);
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .workspace-header .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--coral);
+            color: white;
+        }
+
+        .workspace-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px 20px 20px;
+            background: var(--bg-page);
+        }
+
+        /* ============================================================
+           PACKAGE BANNER
+           ============================================================ */
+        .package-banner {
+            background: var(--navy);
+            color: white;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .package-banner .pkg-label {
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.35);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .package-banner .pkg-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--mint-light);
+        }
+        .package-banner .pkg-limit {
+            font-size: 0.65rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 3px 12px;
+            border-radius: 20px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .package-banner .pkg-limit span {
+            color: var(--mint-light);
+            font-weight: 600;
+        }
+        .package-banner .pkg-action {
+            background: var(--mint);
+            color: white;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+        }
+        .package-banner .pkg-action:hover {
+            background: #5A8A8A;
+        }
+
+        /* ============================================================
+           FORM
+           ============================================================ */
+        .form-section {
+            background: white;
+            padding: 18px 20px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .input-group label {
+            font-weight: 600;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            color: var(--text-secondary);
+            letter-spacing: 0.2px;
+        }
+        .input-group .hint {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            padding: 9px 12px;
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            outline: none;
+            transition: 0.3s;
+            font-size: 0.9rem;
+            background: var(--bg-input);
+            width: 100%;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+        }
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            border-color: var(--mint);
+            background: white;
+            box-shadow: 0 0 0 2px var(--mint-soft);
+        }
+        .input-group textarea {
+            resize: vertical;
+            min-height: 50px;
+        }
+
+        .limit-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            background: var(--mint-soft);
+            color: var(--mint);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-left: 4px;
+            border: 1px solid var(--mint-light);
+        }
+
+        .services-wrapper {
+            margin-top: 12px;
+        }
+        .services-wrapper>label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: block;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 5px;
+        }
+        .service-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            background: var(--bg-input);
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: 0.2s;
+            color: var(--text-secondary);
+        }
+        .service-item:hover {
+            background: white;
+            border-color: var(--mint);
+        }
+        .service-item input[type="checkbox"] {
+            accent-color: var(--coral);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .service-item .zone21-badge {
+            background: var(--mint);
+            color: white;
+            padding: 0 6px;
+            border-radius: 8px;
+            font-size: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            margin-left: auto;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 11px;
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .submit-btn:hover {
+            background: var(--navy-light);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        .submit-btn:disabled {
+            background: var(--grey);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* ============================================================
+           LOADING
+           ============================================================ */
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+        #loading .spinner {
+            border: 3px solid var(--grey);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-top-color: var(--mint);
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        #loading h3 {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        #loading p {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 2px;
+        }
+
+        /* ============================================================
+           BLUEPRINT — CLEAN, CONTAINED, NORMAL TEXT
+           ============================================================ */
+        #blueprint-container {
+            display: none;
+        }
+        .blueprint-wrapper {
+            animation: fadeUp 0.35s ease forwards;
+        }
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .blueprint-result {
+            background: white;
+            padding: 22px 24px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            line-height: 1.65;
+            color: var(--text-primary);
+            width: 100%;
+            max-width: 100%;
+            font-size: 0.95rem;
+            overflow-x: hidden;
+            overflow-y: visible;
+            word-wrap: break-word;
+            word-break: break-word;
+            position: relative;
+        }
+        .blueprint-result *,
+        .blueprint-result *::before,
+        .blueprint-result *::after {
+            max-width: 100%;
+            word-break: break-word;
+            box-sizing: border-box;
+        }
+
+        /* Tables — always contained */
+        .blueprint-result table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 16px;
+            font-size: 0.85rem;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: white;
+            box-shadow: var(--shadow-sm);
+            display: table;
+            table-layout: auto;
+            min-width: 0;
+            max-width: 100%;
+        }
+        .blueprint-result table th {
+            background: var(--navy);
+            color: white;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            font-size: 0.8rem;
+        }
+        .blueprint-result table td {
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            max-width: 300px;
+            overflow-wrap: break-word;
+            font-size: 0.85rem;
+        }
+        .blueprint-result table tr:nth-child(even) td {
+            background: var(--grey-light);
+        }
+        .blueprint-result table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 10px 0 16px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-light);
+            max-width: 100%;
+        }
+        .table-responsive table {
+            margin: 0;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            min-width: 0;
+            width: 100%;
+        }
+
+        /* Headings — normal size, clean */
+        .blueprint-result h1 {
+            color: var(--navy);
+            font-size: 1.35rem;
+            border-bottom: 2px solid var(--mint-light);
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            text-align: left;
+            font-weight: 700;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+        .blueprint-result h2 {
+            color: var(--navy);
+            font-size: 1.1rem;
+            border-bottom: 1px solid var(--mint-light);
+            padding-bottom: 5px;
+            margin-top: 22px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            clear: both;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+        .blueprint-result h2:first-child {
+            margin-top: 0;
+        }
+        .blueprint-result h3 {
+            color: var(--coral);
+            font-size: 0.95rem;
+            margin-top: 16px;
+            margin-bottom: 6px;
+            font-weight: 600;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+        .blueprint-result h4 {
+            color: var(--navy);
+            font-size: 0.9rem;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            font-weight: 600;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+        .blueprint-result ul,
+        .blueprint-result ol {
+            list-style-position: inside;
+            padding-left: 4px;
+            margin-bottom: 12px;
+            max-width: 100%;
+        }
+        .blueprint-result ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .blueprint-result li {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            padding-left: 18px;
+            position: relative;
+            color: var(--text-secondary);
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.5;
+        }
+        .blueprint-result li:before {
+            content: "▸";
+            color: var(--mint);
+            position: absolute;
+            left: 2px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        .blueprint-result p {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            max-width: 100%;
+            overflow-wrap: break-word;
+            line-height: 1.6;
+        }
+        .blueprint-result hr {
+            border: none;
+            border-top: 1px dashed var(--border-light);
+            margin: 16px 0;
+            max-width: 100%;
+        }
+        .blueprint-result strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .blueprint-result em {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Budget Classes */
+        .budget-success {
+            background: var(--mint-soft);
+            border-left: 3px solid var(--mint);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 14px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .budget-neutral {
+            background: rgba(74, 106, 127, 0.06);
+            border-left: 3px solid var(--slate);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 14px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .budget-warning {
+            background: var(--coral-soft);
+            border-left: 3px solid var(--coral);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin-bottom: 14px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        /* Vendor Card — clean, compact */
+        .vendor-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin: 8px 0;
+            transition: 0.2s;
+            border-left: 3px solid var(--mint);
+            box-shadow: var(--shadow-sm);
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .vendor-card:hover {
+            border-color: var(--mint);
+            box-shadow: var(--shadow-md);
+        }
+        .vendor-card .vendor-name {
+            font-weight: 600;
+            color: var(--navy);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            max-width: 100%;
+        }
+        .vendor-card .vendor-name .type-badge {
+            font-size: 0.55rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: var(--mint-soft);
+            color: var(--mint);
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            border: 1px solid var(--mint-light);
+            flex-shrink: 0;
+        }
+        .vendor-card .vendor-name .type-badge.venue {
+            background: var(--coral-soft);
+            color: var(--coral);
+            border-color: var(--coral);
+        }
+        .vendor-card .vendor-detail {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin: 3px 0;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .vendor-card .vendor-detail i {
+            width: 16px;
+            color: var(--slate);
+            flex-shrink: 0;
+            font-size: 0.7rem;
+        }
+        .vendor-card .reasoning-badge {
+            display: inline-block;
+            background: var(--mint-soft);
+            color: var(--mint);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.6rem;
+            font-weight: 500;
+            margin: 2px 2px 2px 0;
+            border: 1px solid var(--mint-light);
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .vendor-card .reasoning-badge.warning {
+            background: var(--coral-soft);
+            color: var(--coral);
+            border-color: var(--coral);
+        }
+        .vendor-card .reasoning-badge.info {
+            background: rgba(74, 106, 127, 0.08);
+            color: var(--slate);
+            border-color: var(--border-strong);
+        }
+        .vendor-card .reasoning-badge.success {
+            background: var(--mint-soft);
+            color: var(--mint);
+            border-color: var(--mint-light);
+        }
+        .vendor-card .vendor-actions {
+            margin-top: 6px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .vendor-card .contact-btn {
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .vendor-card .contact-btn.primary {
+            background: var(--navy);
+            color: white;
+        }
+        .vendor-card .contact-btn.primary:hover {
+            background: var(--navy-light);
+            transform: translateY(-1px);
+        }
+        .vendor-card .contact-btn.whatsapp {
+            background: #25D366;
+            color: white;
+        }
+        .vendor-card .contact-btn.whatsapp:hover {
+            background: #128C7E;
+            transform: translateY(-1px);
+        }
+        .vendor-card .contact-btn.email {
+            background: #D44638;
+            color: white;
+        }
+        .vendor-card .contact-btn.email:hover {
+            background: #B23121;
+            transform: translateY(-1px);
+        }
+
+        /* External Source Card */
+        .external-source-card {
+            background: var(--grey-light);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-left: 3px solid var(--slate);
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .external-source-card .source-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            margin-bottom: 6px;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .external-source-card .source-text strong {
+            color: var(--navy);
+        }
+        .external-source-card .zone21-contact {
+            background: var(--navy);
+            color: white;
+            padding: 10px 16px;
+            border-radius: var(--radius);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 16px;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            max-width: 100%;
+        }
+        .external-source-card .zone21-contact a {
+            color: var(--mint-light);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+            flex-wrap: wrap;
+        }
+        .external-source-card .zone21-contact a:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .external-source-card .zone21-contact i {
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .external-source-card.zone21-planning {
+            border-left-color: var(--mint);
+            background: var(--mint-soft);
+        }
+        .external-source-card.zone21-planning .source-text {
+            color: var(--text-primary);
+        }
+        .external-source-card.zone21-planning .source-text strong {
+            color: var(--navy);
+        }
 
         /* Zone21 Help */
-        .zone21-help{background:var(--grey-light);padding:14px 18px;border-radius:var(--radius);margin-top:20px;border:1px solid var(--grey)}
-        .zone21-help h2{color:var(--navy)!important;border-bottom:1px solid var(--mint-light)!important;padding-bottom:6px;margin-top:0!important;font-size:0.95rem}
-        .zone21-help p{color:var(--slate);margin:8px 0 10px;font-size:0.82rem}
-        .zone21-help .help-actions{display:flex;flex-wrap:wrap;gap:6px}
-        .zone21-help .help-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:20px;font-weight:600;font-size:0.7rem;text-decoration:none;border:1px solid var(--grey);cursor:pointer;color:var(--slate);background:#fff}
-        .zone21-help .help-btn:hover{background:var(--mint);color:#fff;border-color:var(--mint)}
+        .zone21-help {
+            background: var(--grey-light);
+            color: var(--text-primary);
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            margin-top: 20px;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        .zone21-help h2 {
+            color: var(--navy) !important;
+            border-bottom: 1px solid var(--mint-light) !important;
+            padding-bottom: 5px;
+            margin-top: 0 !important;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .zone21-help p {
+            color: var(--text-secondary);
+            margin: 6px 0 10px;
+            font-size: 0.85rem;
+        }
+        .zone21-help .help-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .zone21-help .help-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-decoration: none;
+            transition: 0.2s;
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: white;
+            flex-shrink: 0;
+        }
+        .zone21-help .help-btn:hover {
+            background: var(--mint);
+            color: white;
+            border-color: var(--mint);
+            transform: translateY(-1px);
+        }
+        .zone21-help .help-btn i {
+            font-size: 0.75rem;
+        }
 
-        /* Blueprint Controls */
-        .blueprint-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--grey)}
-        .action-btn{padding:6px 16px;border-radius:20px;font-weight:600;font-size:0.7rem;border:none;cursor:pointer;display:flex;align-items:center;gap:5px;color:#fff;flex-shrink:0}
-        .btn-download{background:var(--mint)}
-        .btn-download:hover{box-shadow:0 2px 12px rgba(107,159,159,0.3)}
-        .btn-regen{background:var(--navy)}
-        .btn-regen:hover{box-shadow:0 2px 12px rgba(26,42,58,0.2)}
+        .blueprint-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-light);
+        }
+        .action-btn {
+            padding: 7px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.2s;
+            color: white;
+            flex-shrink: 0;
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-download {
+            background: var(--mint);
+        }
+        .btn-download:hover {
+            box-shadow: 0 4px 12px rgba(107, 159, 159, 0.3);
+        }
+        .btn-regen {
+            background: var(--navy);
+        }
+        .btn-regen:hover {
+            box-shadow: 0 4px 12px rgba(26, 42, 58, 0.2);
+        }
+
+        /* ============================================================
+           CHAT MODAL
+           ============================================================ */
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        @keyframes fadeInOverlay {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .chat-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(26, 42, 58, 0.5);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            animation: fadeInOverlay 0.3s ease;
+        }
+        .chat-modal-overlay.active {
+            display: flex;
+        }
+        .chat-modal {
+            background: var(--bg-surface);
+            border-radius: var(--radius);
+            max-width: 560px;
+            width: 100%;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-xl);
+            animation: slideUp 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+        .chat-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--bg-surface);
+            flex-shrink: 0;
+        }
+        .chat-modal-header .chat-recipient {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chat-modal-header .chat-recipient .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--mint);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .chat-modal-header .chat-recipient .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .chat-modal-header .chat-recipient .info h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .chat-modal-header .chat-recipient .info span {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .chat-modal-header .close-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: none;
+            background: var(--bg-input);
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .chat-modal-header .close-btn:hover {
+            background: var(--coral-soft);
+            color: var(--coral);
+        }
+        .chat-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 18px;
+            background: var(--grey-light);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 160px;
+            max-height: 320px;
+        }
+        .chat-modal-body .empty-chat {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 30px 0;
+            font-size: 0.85rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-modal-body .empty-chat i {
+            font-size: 2rem;
+            color: var(--border-strong);
+            margin-bottom: 8px;
+        }
+        .chat-message {
+            max-width: 78%;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: 0.8rem;
+            line-height: 1.45;
+            word-wrap: break-word;
+            animation: fadeUp 0.25s ease;
+        }
+        .chat-message.in {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            align-self: flex-start;
+            border-bottom-left-radius: 3px;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .chat-message.out {
+            background: var(--navy);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 3px;
+            box-shadow: var(--shadow-sm);
+        }
+        .chat-message .time {
+            font-size: 0.55rem;
+            opacity: 0.5;
+            margin-top: 2px;
+            text-align: right;
+        }
+        .chat-message.in .time {
+            color: var(--text-muted);
+        }
+        .chat-message.out .time {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .chat-modal-footer {
+            padding: 10px 16px 12px;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-surface);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .chat-modal-footer input {
+            flex: 1;
+            padding: 9px 14px;
+            border: 1.5px solid var(--border-light);
+            border-radius: var(--radius-full);
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            background: var(--bg-input);
+            color: var(--text-primary);
+            transition: 0.3s;
+            min-width: 0;
+        }
+        .chat-modal-footer input:focus {
+            border-color: var(--mint);
+            box-shadow: 0 0 0 2px var(--mint-soft);
+            background: white;
+        }
+        .chat-modal-footer .btn-send {
+            background: var(--navy);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .chat-modal-footer .btn-send:hover {
+            background: var(--navy-light);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .chat-date-divider {
+            text-align: center;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            padding: 4px 0;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+        }
 
         /* Toast */
-        #toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px;max-width:340px;width:100%}
-        .toast{padding:10px 16px;border-radius:var(--radius);background:var(--navy);color:#fff;box-shadow:0 4px 20px rgba(0,0,0,0.15);font-size:0.8rem;animation:slideIn 0.3s ease;display:flex;align-items:center;gap:8px}
-        .toast.success{border-left:3px solid var(--mint)}
-        .toast.error{border-left:3px solid var(--coral)}
-        .toast.info{border-left:3px solid var(--slate)}
-        @keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
-
-        /* Chat Modal */
-        .chat-modal-overlay{position:fixed;inset:0;background:rgba(26,42,58,0.5);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px}
-        .chat-modal-overlay.active{display:flex}
-        .chat-modal{background:#fff;border-radius:var(--radius);max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.2);overflow:hidden}
-        .chat-modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--grey);flex-shrink:0}
-        .chat-modal-header .chat-recipient{display:flex;align-items:center;gap:10px}
-        .chat-modal-header .chat-recipient .avatar{width:32px;height:32px;border-radius:50%;background:var(--mint);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;flex-shrink:0;overflow:hidden}
-        .chat-modal-header .chat-recipient .avatar img{width:100%;height:100%;object-fit:cover}
-        .chat-modal-header .chat-recipient .info h4{font-size:0.82rem;font-weight:600;color:var(--navy)}
-        .chat-modal-header .chat-recipient .info span{font-size:0.6rem;color:#7A9BAE}
-        .chat-modal-header .close-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--grey-light);color:#7A9BAE;font-size:1rem;cursor:pointer;transition:0.2s;display:flex;align-items:center;justify-content:center}
-        .chat-modal-header .close-btn:hover{background:rgba(212,133,107,0.1);color:var(--coral)}
-        .chat-modal-body{flex:1;overflow-y:auto;padding:14px 18px;background:var(--grey-light);display:flex;flex-direction:column;gap:4px;min-height:140px;max-height:320px}
-        .chat-modal-body .empty-chat{text-align:center;color:#7A9BAE;padding:30px 0;font-size:0.82rem;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
-        .chat-modal-body .empty-chat i{font-size:2rem;color:var(--grey);margin-bottom:8px}
-        .chat-message{max-width:78%;padding:8px 14px;border-radius:14px;font-size:0.8rem;line-height:1.4;word-wrap:break-word}
-        .chat-message.in{background:#fff;border:1px solid var(--grey);align-self:flex-start;border-bottom-left-radius:4px;color:var(--navy)}
-        .chat-message.out{background:var(--navy);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-        .chat-message .time{font-size:0.5rem;opacity:0.6;margin-top:3px;text-align:right}
-        .chat-date-divider{text-align:center;font-size:0.55rem;color:#7A9BAE;padding:4px 0;font-weight:600}
-        .chat-modal-footer{padding:10px 14px 12px;border-top:1px solid var(--grey);display:flex;gap:8px;align-items:center;flex-shrink:0}
-        .chat-modal-footer input{flex:1;padding:8px 14px;border:1.5px solid var(--grey);border-radius:20px;font-size:0.78rem;font-family:inherit;outline:none;background:var(--grey-light);color:var(--navy)}
-        .chat-modal-footer input:focus{border-color:var(--mint);background:#fff}
-        .chat-modal-footer .btn-send{background:var(--navy);color:#fff;border:none;padding:8px 18px;border-radius:20px;font-weight:600;font-size:0.72rem;cursor:pointer;transition:0.2s;font-family:inherit;white-space:nowrap;flex-shrink:0}
-        .chat-modal-footer .btn-send:hover{background:#2C3E50}
+        #toast-container {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 340px;
+            width: 100%;
+        }
+        .toast {
+            padding: 11px 16px;
+            border-radius: var(--radius);
+            background: var(--navy);
+            color: white;
+            box-shadow: var(--shadow-lg);
+            font-size: 0.8rem;
+            animation: slideIn 0.3s ease forwards;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.success {
+            border-left: 3px solid var(--mint);
+        }
+        .toast.error {
+            border-left: 3px solid var(--coral);
+        }
+        .toast.info {
+            border-left: 3px solid var(--slate);
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
 
         /* Responsive */
-        @media(max-width:768px){
-            .sidebar{position:fixed;top:0;left:-280px;height:100dvh;width:260px;border-radius:0 16px 16px 0;z-index:1000}
-            .sidebar.active{transform:translateX(280px)}
-            .workspace-header .menu-btn{display:block}
-            .workspace-content{padding:10px 8px 16px}
-            .form-section{padding:12px}
-            .blueprint-result{padding:12px 14px}
-            .workspace-header .user-email{display:none}
-            .services-grid{grid-template-columns:1fr 1fr}
-            .package-banner{flex-direction:column;align-items:stretch;text-align:center}
-            .chat-modal{max-width:100%;max-height:95vh}
-            .external-source-card .zone21-contact{flex-direction:column;gap:6px}
-            .vendor-card .vendor-name{font-size:0.8rem}
+        @media (max-width: 768px) {
+            .app {
+                flex-direction: column;
+            }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -300px;
+                height: 100dvh;
+                width: 270px;
+                border-radius: 0 16px 16px 0;
+                z-index: 1000;
+            }
+            .sidebar.active {
+                transform: translateX(300px);
+            }
+            .workspace {
+                border-radius: 0;
+                box-shadow: none;
+                height: 100dvh;
+            }
+            .workspace-header .menu-btn {
+                display: block;
+            }
+            .workspace-content {
+                padding: 10px 8px 16px 8px;
+            }
+            .form-section {
+                padding: 12px;
+            }
+            .blueprint-result {
+                padding: 14px 12px;
+            }
+            .zone21-help {
+                padding: 12px 10px;
+            }
+            .help-actions {
+                flex-direction: column;
+            }
+            .zone21-help .help-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .package-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            .workspace-header .user-email {
+                display: none;
+            }
+            .blueprint-result h1 {
+                font-size: 1.15rem;
+            }
+            .blueprint-result table {
+                font-size: 0.75rem;
+                min-width: 0;
+                width: 100%;
+            }
+            .blueprint-result table th,
+            .blueprint-result table td {
+                padding: 5px 8px;
+                max-width: 140px;
+            }
+            #toast-container {
+                top: 8px;
+                right: 8px;
+                max-width: calc(100% - 16px);
+            }
+            .chat-modal {
+                max-width: 100%;
+                max-height: 92vh;
+                border-radius: var(--radius);
+            }
+            .chat-modal-body {
+                max-height: 240px;
+                padding: 12px 14px;
+            }
+            .external-source-card .zone21-contact {
+                flex-direction: column;
+                gap: 6px;
+            }
+            .vendor-card .vendor-name {
+                font-size: 0.85rem;
+            }
+            .vendor-card .reasoning-badge {
+                font-size: 0.55rem;
+                padding: 2px 6px;
+            }
         }
-        @media print{body *{visibility:hidden}.blueprint-wrapper,.blueprint-wrapper *{visibility:visible}.blueprint-wrapper{position:absolute;left:0;top:0;width:100%;padding:16px}.blueprint-result{border:none;box-shadow:none;padding:0}.blueprint-controls,.vendor-actions,.help-actions{display:none!important}}
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .blueprint-wrapper,
+            .blueprint-wrapper * {
+                visibility: visible;
+            }
+            .blueprint-wrapper {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 16px;
+            }
+            .blueprint-result {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .blueprint-controls {
+                display: none !important;
+            }
+            .zone21-help .help-actions {
+                display: none !important;
+            }
+            .vendor-card .vendor-actions {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div id="toast-container"></div>
-<div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <!-- TOAST -->
+    <div id="toast-container"></div>
 
-<div class="app">
+    <!-- SIDEBAR OVERLAY -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2><i class="fas fa-calendar-check"></i>Past Events</h2>
-            <span class="badge" id="sidebar-package-badge">—</span>
-        </div>
-        <div class="sidebar-body">
-            <button class="new-chat-btn" onclick="startNewSession()"><i class="fas fa-plus-circle"></i> New Event</button>
-            <div id="history-list"></div>
-        </div>
-        <div class="sidebar-footer"><span id="sidebar-package-label">Package: —</span></div>
-    </div>
-
-    <div class="workspace">
-        <div class="workspace-header">
-            <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
-            <div class="brand"><h1>Zone21 System</h1><p>Event Allocation &amp; Blueprint Generator</p></div>
-            <div class="right">
-                <span class="package-tag" id="header-package-tag">—</span>
-                <span class="user-email" id="header-user-email">user@example.com</span>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-calendar-check"></i>Past Events</h2>
+                <span class="badge" id="sidebar-package-badge">—</span>
+            </div>
+            <div class="sidebar-body">
+                <button class="new-chat-btn" onclick="startNewSession()">
+                    <i class="fas fa-plus-circle"></i> New Event
+                </button>
+                <div id="history-list"></div>
+            </div>
+            <div class="sidebar-footer">
+                <span id="sidebar-package-label">Package: —</span>
             </div>
         </div>
 
-        <div class="workspace-content" id="workspace-content">
-
-            <div class="package-banner" id="package-banner" style="display:none;">
-                <div><div class="pkg-label">Your Active Package</div><div class="pkg-name" id="pkg-banner-name">—</div></div>
-                <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
-                <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage</a>
-            </div>
-
-            <div class="form-section" id="form-section">
-                <form id="eventForm">
-                    <div class="form-grid">
-                        <div class="input-group"><label>Event Name</label><input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" /></div>
-                        <div class="input-group"><label>Location</label><input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" /></div>
-                        <div class="input-group"><label>Event Type</label>
-                            <select id="eventType" required>
-                                <option value="" disabled selected>Select Event Type...</option>
-                                <option value="Social & Private Events">Social & Private</option>
-                                <option value="Weddings & Traditional">Weddings & Traditional</option>
-                                <option value="Entertainment Events">Entertainment</option>
-                                <option value="Business & Corporate">Business & Corporate</option>
-                                <option value="School & University">School & University</option>
-                                <option value="Religious Events">Religious</option>
-                                <option value="Community & Cultural">Community & Cultural</option>
-                                <option value="Sports Events">Sports</option>
-                            </select>
-                        </div>
-                        <div class="input-group"><label>Contact Details</label><input type="text" id="eventContact" required placeholder="Email or Phone" /></div>
-                        <div class="input-group"><label>Total Budget (USD)</label><input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" /><span class="hint" id="budget-hint">Recommended range</span></div>
-                        <div class="input-group"><label>Expected Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label><input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" /><span class="hint" id="attendee-hint">Max allowed</span></div>
-                    </div>
-                    <div class="input-group" style="margin-bottom:10px;"><label>Additional Notes</label><textarea id="eventNotes" placeholder="e.g. Strict budget, prioritize sound system..."></textarea></div>
-                    <div class="services-wrapper">
-                        <label>Select Required Service Providers</label>
-                        <div class="services-grid" id="servicesContainer"></div>
-                    </div>
-                    <button type="submit" class="submit-btn" id="generateBtn"><i class="fas fa-magic"></i> Generate Blueprint</button>
-                </form>
-            </div>
-
-            <div id="loading">
-                <div class="spinner"></div>
-                <h3>Processing your event...</h3>
-                <p id="loading-status">Analyzing budget, matching vendors, crafting your blueprint.</p>
-            </div>
-
-            <div id="blueprint-container">
-                <div class="blueprint-wrapper">
-                    <div class="blueprint-result" id="final-blueprint"></div>
-                    <div class="blueprint-controls">
-                        <button class="action-btn btn-download" onclick="window.print()"><i class="fas fa-file-pdf"></i> Download</button>
-                        <button class="action-btn btn-regen" onclick="regenerateBlueprint()"><i class="fas fa-rotate"></i> Regenerate</button>
-                    </div>
+        <!-- WORKSPACE -->
+        <div class="workspace">
+            <div class="workspace-header">
+                <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
+                <div class="brand">
+                    <h1>Zone21 System</h1>
+                    <p>Event Allocation &amp; Blueprint Generator</p>
+                </div>
+                <div class="right">
+                    <span class="package-tag" id="header-package-tag">—</span>
+                    <span class="user-email" id="header-user-email">user@example.com</span>
+                    <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
                 </div>
             </div>
 
+            <div class="workspace-content" id="workspace-content">
+                <!-- PACKAGE BANNER -->
+                <div class="package-banner" id="package-banner" style="display:none;">
+                    <div>
+                        <div class="pkg-label">Active Package</div>
+                        <div class="pkg-name" id="pkg-banner-name">—</div>
+                    </div>
+                    <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
+                    <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage</a>
+                </div>
+
+                <!-- FORM -->
+                <div class="form-section" id="form-section">
+                    <form id="eventForm">
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Event Name</label>
+                                <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" />
+                            </div>
+                            <div class="input-group">
+                                <label>Location</label>
+                                <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
+                            </div>
+                            <div class="input-group">
+                                <label>Event Type</label>
+                                <select id="eventType" required>
+                                    <option value="" disabled selected>Select Event Type...</option>
+                                    <option value="Social & Private Events">Social & Private Events</option>
+                                    <option value="Weddings & Traditional">Weddings & Traditional</option>
+                                    <option value="Entertainment Events">Entertainment</option>
+                                    <option value="Business & Corporate">Business & Corporate</option>
+                                    <option value="School & University">School & University</option>
+                                    <option value="Religious Events">Religious Events</option>
+                                    <option value="Community & Cultural">Community & Cultural</option>
+                                    <option value="Sports Events">Sports Events</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Contact</label>
+                                <input type="text" id="eventContact" required placeholder="Email or Phone" />
+                            </div>
+                            <div class="input-group">
+                                <label>Budget (USD)</label>
+                                <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" />
+                                <span class="hint" id="budget-hint">Recommended range for your package</span>
+                            </div>
+                            <div class="input-group">
+                                <label>Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label>
+                                <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" />
+                                <span class="hint" id="attendee-hint">Maximum allowed</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom:10px;">
+                            <label>Additional Notes</label>
+                            <textarea id="eventNotes" placeholder="e.g. Strict budget, prioritize good PA system..."></textarea>
+                        </div>
+
+                        <div class="services-wrapper">
+                            <label>Required Service Providers</label>
+                            <div class="services-grid" id="servicesContainer"></div>
+                        </div>
+
+                        <button type="submit" class="submit-btn" id="generateBtn">
+                            <i class="fas fa-magic"></i> Generate Blueprint
+                        </button>
+                    </form>
+                </div>
+
+                <!-- LOADING -->
+                <div id="loading">
+                    <div class="spinner"></div>
+                    <h3>Processing your event...</h3>
+                    <p id="loading-status">Analyzing budget, matching vendors, crafting your blueprint.</p>
+                </div>
+
+                <!-- BLUEPRINT -->
+                <div id="blueprint-container">
+                    <div class="blueprint-wrapper">
+                        <div class="blueprint-result" id="final-blueprint"></div>
+                        <div class="blueprint-controls">
+                            <button class="action-btn btn-download" onclick="window.print()">
+                                <i class="fas fa-file-pdf"></i> Download
+                            </button>
+                            <button class="action-btn btn-regen" onclick="regenerateBlueprint()">
+                                <i class="fas fa-rotate"></i> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 
-<div class="chat-modal-overlay" id="chatModal">
-    <div class="chat-modal">
-        <div class="chat-modal-header">
-            <div class="chat-recipient">
-                <div class="avatar" id="modalChatAvatar"><span id="modalChatInitials">?</span></div>
-                <div class="info"><h4 id="modalChatName">Vendor</h4><span id="modalChatSub">Service Provider</span></div>
+    <!-- CHAT MODAL -->
+    <div class="chat-modal-overlay" id="chatModal">
+        <div class="chat-modal">
+            <div class="chat-modal-header">
+                <div class="chat-recipient">
+                    <div class="avatar" id="modalChatAvatar">
+                        <span id="modalChatInitials">?</span>
+                    </div>
+                    <div class="info">
+                        <h4 id="modalChatName">Vendor</h4>
+                        <span id="modalChatSub">Service Provider</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeChatModal()"><i class="fas fa-xmark"></i></button>
             </div>
-            <button class="close-btn" onclick="closeChatModal()"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div class="chat-modal-body" id="modalChatMessages">
-            <div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.</p></div>
-        </div>
-        <div class="chat-modal-footer">
-            <input type="text" id="modalChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendModalMessage()" />
-            <button class="btn-send" onclick="sendModalMessage()">Send <i class="fa-solid fa-paper-plane" style="font-size:0.55rem;"></i></button>
+            <div class="chat-modal-body" id="modalChatMessages">
+                <div class="empty-chat">
+                    <i class="fa-regular fa-comment-dots"></i>
+                    <p>No messages yet.<br />Start the conversation!</p>
+                </div>
+            </div>
+            <div class="chat-modal-footer">
+                <input type="text" id="modalChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendModalMessage()" />
+                <button class="btn-send" onclick="sendModalMessage()">
+                    Send <i class="fa-solid fa-paper-plane" style="font-size:0.55rem;"></i>
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-// ===== FIREBASE CONFIG =====
-const firebaseConfig = {
-    apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-    authDomain: "zone21.firebaseapp.com",
-    projectId: "zone21",
-    storageBucket: "zone21.firebasestorage.app",
-    messagingSenderId: "405963057292",
-    appId: "1:405963057292:web:80e9923ae84eb7029073a9"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+    <script>
+        // ============================================================
+        //  FIREBASE CONFIG
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
 
-// ===== CONSTANTS =====
-const DEEPSEEK_API_KEY = "sk-6cde0fb5cf124bc28a52135d2acf47a0";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
-const ZONE21 = { phone:"+263789912268", whatsapp:"+263789912268", email:"zone21services@gmail.com" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-const granularServices = [
-    "Event Planner / Coordinator","Venue / Space Rental","Marquee / Tents & Chairs",
-    "PA System & Basic Sound","DJ Services","Stage & Decorative Lighting",
-    "Event Décor & Draping","Catering (Food & Buffet)","Beverages & Mobile Bar",
-    "Cake Designer / Baker","Photographer","Videographer","MC (Master of Ceremonies)",
-    "Makeup Artist","Hairstylist","Zone21 Security - EXCLUSIVE","Transport / Car Hire",
-    "Cleaning Services","Ushers & Hostesses"
-];
+        // ============================================================
+        //  DEEPSEEK API
+        // ============================================================
+        const DEEPSEEK_API_KEY = "sk-6cde0fb5cf124bc28a52135d2acf47a0";
+        const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+        const DEEPSEEK_MODEL = "deepseek-chat";
 
-const PACKAGES = {
-    small:{id:'small',name:'Small Event',maxAttendees:35,label:'Small',budgetHint:'$100 – $1,500',limitDisplay:'≤ 35'},
-    medium:{id:'medium',name:'Medium Event',maxAttendees:355,label:'Medium',budgetHint:'$1,500 – $15,000',limitDisplay:'≤ 355'},
-    large:{id:'large',name:'Enterprise',maxAttendees:Infinity,label:'Enterprise',budgetHint:'Unlimited',limitDisplay:'∞'}
-};
+        // ============================================================
+        //  ZONE21 CONTACT
+        // ============================================================
+        const ZONE21 = {
+            phone: "+263789912268",
+            whatsapp: "+263789912268",
+            email: "zone21services@gmail.com",
+            instagram: "https://www.instagram.com/zone21_event_management",
+            facebook: "https://www.facebook.com/zone21events",
+            website: "https://zone21.co.zw"
+        };
 
-// ===== STATE =====
-let currentSessionId=null, currentEventData=null, userPackage=null, userPackageLimit=Infinity, currentUser=null;
-let cachedVenues=[], cachedProviders=[], lastGeneratedHTML='', chatThreadId=null, chatOtherUid=null, chatUnsubscribe=null;
+        const granularServices = [
+            "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
+            "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting",
+            "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar",
+            "Cake Designer / Baker", "Photographer", "Videographer",
+            "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist",
+            "Zone21 Security - EXCLUSIVE", "Transport / Car Hire",
+            "Cleaning Services", "Ushers & Hostesses"
+        ];
 
-// ===== DOM REFS =====
-const container=document.getElementById('servicesContainer'), form=document.getElementById('eventForm');
-const generateBtn=document.getElementById('generateBtn'), formSection=document.getElementById('form-section');
-const loadingDiv=document.getElementById('loading'), loadingStatus=document.getElementById('loading-status');
-const blueprintContainer=document.getElementById('blueprint-container'), finalBlueprint=document.getElementById('final-blueprint');
-const eventName=document.getElementById('eventName'), eventLocation=document.getElementById('eventLocation');
-const eventType=document.getElementById('eventType'), eventContact=document.getElementById('eventContact');
-const eventBudget=document.getElementById('eventBudget'), eventAttendees=document.getElementById('eventAttendees');
-const eventNotes=document.getElementById('eventNotes'), attendeeLimitBadge=document.getElementById('attendee-limit-badge');
-const attendeeHint=document.getElementById('attendee-hint'), budgetHint=document.getElementById('budget-hint');
-const headerPackageTag=document.getElementById('header-package-tag'), headerUserEmail=document.getElementById('header-user-email');
-const sidebarPackageLabel=document.getElementById('sidebar-package-label'), sidebarPackageBadge=document.getElementById('sidebar-package-badge');
-const pkgBanner=document.getElementById('package-banner'), pkgBannerName=document.getElementById('pkg-banner-name');
-const pkgBannerLimit=document.getElementById('pkg-banner-limit'), pkgBannerAction=document.getElementById('pkg-banner-action');
+        // ============================================================
+        //  PACKAGE DEFINITIONS
+        // ============================================================
+        const PACKAGES = {
+            small: { id: 'small', name: 'Small Event', maxAttendees: 35, label: 'Small', budgetHint: '$100 – $1,500',
+                limitDisplay: '≤ 35' },
+            medium: { id: 'medium', name: 'Medium Event', maxAttendees: 355, label: 'Medium', budgetHint: '$1,500 – $15,000',
+                limitDisplay: '≤ 355' },
+            large: { id: 'large', name: 'Large / Enterprise', maxAttendees: Infinity, label: 'Enterprise',
+                budgetHint: 'Unlimited', limitDisplay: '∞' }
+        };
 
-// ===== SERVICES =====
-granularServices.forEach(s=>{
-    const isExclusive=s==="Zone21 Security - EXCLUSIVE";
-    const isChecked=isExclusive||["Venue / Space Rental","Catering (Food & Buffet)","DJ Services","Photographer","Cake Designer / Baker","Event Planner / Coordinator"].includes(s);
-    container.innerHTML += `<label class="service-item"><input type="checkbox" name="services" value="${s}" ${isChecked?'checked':''}>${s}${isExclusive?'<span class="zone21-badge">Zone21</span>':''}</label>`;
-});
+        // ============================================================
+        //  STATE
+        // ============================================================
+        let currentSessionId = null;
+        let currentEventData = null;
+        let userPackage = null;
+        let userPackageName = null;
+        let userPackageLimit = Infinity;
+        let currentUser = null;
+        let cachedVenues = [];
+        let cachedProviders = [];
+        let lastGeneratedHTML = '';
 
-// ===== TOAST =====
-function showToast(msg,type='info'){
-    const c=document.getElementById('toast-container'); if(!c){alert(msg);return}
-    const t=document.createElement('div'); t.className=`toast ${type}`;
-    const icons={success:'fa-circle-check',error:'fa-circle-exclamation',info:'fa-circle-info'};
-    t.innerHTML=`<i class="fas ${icons[type]||icons.info}"></i> ${msg}`; c.appendChild(t);
-    setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},4000);
-}
+        // Chat state
+        let chatThreadId = null;
+        let chatOtherUid = null;
+        let chatOtherName = '';
+        let chatOtherAvatar = null;
+        let chatUnsubscribe = null;
 
-// ===== SIDEBAR =====
-const menuBtn=document.getElementById('menu-btn'), sidebar=document.getElementById('sidebar'), overlay=document.getElementById('sidebar-overlay');
-function closeSidebar(){sidebar.classList.remove('active');overlay.classList.remove('active')}
-menuBtn?.addEventListener('click',()=>{sidebar.classList.add('active');overlay.classList.add('active')});
-overlay?.addEventListener('click',closeSidebar);
-async function handleLogout(){try{await auth.signOut();window.location.href='index.html'}catch(e){showToast('Logout failed','error')}}
+        // ============================================================
+        //  DOM REFS
+        // ============================================================
+        const container = document.getElementById('servicesContainer');
+        const form = document.getElementById('eventForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const formSection = document.getElementById('form-section');
+        const loadingDiv = document.getElementById('loading');
+        const loadingStatus = document.getElementById('loading-status');
+        const blueprintContainer = document.getElementById('blueprint-container');
+        const finalBlueprint = document.getElementById('final-blueprint');
 
-// ===== FIRESTORE FETCH =====
-async function fetchVenues(){
-    try{const snap=await db.collection('venues').get(); cachedVenues=[]; snap.forEach(d=>cachedVenues.push({id:d.id,...d.data()})); return cachedVenues}
-    catch(e){console.error(e);return[]}
-}
-async function fetchServiceProviders(){
-    try{const snap=await db.collection('serviceProviders').get(); cachedProviders=[]; snap.forEach(d=>cachedProviders.push({id:d.id,...d.data()})); return cachedProviders}
-    catch(e){console.error(e);return[]}
-}
+        const eventName = document.getElementById('eventName');
+        const eventLocation = document.getElementById('eventLocation');
+        const eventType = document.getElementById('eventType');
+        const eventContact = document.getElementById('eventContact');
+        const eventBudget = document.getElementById('eventBudget');
+        const eventAttendees = document.getElementById('eventAttendees');
+        const eventNotes = document.getElementById('eventNotes');
+        const attendeeLimitBadge = document.getElementById('attendee-limit-badge');
+        const attendeeHint = document.getElementById('attendee-hint');
+        const budgetHint = document.getElementById('budget-hint');
+        const headerPackageTag = document.getElementById('header-package-tag');
+        const headerUserEmail = document.getElementById('header-user-email');
+        const sidebarPackageLabel = document.getElementById('sidebar-package-label');
+        const pkgBanner = document.getElementById('package-banner');
+        const pkgBannerName = document.getElementById('pkg-banner-name');
+        const pkgBannerLimit = document.getElementById('pkg-banner-limit');
+        const pkgBannerAction = document.getElementById('pkg-banner-action');
+        const sidebarPackageBadge = document.getElementById('sidebar-package-badge');
 
-// ===== MATCH VENDORS =====
-function matchVenues(location,attendees,budget,requiredServices){
-    const locLower=location.toLowerCase(), nearby=cachedVenues.filter(v=>(v.location||'').toLowerCase().includes(locLower)||locLower.includes((v.location||'').toLowerCase()));
-    const pool=nearby.length?nearby:cachedVenues;
-    return pool.filter(v=>{
-        const s=(v.services||[]).concat(v.amenities||[]);
-        const match=requiredServices.some(r=>s.some(p=>p.toLowerCase().includes(r.toLowerCase())||r.toLowerCase().includes(p.toLowerCase())));
-        if(!match&&!nearby.includes(v))return false;
-        return true;
-    }).slice(0,3).map(v=>{
-        const s=(v.services||[]).concat(v.amenities||[]);
-        const reasoning=[], fitScore=0;
-        if(v.capacity) reasoning.push(v.capacity>=attendees?`✅ Capacity: ${v.capacity}`:`⚠️ Capacity: ${v.capacity}`);
-        if(v.basePrice) reasoning.push(`💰 $${v.basePrice}`);
-        if(v.location) reasoning.push(`📍 ${v.location}`);
-        if(nearby.includes(v)) reasoning.push('📍 Nearby');
-        return {...v,fitScore,reasoning:reasoning.length?reasoning:['ℹ️ Available venue'],hasSufficientData:!!(v.capacity||v.basePrice)};
-    });
-}
-function matchServiceProviders(location,requiredServices,budget,attendees){
-    const locLower=location.toLowerCase(), nearby=cachedProviders.filter(p=>(p.location||'').toLowerCase().includes(locLower)||(p.serviceAreas||'').toLowerCase().includes(locLower));
-    const pool=nearby.length?nearby:cachedProviders;
-    return pool.filter(p=>{
-        const match=requiredServices.some(r=>(p.services||[]).some(s=>s.toLowerCase().includes(r.toLowerCase())||r.toLowerCase().includes(s.toLowerCase())));
-        if(!match&&!nearby.includes(p))return false;
-        return true;
-    }).slice(0,3).map(p=>{
-        const reasoning=[], fitScore=0;
-        const matched=requiredServices.filter(r=>(p.services||[]).some(s=>s.toLowerCase().includes(r.toLowerCase())));
-        if(matched.length) reasoning.push(`✅ Matches ${matched.length} services`);
-        if(p.basePrice) reasoning.push(`💰 $${p.basePrice}`);
-        if(p.rating) reasoning.push(`⭐ ${p.rating.toFixed(1)}/5`);
-        if(p.location) reasoning.push(`📍 ${p.location}`);
-        if(nearby.includes(p)) reasoning.push('📍 Nearby');
-        return {...p,matchedServices:matched,fitScore,reasoning:reasoning.length?reasoning:['ℹ️ Available provider'],hasSufficientData:!!(p.services?.length||p.basePrice)};
-    });
-}
+        // ============================================================
+        //  POPULATE SERVICES
+        // ============================================================
+        granularServices.forEach(service => {
+            const isExclusive = service === "Zone21 Security - EXCLUSIVE";
+            const isChecked = isExclusive ||
+                service === "Venue / Space Rental" ||
+                service === "Catering (Food & Buffet)" ||
+                service === "DJ Services" ||
+                service === "Photographer" ||
+                service === "Cake Designer / Baker" ||
+                service === "Event Planner / Coordinator";
 
-// ===== GENERATE VENDOR HTML (compact) =====
-function generateVendorHTML(vendors,type){
-    if(!vendors||!vendors.length)return `<div style="background:var(--grey-light);padding:10px 14px;border-radius:var(--radius);border-left:3px solid var(--slate);margin:6px 0;font-size:0.8rem;color:var(--slate)"><i class="fas fa-info-circle"></i> No ${type}s found. Contact Zone21 for assistance.</div>`;
-    let html='<div style="margin:6px 0">';
-    vendors.forEach((v,i)=>{
-        const isVenue=type==='Venue', name=v.name||'Unnamed', location=v.location||'Location TBD';
-        const price=v.basePrice?`$${v.basePrice}`:'Contact for pricing';
-        const cap=v.capacity?`${v.capacity} guests`:'Capacity TBD';
-        const rating=v.rating?`${v.rating.toFixed(1)}/5`:'N/A';
-        const services=(v.services||[]).concat(v.amenities||[]).slice(0,4);
-        const reasoning=v.reasoning||['Available'];
-        html+=`<div class="vendor-card">
-            <div class="vendor-name">${i+1}. ${name} <span class="type-badge ${isVenue?'venue':''}">${type}</span></div>
-            <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${location}</div>
-            ${isVenue?`<div class="vendor-detail"><i class="fas fa-users"></i> ${cap}</div>`:''}
-            <div class="vendor-detail"><i class="fas fa-tag"></i> ${price}</div>
-            ${rating!=='N/A'?`<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}</div>`:''}
-            ${services.length?`<div class="vendor-detail"><i class="fas fa-cog"></i> ${services.join(', ')}${(v.services||[]).length>4?` +${(v.services||[]).length-4} more`:''}</div>`:''}
-            <div>${reasoning.map(r=>{
-                let cls='reasoning-badge'; if(r.includes('✅'))cls+=' success'; else if(r.includes('⚠️'))cls+=' warning'; else if(r.includes('📍')||r.includes('ℹ️'))cls+=' info';
-                return `<span class="${cls}">${r}</span>`;
-            }).join(' ')}</div>
-            <div class="vendor-actions">
-                ${v.id?`<button class="contact-btn primary" onclick="openChatForVendor('${v.id}')"><i class="fas fa-envelope"></i> Message</button>`:''}
-                <button class="contact-btn whatsapp" onclick="openWhatsApp('${v.id||''}')"><i class="fab fa-whatsapp"></i> Book via Zone21</button>
-                ${v.email?`<a href="mailto:${v.email}" class="contact-btn email"><i class="fas fa-envelope"></i> Email</a>`:''}
-            </div>
-        </div>`;
-    });
-    return html+'</div>';
-}
-
-// ===== CHAT FUNCTIONS =====
-async function openChatForVendor(vendorId){
-    if(!currentUser){showToast('Please sign in first','error');return}
-    let vendor=cachedVenues.find(v=>v.id===vendorId)||cachedProviders.find(p=>p.id===vendorId);
-    if(!vendor){showToast('Vendor not found','error');return}
-    chatOtherUid=vendorId; chatOtherName=vendor.name||'Vendor';
-    document.getElementById('modalChatName').textContent=chatOtherName;
-    document.getElementById('modalChatSub').textContent=vendor.category||vendor.serviceType||'Service Provider';
-    const avatar=document.getElementById('modalChatAvatar'), initials=document.getElementById('modalChatInitials');
-    const img=avatar.querySelector('img'); if(img)img.remove();
-    const init=chatOtherName.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase()||'?';
-    initials.textContent=init;
-    document.getElementById('chatModal').classList.add('active'); document.body.style.overflow='hidden';
-    await findOrCreateChatThread(vendor);
-}
-async function findOrCreateChatThread(vendor){
-    if(!currentUser)return;
-    try{
-        const q=await db.collection('threads').where('participants','array-contains',currentUser.uid).get();
-        let threadId=null;
-        q.forEach(d=>{const data=d.data(); if(data.participants?.includes(chatOtherUid))threadId=d.id});
-        if(threadId){chatThreadId=threadId; subscribeToChatMessages(threadId)}
-        else{
-            const docRef=await db.collection('threads').add({
-                participants:[currentUser.uid,chatOtherUid],
-                jobTitle:vendor.category||vendor.serviceType||'Service Provider',
-                lastMessageText:'Start your conversation',
-                createdAt:firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt:firebase.firestore.FieldValue.serverTimestamp()
-            });
-            chatThreadId=docRef.id; subscribeToChatMessages(docRef.id);
-        }
-    }catch(e){console.error(e);showToast('Failed to start conversation','error')}
-}
-function subscribeToChatMessages(threadId){
-    if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null}
-    const container=document.getElementById('modalChatMessages');
-    chatUnsubscribe=db.collection(`threads/${threadId}/messages`).orderBy('timestamp','asc').onSnapshot(snap=>{
-        if(snap.empty){container.innerHTML='<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.</p></div>';return}
-        container.innerHTML=''; let lastDate='';
-        snap.forEach(d=>{
-            const msg=d.data(), date=msg.timestamp?.toDate()||new Date();
-            const ds=date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-            if(ds!==lastDate){const d=document.createElement('div');d.className='chat-date-divider';d.textContent=ds;container.appendChild(d);lastDate=ds}
-            const out=msg.senderId===currentUser.uid, bubble=document.createElement('div');
-            bubble.className=`chat-message ${out?'out':'in'}`;
-            let content=msg.text||'';
-            if(msg.imageBase64)content+=`<div style="margin-top:4px;"><img src="${msg.imageBase64}" style="max-width:180px;max-height:140px;border-radius:6px;width:100%;height:auto;object-fit:cover;" /></div>`;
-            content+=`<div class="time">${date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})}</div>`;
-            bubble.innerHTML=content; container.appendChild(bubble);
+            container.innerHTML += `
+                        <label class="service-item">
+                            <input type="checkbox" name="services" value="${service}" ${isChecked ? 'checked' : ''}>
+                            ${service}
+                            ${isExclusive ? '<span class="zone21-badge">Zone21</span>' : ''}
+                        </label>
+                    `;
         });
-        container.scrollTop=container.scrollHeight;
-    });
-}
-function closeChatModal(){document.getElementById('chatModal').classList.remove('active');document.body.style.overflow='';if(chatUnsubscribe){chatUnsubscribe();chatUnsubscribe=null}chatThreadId=null}
-async function sendModalMessage(){
-    const input=document.getElementById('modalChatInput'), text=input.value.trim();
-    if(!text||!chatThreadId||!currentUser)return; input.value='';
-    try{
-        await db.collection(`threads/${chatThreadId}/messages`).add({senderId:currentUser.uid,text:text,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
-        await db.collection('threads').doc(chatThreadId).update({lastMessageText:text.substring(0,80),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-        showToast('Message sent','success');
-    }catch(e){showToast('Failed to send','error')}
-}
-function openWhatsApp(vendorId){
-    const vendor=[...cachedVenues,...cachedProviders].find(v=>v.id===vendorId);
-    const name=vendor?vendor.name:'a vendor';
-    window.open(`https://wa.me/${ZONE21.whatsapp.replace('+','')}?text=${encodeURIComponent(`Hi Zone21, I'm interested in booking ${name} for my event.`)}`,'_blank');
-}
 
-// ===== AUTH & PACKAGE =====
-async function loadUserAndPackage(){
-    try{
-        const user=auth.currentUser; if(!user){showToast('Please log in','error');setTimeout(()=>window.location.href='index.html',1500);return false}
-        currentUser=user; headerUserEmail.textContent=user.email||'user@example.com';
-        await Promise.all([fetchVenues(),fetchServiceProviders()]);
-        const sub=await db.collection('subscriptions').where('userId','==',user.uid).where('status','==','active').limit(1).get();
-        let found=null;
-        if(!sub.empty){const d=sub.docs[0].data(), p=d.planId||d.plan; if(p&&PACKAGES[p])found=p}
-        if(!found){
-            pkgBanner.style.display='flex'; pkgBannerName.textContent='No active package'; pkgBannerLimit.textContent='—';
-            pkgBannerAction.textContent='Subscribe'; pkgBannerAction.href='subscription.html';
-            headerPackageTag.textContent='No Plan'; headerPackageTag.style.background='var(--slate)';
-            sidebarPackageLabel.textContent='Package: No active plan'; sidebarPackageBadge.textContent='No Plan';
-            attendeeLimitBadge.textContent='—'; attendeeHint.textContent='Subscribe to generate blueprints.';
-            eventAttendees.disabled=true; generateBtn.disabled=true; generateBtn.innerHTML='<i class="fas fa-lock"></i> Subscribe';
-            showToast('Please subscribe first','info'); return false;
+        // ============================================================
+        //  TOAST
+        // ============================================================
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toast-container');
+            if (!c) { alert(msg); return; }
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+            t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0';
+                setTimeout(() => t.remove(), 300); }, 4000);
         }
-        userPackage=found; const pkg=PACKAGES[found]; userPackageLimit=pkg.maxAttendees;
-        headerPackageTag.textContent=pkg.label; headerPackageTag.style.background='var(--mint)'; headerPackageTag.style.color='#fff';
-        sidebarPackageBadge.textContent=pkg.label; sidebarPackageLabel.textContent=`Package: ${pkg.name} (${pkg.limitDisplay})`;
-        pkgBanner.style.display='flex'; pkgBannerName.textContent=pkg.name; pkgBannerLimit.textContent=pkg.limitDisplay;
-        pkgBannerAction.textContent='Manage'; pkgBannerAction.href='subscription.html';
-        attendeeLimitBadge.textContent=pkg.maxAttendees===Infinity?'∞':`≤ ${pkg.maxAttendees}`;
-        attendeeHint.textContent=`Max ${pkg.maxAttendees===Infinity?'unlimited':pkg.maxAttendees} attendees.`;
-        eventAttendees.disabled=false; if(pkg.maxAttendees!==Infinity)eventAttendees.max=pkg.maxAttendees;
-        budgetHint.textContent=pkg.budgetHint||'Set your total budget.';
-        generateBtn.disabled=false; generateBtn.innerHTML='<i class="fas fa-magic"></i> Generate Blueprint';
-        eventAttendees.addEventListener('input',function(){const v=parseInt(this.value); if(pkg.maxAttendees!==Infinity&&v>pkg.maxAttendees){this.value=pkg.maxAttendees; showToast(`Limited to ${pkg.maxAttendees} attendees`,'info')}});
-        showToast(`Welcome! ${pkg.name} package active.`,'success'); return true;
-    }catch(e){console.error(e);showToast('Failed to load subscription','error');return false}
-}
 
-// ===== FORM SUBMIT =====
-form.addEventListener('submit',function(e){
-    e.preventDefault();
-    if(!currentUser){showToast('Please log in first','error');return}
-    if(!userPackage){showToast('Please subscribe first','error');return}
-    const services=Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb=>cb.value);
-    if(!services.length){showToast('Select at least one service','error');return}
-    const attendees=parseInt(eventAttendees.value);
-    if(userPackageLimit!==Infinity&&attendees>userPackageLimit){eventAttendees.value=userPackageLimit; showToast(`Limited to ${userPackageLimit}`,'info');return}
-    currentEventData={
-        name:eventName.value||'Untitled Event', location:eventLocation.value||'Harare, Zimbabwe',
-        type:eventType.value||'Social & Private Events', contact:eventContact.value||'Not provided',
-        budget:parseFloat(eventBudget.value)||500, attendees:parseInt(eventAttendees.value)||50,
-        notes:eventNotes.value||'None', services:services, package:userPackage, packageLimit:userPackageLimit
-    };
-    generateBlueprint(false);
-});
+        // ============================================================
+        //  SIDEBAR
+        // ============================================================
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
 
-// ===== GENERATE BLUEPRINT =====
-async function generateBlueprint(isRegenerating){
-    formSection.style.display='none'; blueprintContainer.style.display='none'; loadingDiv.style.display='block';
-    loadingStatus.textContent='Analyzing your event...';
-    if(!currentSessionId||!isRegenerating)currentSessionId='evt_'+Date.now();
-    const perPerson=(currentEventData.budget/Math.max(1,currentEventData.attendees)).toFixed(2);
-    const matchedVenues=matchVenues(currentEventData.location,currentEventData.attendees,currentEventData.budget,currentEventData.services);
-    const matchedProviders=matchServiceProviders(currentEventData.location,currentEventData.services,currentEventData.budget,currentEventData.attendees);
-    const allServices=new Set(); [...matchedVenues,...matchedProviders].forEach(v=>{(v.services||[]).forEach(s=>allServices.add(s));(v.amenities||[]).forEach(s=>allServices.add(s))});
-    const missing=currentEventData.services.filter(s=>!Array.from(allServices).some(ms=>ms.toLowerCase().includes(s.toLowerCase())||s.toLowerCase().includes(ms.toLowerCase())));
-    const planningMissing=missing.filter(s=>['planner','coordinator','management','organizer','planning'].some(k=>s.toLowerCase().includes(k)));
-    const otherMissing=missing.filter(s=>!['planner','coordinator','management','organizer','planning'].some(k=>s.toLowerCase().includes(k)));
-    const venueSummary=matchedVenues.map(v=>`${v.name} (${v.location||'TBD'})`).join('; ')||'No venues found.';
-    const providerSummary=matchedProviders.map(p=>`${p.name} (${p.location||'TBD'})`).join('; ')||'No providers found.';
+        function closeSidebar() { sidebar.classList.remove('active');
+            overlay.classList.remove('active'); }
+        if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active');
+            overlay.classList.add('active'); });
+        if (overlay) overlay.addEventListener('click', closeSidebar);
 
-    loadingStatus.textContent='Crafting your blueprint with AI...';
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (e) {
+                showToast('Logout failed', 'error');
+            }
+        }
 
-    const prompt=`You are Zone21 Ultimate – an expert event planner. Generate a professional event blueprint in clean HTML.
+        // ============================================================
+        //  FETCH DATA FROM FIRESTORE
+        // ============================================================
+        async function fetchVenues() {
+            try {
+                const snapshot = await db.collection('venues').get();
+                cachedVenues = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    cachedVenues.push({ id: doc.id, ...data });
+                });
+                return cachedVenues;
+            } catch (error) {
+                console.error('Error fetching venues:', error);
+                return [];
+            }
+        }
 
-EVENT: ${currentEventData.name}
-LOCATION: ${currentEventData.location}
-TYPE: ${currentEventData.type}
-BUDGET: $${currentEventData.budget}
-ATTENDEES: ${currentEventData.attendees}
-CONTACT: ${currentEventData.contact}
-NOTES: ${currentEventData.notes}
-SERVICES: ${currentEventData.services.join(', ')}
+        async function fetchServiceProviders() {
+            try {
+                const snapshot = await db.collection('serviceProviders').get();
+                cachedProviders = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    cachedProviders.push({ id: doc.id, ...data });
+                });
+                return cachedProviders;
+            } catch (error) {
+                console.error('Error fetching service providers:', error);
+                return [];
+            }
+        }
 
-VENUES (${matchedVenues.length}): ${venueSummary}
-PROVIDERS (${matchedProviders.length}): ${providerSummary}
-MISSING SERVICES: ${missing.length?missing.join(', '):'None'}
+        // ============================================================
+        //  MATCH VENDORS
+        // ============================================================
+        function matchVenues(location, attendees, budget, requiredServices) {
+            const locationLower = location.toLowerCase();
+            const nearbyVenues = cachedVenues.filter(v => {
+                const loc = (v.location || '').toLowerCase();
+                return loc.includes(locationLower) || locationLower.includes(loc);
+            });
+            const pool = nearbyVenues.length > 0 ? nearbyVenues : cachedVenues;
+            if (pool.length === 0) return [];
 
-CRITICAL RULES:
-1. NEVER recommend external event planners/coordinators. ALWAYS recommend Zone21 for planning services.
-2. For other missing services, recommend realistic external providers with Zone21 as contact.
-3. Zone21 contact: Call ${ZONE21.phone}, WhatsApp ${ZONE21.whatsapp}, Email ${ZONE21.email}
+            const results = pool.map(venue => {
+                const capacity = venue.capacity || 0;
+                const price = venue.basePrice || 0;
+                const name = venue.name || 'Unnamed Venue';
+                const services = venue.services || venue.amenities || [];
+                const hasLocation = !!(venue.location);
+                const hasCapacity = capacity > 0;
+                const hasPrice = price > 0;
+                const serviceMatch = requiredServices.some(s =>
+                    services.some(ps => ps.toLowerCase().includes(s.toLowerCase()) ||
+                        s.toLowerCase().includes(ps.toLowerCase())) ||
+                    s.includes('Venue') || s.includes('Marquee') || s.includes('Tents')
+                );
+                const isNearby = nearbyVenues.includes(venue);
 
-Generate HTML with these sections:
-1. Executive Summary
-2. Event Analysis (setup, style, dress code, decor, colors)
-3. Budget Analysis (use budget-success/budget-neutral/budget-warning classes)
+                let reasoning = [];
+                let fitScore = 0;
+
+                if (hasCapacity) {
+                    if (capacity >= attendees) { reasoning.push('✅ Capacity fits');
+                        fitScore += 3; } else reasoning.push('⚠️ Capacity may be limited');
+                } else reasoning.push('ℹ️ Capacity TBD');
+
+                if (hasPrice && budget > 0) {
+                    const pct = (price / budget) * 100;
+                    if (pct <= 30) { reasoning.push('💰 Great value');
+                        fitScore += 2; } else if (pct <= 50) { reasoning.push('💰 Reasonable');
+                        fitScore += 1; } else reasoning.push('💰 Consider allocation');
+                } else reasoning.push('ℹ️ Price TBD');
+
+                if (serviceMatch) { reasoning.push('✅ Service match');
+                    fitScore += 2; }
+                if (isNearby) { reasoning.push('📍 Nearby');
+                    fitScore += 2; }
+
+                return { ...venue, fitScore, reasoning: reasoning.length ? reasoning : ['ℹ️ Basic match'],
+                    serviceMatch, capacityMatch: capacity >= attendees };
+            });
+
+            results.sort((a, b) => b.fitScore - a.fitScore);
+            return results.slice(0, 3);
+        }
+
+        function matchServiceProviders(location, requiredServices, budget) {
+            const locationLower = location.toLowerCase();
+            const nearby = cachedProviders.filter(p => {
+                const loc = (p.location || '').toLowerCase();
+                const areas = (p.serviceAreas || '').toLowerCase();
+                return loc.includes(locationLower) || locationLower.includes(loc) || areas.includes(locationLower);
+            });
+            const pool = nearby.length > 0 ? nearby : cachedProviders;
+            if (pool.length === 0) return [];
+
+            const results = pool.map(provider => {
+                const services = provider.services || [];
+                const price = provider.basePrice || 0;
+                const rating = provider.rating || 0;
+                const name = provider.name || 'Unnamed Provider';
+                const isNearby = nearby.includes(provider);
+
+                const matchedServices = requiredServices.filter(s =>
+                    services.some(ps => ps.toLowerCase().includes(s.toLowerCase()) ||
+                        s.toLowerCase().includes(ps.toLowerCase()))
+                );
+
+                let reasoning = [];
+                let fitScore = 0;
+
+                if (matchedServices.length > 0) {
+                    reasoning.push(`✅ ${matchedServices.length} services match`);
+                    fitScore += matchedServices.length * 2;
+                } else reasoning.push('ℹ️ General provider');
+
+                if (price > 0 && budget > 0) {
+                    const pct = (price / budget) * 100;
+                    if (pct <= 20) { reasoning.push('💰 Competitive');
+                        fitScore += 2; } else if (pct <= 40) { reasoning.push('💰 Reasonable');
+                        fitScore += 1; }
+                } else reasoning.push('ℹ️ Price TBD');
+
+                if (rating >= 4) { reasoning.push('⭐ Highly rated');
+                    fitScore += 2; } else if (rating >= 3) { reasoning.push('⭐ Good rating');
+                    fitScore += 1; }
+
+                if (isNearby) { reasoning.push('📍 Nearby');
+                    fitScore += 2; }
+
+                return { ...provider, fitScore, matchedServices, reasoning: reasoning.length ? reasoning : [
+                        'ℹ️ Available provider'
+                    ] };
+            });
+
+            results.sort((a, b) => b.fitScore - a.fitScore);
+            return results.slice(0, 3);
+        }
+
+        // ============================================================
+        //  GENERATE VENDOR HTML
+        // ============================================================
+        function generateVendorHTML(vendors, type) {
+            if (!vendors || vendors.length === 0) {
+                return `<div style="background:var(--grey-light);padding:12px 16px;border-radius:var(--radius);border-left:3px solid var(--slate);margin:8px 0;">
+                            <p style="margin:0;color:var(--text-secondary);font-size:0.85rem;">No ${type}s found in our database. Contact Zone21 for assistance.</p>
+                        </div>`;
+            }
+
+            let html = `<div style="margin:8px 0;">`;
+            vendors.forEach((v, index) => {
+                const name = v.name || 'Unnamed';
+                const location = v.location || 'Location TBD';
+                const price = v.basePrice > 0 ? `$${v.basePrice}` : 'Pricing TBD';
+                const capacity = v.capacity ? `${v.capacity} guests` : 'Capacity TBD';
+                const rating = v.rating ? v.rating.toFixed(1) : 'N/A';
+                const services = v.services || v.amenities || [];
+                const reasoning = v.reasoning || ['Available for your event'];
+
+                const borderColor = v.fitScore >= 4 ? 'var(--mint)' : v.fitScore >= 2 ? 'var(--slate)' :
+                'var(--coral)';
+                const typeLabel = type === 'Venue' ? 'Venue' : 'Provider';
+
+                html += `
+                        <div class="vendor-card" style="border-left-color:${borderColor};">
+                            <div class="vendor-name">
+                                ${index+1}. ${name}
+                                <span class="type-badge ${type === 'Venue' ? 'venue' : ''}">${typeLabel}</span>
+                            </div>
+                            <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${location}</div>
+                            ${type === 'Venue' ? `<div class="vendor-detail"><i class="fas fa-users"></i> ${capacity}</div>` : ''}
+                            <div class="vendor-detail"><i class="fas fa-tag"></i> ${price}</div>
+                            ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
+                            ${services.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${services.slice(0,4).join(', ')}${services.length>4?' +'+(services.length-4):''}</div>` : ''}
+                            <div style="margin:4px 0;">
+                                ${reasoning.map(r => {
+                                    let cls = 'reasoning-badge';
+                                    if (r.includes('⚠️')) cls += ' warning';
+                                    else if (r.includes('✅')) cls += ' success';
+                                    else if (r.includes('ℹ️') || r.includes('📋')) cls += ' info';
+                                    return `<span class="${cls}">${r}</span>`;
+                                }).join(' ')}
+                            </div>
+                            <div class="vendor-actions">
+                                ${v.id ? `<button class="contact-btn primary" onclick="openChatForVendor('${v.id}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
+                                <button class="contact-btn whatsapp" onclick="openWhatsApp('${v.id || ''}')"><i class="fab fa-whatsapp"></i> Book</button>
+                                ${v.contact && v.contact.includes('@') ? `<a href="mailto:${v.contact}" class="contact-btn email"><i class="fas fa-envelope"></i> Email</a>` : ''}
+                            </div>
+                        </div>
+                    `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        // ============================================================
+        //  OPEN CHAT FOR VENDOR
+        // ============================================================
+        async function openChatForVendor(vendorId) {
+            if (!currentUser) { showToast('Please sign in first', 'error'); return; }
+            let vendor = cachedVenues.find(v => v.id === vendorId) || cachedProviders.find(p => p.id === vendorId);
+            if (!vendor) { showToast('Vendor not found', 'error'); return; }
+
+            chatOtherUid = vendorId;
+            chatOtherName = vendor.name || 'Vendor';
+            chatOtherAvatar = vendor.avatar || null;
+
+            document.getElementById('modalChatName').textContent = chatOtherName;
+            document.getElementById('modalChatSub').textContent = vendor.category || vendor.serviceType ||
+            'Service Provider';
+
+            const avatarEl = document.getElementById('modalChatAvatar');
+            const initialsEl = document.getElementById('modalChatInitials');
+            const existingImg = avatarEl.querySelector('img');
+            if (existingImg) existingImg.remove();
+
+            const initials = chatOtherName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase() ||
+            '?';
+            if (chatOtherAvatar) {
+                initialsEl.style.display = 'none';
+                const img = document.createElement('img');
+                img.src = chatOtherAvatar;
+                img.alt = chatOtherName;
+                img.onerror = function() { this.style.display = 'none';
+                    initialsEl.style.display = 'inline';
+                    initialsEl.textContent = initials; };
+                avatarEl.appendChild(img);
+            } else {
+                initialsEl.style.display = 'inline';
+                initialsEl.textContent = initials;
+            }
+
+            document.getElementById('chatModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            const msgContainer = document.getElementById('modalChatMessages');
+            msgContainer.innerHTML =
+                '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
+            await findOrCreateChatThread(vendor);
+        }
+
+        async function findOrCreateChatThread(vendor) {
+            if (!currentUser) return;
+            try {
+                const threadsRef = db.collection('threads');
+                const q = threadsRef.where('participants', 'array-contains', currentUser.uid);
+                const snap = await q.get();
+                let threadId = null;
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.participants && data.participants.includes(chatOtherUid)) threadId = doc.id;
+                });
+                if (threadId) {
+                    chatThreadId = threadId;
+                    subscribeToChatMessages(threadId);
+                } else {
+                    const newThread = {
+                        participants: [currentUser.uid, chatOtherUid],
+                        jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
+                        lastMessageText: 'Start your conversation',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    const docRef = await threadsRef.add(newThread);
+                    chatThreadId = docRef.id;
+                    subscribeToChatMessages(docRef.id);
+                }
+            } catch (err) {
+                console.error('Thread error:', err);
+                showToast('Failed to start conversation', 'error');
+                const msgContainer = document.getElementById('modalChatMessages');
+                msgContainer.innerHTML =
+                    '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--coral);"></i><p>Could not load conversation.</p></div>';
+            }
+        }
+
+        function subscribeToChatMessages(threadId) {
+            if (chatUnsubscribe) { chatUnsubscribe();
+                chatUnsubscribe = null; }
+            const msgContainer = document.getElementById('modalChatMessages');
+            chatUnsubscribe = db.collection(`threads/${threadId}/messages`).orderBy('timestamp', 'asc')
+                .onSnapshot(snapshot => {
+                    if (snapshot.empty) {
+                        msgContainer.innerHTML =
+                            '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.<br />Start the conversation!</p></div>';
+                        return;
+                    }
+                    msgContainer.innerHTML = '';
+                    let lastDate = '';
+                    snapshot.forEach(doc => {
+                        const msg = doc.data();
+                        const msgDate = msg.timestamp ? msg.timestamp.toDate() : new Date();
+                        const dateStr = msgDate.toLocaleDateString('en-US', { weekday: 'short',
+                            month: 'short', day: 'numeric' });
+                        if (dateStr !== lastDate) {
+                            const div = document.createElement('div');
+                            div.className = 'chat-date-divider';
+                            div.textContent = dateStr;
+                            msgContainer.appendChild(div);
+                            lastDate = dateStr;
+                        }
+                        const isOut = msg.senderId === currentUser.uid;
+                        const bubble = document.createElement('div');
+                        bubble.className = `chat-message ${isOut ? 'out' : 'in'}`;
+                        let content = msg.text || '';
+                        if (msg.imageBase64) {
+                            content +=
+                                `<div style="margin-top:4px;"><img src="${msg.imageBase64}" style="max-width:160px;max-height:120px;border-radius:6px;width:100%;height:auto;object-fit:cover;" /></div>`;
+                        }
+                        const timeStr = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('en-US', {
+                            hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+                        content += `<div class="time">${timeStr}</div>`;
+                        bubble.innerHTML = content;
+                        msgContainer.appendChild(bubble);
+                    });
+                    msgContainer.scrollTop = msgContainer.scrollHeight;
+                }, err => {
+                    console.error('Message subscription error:', err);
+                    msgContainer.innerHTML =
+                        '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--coral);"></i><p>Could not load messages.</p></div>';
+                });
+        }
+
+        function closeChatModal() {
+            document.getElementById('chatModal').classList.remove('active');
+            document.body.style.overflow = '';
+            if (chatUnsubscribe) { chatUnsubscribe();
+                chatUnsubscribe = null; }
+            chatThreadId = null;
+        }
+
+        async function sendModalMessage() {
+            const input = document.getElementById('modalChatInput');
+            const text = input.value.trim();
+            if (!text || !chatThreadId || !currentUser) return;
+            input.value = '';
+            try {
+                await db.collection(`threads/${chatThreadId}/messages`).add({
+                    senderId: currentUser.uid,
+                    text: text,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await db.collection('threads').doc(chatThreadId).update({
+                    lastMessageText: text.substring(0, 80),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Message sent', 'success');
+            } catch (err) {
+                console.error('Send error:', err);
+                showToast('Failed to send message', 'error');
+            }
+        }
+
+        function openWhatsApp(vendorId) {
+            const vendor = [...cachedVenues, ...cachedProviders].find(v => v.id === vendorId);
+            const name = vendor ? vendor.name : 'a vendor';
+            const msg =
+                `Hi Zone21, I'm interested in booking ${name} for my event. Can you help me connect with them or find similar options?`;
+            window.open(`https://wa.me/${ZONE21.whatsapp.replace('+', '')}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // ============================================================
+        //  AUTH & PACKAGE
+        // ============================================================
+        async function loadUserAndPackage() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    showToast('Please log in to continue.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                    return false;
+                }
+                currentUser = user;
+                headerUserEmail.textContent = user.email || 'user@example.com';
+
+                await Promise.all([fetchVenues(), fetchServiceProviders()]);
+
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists) {
+                    showToast('User profile not found.', 'error');
+                    return false;
+                }
+
+                const subSnapshot = await db.collection('subscriptions')
+                    .where('userId', '==', user.uid)
+                    .where('status', '==', 'active')
+                    .limit(1)
+                    .get();
+
+                let foundPackage = null;
+                if (!subSnapshot.empty) {
+                    const subData = subSnapshot.docs[0].data();
+                    const planId = subData.planId || subData.plan;
+                    if (planId && PACKAGES[planId]) foundPackage = planId;
+                }
+
+                if (!foundPackage) {
+                    const pendingSnap = await db.collection('subscriptions')
+                        .where('userId', '==', user.uid)
+                        .where('status', '==', 'pending_payment')
+                        .limit(1)
+                        .get();
+                    if (!pendingSnap.empty) {
+                        const pData = pendingSnap.docs[0].data();
+                        const planId = pData.planId || pData.plan;
+                        if (planId && PACKAGES[planId]) {
+                            foundPackage = planId;
+                            showToast('Payment pending. You can still generate blueprints.', 'info');
+                        }
+                    }
+                }
+
+                if (!foundPackage) {
+                    pkgBanner.style.display = 'flex';
+                    pkgBannerName.textContent = 'No active package';
+                    pkgBannerLimit.textContent = '—';
+                    pkgBannerAction.textContent = 'Subscribe';
+                    pkgBannerAction.href = 'subscription.html';
+                    headerPackageTag.textContent = 'No Plan';
+                    headerPackageTag.style.background = 'var(--slate)';
+                    sidebarPackageLabel.textContent = 'Package: No active plan';
+                    sidebarPackageBadge.textContent = 'No Plan';
+                    attendeeLimitBadge.textContent = '—';
+                    attendeeHint.textContent = 'Subscribe to generate blueprints.';
+                    eventAttendees.disabled = true;
+                    generateBtn.disabled = true;
+                    generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe';
+                    showToast('Please subscribe to a package.', 'info');
+                    return false;
+                }
+
+                userPackage = foundPackage;
+                const pkg = PACKAGES[foundPackage];
+                userPackageName = pkg.name;
+                userPackageLimit = pkg.maxAttendees;
+
+                headerPackageTag.textContent = pkg.label;
+                headerPackageTag.style.background = 'var(--mint)';
+                headerPackageTag.style.color = 'white';
+                sidebarPackageBadge.textContent = pkg.label;
+                sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay})`;
+
+                pkgBanner.style.display = 'flex';
+                pkgBannerName.textContent = pkg.name;
+                pkgBannerLimit.textContent = pkg.limitDisplay;
+                pkgBannerAction.textContent = 'Manage';
+                pkgBannerAction.href = 'subscription.html';
+
+                const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
+                attendeeLimitBadge.textContent = limitDisplay;
+                attendeeHint.textContent =
+                    `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.`;
+                eventAttendees.disabled = false;
+                eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
+                budgetHint.textContent = pkg.budgetHint || 'Set your total budget.';
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Blueprint';
+
+                eventAttendees.addEventListener('input', function() {
+                    const val = parseInt(this.value);
+                    if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
+                        this.value = pkg.maxAttendees;
+                        showToast(`Attendees limited to ${pkg.maxAttendees}.`, 'info');
+                    }
+                });
+
+                showToast(`Welcome! ${pkg.name} package active.`, 'success');
+                return true;
+
+            } catch (err) {
+                console.error('Package load error:', err);
+                showToast('Failed to load subscription data.', 'error');
+                return false;
+            }
+        }
+
+        // ============================================================
+        //  FORM SUBMIT
+        // ============================================================
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!currentUser) { showToast('Please log in first.', 'error'); return; }
+            if (!userPackage) { showToast('Please subscribe first.', 'error'); return; }
+
+            const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb
+                .value);
+            if (!selectedServices.length) { showToast('Select at least one service.', 'error'); return; }
+
+            const attendees = parseInt(eventAttendees.value);
+            if (userPackageLimit !== Infinity && attendees > userPackageLimit) {
+                eventAttendees.value = userPackageLimit;
+                showToast(`Attendees limited to ${userPackageLimit}.`, 'info');
+                return;
+            }
+
+            currentEventData = {
+                name: eventName.value || 'Untitled Event',
+                location: eventLocation.value || 'Harare, Zimbabwe',
+                type: eventType.value || 'Social & Private Events',
+                contact: eventContact.value || 'Not provided',
+                budget: parseFloat(eventBudget.value) || 500,
+                attendees: parseInt(eventAttendees.value) || 50,
+                notes: eventNotes.value || 'None',
+                services: selectedServices,
+                package: userPackage,
+                packageName: userPackageName,
+                packageLimit: userPackageLimit
+            };
+
+            generateBlueprint(false);
+        });
+
+        // ============================================================
+        //  SANITIZE AI OUTPUT — prevent layout breaking
+        // ============================================================
+        function sanitizeAIOutput(rawHtml) {
+            let html = rawHtml;
+
+            // Remove markdown code fences
+            html = html.replace(/```html\s*/gi, '').replace(/```\s*/g, '');
+            html = html.replace(/```[a-zA-Z]*\s*/g, '');
+
+            // Remove any remaining backticks
+            html = html.replace(/`/g, '');
+
+            // Remove markdown headings (###, ##, #)
+            html = html.replace(/^#{1,6}\s+/gm, '');
+
+            // Convert markdown bold to <strong>
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Convert markdown italic to <em>
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            // Remove dangerous tags entirely
+            const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'style', 'base', 'form',
+                'input', 'button', 'select', 'option', 'textarea'
+            ];
+            dangerousTags.forEach(tag => {
+                const openRegex = new RegExp(`<${tag}[^>]*>`, 'gi');
+                const closeRegex = new RegExp(`</${tag}>`, 'gi');
+                html = html.replace(openRegex, '').replace(closeRegex, '');
+            });
+
+            // Remove event handlers and javascript: URLs
+            html = html.replace(/on\w+="[^"]*"/gi, '');
+            html = html.replace(/on\w+='[^']*'/gi, '');
+            html = html.replace(/javascript:[^"'\s]*/gi, '');
+
+            // Remove AI/HTML mentions
+            const forbiddenWords = [
+                'AI', 'artificial intelligence', 'DeepSeek', 'ChatGPT', 'Claude', 'GPT-4', 'GPT', 'LLM',
+                'HTML', 'markdown', 'code block', 'language model', 'machine learning', 'neural network',
+                'I generated', 'I created', 'As an AI', 'As a language model', 'my training', 'my knowledge',
+                'based on my analysis', 'I recommend', 'I suggest', 'I think', 'I believe', 'in my opinion',
+                'I have', 'I will', 'I can', 'I would', 'I\'ve', 'I\'m', 'I am'
+            ];
+            forbiddenWords.forEach(word => {
+                const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+                html = html.replace(regex, '');
+            });
+
+            // Remove any remaining "I " at start of sentences (common AI pattern)
+            html = html.replace(/\bI\s+(recommend|suggest|think|believe|would|will|can|have|am|feel|know)\s+/gi, '');
+
+            // Remove empty headings
+            html = html.replace(/<h[1-4][^>]*>\s*<\/h[1-4]>/gi, '');
+
+            // Remove empty paragraphs
+            html = html.replace(/<p[^>]*>\s*<\/p>/gi, '');
+
+            // Remove empty list items
+            html = html.replace(/<li[^>]*>\s*<\/li>/gi, '');
+
+            // Remove empty divs (but not vendor cards or source cards)
+            html = html.replace(/<div[^>]*>\s*<\/div>/gi, '');
+
+            // Remove empty spans
+            html = html.replace(/<span[^>]*>\s*<\/span>/gi, '');
+
+            // Remove empty bold/italic
+            html = html.replace(/<strong>\s*<\/strong>/gi, '');
+            html = html.replace(/<em>\s*<\/em>/gi, '');
+
+            // Fix common malformed table issues
+            html = html.replace(/<table[^>]*>/gi, '<table style="width:100%;">');
+            html = html.replace(/<td[^>]*>/gi, '<td>');
+            html = html.replace(/<th[^>]*>/gi, '<th>');
+
+            // Remove excessive whitespace
+            html = html.replace(/\n{3,}/g, '\n\n');
+            html = html.replace(/\s{3,}/g, '  ');
+
+            // Remove markdown list markers at start of lines (but not within HTML)
+            html = html.replace(/^(\s*)[-*]\s+/gm, '$1');
+
+            // Remove any remaining markdown bullet points that might appear as text
+            html = html.replace(/^\s*[-*]\s+/gm, '');
+
+            // Remove markdown horizontal rules
+            html = html.replace(/^\s*---+\s*$/gm, '<hr>');
+
+            // Remove markdown blockquote markers
+            html = html.replace(/^\s*>\s?/gm, '');
+
+            // Remove any remaining curly quotes that might cause encoding issues
+            html = html.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+
+            // Remove empty headings that might have been stripped of content
+            html = html.replace(/<h[1-4][^>]*>\s*<strong>\s*<\/strong>\s*<\/h[1-4]>/gi, '');
+
+            // Remove any remaining "AI" or similar text
+            html = html.replace(/\bAI\b/gi, '');
+            html = html.replace(/\bDeepSeek\b/gi, '');
+            html = html.replace(/\bHTML\b/gi, '');
+
+            // Remove any remaining markdown code syntax
+            html = html.replace(/<\/?code>/gi, '');
+            html = html.replace(/<\/?pre>/gi, '');
+
+            // Trim extra whitespace
+            html = html.trim();
+
+            return html;
+        }
+
+        // ============================================================
+        //  WRAP TABLES IN RESPONSIVE CONTAINER
+        // ============================================================
+        function wrapTablesInResponsiveContainer(html) {
+            // Find all table elements and wrap them in a responsive div
+            const tableRegex = /<table[\s\S]*?<\/table>/gi;
+            html = html.replace(tableRegex, function(match) {
+                return `<div class="table-responsive">${match}</div>`;
+            });
+            return html;
+        }
+
+        // ============================================================
+        //  STRICT AI PROMPT — prevents layout breaking
+        // ============================================================
+        function buildStrictPrompt(eventData) {
+            const pkg = PACKAGES[eventData.package] || PACKAGES.medium;
+            const perPerson = (eventData.budget / Math.max(1, eventData.attendees)).toFixed(2);
+
+            return `You are an experienced event planning consultant. Create a professional event blueprint as clean, semantic markup.
+
+CRITICAL FORMATTING RULES — FOLLOW EXACTLY:
+1. Use ONLY these tags: <h1>, <h2>, <h3>, <h4>, <p>, <ul>, <ol>, <li>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <div>, <span>, <strong>, <em>, <br>, <hr>, <a>.
+2. Do NOT use markdown, backticks, or any other formatting syntax.
+3. Do NOT use JavaScript, CSS, or any external resources.
+4. Do NOT use inline styles except: color, background-color, padding, margin, border-radius, border, font-size, font-weight, text-align.
+5. Do NOT use flexbox, grid, or position absolute. Use simple block layout.
+6. Tables must use thead, tbody, tr, th, td. No colspan or rowspan unless absolutely necessary.
+7. All text must be plain, readable, professional. No emojis (except ✅ ⚠️ ℹ️ 💰 ⭐ 📍 which are allowed).
+8. Do NOT mention the words "AI", "artificial intelligence", "DeepSeek", "ChatGPT", "Claude", "GPT", "language model", "machine learning", "neural network", "HTML", "markdown", "code", or any similar terms.
+9. Do NOT write in first person ("I recommend", "I suggest", "I think", etc.). Write in a professional, objective tone.
+10. Do NOT include any meta-commentary about how the content was generated. Write as a professional event plan.
+
+CONTENT SECTIONS — IN ORDER:
+1. Executive Summary (feasibility score out of 10, key highlights)
+2. Event Analysis & Tips (setup, style, theme, dress code, color palette)
+3. Budget Analysis (breakdown table with allocation percentages, use budget-success/neutral/warning classes)
 4. Venue Recommendations
 5. Service Provider Recommendations
-6. External Source Recommendations (use external-source-card class)
-7. Timeline (30-day countdown)
-8. Risk Analysis & Safety
+6. External Source Recommendations (for services not matched)
+7. Timeline (30-day countdown with specific tasks)
+8. Risk Analysis & Safety (risks, security considerations, backup power)
 9. Success Factors Checklist
-10. Marketing Strategies
-11. Zone21 Recommendations
+10. Marketing Strategies (differentiate between profit and non-profit events)
+11. Zone21 Recommendations (always include contact details)
 
-Use clean, semantic HTML. Keep it professional and readable.`;
+EVENT DETAILS:
+- Event: ${eventData.name}
+- Location: ${eventData.location}
+- Type: ${eventData.type}
+- Budget: $${eventData.budget}
+- Attendees: ${eventData.attendees}
+- Contact: ${eventData.contact}
+- Notes: ${eventData.notes}
+- Required Services: ${eventData.services.join(', ')}
 
-    try{
-        const resp=await fetch(DEEPSEEK_API_URL,{
-            method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${DEEPSEEK_API_KEY}`},
-            body:JSON.stringify({model:'deepseek-chat',messages:[{role:'user',content:prompt}],max_tokens:8192,temperature:0.6})
+CRITICAL RULE: For ANY planning/coordination/management service (Event Planner, Coordinator, etc.), ALWAYS recommend Zone21 Event Planners using the zone21-planning card format. NEVER recommend an external event planner.
+
+Zone21 contact: Call +263789912268, WhatsApp +263789912268, Email zone21services@gmail.com
+
+FORMAT TEMPLATE:
+<h1>Event Blueprint: ${eventData.name}</h1>
+<p>Professional summary...</p>
+<h2>Section Title</h2>
+<p>Content...</p>
+<ul>
+<li>Item one</li>
+<li>Item two</li>
+</ul>
+<table>
+<thead><tr><th>Column</th></tr></thead>
+<tbody><tr><td>Data</td></tr></tbody>
+</table>
+
+Use clean, semantic markup. Never break out of the container. Never use fixed widths. All tables must be simple. All text must be concise and actionable.`;
+        }
+
+        // ============================================================
+        //  GENERATE BLUEPRINT
+        // ============================================================
+        async function generateBlueprint(isRegenerating) {
+            formSection.style.display = 'none';
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            loadingStatus.textContent = 'Analyzing your event...';
+
+            if (!currentSessionId || !isRegenerating) {
+                currentSessionId = 'evt_' + Date.now();
+            }
+
+            const pkg = PACKAGES[userPackage] || PACKAGES.medium;
+            const perPerson = (currentEventData.budget / Math.max(1, currentEventData.attendees)).toFixed(2);
+
+            loadingStatus.textContent = 'Finding venues and providers...';
+
+            const matchedVenues = matchVenues(
+                currentEventData.location,
+                currentEventData.attendees,
+                currentEventData.budget,
+                currentEventData.services
+            );
+            const matchedProviders = matchServiceProviders(
+                currentEventData.location,
+                currentEventData.services,
+                currentEventData.budget
+            );
+
+            const allMatchedServices = new Set();
+            [...matchedVenues, ...matchedProviders].forEach(v => {
+                (v.services || []).forEach(s => allMatchedServices.add(s));
+                (v.amenities || []).forEach(s => allMatchedServices.add(s));
+            });
+
+            const missingServices = currentEventData.services.filter(s => {
+                return !Array.from(allMatchedServices).some(ms =>
+                    ms.toLowerCase().includes(s.toLowerCase()) ||
+                    s.toLowerCase().includes(ms.toLowerCase())
+                );
+            });
+
+            const planningKeywords = ['planner', 'coordinator', 'management', 'organizer', 'planning', 'coordination'];
+            const planningServicesMissing = missingServices.filter(s =>
+                planningKeywords.some(kw => s.toLowerCase().includes(kw))
+            );
+            const otherMissingServices = missingServices.filter(s =>
+                !planningKeywords.some(kw => s.toLowerCase().includes(kw))
+            );
+
+            const venueSummary = matchedVenues.map(v =>
+                `${v.name} (${v.location||'loc TBD'}) — ${v.basePrice?'$'+v.basePrice:'price TBD'} — ${v.capacity?v.capacity+' cap':'cap TBD'}`
+            ).join('; ') || 'No venues found.';
+            const providerSummary = matchedProviders.map(p =>
+                `${p.name} (${p.location||'loc TBD'}) — ${p.basePrice?'$'+p.basePrice:'price TBD'} — ${p.services?p.services.slice(0,3).join(', '):'services TBD'}`
+            ).join('; ') || 'No providers found.';
+
+            loadingStatus.textContent = 'Crafting your blueprint...';
+
+            // Build strict prompt
+            const prompt = buildStrictPrompt(currentEventData);
+
+            // Add vendor data to prompt
+            const vendorDataPrompt = `
+VENDOR DATA:
+- Venues (${matchedVenues.length}): ${venueSummary}
+- Providers (${matchedProviders.length}): ${providerSummary}
+- Missing Services: ${missingServices.length ? missingServices.join(', ') : 'None'}
+- Planning Services Missing: ${planningServicesMissing.length ? planningServicesMissing.join(', ') : 'None'}
+- Other Missing Services: ${otherMissingServices.length ? otherMissingServices.join(', ') : 'None'}
+
+CRITICAL RULE: For ANY planning/coordination/management service, ALWAYS recommend Zone21 Event Planners using the zone21-planning card format. NEVER recommend an external event planner.`;
+
+            try {
+                loadingStatus.textContent = 'Generating your blueprint...';
+
+                const response = await fetch(DEEPSEEK_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: DEEPSEEK_MODEL,
+                        messages: [{ role: "user", content: prompt + '\n\n' + vendorDataPrompt }],
+                        max_tokens: 8192,
+                        temperature: 0.4,
+                        top_p: 0.9
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errText}`);
+                }
+
+                const data = await response.json();
+                let htmlOutput = data.choices[0].message.content.trim();
+
+                // Sanitize the AI output
+                htmlOutput = sanitizeAIOutput(htmlOutput);
+
+                // Wrap tables in responsive containers
+                htmlOutput = wrapTablesInResponsiveContainer(htmlOutput);
+
+                // Generate vendor HTML sections
+                const venueHTML = generateVendorHTML(matchedVenues, 'Venue');
+                const providerHTML = generateVendorHTML(matchedProviders, 'Service Provider');
+                const vendorSections = `
+                            <h2>Venue Recommendations</h2>
+                            ${venueHTML}
+                            <h2>Service Provider Recommendations</h2>
+                            ${providerHTML}
+                        `;
+
+                // Inject vendor sections — replace any existing vendor sections from AI
+                const venueSectionRegex = /<h2[^>]*>.*?Venue.*?<\/h2>[\s\S]*?(?=<h2|$)/i;
+                if (htmlOutput.match(venueSectionRegex)) {
+                    const beforeVenue = htmlOutput.split(/<h2[^>]*>.*?Venue.*?<\/h2>/i)[0];
+                    const afterVenue = htmlOutput.split(/<h2[^>]*>.*?Venue.*?<\/h2>/i).slice(1).join('');
+                    const providerMatch = afterVenue.match(/<h2[^>]*>.*?Service Provider.*?<\/h2>/i);
+                    if (providerMatch) {
+                        const afterProvider = afterVenue.slice(afterVenue.indexOf(providerMatch[0])).replace(
+                            /<h2[^>]*>.*?Service Provider.*?<\/h2>[\s\S]*?(?=<h2|$)/i, '');
+                        htmlOutput = beforeVenue + vendorSections + afterProvider;
+                    } else {
+                        htmlOutput = beforeVenue + vendorSections + afterVenue;
+                    }
+                } else {
+                    htmlOutput = htmlOutput + vendorSections;
+                }
+
+                // Ensure Zone21 Security is mentioned
+                if (!htmlOutput.includes('Zone21 Security')) {
+                    const securityBlock = `
+                                <div style="background:var(--navy);color:white;padding:14px 18px;border-radius:var(--radius);margin:16px 0;">
+                                    <h3 style="color:var(--mint-light);margin:0 0 8px 0;font-size:1rem;">Security & Event Management</h3>
+                                    <p style="margin:4px 0;color:rgba(255,255,255,0.85);font-size:0.9rem;">Professional security and event management services.</p>
+                                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                                        <a href="tel:+263789912268" style="color:var(--mint-light);text-decoration:none;font-size:0.8rem;"><i class="fas fa-phone"></i> +263789912268</a>
+                                        <a href="https://wa.me/263789912268" target="_blank" style="color:#25D366;text-decoration:none;font-size:0.8rem;"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                                        <a href="mailto:zone21services@gmail.com" style="color:var(--coral);text-decoration:none;font-size:0.8rem;"><i class="fas fa-envelope"></i> zone21services@gmail.com</a>
+                                    </div>
+                                </div>
+                            `;
+                    if (htmlOutput.includes('Zone21 Recommendations')) {
+                        htmlOutput = htmlOutput.replace(/<h2[^>]*>.*?Zone21 Recommendations.*?<\/h2>/i,
+                            securityBlock + '\n<h2>Zone21 Recommendations</h2>');
+                    } else {
+                        htmlOutput = htmlOutput + securityBlock;
+                    }
+                }
+
+                // Help section
+                const helpSection = `
+                            <div class="zone21-help">
+                                <h2>Need Expert Help? Let Zone21 Take Over</h2>
+                                <p>Vendor sourcing, venue booking, on-the-day coordination — we handle it all.</p>
+                                <div class="help-actions">
+                                    <a href="mailto:${ZONE21.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a>
+                                    <a href="https://wa.me/${ZONE21.whatsapp.replace('+', '')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                                    <a href="tel:${ZONE21.phone}" class="help-btn"><i class="fas fa-phone"></i> Call</a>
+                                    <a href="${ZONE21.instagram}" target="_blank" class="help-btn"><i class="fab fa-instagram"></i> Instagram</a>
+                                    <a href="${ZONE21.facebook}" target="_blank" class="help-btn"><i class="fab fa-facebook"></i> Facebook</a>
+                                </div>
+                            </div>
+                        `;
+                if (!htmlOutput.includes('zone21-help')) {
+                    htmlOutput = htmlOutput.trim() + helpSection;
+                }
+
+                // Final cleanup
+                htmlOutput = sanitizeAIOutput(htmlOutput);
+                htmlOutput = wrapTablesInResponsiveContainer(htmlOutput);
+
+                lastGeneratedHTML = htmlOutput;
+
+                loadingDiv.style.display = 'none';
+                blueprintContainer.style.display = 'block';
+                finalBlueprint.innerHTML = htmlOutput;
+
+                saveBlueprintState(htmlOutput);
+                showToast('Blueprint generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Generation Error:', error);
+                loadingDiv.style.display = 'none';
+                formSection.style.display = 'block';
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+
+        function regenerateBlueprint() {
+            if (currentEventData) { generateBlueprint(true); } else { showToast('No event data to regenerate.', 'error'); }
+        }
+
+        // ============================================================
+        //  HISTORY
+        // ============================================================
+        function saveBlueprintState(htmlOutput) {
+            const title = currentEventData.name || `${currentEventData.location} Event`;
+            const chatData = {
+                id: currentSessionId,
+                title: title,
+                formData: currentEventData,
+                blueprintHtml: htmlOutput,
+                updatedAt: new Date().toISOString()
+            };
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            localSessions[currentSessionId] = chatData;
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            renderHistorySidebar();
+        }
+
+        function renderHistorySidebar() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            Object.values(localSessions)
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .forEach(session => {
+                    const item = document.createElement('div');
+                    item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+                    item.innerHTML = `
+                                <span class="title"><i class="fas fa-clipboard-list"></i>${session.title}</span>
+                                <button class="delete-btn" onclick="deleteBlueprintSession('${session.id}', event)"><i class="fas fa-trash"></i></button>
+                            `;
+                    item.onclick = () => loadBlueprintSession(session.id);
+                    historyList.appendChild(item);
+                });
+        }
+
+        function loadBlueprintSession(sessionId) {
+            closeSidebar();
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            const session = localSessions[sessionId];
+            if (!session) return;
+            currentSessionId = session.id;
+            currentEventData = session.formData;
+            formSection.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            blueprintContainer.style.display = 'block';
+            finalBlueprint.innerHTML = session.blueprintHtml;
+            renderHistorySidebar();
+        }
+
+        function deleteBlueprintSession(sessionId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm('Delete this event blueprint?')) return;
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            delete localSessions[sessionId];
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            if (currentSessionId === sessionId) { startNewSession(); } else { renderHistorySidebar(); }
+        }
+
+        function startNewSession() {
+            closeSidebar();
+            currentSessionId = null;
+            currentEventData = null;
+            form.reset();
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            formSection.style.display = 'block';
+            renderHistorySidebar();
+        }
+
+        // ============================================================
+        //  EXPOSE FUNCTIONS
+        // ============================================================
+        window.openChatForVendor = openChatForVendor;
+        window.closeChatModal = closeChatModal;
+        window.sendModalMessage = sendModalMessage;
+        window.openWhatsApp = openWhatsApp;
+        window.regenerateBlueprint = regenerateBlueprint;
+        window.startNewSession = startNewSession;
+        window.deleteBlueprintSession = deleteBlueprintSession;
+        window.loadBlueprintSession = loadBlueprintSession;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+
+        // ============================================================
+        //  INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    headerUserEmail.textContent = user.email || 'user@example.com';
+                    await loadUserAndPackage();
+                    renderHistorySidebar();
+                } else {
+                    showToast('Please log in to continue.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                }
+            });
+
+            if (auth.currentUser) {
+                currentUser = auth.currentUser;
+                headerUserEmail.textContent = auth.currentUser.email || 'user@example.com';
+                await loadUserAndPackage();
+                renderHistorySidebar();
+            }
         });
-        if(!resp.ok)throw new Error(`API Error ${resp.status}`);
-        const data=await resp.json();
-        let html=data.choices[0].message.content.trim().replace(/^```html/i,'').replace(/^```/i,'').replace(/```$/i,'');
+    </script>
 
-        // Insert vendor cards
-        const vHTML=generateVendorHTML(matchedVenues,'Venue');
-        const pHTML=generateVendorHTML(matchedProviders,'Service Provider');
-        const vendorHTML=`<h2>Venue Recommendations</h2>${vHTML}<h2>Service Provider Recommendations</h2>${pHTML}`;
-        if(html.includes('Venue Recommendations'))html=html.replace(/<h2>.*?Venue.*?<\/h2>.*?(?=<h2>|$)/is,vendorHTML);
-        else{const idx=html.indexOf('</div>',html.indexOf('budget-')); if(idx>0)html=html.slice(0,idx+6)+vendorHTML+html.slice(idx+6)}
-
-        // Ensure Zone21 Security
-        if(!html.includes('Zone21 Security')){
-            html+=`<div style="background:var(--navy);color:#fff;padding:12px 16px;border-radius:var(--radius);margin:14px 0"><h3 style="color:var(--mint-light);margin:0 0 6px">🔒 Zone21 Security</h3><p style="margin:4px 0;color:rgba(255,255,255,0.8);font-size:0.82rem">Professional security and event management.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:0.75rem"><a href="tel:${ZONE21.phone}" style="color:var(--mint-light);text-decoration:none"><i class="fas fa-phone"></i> ${ZONE21.phone}</a><a href="https://wa.me/${ZONE21.whatsapp.replace('+','')}" target="_blank" style="color:#25D366;text-decoration:none"><i class="fab fa-whatsapp"></i> WhatsApp</a><a href="mailto:${ZONE21.email}" style="color:var(--coral);text-decoration:none"><i class="fas fa-envelope"></i> ${ZONE21.email}</a></div></div>`;
-        }
-
-        // Zone21 Help
-        if(!html.includes('zone21-help')){
-            html+=`<div class="zone21-help"><h2>Need Help? Contact Zone21</h2><p>Our team handles everything from vendor sourcing to on-the-day coordination.</p><div class="help-actions"><a href="mailto:${ZONE21.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a><a href="https://wa.me/${ZONE21.whatsapp.replace('+','')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a><a href="tel:${ZONE21.phone}" class="help-btn"><i class="fas fa-phone"></i> Call</a></div></div>`;
-        }
-
-        lastGeneratedHTML=html;
-        loadingDiv.style.display='none'; blueprintContainer.style.display='block'; finalBlueprint.innerHTML=html;
-        saveBlueprintState(html); showToast('Blueprint generated!','success');
-    }catch(e){console.error(e); loadingDiv.style.display='none'; formSection.style.display='block'; showToast('Error: '+e.message,'error')}
-}
-
-function regenerateBlueprint(){if(currentEventData)generateBlueprint(true); else showToast('No event data','error')}
-
-// ===== HISTORY =====
-function saveBlueprintState(html){
-    const title=currentEventData.name||`${currentEventData.location} Event`;
-    const data={id:currentSessionId,title,formData:currentEventData,blueprintHtml:html,updatedAt:new Date().toISOString()};
-    const sessions=JSON.parse(localStorage.getItem('zone21_events')||'{}'); sessions[currentSessionId]=data;
-    localStorage.setItem('zone21_events',JSON.stringify(sessions)); renderHistorySidebar();
-}
-function renderHistorySidebar(){
-    const list=document.getElementById('history-list'); list.innerHTML='';
-    const sessions=JSON.parse(localStorage.getItem('zone21_events')||'{}');
-    Object.values(sessions).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)).forEach(s=>{
-        const item=document.createElement('div'); item.className=`history-item ${s.id===currentSessionId?'active':''}`;
-        item.innerHTML=`<span class="title"><i class="fas fa-clipboard-list"></i>${s.title}</span><button class="delete-btn" onclick="deleteBlueprintSession('${s.id}',event)"><i class="fas fa-trash"></i></button>`;
-        item.onclick=()=>loadBlueprintSession(s.id); list.appendChild(item);
-    });
-}
-function loadBlueprintSession(id){
-    closeSidebar(); const sessions=JSON.parse(localStorage.getItem('zone21_events')||'{}'); const s=sessions[id]; if(!s)return;
-    currentSessionId=s.id; currentEventData=s.formData; formSection.style.display='none'; loadingDiv.style.display='none';
-    blueprintContainer.style.display='block'; finalBlueprint.innerHTML=s.blueprintHtml; renderHistorySidebar();
-}
-function deleteBlueprintSession(id,e){if(e)e.stopPropagation(); if(!confirm('Delete this blueprint?'))return;
-    const sessions=JSON.parse(localStorage.getItem('zone21_events')||'{}'); delete sessions[id];
-    localStorage.setItem('zone21_events',JSON.stringify(sessions));
-    if(currentSessionId===id)startNewSession(); else renderHistorySidebar();
-}
-function startNewSession(){closeSidebar(); currentSessionId=null; currentEventData=null; form.reset(); blueprintContainer.style.display='none'; loadingDiv.style.display='none'; formSection.style.display='block'; renderHistorySidebar();}
-
-// ===== EXPOSE =====
-window.openChatForVendor=openChatForVendor; window.closeChatModal=closeChatModal; window.sendModalMessage=sendModalMessage;
-window.openWhatsApp=openWhatsApp; window.regenerateBlueprint=regenerateBlueprint; window.startNewSession=startNewSession;
-window.deleteBlueprintSession=deleteBlueprintSession; window.loadBlueprintSession=loadBlueprintSession; window.handleLogout=handleLogout; window.showToast=showToast;
-
-// ===== INIT =====
-document.addEventListener('DOMContentLoaded',function(){
-    auth.onAuthStateChanged(async user=>{
-        if(user){currentUser=user; headerUserEmail.textContent=user.email||'user@example.com'; await loadUserAndPackage(); renderHistorySidebar();}
-        else{showToast('Please log in','error');setTimeout(()=>window.location.href='index.html',1500)}
-    });
-    if(auth.currentUser){currentUser=auth.currentUser; headerUserEmail.textContent=auth.currentUser.email||'user@example.com'; loadUserAndPackage(); renderHistorySidebar();}
-});
-</script>
 </body>
 </html>

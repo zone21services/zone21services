@@ -1,434 +1,1015 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zone21 | Invitation Card Developer</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        :root {
-            --navy: #102838; --lime: #C0C800; --pink: #F80070;
-            --white: #F8F8F8; --grey: #E0E0E8; --gold: #D4AF37;
-            --radius: 16px; --radius-xl: 24px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        html { height: -webkit-fill-available; }
-        body { background: linear-gradient(135deg, #f0f4f8 0%, #e8eef4 50%, #f5f3f1 100%); min-height: 100vh; display: flex; padding: 20px; gap: 20px; overflow: hidden; color: var(--navy); }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zone21 · Invitation Generator</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js">
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+  </script>
+  <style>
+    :root {
+      --navy: #0f2a3b;
+      --lime: #C0C800;
+      --pink: #F80070;
+      --white: #f5f7fa;
+      --grey: #e2e6ec;
+      --gold: #D4AF37;
+      --radius: 16px;
+      --radius-xl: 24px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", sans-serif;
+      background: #eef2f5;
+      color: var(--navy);
+      min-height: 100vh;
+    }
+    button, input, textarea { font: inherit; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid var(--lime);
+      outline-offset: 2px;
+    }
 
-        /* Sidebar */
-        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.4); z-index: 999; }
-        .sidebar { width: 300px; background: var(--navy); border-radius: var(--radius-xl); color: white; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(16,40,56,0.15); z-index: 1000; }
-        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .new-card-btn { background: var(--lime); color: var(--navy); border: none; padding: 12px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.2s; }
-        .history-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .history-item { padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
-        .history-item:hover, .history-item.active { background: rgba(255,255,255,0.15); border-left: 4px solid var(--lime); }
-        .history-item .delete-btn { color: rgba(255,255,255,0.4); padding: 4px; cursor: pointer; }
+    .zone-header {
+      background: var(--navy);
+      color: #fff;
+      border-bottom: 4px solid var(--lime);
+    }
+    .zone-header .brand-title {
+      color: var(--lime);
+    }
 
-        /* Workspace */
-        .workspace { flex: 1; background: white; border-radius: var(--radius-xl); box-shadow: 0 20px 60px rgba(16,40,56,0.15); display: flex; flex-direction: column; overflow: hidden; }
-        .workspace-header { background: var(--navy); color: white; padding: 15px 20px; display: flex; align-items: center; gap: 15px; border-bottom: 4px solid var(--lime); }
-        .menu-btn { display: none; background: transparent; border: none; font-size: 1.4rem; color: white; cursor: pointer; padding: 5px; }
-        .workspace-header h1 { font-size: 1.3rem; color: var(--lime); margin: 0; }
-        .workspace-content { flex: 1; overflow-y: auto; padding: 20px; background: #fafbfc; }
+    .card-glass {
+      background: rgba(255,255,255,0.70);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+    }
+    .card-solid {
+      background: #ffffff;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+    }
+    .control-field {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid #d0d5dd;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--navy);
+      transition: 0.2s;
+      font-size: 0.9rem;
+    }
+    .control-field::placeholder { color: #9aa3af; }
+    .control-field:hover { border-color: var(--lime); }
+    .control-field:focus {
+      border-color: var(--lime);
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(192,200,0,0.15);
+    }
 
-        /* Form */
-        .form-section { background: white; padding: 25px; border-radius: 16px; border: 1px solid var(--grey); box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-        .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .input-group label { font-weight: bold; font-size: 0.9rem; }
-        .input-group input, .input-group textarea { padding: 12px; border: 1px solid var(--grey); border-radius: 8px; outline: none; background: #f9fafb; }
-        .input-group textarea { resize: vertical; min-height: 80px; }
+    .btn-primary {
+      background: var(--lime);
+      color: var(--navy);
+      font-weight: 700;
+      padding: 0.7rem 1.5rem;
+      border-radius: 40px;
+      border: none;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(192,200,0,0.35);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
 
-        /* Guest List */
-        .guest-input-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .guest-input-row input { flex: 1; padding: 10px; border: 1px solid var(--grey); border-radius: 8px; }
-        .guest-input-row button { background: var(--pink); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
-        .guest-tag { display: inline-block; background: #f0f4f8; padding: 5px 12px; border-radius: 20px; margin: 3px; font-size: 0.85rem; }
+    .btn-secondary {
+      background: var(--navy);
+      color: #fff;
+      font-weight: 600;
+      padding: 0.7rem 1.5rem;
+      border-radius: 40px;
+      border: none;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(15,42,59,0.25);
+    }
+    .btn-secondary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
 
-        .submit-btn { width: 100%; background: var(--navy); color: var(--lime); border: none; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 25px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+    .btn-outline {
+      background: transparent;
+      color: var(--navy);
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
+      border-radius: 40px;
+      border: 2px solid #d0d5dd;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .btn-outline:hover {
+      border-color: var(--navy);
+      background: rgba(15,42,59,0.04);
+    }
+    .btn-outline-danger {
+      border-color: #e53e3e;
+      color: #e53e3e;
+    }
+    .btn-outline-danger:hover {
+      background: #e53e3e;
+      color: #fff;
+      border-color: #e53e3e;
+    }
 
-        #loading { display: none; text-align: center; padding: 40px; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--pink); animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+    .guest-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.8rem 0.35rem 1rem;
+      background: var(--navy);
+      color: #fff;
+      border-radius: 40px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: 0.15s;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .guest-chip:hover { transform: scale(1.02); }
+    .guest-chip.active {
+      border-color: var(--lime);
+      box-shadow: 0 0 0 3px rgba(192,200,0,0.25);
+    }
+    .guest-chip .remove-guest {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.15s;
+      padding: 0;
+      line-height: 1;
+    }
+    .guest-chip .remove-guest:hover {
+      background: #e53e3e;
+      transform: scale(1.1);
+    }
 
-        /* Cards List */
-        #invitation-container { display: none; }
-        .cards-list { display: flex; flex-direction: column; gap: 25px; }
-        .card-item { background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid var(--grey); overflow: hidden; }
-        .card-item-header { background: var(--navy); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .card-item-header .guest-label { font-weight: bold; color: var(--lime); }
-        .card-item-body { padding: 20px; display: flex; justify-content: center; background: #e8eef4;}
-        
-        /* The Actual CSS HTML Card generated by AI */
-        .preview-card { width: 100%; max-width: 600px; margin: 0 auto; border-radius: 12px; position: relative; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* ===== 70 STYLES (unchanged) ===== */
+    .invitation-stage {
+      --bg: #fbf8ed;
+      --ink: #32312d;
+      --accent: #c99f42;
+      --accent2: #647064;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      min-height: 32rem;
+      color: var(--ink);
+      background: var(--bg);
+      box-shadow: 0 20px 60px rgba(0,0,0,.12);
+      font-family: "Libre Baskerville", serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      border-radius: var(--radius);
+      transition: background 0.4s ease;
+    }
+    .invitation-stage::before,
+    .invitation-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .invitation-stage::before { opacity: .72; }
+    .invite-content {
+      min-height: 32rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2.2rem;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .eyebrow {
+      margin: 0 0 1rem;
+      font-family: "DM Sans", sans-serif;
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      opacity: .75;
+    }
+    .preview-title {
+      max-width: 36rem;
+      margin: 0;
+      font-size: clamp(1.8rem, 4.2vw, 3.4rem);
+      line-height: 1.18;
+      letter-spacing: -0.04em;
+    }
+    .preview-rule {
+      width: 3.6rem;
+      height: 2px;
+      margin: 1.4rem 0;
+      background: currentColor;
+      opacity: .55;
+    }
+    .honour-line {
+      max-width: 28rem;
+      margin: 0;
+      font-size: .9rem;
+      line-height: 1.7;
+      opacity: .85;
+    }
+    .guest-name {
+      margin: 1.8rem 0 1.4rem;
+      padding: 0.8rem 1.5rem;
+      border-top: 1px solid currentColor;
+      border-bottom: 1px solid currentColor;
+      font-size: clamp(1.6rem, 3.6vw, 2.8rem);
+      line-height: 1.25;
+      font-style: italic;
+    }
+    .details {
+      font-family: "DM Sans", sans-serif;
+      font-size: .8rem;
+      line-height: 1.7;
+      letter-spacing: .04em;
+    }
+    .details p { margin: 0; }
+    .preview-message {
+      max-width: 28rem;
+      margin: 1.4rem 0 0;
+      font-size: .88rem;
+      line-height: 1.8;
+      font-style: italic;
+      opacity: .85;
+    }
 
-        .invitation-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; border-top: 1px solid var(--grey); padding-top: 20px; }
-        .action-btn { padding: 10px 18px; border-radius: 30px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
-        .btn-download { background: #28a745; color: white; }
-        .btn-regen { background: #f0f4f8; color: var(--navy); border: 1px solid var(--grey); }
+    /* all 70 style definitions (shortened for brevity, kept all) */
+    .s1 { --bg: #f6f6f4; --ink: #111; --accent: #151515 }
+    .s1::before { background: linear-gradient(116deg,transparent 0 23%,rgba(0,0,0,.1) 23.2% 24%,transparent 24.2% 42%,rgba(0,0,0,.065) 42.2% 43%,transparent 43.2%),linear-gradient(18deg,transparent 0 70%,rgba(0,0,0,.06) 70.2% 74%,transparent 74.2%) }
+    .s2 { --bg: #fff; --ink: #393736; --accent: #ded8ca }
+    .s2::before { inset:1.1rem; border:1px solid #e1ded7; outline:1px solid #f0eee9; outline-offset:8px; background:radial-gradient(circle at 8% 10%,#e7e5df 0 2.2rem,transparent 2.3rem),radial-gradient(circle at 92% 88%,#e7e5df 0 2.3rem,transparent 2.4rem) }
+    .s3 { --bg: #fff7d5; --ink: #4d1220; --accent: #c99f42 }
+    .s3::before { inset:1.3rem; border:2px solid #c99f42; border-radius:12rem 12rem 0 0; box-shadow:inset 0 0 0 12px rgba(201,159,66,.1) }
+    .s4 { --bg: #fbf7ec; --ink: #50483c; --accent: #c99f42 }
+    .s4::before { inset:1.35rem; border:1px solid #c99f42; border-radius:13rem 13rem 0 0 }
+    .s4::after { background:radial-gradient(circle at 13% 16%,#fff 0 1rem,#e7e1d6 1.1rem 1.7rem,transparent 1.8rem),radial-gradient(circle at 88% 83%,#fff 0 1.2rem,#e7e1d6 1.3rem 1.8rem,transparent 1.9rem) }
+    .s5 { --bg: #faf9f4; --ink: #2f302d; --accent: #c99f42 }
+    .s5::before { inset:1rem; border:1px solid #c99f42; outline:1px solid #c99f42; outline-offset:-8px; background:linear-gradient(45deg,transparent 49%,#c99f42 49.5% 50.5%,transparent 51%) top left/3.5rem 3.5rem no-repeat,linear-gradient(-45deg,transparent 49%,#c99f42 49.5% 50.5%,transparent 51%) bottom right/3.5rem 3.5rem no-repeat }
+    .s6 { --bg: linear-gradient(180deg,#fff,#81919d); --ink: #1e2f38; --accent: #c99f42 }
+    .s6::before { inset:0 1.5rem; border-left:2px solid #c99f42; border-right:2px solid #c99f42; background:radial-gradient(circle at 85% 13%,#203942 0 .8rem,transparent .85rem),radial-gradient(circle at 13% 86%,#203942 0 .8rem,transparent .85rem) }
+    .s7 { --bg: #fff9df; --ink: #304139; --accent: #e9989e }
+    .s7::before { background:radial-gradient(circle at 9% 11%,#f7a9a9 0 1.3rem,transparent 1.4rem),radial-gradient(circle at 17% 19%,#f6c48e 0 1rem,transparent 1.1rem),radial-gradient(ellipse at 7% 33%,#528455 0 1.5rem,transparent 1.6rem),radial-gradient(ellipse at 94% 78%,#528455 0 1.7rem,transparent 1.8rem) }
+    .s8 { --bg: #f9e4ea; --ink: #7c1747; --accent: #ee9cab }
+    .s8::before { background:repeating-linear-gradient(130deg,transparent 0 4rem,rgba(104,27,61,.07) 4.1rem 5.1rem,transparent 5.2rem 9rem) }
+    .s9 { --bg: linear-gradient(135deg,#eee,#989b9c); --ink: #292a2a; --accent: #fff }
+    .s9::before { background:repeating-linear-gradient(45deg,transparent 0 1.6rem,rgba(255,255,255,.62) 1.62rem 1.69rem,transparent 1.72rem 3.3rem),repeating-linear-gradient(-45deg,transparent 0 1.6rem,rgba(255,255,255,.62) 1.62rem 1.69rem,transparent 1.72rem 3.3rem) }
+    .s10 { --bg: #fbfaf5; --ink: #4a4740; --accent: #ead5a2 }
+    .s10::before { background:radial-gradient(circle at 18% 19%,rgba(255,225,166,.65),transparent 22rem),repeating-linear-gradient(83deg,transparent 0 2rem,rgba(202,198,190,.2) 2.05rem 2.2rem,transparent 2.3rem 4rem) }
+    .s11 { --bg: #2f4d4b; --ink: #fff8df; --accent: #d2b48c }
+    .s11::before { inset:.8rem; border:7px double #d2b48c; background:radial-gradient(circle at 8% 15%,#f7f0db 0 1rem,transparent 1.1rem),radial-gradient(circle at 88% 85%,#e6d8bf 0 1rem,transparent 1.1rem) }
+    .s12 { --bg: #ebe0c1; --ink: #5b4031; --accent: #b7862e }
+    .s12::before { background:radial-gradient(ellipse at 91% 84%,transparent 0 2rem,#c99f42 2.1rem 2.3rem,transparent 2.4rem),radial-gradient(ellipse at 82% 90%,transparent 0 2.4rem,#ad8431 2.5rem 2.7rem,transparent 2.8rem) }
+    .s13 { --bg: radial-gradient(circle at center,#8e4aa8,#43204f); --ink: #fff4ff; --accent: #e7b7f4 }
+    .s13::before { background:linear-gradient(17deg,transparent 0 20%,rgba(255,255,255,.1) 21% 26%,transparent 27% 54%,rgba(0,0,0,.18) 55% 62%,transparent 63%) }
+    .s14 { --bg: linear-gradient(#ddf5ff,#fff); --ink: #07537e; --accent: #177fba }
+    .s14::before { inset:.65rem; border:12px solid #177fba; box-shadow:inset 0 0 24px rgba(21,135,197,.55) }
+    .s15 { --bg: #deded9; --ink: #313131; --accent: #f6bb49 }
+    .s15::before { background:radial-gradient(rgba(0,0,0,.08) 1px,transparent 1.8px) 0 0/18px 16px,radial-gradient(circle at 85% 84%,rgba(246,187,73,.7) 0 .25rem,transparent .55rem) }
+    .s16 { --bg: #fff8df; --ink: #464640; --accent: #c99f42 }
+    .s16::before { background:radial-gradient(ellipse at -9% 10%,#c7c1b7 0 13%,transparent 14%),radial-gradient(ellipse at 106% 83%,#a9a8a4 0 17%,transparent 18%),linear-gradient(137deg,transparent 0 17%,#c99f42 17.2% 17.6%,transparent 17.8% 75%,#c99f42 75.2% 75.6%,transparent 75.8%) }
+    .s17 { --bg: #e0f5f7; --ink: #08636a; --accent: #6ab8c1 }
+    .s17::before { background:linear-gradient(180deg,transparent 0 71%,rgba(0,83,90,.1) 71.3% 72%,transparent 72.3%),linear-gradient(132deg,transparent 0 37%,rgba(0,83,90,.07) 37.2% 38.5%,transparent 38.7%) }
+    .s18 { --bg: linear-gradient(135deg,#85c8ec,#d8a1d0); --ink: #fff; --accent: #fff }
+    .s18::before { background:radial-gradient(circle at 18% 20%,rgba(255,255,255,.52) 0 1.1rem,transparent 2.7rem),radial-gradient(circle at 73% 77%,rgba(255,255,255,.34) 0 1.4rem,transparent 3.2rem) }
+    .s19 { --bg: #15241f; --ink: #f9e5b3; --accent: #d19d43 }
+    .s19::before { inset:1rem; border:1px solid #d19d43; background:repeating-linear-gradient(90deg,transparent 0 2.5rem,rgba(209,157,67,.16) 2.55rem 2.6rem) }
+    .s20 { --bg: #ffefe6; --ink: #c25334; --accent: #e89165 }
+    .s20::before { background:radial-gradient(circle at 10% 13%,#ff9871 0 1rem,transparent 1.1rem),radial-gradient(circle at 88% 86%,#f9b15f 0 1.5rem,transparent 1.6rem),repeating-linear-gradient(0deg,transparent 0 1.6rem,rgba(194,83,52,.08) 1.65rem 1.72rem) }
+    .s21 { --bg: #192946; --ink: #f4d49d; --accent: #f4d49d }
+    .s21::before { background:radial-gradient(circle at 18% 17%,#f4d49d 0 .08rem,transparent .13rem),radial-gradient(circle at 83% 20%,#f4d49d 0 .1rem,transparent .15rem),radial-gradient(circle at 65% 78%,#f4d49d 0 .08rem,transparent .14rem),linear-gradient(145deg,transparent 49.8%,rgba(244,212,157,.32) 50%,transparent 50.2%) }
+    .s22 { --bg: #d9f1eb; --ink: #205e59; --accent: #429f92 }
+    .s22::before { inset:1rem; border:2px dashed #429f92; border-radius:1.5rem; background:radial-gradient(circle at 12% 86%,#7bbfae 0 1.4rem,transparent 1.5rem) }
+    .s23 { --bg: #f4e9dc; --ink: #745f4a; --accent: #9d7656 }
+    .s23::before { background:repeating-linear-gradient(90deg,rgba(116,95,74,.06) 0 1px,transparent 1px 1.2rem),repeating-linear-gradient(0deg,rgba(116,95,74,.05) 0 1px,transparent 1px 1.2rem) }
+    .s24 { --bg: #fff; --ink: #242424; --accent: #ef4f4f }
+    .s24::before { inset:1.2rem; border:4px solid #242424; outline:4px solid #ef4f4f; outline-offset:-12px; background:linear-gradient(90deg,#ef4f4f 0 13%,transparent 13% 87%,#ef4f4f 87%) }
+    .s25 { --bg: #edf0e3; --ink: #405239; --accent: #7b9e59 }
+    .s25::before { background:radial-gradient(ellipse at 8% 15%,#79975c 0 1rem,transparent 1.1rem),radial-gradient(ellipse at 13% 21%,#a9bd79 0 .8rem,transparent .9rem),radial-gradient(ellipse at 88% 82%,#79975c 0 1.2rem,transparent 1.3rem) }
+    .s26 { --bg: #f7e7bd; --ink: #8d342e; --accent: #d8634b }
+    .s26::before { background:repeating-linear-gradient(45deg,transparent 0 1.5rem,rgba(216,99,75,.12) 1.55rem 1.7rem,transparent 1.75rem 3rem) }
+    .s27 { --bg: #092b36; --ink: #eef6ed; --accent: #59c0c0 }
+    .s27::before { background:radial-gradient(circle at 18% 17%,#59c0c0 0 .35rem,transparent .4rem),radial-gradient(circle at 84% 76%,#96d3ca 0 .6rem,transparent .65rem),repeating-linear-gradient(90deg,transparent 0 3rem,rgba(89,192,192,.16) 3.05rem 3.12rem) }
+    .s28 { --bg: #f8f4f1; --ink: #5b3a53; --accent: #bf849f }
+    .s28::before { inset:1rem; border:1px solid #bf849f; border-radius:50% 50% 0 0; background:radial-gradient(circle at 10% 90%,#dec1cb 0 1.4rem,transparent 1.5rem) }
+    .s29 { --bg: #181818; --ink: #f5f1e7; --accent: #e1bf72 }
+    .s29::before { inset:1rem; border:1px solid #e1bf72; background:linear-gradient(35deg,transparent 49.5%,rgba(225,191,114,.55) 50%,transparent 50.5%),linear-gradient(-35deg,transparent 49.5%,rgba(225,191,114,.32) 50%,transparent 50.5%) }
+    .s30 { --bg: #f6f0f3; --ink: #805562; --accent: #dca0ae }
+    .s30::before { background:radial-gradient(circle at 15% 18%,#e8b8c3 0 1.4rem,transparent 1.5rem),radial-gradient(circle at 86% 82%,#dca0ae 0 1.6rem,transparent 1.7rem) }
+    .s31 { --bg: #f3ead3; --ink: #4d5c40; --accent: #7a8758 }
+    .s31::before { inset:1.2rem; border:1px solid #7a8758; outline:1px solid #7a8758; outline-offset:-9px; background:repeating-linear-gradient(135deg,transparent 0 2rem,rgba(122,135,88,.12) 2.05rem 2.15rem) }
+    .s32 { --bg: #25345d; --ink: #fff; --accent: #faab46 }
+    .s32::before { background:radial-gradient(circle at 15% 82%,#faab46 0 1rem,transparent 1.1rem),radial-gradient(circle at 88% 18%,#f66d6d 0 .8rem,transparent .9rem),linear-gradient(145deg,transparent 48%,rgba(255,255,255,.16) 48.2% 51%,transparent 51.2%) }
+    .s33 { --bg: #fbfbfa; --ink: #2e5d72; --accent: #3f9fbf }
+    .s33::before { inset:1.1rem; border-left:8px solid #3f9fbf; border-right:8px solid #3f9fbf; background:radial-gradient(circle at 50% 12%,rgba(63,159,191,.2) 0 2.8rem,transparent 2.9rem) }
+    .s34 { --bg: #4d2433; --ink: #ffe9cf; --accent: #eebc78 }
+    .s34::before { background:radial-gradient(circle at 12% 15%,#eebc78 0 .2rem,transparent .27rem),radial-gradient(circle at 84% 19%,#eebc78 0 .16rem,transparent .24rem),radial-gradient(circle at 75% 84%,#eebc78 0 .24rem,transparent .31rem) }
+    .s35 { --bg: #e9f0ff; --ink: #334e8c; --accent: #7d9be8 }
+    .s35::before { background:repeating-linear-gradient(0deg,transparent 0 2.1rem,rgba(51,78,140,.09) 2.15rem 2.22rem),linear-gradient(90deg,transparent 0 17%,rgba(125,155,232,.28) 17.2% 17.6%,transparent 17.8%) }
+    .s36 { --bg: #fcf3df; --ink: #98542d; --accent: #dc873e }
+    .s36::before { background:radial-gradient(circle at 10% 83%,#dc873e 0 1.2rem,transparent 1.3rem),radial-gradient(circle at 92% 18%,#f3c35d 0 1.4rem,transparent 1.5rem),repeating-linear-gradient(35deg,transparent 0 1rem,rgba(152,84,45,.06) 1.05rem 1.15rem) }
+    .s37 { --bg: #e8f1ef; --ink: #274b4d; --accent: #78a7a1 }
+    .s37::before { inset:1rem; border-radius:8rem 8rem 0 0; border:2px solid #78a7a1; background:radial-gradient(ellipse at 12% 85%,#9dc4bb 0 1.4rem,transparent 1.5rem) }
+    .s38 { --bg: #302047; --ink: #f8e9ff; --accent: #d68de5 }
+    .s38::before { background:radial-gradient(circle at 18% 20%,rgba(214,141,229,.7) 0 1rem,transparent 3rem),radial-gradient(circle at 82% 80%,rgba(120,158,248,.6) 0 1.2rem,transparent 3.2rem) }
+    .s39 { --bg: #f8f5ef; --ink: #37414a; --accent: #a4b0b4 }
+    .s39::before { background:repeating-linear-gradient(90deg,transparent 0 3rem,rgba(55,65,74,.07) 3.05rem 3.12rem),repeating-linear-gradient(0deg,transparent 0 3rem,rgba(55,65,74,.07) 3.05rem 3.12rem) }
+    .s40 { --bg: #fff3e9; --ink: #a4455d; --accent: #df7891 }
+    .s40::before { inset:1rem; border:2px solid #df7891; border-radius:2rem; background:radial-gradient(circle at 10% 13%,#f4a5b6 0 1rem,transparent 1.1rem),radial-gradient(circle at 91% 87%,#f3c25e 0 1.2rem,transparent 1.3rem) }
+    .s41 { --bg: #fff; --ink: #222; --accent: #b8b8b8 }
+    .s41::before { background:linear-gradient(135deg,transparent 0 42%,rgba(0,0,0,.16) 42.2% 43%,transparent 43.2%),linear-gradient(45deg,transparent 0 67%,rgba(0,0,0,.12) 67.2% 68%,transparent 68.2%) }
+    .s42 { --bg: #fff; --ink: #555; --accent: #d8d8d8 }
+    .s42::before { inset:1rem; border:1px solid #ddd; outline:1px solid #eee; outline-offset:7px; background:radial-gradient(circle at 12% 12%,#eee 0 2rem,transparent 2.1rem) }
+    .s43 { --bg: #f7eee9; --ink: #7b2947; --accent: #d49a9f }
+    .s43::before { background:radial-gradient(circle at 12% 15%,#e7a6ad 0 1.2rem,transparent 1.3rem),radial-gradient(ellipse at 88% 82%,#64916b 0 2rem,transparent 2.1rem) }
+    .s44 { --bg: #f7dfe7; --ink: #8f3f5b; --accent: #e7a5b5 }
+    .s44::before { background:repeating-linear-gradient(135deg,transparent 0 3rem,rgba(255,255,255,.5) 3.1rem 3.5rem,transparent 3.6rem 7rem) }
+    .s45 { --bg: #fff4df; --ink: #81502d; --accent: #d89a4d }
+    .s45::before { background:radial-gradient(circle at 18% 20%,#ffe3a9 0 1rem,transparent 1.1rem),radial-gradient(circle at 82% 78%,#e6b85f 0 .5rem,transparent .6rem) }
+    .s46 { --bg: linear-gradient(135deg,#dce9f8,#fff); --ink: #315a83; --accent: #7fa9cf }
+    .s46::before { background:radial-gradient(circle at 18% 18%,#fff 0 1.4rem,transparent 1.5rem),radial-gradient(circle at 80% 24%,#fff 0 1rem,transparent 1.1rem) }
+    .s47 { --bg: #fce9e7; --ink: #87505a; --accent: #d79b9b }
+    .s47::before { background:radial-gradient(circle at 15% 18%,#f4b5b0 0 1.1rem,transparent 1.2rem),radial-gradient(circle at 85% 82%,#efc1a5 0 1.3rem,transparent 1.4rem) }
+    .s48 { --bg: #f8f2e5; --ink: #745338; --accent: #c9a85b }
+    .s48::before { inset:1rem; border:1px solid #c9a85b; background:radial-gradient(circle at 85% 15%,#ead49b 0 .3rem,transparent .4rem) }
+    .s49 { --bg: linear-gradient(135deg,#e7e7e7,#8d9aaa); --ink: #263849; --accent: #c7a75e }
+    .s49::before { background:repeating-linear-gradient(45deg,transparent 0 2rem,rgba(255,255,255,.5) 2.1rem 2.2rem,transparent 2.3rem 4rem) }
+    .s50 { --bg: #d4d0ca; --ink: #39404a; --accent: #a78c62 }
+    .s50::before { background:radial-gradient(#434b58 1px,transparent 2px) 0 0/16px 15px,linear-gradient(135deg,transparent 0 75%,rgba(255,255,255,.4) 75.2%) }
+    .s51 { --bg: #172844; --ink: #f4d49d; --accent: #f4d49d }
+    .s51::before { inset:1rem; border:1px solid #f4d49d; background:radial-gradient(circle at 15% 15%,#f4d49d 0 .1rem,transparent .2rem),radial-gradient(circle at 85% 84%,#f4d49d 0 .1rem,transparent .2rem) }
+    .s52 { --bg: #f7f0df; --ink: #665442; --accent: #c59b55 }
+    .s52::before { inset:1.2rem; border:1px solid #c59b55; border-radius:10rem 10rem 0 0; background:radial-gradient(circle at 14% 84%,#fff 0 1rem,transparent 1.1rem) }
+    .s53 { --bg: #4c1726; --ink: #fff0d7; --accent: #e7b66e }
+    .s53::before { background:radial-gradient(circle at 15% 17%,#fff 0 1rem,transparent 1.1rem),radial-gradient(circle at 84% 82%,#d6a34d 0 .4rem,transparent .5rem) }
+    .s54 { --bg: #f9dfe7; --ink: #873d55; --accent: #d79aab }
+    .s54::before { background:linear-gradient(135deg,transparent 0 45%,rgba(255,255,255,.5) 45.2% 47%,transparent 47.2%),radial-gradient(circle at 85% 18%,#e8abb9 0 .2rem,transparent .3rem) }
+    .s55 { --bg: linear-gradient(135deg,#f4d7df,#fff5e8); --ink: #8d4e62; --accent: #d2a05e }
+    .s55::before { background:radial-gradient(circle at 14% 18%,#fff 0 1.2rem,transparent 1.3rem),radial-gradient(circle at 85% 80%,rgba(255,255,255,.7) 0 1.5rem,transparent 2.5rem) }
+    .s56 { --bg: #fff; --ink: #544b45; --accent: #d2b174 }
+    .s56::before { inset:1rem; border:2px solid #d2b174; background:radial-gradient(circle at 12% 12%,#eee 0 2rem,transparent 2.1rem) }
+    .s57 { --bg: #fbf7ec; --ink: #635243; --accent: #c8a15b }
+    .s57::before { inset:1.2rem; border:1px solid #c8a15b; border-radius:10rem 10rem 0 0; background:radial-gradient(circle at 14% 84%,#fff 0 1.2rem,transparent 1.3rem) }
+    .s58 { --bg: linear-gradient(#f0f7fc,#d4e7f4); --ink: #3b6580; --accent: #c6a45c }
+    .s58::before { background:radial-gradient(circle at 20% 18%,#fff 0 1.5rem,transparent 1.6rem),linear-gradient(90deg,transparent 48%,rgba(198,164,92,.5) 49% 50%,transparent 51%) }
+    .s59 { --bg: #f7f7f5; --ink: #343434; --accent: #b8b8b8 }
+    .s59::before { background:linear-gradient(135deg,transparent 0 42%,rgba(0,0,0,.15) 42.2% 43%,transparent 43.2%),radial-gradient(ellipse at 10% 85%,#82916c 0 1.3rem,transparent 1.4rem) }
+    .s60 { --bg: linear-gradient(135deg,#e4e7ed,#64748b); --ink: #29384b; --accent: #d4aa5b }
+    .s60::before { background:radial-gradient(circle at 15% 18%,#d4aa5b 0 .2rem,transparent .3rem),repeating-linear-gradient(90deg,transparent 0 3rem,rgba(255,255,255,.3) 3.1rem 3.2rem,transparent 3.3rem 6rem) }
+    .s61 { --bg: linear-gradient(135deg,#1d2427,#3c5147); --ink: #f8ecda; --accent: #d4af75 }
+    .s61::before { inset:1rem; border:1px solid #d4af75; background:radial-gradient(circle at 12% 18%,#fff 0 .8rem,transparent .9rem) }
+    .s62 { --bg: #14243c; --ink: #f5d8a0; --accent: #dcae5f }
+    .s62::before { inset:1rem; border:1px solid #dcae5f; border-radius:8rem 8rem 0 0; background:radial-gradient(circle at 85% 18%,#fff 0 .6rem,transparent .7rem) }
+    .s63 { --bg: linear-gradient(#fff,#d8dde2); --ink: #66717b; --accent: #b7b0a2 }
+    .s63::before { background:radial-gradient(ellipse at 12% 18%,#fff 0 1.3rem,transparent 1.4rem),radial-gradient(ellipse at 88% 82%,#e9e5dc 0 1.5rem,transparent 1.6rem) }
+    .s64 { --bg: #d8c9b5; --ink: #67564a; --accent: #b8a68e }
+    .s64::before { background:radial-gradient(circle at 18% 18%,#fff 0 1rem,transparent 1.1rem),linear-gradient(135deg,transparent 0 75%,rgba(255,255,255,.35) 75.2%) }
+    .s65 { --bg: #6d737d; --ink: #f7f3eb; --accent: #cfc7b7 }
+    .s65::before { background:radial-gradient(circle at 14% 82%,#f7f3eb 0 1rem,transparent 1.1rem),radial-gradient(circle at 86% 18%,#e8dfcf 0 .8rem,transparent .9rem) }
+    .s66 { --bg: #f8f1df; --ink: #67563e; --accent: #c7a257 }
+    .s66::before { inset:1rem; border:1px solid #c7a257; background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.7),transparent 35%) }
+    .s67 { --bg: #faf4e8; --ink: #7a5a3f; --accent: #c8914e }
+    .s67::before { background:radial-gradient(ellipse at 86% 84%,#c8914e 0 1.5rem,transparent 1.6rem),repeating-linear-gradient(135deg,transparent 0 2rem,rgba(200,145,78,.12) 2.1rem 2.3rem,transparent 2.4rem 4rem) }
+    .s68 { --bg: #f8eadb; --ink: #84523e; --accent: #c98b5a }
+    .s68::before { background:radial-gradient(ellipse at 12% 16%,#c98b5a 0 1.1rem,transparent 1.2rem),radial-gradient(ellipse at 88% 84%,#aa7654 0 1.4rem,transparent 1.5rem) }
+    .s69 { --bg: linear-gradient(135deg,#f8f4ee,#8393a5); --ink: #344656; --accent: #d0ad68 }
+    .s69::before { background:repeating-linear-gradient(90deg,transparent 0 3rem,rgba(208,173,104,.55) 3.1rem 3.2rem,transparent 3.3rem 6rem),radial-gradient(circle at 16% 18%,#d0ad68 0 .2rem,transparent .3rem) }
+    .s70 { --bg: #fbf7ec; --ink: #675747; --accent: #c69c55 }
+    .s70::before { inset:1rem; border:1px solid #c69c55; background:radial-gradient(circle at 14% 16%,#fff 0 1rem,transparent 1.1rem),radial-gradient(circle at 86% 84%,#fff 0 1rem,transparent 1.1rem) }
 
-        /* Add Guest Section */
-        .add-guest-section { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--grey); margin-top: 20px; }
-        .add-guest-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .add-guest-row input { flex: 1; padding: 12px; border: 1px solid var(--grey); border-radius: 8px; }
-        .add-guest-row button { background: var(--navy); color: var(--lime); border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+    .spinner-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border-radius: var(--radius);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .spinner-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e0e0e0;
+      border-top-color: var(--lime);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy);
+      font-family: "DM Sans", sans-serif;
+      letter-spacing: 0.04em;
+    }
 
-        @media (max-width: 768px) {
-            body { padding: 0; gap: 0; }
-            .workspace { border-radius: 0; }
-            .menu-btn { display: block; }
-            .sidebar { position: fixed; left: -320px; height: 100dvh; width: 280px; transition: 0.3s; }
-            .sidebar.active { transform: translateX(320px); }
-            .sidebar-overlay.active { display: block; opacity: 1; }
-            .form-grid { grid-template-columns: 1fr; }
-        }
+    .badge-count {
+      background: var(--lime);
+      color: var(--navy);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.5rem;
+      border-radius: 40px;
+      min-width: 1.5rem;
+      text-align: center;
+    }
 
-        /* Print formatting */
-        @media print {
-            @page { size: A4 portrait; margin: 0; }
-            body * { visibility: hidden; }
-            .card-item-body, .card-item-body * { visibility: visible; }
-            .card-item-body { position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-            .preview-card { width: 210mm; height: 297mm; max-width: 210mm; min-height: 297mm; border: none; box-shadow: none; page-break-after: always; }
-        }
-    </style>
+    .guest-scroll {
+      max-height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.2rem 0;
+      align-content: flex-start;
+    }
+    .guest-scroll::-webkit-scrollbar { width: 5px; }
+    .guest-scroll::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 20px; }
+
+    @media (max-width: 1024px) {
+      .invite-content { padding: 3rem 1.8rem; min-height: 28rem; }
+      .invitation-stage { min-height: 28rem; }
+    }
+    @media (max-width: 700px) {
+      .invite-content { padding: 2.5rem 1.2rem; min-height: 24rem; }
+      .invitation-stage { min-height: 24rem; }
+      .guest-name { font-size: clamp(1.3rem,5vw,2rem); }
+      .preview-title { font-size: clamp(1.4rem,5vw,2.2rem); }
+    }
+  </style>
 </head>
 <body>
 
-<div class="sidebar-overlay" id="sidebar-overlay"></div>
-<div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <div><h2>Past Invitations</h2></div>
+<!-- ===== HEADER ===== (star and 70 removed) -->
+<header class="zone-header">
+  <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-7">
+    <div class="flex items-center gap-3">
+      <!-- star icon removed -->
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--lime)]">Zone21 Studio</p>
+        <h1 class="brand-title text-lg font-bold tracking-tight sm:text-xl">Invitation Generator</h1>
+      </div>
     </div>
-    <div style="padding: 0 20px;">
-        <button class="new-card-btn" onclick="startNewCard()"><i class="fas fa-plus"></i> New Invitation</button>
+    <!-- "70" badge removed -->
+    <div class="flex items-center gap-3 text-sm text-white/70">
+      <i data-lucide="sparkles" class="h-4 w-4 text-[var(--lime)]"></i>
+      <!-- removed "70 hidden styles" text -->
     </div>
-    <div class="history-list" id="history-list"></div>
-</div>
+  </div>
+</header>
 
-<div class="workspace">
-    <div class="workspace-header">
-        <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
-        <div>
-            <h1>Zone21 Invitation Developer</h1>
-            <p>Create beautiful HTML/CSS invitation cards for your events</p>
+<!-- ===== MAIN ===== -->
+<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+
+    <!-- LEFT: Form + Guests -->
+    <aside class="space-y-5">
+      <!-- Event Form -->
+      <div class="card-solid p-5">
+        <h2 class="mb-1 text-sm font-bold uppercase tracking-wider text-[var(--navy)]">Event Details</h2>
+        <p class="mb-4 text-xs text-stone-500">Fill in the details, then generate your invitation.</p>
+        <form id="event-form" class="space-y-3">
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="event-title">Event Title</label>
+            <input id="event-title" class="control-field" type="text" value="An Evening in Bloom" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="host-name">Host</label>
+            <input id="host-name" class="control-field" type="text" value="Zone21 Management" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="guest-honour">Guest of Honour</label>
+            <input id="guest-honour" class="control-field" type="text" value="our valued community" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="event-date">Date &amp; Time</label>
+            <input id="event-date" class="control-field" type="text" value="Saturday, 12 December 2026 · 18:00" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="venue">Venue</label>
+            <input id="venue" class="control-field" type="text" value="The Main Hall, Harare" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold" for="message">Message</label>
+            <textarea id="message" class="control-field min-h-[70px] resize-y" rows="2">Join us to celebrate a new standard of excellence.</textarea>
+          </div>
+        </form>
+
+        <button id="generate-btn" class="btn-primary mt-4 w-full justify-center">
+          <i data-lucide="wand-2" class="h-4 w-4"></i> Generate Invitation
+        </button>
+      </div>
+
+      <!-- Guest Management -->
+      <div class="card-solid p-5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-[var(--navy)]">Guests</h2>
+          <span class="badge-count" id="guest-count">1</span>
         </div>
-    </div>
+        <p class="mb-3 text-xs text-stone-500">Add guest names to create personalised invitations.</p>
 
-    <div class="workspace-content" id="workspace-content">
-        <div class="form-section" id="form-section">
-            <form id="cardForm">
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>1. Event Title</label>
-                        <input type="text" id="eventTitle" required placeholder="e.g. Wedding Celebration">
-                    </div>
-                    <div class="input-group">
-                        <label>2. Host Name(s)</label>
-                        <input type="text" id="hostName" required placeholder="e.g. Mr. & Mrs. Moyo">
-                    </div>
-                    <div class="input-group">
-                        <label>3. Guest of Honor (Optional)</label>
-                        <input type="text" id="guestOfHonor">
-                    </div>
-                    <div class="input-group">
-                        <label>4. Date & Time</label>
-                        <input type="datetime-local" id="eventDate" required>
-                    </div>
-                    <div class="input-group">
-                        <label>5. Venue</label>
-                        <input type="text" id="venue" required placeholder="e.g. Meikles Hotel, Harare">
-                    </div>
-                    <div class="input-group">
-                        <label>6. Theme / Color Palette</label>
-                        <input type="text" id="dressCode" placeholder="e.g. Navy Blue and Gold Luxury">
-                    </div>
-                </div>
-
-                <div class="input-group" style="margin-bottom: 15px;">
-                    <label>7. Special Message</label>
-                    <textarea id="specialMessage" placeholder="e.g. Join us as we celebrate love..."></textarea>
-                </div>
-
-                <div class="guest-list-section">
-                    <label style="font-weight: bold; margin-bottom: 10px; display: block;">8. Guest Names (Leave blank for general)</label>
-                    <div class="guest-input-row">
-                        <input type="text" id="guestNameInput" placeholder="Enter guest name">
-                        <button type="button" onclick="addGuest()"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="guest-list-display" id="guestListDisplay"></div>
-                </div>
-
-                <button type="submit" class="submit-btn" id="generateBtn">
-                    <i class="fas fa-wand-magic-sparkles"></i> Generate AI Invitation
-                </button>
-            </form>
+        <div class="flex gap-2">
+          <input id="guest-input" class="control-field flex-1" type="text" placeholder="Guest name…" />
+          <button id="add-guest-btn" class="btn-primary px-4 py-2 text-sm">+ Add</button>
         </div>
 
-        <div id="loading">
+        <div id="guest-list" class="guest-scroll mt-3">
+          <!-- guest chips rendered by JS -->
+        </div>
+
+        <button id="generate-all-btn" class="btn-secondary mt-4 w-full justify-center text-sm">
+          <i data-lucide="layers" class="h-4 w-4"></i> Generate for All Guests
+        </button>
+        <p id="gen-all-status" class="mt-2 text-center text-xs text-stone-500 min-h-[1.2rem]"></p>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Preview -->
+    <section class="min-w-0">
+      <div class="card-glass p-4 sm:p-5">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--navy)]/60">Live Preview</p>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-[var(--navy)]">Your Invitation</h2>
+              <span id="style-badge" class="rounded-full bg-[var(--lime)]/20 px-2.5 py-0.5 text-[10px] font-bold text-[var(--navy)]">s1</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="regenerate-btn" class="btn-outline px-3 py-1.5 text-sm" disabled>
+              <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i> Regenerate
+            </button>
+            <button id="download-btn" class="btn-primary px-3 py-1.5 text-sm" disabled>
+              <i data-lucide="download" class="h-3.5 w-3.5"></i> Download
+            </button>
+          </div>
+        </div>
+
+        <!-- Invitation Stage -->
+        <div id="invitation-stage" class="invitation-stage s1 relative mx-auto w-full max-w-2xl" aria-label="Invitation preview">
+          <div class="spinner-overlay" id="spinner-overlay">
             <div class="spinner"></div>
-            <h3 style="color: var(--navy);">Designing your invitation layout...</h3>
-            <p style="color: #666; font-size: 0.9rem;">Using Cloudflare AI to write custom HTML/CSS.</p>
+            <span class="spinner-label">Crafting your invitation…</span>
+          </div>
+          <div class="invite-content" id="invite-content">
+            <p class="eyebrow" id="preview-host">Hosted by Zone21 Management</p>
+            <h3 class="preview-title" id="preview-event-title">An Evening in Bloom</h3>
+            <div class="preview-rule"></div>
+            <p class="honour-line" id="preview-honour">In honour of our valued community</p>
+            <div class="guest-name" id="preview-guest">Your Name</div>
+            <div class="details">
+              <p id="preview-date">Saturday, 12 December 2026 · 18:00</p>
+              <p id="preview-venue">The Main Hall, Harare</p>
+            </div>
+            <p class="preview-message" id="preview-message">Join us to celebrate a new standard of excellence.</p>
+          </div>
         </div>
 
-        <div id="invitation-container">
-            <div class="cards-list" id="cardsList"></div>
-            
-            <div class="add-guest-section" id="addGuestSection" style="display:none;">
-                <h3><i class="fas fa-user-plus"></i> Add New Guest (Same Design)</h3>
-                <div class="add-guest-row">
-                    <input type="text" id="newGuestInput" placeholder="Enter new guest name">
-                    <button onclick="addNewGuest()"><i class="fas fa-plus"></i> Add</button>
-                </div>
-            </div>
-            
-            <div class="invitation-controls">
-                <button class="action-btn btn-download" onclick="window.print()">
-                    <i class="fas fa-print"></i> Print All Invitations
-                </button>
-                <button class="action-btn btn-regen" onclick="regenerateCard()">
-                    <i class="fas fa-rotate"></i> Regenerate Design
-                </button>
-            </div>
+        <!-- Guest navigation -->
+        <div class="mt-4 flex items-center justify-center gap-4">
+          <button id="prev-guest" class="btn-outline px-3 py-1 text-sm" disabled>
+            <i data-lucide="chevron-left" class="h-4 w-4"></i>
+          </button>
+          <span id="guest-nav-label" class="text-sm font-medium text-[var(--navy)]">—</span>
+          <button id="next-guest" class="btn-outline px-3 py-1 text-sm" disabled>
+            <i data-lucide="chevron-right" class="h-4 w-4"></i>
+          </button>
         </div>
-    </div>
-</div>
+      </div>
+    </section>
+  </div>
+</main>
 
 <script>
-    // ==========================================
-    // CLOUDFLARE WORKER CONNECTION
-    // ==========================================
-    const INVITATION_API_URL = "https://blueprint.zone21services.workers.dev/";
+  // =====================================================================
+  // DATA
+  // =====================================================================
+  const styleNames = [
+    "Monochrome Studio","Ivory Classic","Regal Maroon","Golden Arch","Gilded Frame",
+    "Silver Air","Botanical Whimsy","Rose Quartz","Herringbone","Sunlit Linen",
+    "Emerald Double","Safari Glow","Velvet Night","Azure Glass","Speckled Stone",
+    "Soft Geometry","Aqua Lines","Pastel Dream","Dark Gold","Warm Sunrise",
+    "Celestial Navy","Dashed Fresh","Weave Texture","Bold Modern","Garden Party",
+    "Rustic Chic","Deep Sea","Blush Arch","Noir Luxe","Rosy Fade",
+    "Herb Garden","Midnight Citrus","Blue Ribbon","Dusk Ornament","Woven Indigo",
+    "Autumn Craft","Mint Curve","Galaxy Bloom","Grid Minimal","Soft Rounded",
+    "Diagonal Cut","Clean Frame","Rose Herb","Candy Stripe","Golden Bubbles",
+    "Cloud Nine","Peach Kiss","Amber Dot","Frosted Stripe","Urban Dots",
+    "Starry Frame","Arched Gold","Royal Glow","Pink Slash","Blush Sunrise",
+    "Soft Frame","Classic Arch","Blue Horizon","Slate Cut","Graphite Lines",
+    "Forest Frame","Night Arch","Silver Cloud","Stone Minimal","Mist Dots",
+    "Golden Sheen","Sunset Dots","Terracotta","Industrial Chic","Elegant Frame"
+  ];
 
-    let currentSessionId = null;
-    let currentCardData = null;
-    let guestNames = [];
-    let currentDesignTemplate = '';
-    let isGenerating = false;
+  // =====================================================================
+  // STATE
+  // =====================================================================
+  const state = {
+    guests: ['Your Name'],
+    currentGuestIndex: 0,
+    currentStyle: 1,
+    isGenerating: false,
+    isRegenerating: false,
+    generatedForAll: false,
+    allGeneratedStyles: {},
+    allGeneratedActive: false,
+  };
 
-    // Sidebar
-    const menuBtn = document.getElementById('menu-btn');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
-    if(menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
-    if(overlay) overlay.addEventListener('click', closeSidebar);
+  // =====================================================================
+  // DOM REFS
+  // =====================================================================
+  const $ = id => document.getElementById(id);
+  const stage = $('invitation-stage');
+  const overlay = $('spinner-overlay');
+  const guestListEl = $('guest-list');
+  const guestInput = $('guest-input');
+  const addGuestBtn = $('add-guest-btn');
+  const generateBtn = $('generate-btn');
+  const regenerateBtn = $('regenerate-btn');
+  const downloadBtn = $('download-btn');
+  const generateAllBtn = $('generate-all-btn');
+  const genAllStatus = $('gen-all-status');
+  const prevGuestBtn = $('prev-guest');
+  const nextGuestBtn = $('next-guest');
+  const guestNavLabel = $('guest-nav-label');
+  const guestCount = $('guest-count');
+  const styleBadge = $('style-badge');
 
-    // Guest Handling
-    function addGuest() {
-        const input = document.getElementById('guestNameInput');
-        const name = input.value.trim();
-        if (!name) return;
-        if (!guestNames.includes(name)) guestNames.push(name);
-        input.value = '';
-        updateGuestDisplay();
-    }
+  const preview = {
+    host: $('preview-host'),
+    eventTitle: $('preview-event-title'),
+    honour: $('preview-honour'),
+    guest: $('preview-guest'),
+    date: $('preview-date'),
+    venue: $('preview-venue'),
+    message: $('preview-message'),
+  };
 
-    function updateGuestDisplay() {
-        const display = document.getElementById('guestListDisplay');
-        display.innerHTML = guestNames.map((name, i) => 
-            `<span class="guest-tag">${name} <i class="fas fa-times" style="cursor:pointer; margin-left:5px;" onclick="removeGuest(${i})"></i></span>`
-        ).join('');
-    }
+  const fields = {
+    eventTitle: $('event-title'),
+    host: $('host-name'),
+    honour: $('guest-honour'),
+    date: $('event-date'),
+    venue: $('venue'),
+    message: $('message'),
+  };
 
-    function removeGuest(i) { guestNames.splice(i, 1); updateGuestDisplay(); }
-    document.getElementById('guestNameInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addGuest(); }});
+  // =====================================================================
+  // RENDER PREVIEW
+  // =====================================================================
+  function renderPreviewContent(guestName) {
+    const name = guestName || state.guests[state.currentGuestIndex] || 'Guest';
+    preview.eventTitle.textContent = fields.eventTitle.value.trim() || 'Your Celebration';
+    preview.host.textContent = fields.host.value.trim() ? 'Hosted by ' + fields.host.value.trim() : 'A special invitation';
+    preview.honour.textContent = fields.honour.value.trim() ? 'In honour of ' + fields.honour.value.trim() : '';
+    preview.guest.textContent = name;
+    preview.date.textContent = fields.date.value.trim() || 'Date and time to be announced';
+    preview.venue.textContent = fields.venue.value.trim() || 'Venue to be announced';
+    preview.message.textContent = fields.message.value.trim();
+  }
 
-    // Form Submission
-    document.getElementById('cardForm').addEventListener('submit', e => {
-        e.preventDefault();
-        if (isGenerating) return;
+  function applyStyle(styleNum) {
+    for (let i = 1; i <= 70; i++) stage.classList.remove('s' + i);
+    stage.classList.add('s' + styleNum);
+    state.currentStyle = styleNum;
+    styleBadge.textContent = 's' + styleNum + ' · ' + (styleNames[styleNum-1] || '');
+  }
 
-        currentCardData = {
-            eventTitle: document.getElementById('eventTitle').value.trim(),
-            hostName: document.getElementById('hostName').value.trim(),
-            guestOfHonor: document.getElementById('guestOfHonor').value.trim(),
-            date: document.getElementById('eventDate').value,
-            venue: document.getElementById('venue').value.trim(),
-            dressCode: document.getElementById('dressCode').value.trim(), 
-            message: document.getElementById('specialMessage').value.trim(),
-            guests: [...guestNames]
-        };
-        generateInvitation(false);
+  function getRandomStyle(exclude) {
+    let num;
+    do { num = Math.floor(Math.random() * 70) + 1; } while (num === exclude && 70 > 1);
+    return num;
+  }
+
+  // =====================================================================
+  // SPINNER
+  // =====================================================================
+  function showSpinner(label) {
+    overlay.querySelector('.spinner-label').textContent = label || 'Crafting your invitation…';
+    overlay.classList.add('active');
+  }
+  function hideSpinner() { overlay.classList.remove('active'); }
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // =====================================================================
+  // GENERATE (with 30-50 sec loading delay for image pattern)
+  // =====================================================================
+  async function generateInvitation(guestName, styleOverride) {
+    if (state.isGenerating) return;
+    state.isGenerating = true;
+    generateBtn.disabled = true;
+    regenerateBtn.disabled = true;
+    downloadBtn.disabled = true;
+
+    const styleNum = styleOverride || getRandomStyle(state.currentStyle);
+    showSpinner('Loading image pattern…');
+
+    // 🔥 IMAGE LOADING DELAY: 30–50 seconds (random)
+    const loadDelay = 30000 + Math.floor(Math.random() * 20000);
+    await delay(loadDelay);
+
+    applyStyle(styleNum);
+    const name = guestName || state.guests[state.currentGuestIndex] || 'Guest';
+    renderPreviewContent(name);
+    hideSpinner();
+
+    state.isGenerating = false;
+    generateBtn.disabled = false;
+    regenerateBtn.disabled = false;
+    downloadBtn.disabled = false;
+    updateGuestNav();
+    updateGuestChips();
+  }
+
+  // =====================================================================
+  // REGENERATE (with 40 sec delay, but no mention in UI)
+  // =====================================================================
+  async function regenerateInvitation() {
+    if (state.isRegenerating || state.isGenerating) return;
+    state.isRegenerating = true;
+    regenerateBtn.disabled = true;
+    generateBtn.disabled = true;
+    downloadBtn.disabled = true;
+
+    const newStyle = getRandomStyle(state.currentStyle);
+    showSpinner('Regenerating…');  // no delay mention
+
+    // 🔥 REGENERATION DELAY: 40 seconds (hidden)
+    await delay(40000);
+
+    applyStyle(newStyle);
+    const name = state.guests[state.currentGuestIndex] || 'Guest';
+    renderPreviewContent(name);
+    hideSpinner();
+
+    state.isRegenerating = false;
+    regenerateBtn.disabled = false;
+    generateBtn.disabled = false;
+    downloadBtn.disabled = false;
+    updateGuestNav();
+    updateGuestChips();
+  }
+
+  // =====================================================================
+  // GUEST MANAGEMENT
+  // =====================================================================
+  function addGuest(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    if (state.guests.includes(trimmed)) { alert('Guest "'+trimmed+'" already exists.'); return false; }
+    state.guests.push(trimmed);
+    state.currentGuestIndex = state.guests.length - 1;
+    renderPreviewContent(trimmed);
+    updateGuestChips();
+    updateGuestNav();
+    guestCount.textContent = state.guests.length;
+    guestInput.value = '';
+    guestInput.focus();
+    return true;
+  }
+
+  function removeGuest(index) {
+    if (state.guests.length <= 1) { alert('Keep at least one guest.'); return; }
+    state.guests.splice(index, 1);
+    if (state.currentGuestIndex >= state.guests.length) state.currentGuestIndex = state.guests.length - 1;
+    const name = state.guests[state.currentGuestIndex] || 'Guest';
+    renderPreviewContent(name);
+    updateGuestChips();
+    updateGuestNav();
+    guestCount.textContent = state.guests.length;
+  }
+
+  function selectGuest(index) {
+    if (index < 0 || index >= state.guests.length) return;
+    state.currentGuestIndex = index;
+    const name = state.guests[index];
+    renderPreviewContent(name);
+    updateGuestChips();
+    updateGuestNav();
+  }
+
+  function updateGuestChips() {
+    guestListEl.innerHTML = '';
+    state.guests.forEach((name, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'guest-chip' + (idx === state.currentGuestIndex ? ' active' : '');
+      chip.innerHTML = `<span>${name}</span><button class="remove-guest" data-index="${idx}" aria-label="Remove ${name}">×</button>`;
+      chip.addEventListener('click', () => selectGuest(idx));
+      chip.querySelector('.remove-guest').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeGuest(idx);
+      });
+      guestListEl.appendChild(chip);
     });
+  }
 
-    function buildPrompt(data) {
-        let dateObj = new Date(data.date);
-        let formattedDate = isNaN(dateObj) ? data.date : new Intl.DateTimeFormat("en-ZA", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
-        }).format(dateObj);
+  function updateGuestNav() {
+    const total = state.guests.length;
+    const idx = state.currentGuestIndex;
+    guestNavLabel.textContent = total > 0 ? `${idx+1} of ${total} · ${state.guests[idx] || ''}` : '—';
+    prevGuestBtn.disabled = total <= 1 || idx <= 0;
+    nextGuestBtn.disabled = total <= 1 || idx >= total - 1;
+  }
 
-        return `You are an elite web designer. Create ONE beautiful invitation card layout using HTML and inline CSS.
-Event Details:
-- Title: ${data.eventTitle}
-- Host: ${data.hostName}
-- Guest of Honor: ${data.guestOfHonor || 'None'}
-- Date & Time: ${formattedDate}
-- Venue: ${data.venue}
-- Message: ${data.message || 'Join us to celebrate!'}
-- Visual Theme / Colors requested: ${data.dressCode || 'Elegant, luxury, modern'}
+  // =====================================================================
+  // GENERATE FOR ALL GUESTS
+  // =====================================================================
+  async function generateForAllGuests() {
+    if (state.guests.length === 0) { genAllStatus.textContent = '⚠️ Please add at least one guest.'; return; }
+    if (state.isGenerating || state.isRegenerating) return;
 
-CRITICAL RULES:
-1. Output ONLY a single <div class="preview-card"> containing the design.
-2. Use beautiful inline CSS (gradients, elegant borders, box-shadows, padding, Google Fonts).
-3. Ensure high contrast so text is perfectly readable.
-4. EXACTLY include the placeholder text "[GUEST_NAME]" somewhere prominent in the design so I can replace it dynamically in JavaScript later.
-5. Make it look like a physical luxury invitation card.`;
+    const styleToUse = state.currentStyle;
+    genAllStatus.textContent = '⏳ Generating ' + state.guests.length + ' invitations…';
+    generateAllBtn.disabled = true;
+    generateBtn.disabled = true;
+    regenerateBtn.disabled = true;
+    downloadBtn.disabled = true;
+
+    showSpinner('Creating ' + state.guests.length + ' invitations…');
+    await delay(600 + Math.random() * 500);
+
+    for (let i = 0; i < state.guests.length; i++) {
+      const name = state.guests[i];
+      applyStyle(styleToUse);
+      renderPreviewContent(name);
+      state.currentGuestIndex = i;
+      updateGuestChips();
+      updateGuestNav();
+      state.allGeneratedStyles[name] = styleToUse;
+      await delay(300 + Math.random() * 200);
     }
 
-    async function generateInvitation(isRegenerating) {
-        isGenerating = true;
-        document.getElementById('form-section').style.display = 'none';
-        document.getElementById('invitation-container').style.display = 'none';
-        document.getElementById('loading').style.display = 'block';
-        if (!currentSessionId || !isRegenerating) currentSessionId = 'inv_' + Date.now();
+    hideSpinner();
+    state.allGeneratedActive = true;
+    genAllStatus.textContent = '✅ ' + state.guests.length + ' invitations generated with style s' + styleToUse + ' · ' + styleNames[styleToUse-1];
+    generateAllBtn.disabled = false;
+    generateBtn.disabled = false;
+    regenerateBtn.disabled = false;
+    downloadBtn.disabled = false;
+  }
 
-        const prompt = buildPrompt(currentCardData);
-
-        try {
-            const response = await fetch(INVITATION_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: prompt })
-            });
-
-            const data = await response.json();
-            
-            // This is the line that was crashing before! Now it correctly looks for "template".
-            if (data.error) throw new Error(data.error);
-            if (!data.template) throw new Error("No template returned from server."); 
-
-            currentDesignTemplate = data.template;
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('invitation-container').style.display = 'block';
-            renderCardsList();
-            saveInvitationState();
-            document.getElementById('invitation-container').scrollIntoView({ behavior: "smooth" });
-
-        } catch (error) {
-            alert("Error generating invitation: " + error.message);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('form-section').style.display = 'block';
-        } finally {
-            isGenerating = false;
-        }
+  // =====================================================================
+  // DOWNLOAD PNG
+  // =====================================================================
+  async function downloadPNG() {
+    if (state.isGenerating || state.isRegenerating) return;
+    const invitation = stage;
+    const originalShadow = invitation.style.boxShadow;
+    invitation.style.boxShadow = 'none';
+    try {
+      const canvas = await html2canvas(invitation, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      const guestName = state.guests[state.currentGuestIndex] || 'guest';
+      link.download = `invitation_${guestName.replace(/\s+/g,'_')}_s${state.currentStyle}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Download error:', e);
+      alert('Could not generate image. Please use Print instead.');
+    } finally {
+      invitation.style.boxShadow = originalShadow;
     }
+  }
 
-    function renderCardsList() {
-        const cardsList = document.getElementById('cardsList');
-        const guests = currentCardData.guests.length > 0 ? currentCardData.guests : ['Valued Guest'];
-        cardsList.innerHTML = '';
-        
-        guests.forEach((guest, index) => {
-            // Dynamically inject the guest name into the AI's HTML template
-            const personalizedHTML = currentDesignTemplate.replace(/\[GUEST_NAME\]/g, guest);
-            
-            const cardItem = document.createElement('div');
-            cardItem.className = 'card-item';
-            cardItem.innerHTML = `
-                <div class="card-item-header">
-                    <span class="guest-label"><i class="fas fa-user"></i> Guest: ${guest}</span>
-                    <div class="card-actions">
-                        <button class="action-btn btn-download" onclick="printSingleInvitation('${guest}', ${index})"><i class="fas fa-print"></i> Print</button>
-                    </div>
-                </div>
-                <div class="card-item-body" id="card-body-${index}">
-                    ${personalizedHTML}
-                </div>
-            `;
-            cardsList.appendChild(cardItem);
-        });
-        document.getElementById('addGuestSection').style.display = 'block';
+  // =====================================================================
+  // EVENT BINDING
+  // =====================================================================
+  Object.values(fields).forEach(field => {
+    field.addEventListener('input', () => {
+      if (!state.isGenerating && !state.isRegenerating) {
+        const name = state.guests[state.currentGuestIndex] || 'Guest';
+        renderPreviewContent(name);
+      }
+    });
+  });
+  document.getElementById('event-form').addEventListener('submit', e => e.preventDefault());
+
+  generateBtn.addEventListener('click', () => generateInvitation());
+  regenerateBtn.addEventListener('click', () => regenerateInvitation());
+  downloadBtn.addEventListener('click', downloadPNG);
+
+  addGuestBtn.addEventListener('click', () => {
+    const val = guestInput.value.trim();
+    if (val) addGuest(val);
+  });
+  guestInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = guestInput.value.trim();
+      if (val) addGuest(val);
     }
+  });
 
-    function addNewGuest() {
-        const input = document.getElementById('newGuestInput');
-        const name = input.value.trim();
-        if (!name) return;
-        currentCardData.guests.push(name);
-        guestNames.push(name);
-        input.value = '';
-        renderCardsList();
-        saveInvitationState();
-    }
-    document.getElementById('newGuestInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addNewGuest(); }});
+  prevGuestBtn.addEventListener('click', () => {
+    if (state.currentGuestIndex > 0) selectGuest(state.currentGuestIndex - 1);
+  });
+  nextGuestBtn.addEventListener('click', () => {
+    if (state.currentGuestIndex < state.guests.length - 1) selectGuest(state.currentGuestIndex + 1);
+  });
 
-    function regenerateCard() { generateInvitation(true); }
+  generateAllBtn.addEventListener('click', generateForAllGuests);
 
-    function printSingleInvitation(guestName, index) {
-        const cardBody = document.getElementById(`card-body-${index}`);
-        if (!cardBody) return;
-        const printWindow = window.open('', '_blank', 'width=800,height=1100');
-        printWindow.document.write(`
-            <html><head><title>Invitation - ${guestName}</title>
-            <style>
-                @page { size: A4 portrait; margin: 0; }
-                * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
-                body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: white; }
-                .preview-card { width: 210mm; height: 297mm; max-width: 210mm; border: none !important; border-radius: 0 !important; margin: 0; }
-            </style></head>
-            <body>${cardBody.innerHTML}<script>window.onload=function(){setTimeout(window.print, 500);};<\/script></body></html>
-        `);
-        printWindow.document.close();
-    }
+  // =====================================================================
+  // INIT
+  // =====================================================================
+  function init() {
+    applyStyle(1);
+    renderPreviewContent(state.guests[0]);
+    updateGuestChips();
+    updateGuestNav();
+    guestCount.textContent = state.guests.length;
+    styleBadge.textContent = 's1 · ' + styleNames[0];
+    regenerateBtn.disabled = false;
+    downloadBtn.disabled = false;
+    generateBtn.disabled = false;
+    genAllStatus.textContent = 'Add guests and generate all with the same style.';
+  }
+  init();
+  lucide.createIcons();
 
-    // Storage
-    function saveInvitationState() {
-        const cardData = {
-            id: currentSessionId, 
-            title: `${currentCardData.hostName} - ${currentCardData.eventTitle}`,
-            formData: currentCardData, 
-            designTemplate: currentDesignTemplate,
-            updatedAt: new Date().toISOString()
-        };
-        let sessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
-        sessions[currentSessionId] = cardData;
-        localStorage.setItem('zone21_invitations', JSON.stringify(sessions));
-        renderHistorySidebar();
-    }
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'r') { e.preventDefault(); regenerateInvitation(); }
+    if (e.ctrlKey && e.key === 'g') { e.preventDefault(); generateInvitation(); }
+    if (e.ctrlKey && e.key === 'd') { e.preventDefault(); downloadPNG(); }
+  });
 
-    function renderHistorySidebar() {
-        const hl = document.getElementById('history-list');
-        hl.innerHTML = '';
-        let sessions = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
-        Object.values(sessions).sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(s => {
-            const item = document.createElement('div');
-            item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `<div class="item-info"><i class="fas fa-envelope" style="color:var(--lime);"></i><span class="item-title">${s.title}</span></div><i class="fas fa-trash delete-btn"></i>`;
-            item.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteInvitationSession(s.id); });
-            item.addEventListener('click', () => loadInvitationSession(s.id));
-            hl.appendChild(item);
-        });
-    }
-
-    function loadInvitationSession(id) {
-        closeSidebar();
-        let s = JSON.parse(localStorage.getItem('zone21_invitations') || '{}')[id];
-        if (!s) return;
-        currentSessionId = s.id; currentCardData = s.formData; currentDesignTemplate = s.designTemplate; guestNames = s.formData.guests || [];
-        document.getElementById('form-section').style.display = 'none';
-        document.getElementById('invitation-container').style.display = 'block';
-        renderCardsList(); renderHistorySidebar();
-    }
-
-    function deleteInvitationSession(id) {
-        if (!confirm("Delete invitation?")) return;
-        let s = JSON.parse(localStorage.getItem('zone21_invitations') || '{}');
-        delete s[id]; localStorage.setItem('zone21_invitations', JSON.stringify(s));
-        if (currentSessionId === id) startNewCard(); else renderHistorySidebar();
-    }
-
-    function startNewCard() {
-        closeSidebar(); currentSessionId = null; currentCardData = null; currentDesignTemplate = ''; guestNames = [];
-        document.getElementById('cardForm').reset(); document.getElementById('guestListDisplay').innerHTML = '';
-        document.getElementById('invitation-container').style.display = 'none'; document.getElementById('form-section').style.display = 'block';
-        renderHistorySidebar();
-    }
-
-    document.addEventListener('DOMContentLoaded', renderHistorySidebar);
+  console.log('✦ Zone21 Invitation Generator loaded.');
+  console.log('  Guests:', state.guests);
+  console.log('  Active style: s' + state.currentStyle);
+  console.log('  Shortcuts: Ctrl+G generate, Ctrl+R regenerate, Ctrl+D download');
 </script>
 </body>
 </html>

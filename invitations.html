@@ -4,13 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zone21 · Invitation Generator</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17">
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js">
-  </script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     :root {
       --navy: #0f2a3b;
@@ -41,9 +38,7 @@
       color: #fff;
       border-bottom: 4px solid var(--lime);
     }
-    .zone-header .brand-title {
-      color: var(--lime);
-    }
+    .zone-header .brand-title { color: var(--lime); }
 
     .card-glass {
       background: rgba(255,255,255,0.70);
@@ -494,13 +489,33 @@
     .guest-scroll::-webkit-scrollbar { width: 5px; }
     .guest-scroll::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 20px; }
 
+    /* New placeholder styles */
+    .preview-placeholder {
+      min-height: 32rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: #9aa3af;
+      font-family: "DM Sans", sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    .preview-placeholder i {
+      font-size: 3rem;
+      color: var(--lime);
+    }
+
     @media (max-width: 1024px) {
       .invite-content { padding: 3rem 1.8rem; min-height: 28rem; }
       .invitation-stage { min-height: 28rem; }
+      .preview-placeholder { min-height: 28rem; }
     }
     @media (max-width: 700px) {
       .invite-content { padding: 2.5rem 1.2rem; min-height: 24rem; }
       .invitation-stage { min-height: 24rem; }
+      .preview-placeholder { min-height: 24rem; }
       .guest-name { font-size: clamp(1.3rem,5vw,2rem); }
       .preview-title { font-size: clamp(1.4rem,5vw,2.2rem); }
     }
@@ -508,20 +523,17 @@
 </head>
 <body>
 
-<!-- ===== HEADER ===== (star and 70 removed) -->
+<!-- ===== HEADER ===== -->
 <header class="zone-header">
   <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-7">
     <div class="flex items-center gap-3">
-      <!-- star icon removed -->
       <div>
         <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--lime)]">Zone21 Studio</p>
         <h1 class="brand-title text-lg font-bold tracking-tight sm:text-xl">Invitation Generator</h1>
       </div>
     </div>
-    <!-- "70" badge removed -->
     <div class="flex items-center gap-3 text-sm text-white/70">
       <i data-lucide="sparkles" class="h-4 w-4 text-[var(--lime)]"></i>
-      <!-- removed "70 hidden styles" text -->
     </div>
   </div>
 </header>
@@ -600,7 +612,7 @@
             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--navy)]/60">Live Preview</p>
             <div class="flex items-center gap-2">
               <h2 class="text-base font-bold text-[var(--navy)]">Your Invitation</h2>
-              <span id="style-badge" class="rounded-full bg-[var(--lime)]/20 px-2.5 py-0.5 text-[10px] font-bold text-[var(--navy)]">s1</span>
+              <span id="style-badge" class="rounded-full bg-[var(--lime)]/20 px-2.5 py-0.5 text-[10px] font-bold text-[var(--navy)]">—</span>
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -614,12 +626,21 @@
         </div>
 
         <!-- Invitation Stage -->
-        <div id="invitation-stage" class="invitation-stage s1 relative mx-auto w-full max-w-2xl" aria-label="Invitation preview">
+        <div id="invitation-stage" class="invitation-stage relative mx-auto w-full max-w-2xl" aria-label="Invitation preview">
           <div class="spinner-overlay" id="spinner-overlay">
             <div class="spinner"></div>
             <span class="spinner-label">Crafting your invitation…</span>
           </div>
-          <div class="invite-content" id="invite-content">
+
+          <!-- Placeholder (shown until first generation) -->
+          <div id="preview-placeholder" class="preview-placeholder">
+            <i data-lucide="image" class="h-12 w-12 text-stone-300"></i>
+            <p class="text-lg font-semibold">Your invitation will appear here</p>
+            <p class="text-sm opacity-75">Click “Generate Invitation” to start</p>
+          </div>
+
+          <!-- Actual invitation content (hidden initially) -->
+          <div class="invite-content hidden" id="invite-content">
             <p class="eyebrow" id="preview-host">Hosted by Zone21 Management</p>
             <h3 class="preview-title" id="preview-event-title">An Evening in Bloom</h3>
             <div class="preview-rule"></div>
@@ -681,6 +702,7 @@
     generatedForAll: false,
     allGeneratedStyles: {},
     allGeneratedActive: false,
+    recentStyles: [] // store last few styles to avoid repetition
   };
 
   // =====================================================================
@@ -702,6 +724,8 @@
   const guestNavLabel = $('guest-nav-label');
   const guestCount = $('guest-count');
   const styleBadge = $('style-badge');
+  const inviteContent = $('invite-content');
+  const placeholder = $('preview-placeholder');
 
   const preview = {
     host: $('preview-host'),
@@ -743,10 +767,26 @@
     styleBadge.textContent = 's' + styleNum + ' · ' + (styleNames[styleNum-1] || '');
   }
 
-  function getRandomStyle(exclude) {
-    let num;
-    do { num = Math.floor(Math.random() * 70) + 1; } while (num === exclude && 70 > 1);
-    return num;
+  function getRandomStyle(excludeArray = []) {
+    const allStyles = Array.from({length: 70}, (_, i) => i + 1);
+    const available = allStyles.filter(s => !excludeArray.includes(s));
+    if (available.length === 0) return Math.floor(Math.random() * 70) + 1; // fallback
+    return available[Math.floor(Math.random() * available.length)];
+  }
+
+  function updateRecentStyles(newStyle) {
+    state.recentStyles.push(newStyle);
+    if (state.recentStyles.length > 5) {
+      state.recentStyles.shift();
+    }
+  }
+
+  // =====================================================================
+  // SHOW/HIDE INVITATION
+  // =====================================================================
+  function showInvitation() {
+    placeholder.classList.add('hidden');
+    inviteContent.classList.remove('hidden');
   }
 
   // =====================================================================
@@ -769,7 +809,10 @@
     regenerateBtn.disabled = true;
     downloadBtn.disabled = true;
 
-    const styleNum = styleOverride || getRandomStyle(state.currentStyle);
+    // Choose style intelligently: avoid last 5 used
+    const styleNum = styleOverride || getRandomStyle(state.recentStyles);
+    updateRecentStyles(styleNum);
+
     showSpinner('Loading image pattern…');
 
     // 🔥 IMAGE LOADING DELAY: 30–50 seconds (random)
@@ -779,6 +822,7 @@
     applyStyle(styleNum);
     const name = guestName || state.guests[state.currentGuestIndex] || 'Guest';
     renderPreviewContent(name);
+    showInvitation(); // Show the invitation area after first generation
     hideSpinner();
 
     state.isGenerating = false;
@@ -799,7 +843,9 @@
     generateBtn.disabled = true;
     downloadBtn.disabled = true;
 
-    const newStyle = getRandomStyle(state.currentStyle);
+    const newStyle = getRandomStyle([...state.recentStyles, state.currentStyle]);
+    updateRecentStyles(newStyle);
+
     showSpinner('Regenerating…');  // no delay mention
 
     // 🔥 REGENERATION DELAY: 40 seconds (hidden)
@@ -808,6 +854,7 @@
     applyStyle(newStyle);
     const name = state.guests[state.currentGuestIndex] || 'Guest';
     renderPreviewContent(name);
+    showInvitation(); // ensure visible if regeneration happens without first generate
     hideSpinner();
 
     state.isRegenerating = false;
@@ -886,7 +933,9 @@
     if (state.guests.length === 0) { genAllStatus.textContent = '⚠️ Please add at least one guest.'; return; }
     if (state.isGenerating || state.isRegenerating) return;
 
-    const styleToUse = state.currentStyle;
+    const styleToUse = getRandomStyle(state.recentStyles);
+    updateRecentStyles(styleToUse);
+
     genAllStatus.textContent = '⏳ Generating ' + state.guests.length + ' invitations…';
     generateAllBtn.disabled = true;
     generateBtn.disabled = true;
@@ -901,6 +950,7 @@
       applyStyle(styleToUse);
       renderPreviewContent(name);
       state.currentGuestIndex = i;
+      showInvitation(); // ensure visible
       updateGuestChips();
       updateGuestNav();
       state.allGeneratedStyles[name] = styleToUse;
@@ -921,6 +971,10 @@
   // =====================================================================
   async function downloadPNG() {
     if (state.isGenerating || state.isRegenerating) return;
+    if (inviteContent.classList.contains('hidden')) {
+      alert('Please generate an invitation first.');
+      return;
+    }
     const invitation = stage;
     const originalShadow = invitation.style.boxShadow;
     invitation.style.boxShadow = 'none';
@@ -986,15 +1040,21 @@
   // INIT
   // =====================================================================
   function init() {
-    applyStyle(1);
+    // Initialize with a random style state (not applied to stage until generation)
+    state.currentStyle = Math.floor(Math.random() * 70) + 1;
+    // But badge shows placeholder until first generation
+    styleBadge.textContent = '—';
+
     renderPreviewContent(state.guests[0]);
     updateGuestChips();
     updateGuestNav();
     guestCount.textContent = state.guests.length;
-    styleBadge.textContent = 's1 · ' + styleNames[0];
-    regenerateBtn.disabled = false;
-    downloadBtn.disabled = false;
+
+    // Keep regenerate and download disabled initially
+    regenerateBtn.disabled = true;
+    downloadBtn.disabled = true;
     generateBtn.disabled = false;
+
     genAllStatus.textContent = 'Add guests and generate all with the same style.';
   }
   init();
@@ -1008,7 +1068,7 @@
 
   console.log('✦ Zone21 Invitation Generator loaded.');
   console.log('  Guests:', state.guests);
-  console.log('  Active style: s' + state.currentStyle);
+  console.log('  Active style: (hidden until first generation)');
   console.log('  Shortcuts: Ctrl+G generate, Ctrl+R regenerate, Ctrl+D download');
 </script>
 </body>

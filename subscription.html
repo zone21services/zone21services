@@ -66,6 +66,35 @@
             color: var(--text-muted);
         }
 
+        /* ============================================================
+           LOADING SPINNER FOR EVENTS GRID
+           ============================================================ */
+        .events-loading {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3.5rem 2rem;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+        }
+        .events-loading i {
+            font-size: 2rem;
+            color: var(--lime);
+            display: block;
+            margin-bottom: 1rem;
+            animation: spin 1s linear infinite;
+        }
+        .events-loading p {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         .pricing-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -649,7 +678,12 @@
         <div class="view active" id="view-pricing">
             <div id="user-events-section">
                 <div class="section-label"><i class="fas fa-calendar-check"></i> Your Events <small>— Manage your existing events</small></div>
-                <div class="pricing-grid" id="user-events-grid"></div>
+                <div class="pricing-grid" id="user-events-grid">
+                    <div class="events-loading">
+                        <i class="fas fa-spinner"></i>
+                        <p>Loading your events…</p>
+                    </div>
+                </div>
             </div>
 
             <div class="section-label" style="margin-top: 2.5rem;"><i class="fas fa-shopping-cart"></i> Purchase a New Package</div>
@@ -949,12 +983,26 @@
             }, 4500);
         };
 
+        /* ============================================================
+           RENDER USER EVENTS
+           — Shows loading spinner first
+           — Hides events from soft-deleted subs (match by invoice,
+             planId, AND package name so nothing slips through)
+        ============================================================ */
         async function renderUserEvents() {
             const grid = document.getElementById('user-events-grid');
             if (!currentUser) {
                 grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
                 return;
             }
+
+            /* Show loading spinner */
+            grid.innerHTML = `
+                <div class="events-loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Loading your events…</p>
+                </div>
+            `;
 
             const getSafeDate = (timestamp) => {
                 if (!timestamp) return new Date(0);
@@ -965,29 +1013,55 @@
             };
 
             try {
+                /* ── Fetch subs FIRST, build lookup sets ── */
                 const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
                 const subsSnapshot = await getDocs(subsQ);
+
                 const activeInvoices = [];
+                const deletedInvoices = new Set();
+                const deletedPlanIds = new Set();
+                const deletedPlanNames = new Set();
+
                 subsSnapshot.forEach(docSnap => {
                     const sub = docSnap.data();
-                    /* Skip soft-deleted subs — their events are treated as not covered */
-                    if (sub.deletedAt) return;
-                    if (sub.status === 'active' || sub.status === 'approved') {
-                        if (sub.invoiceNumber) activeInvoices.push(sub.invoiceNumber);
+                    if (sub.deletedAt) {
+                        if (sub.invoiceNumber) deletedInvoices.add(String(sub.invoiceNumber));
+                        if (sub.planId) deletedPlanIds.add(String(sub.planId).toLowerCase());
+                        if (sub.planName) deletedPlanNames.add(String(sub.planName).toLowerCase());
+                    } else {
+                        if (sub.status === 'active' || sub.status === 'approved') {
+                            if (sub.invoiceNumber) activeInvoices.push(String(sub.invoiceNumber));
+                        }
                     }
                 });
 
+                /* ── Fetch events ── */
                 const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
                 const querySnapshot = await getDocs(q);
                 const events = [];
-                
+
                 querySnapshot.forEach(docSnap => {
                     let eventData = docSnap.data();
                     let eventId = docSnap.id;
-                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(eventData.invoiceNumber)) {
+
+                    /* 🚫 SKIP events belonging to a soft-deleted sub */
+                    const evInv = eventData.invoiceNumber ? String(eventData.invoiceNumber) : '';
+                    const evPlanId = eventData.packageId ? String(eventData.packageId).toLowerCase() : '';
+                    const evPkgName = eventData.package ? String(eventData.package).toLowerCase() : '';
+
+                    if ((evInv && deletedInvoices.has(evInv)) ||
+                        (evPlanId && deletedPlanIds.has(evPlanId)) ||
+                        (evPkgName && deletedPlanNames.has(evPkgName))) {
+                        console.log('Hiding event from deleted package:', eventId, evPlanId || evPkgName);
+                        return;
+                    }
+
+                    /* Self-heal: promote pending events whose invoice is now active */
+                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(String(eventData.invoiceNumber))) {
                         eventData.status = 'approved';
                         setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
                     }
+
                     events.push({ id: eventId, ...eventData });
                 });
 
@@ -1053,7 +1127,7 @@
                 try {
                     const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${plan.id}`));
                     let buttonHtml = `<button class="btn btn-primary" onclick="startCheckout('${plan.name}', ${plan.price}, '${plan.id}')">Select Plan</button>`;
-                    
+
                     /* Skip soft-deleted subs — treat as if they don't exist */
                     if (subSnap.exists() && !subSnap.data().deletedAt) {
                         const subData = subSnap.data();
@@ -1164,11 +1238,11 @@
         };
 
         window.generateInvoice = async function() {
-            if (!currentUser) { 
-                window.location.href = "index.html"; 
-                return; 
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
             }
-            
+
             /* Check for pending subscription — ignoring soft-deleted subs */
             try {
                 const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
@@ -1178,8 +1252,8 @@
                     showToast('You already have a pending invoice for this plan.', 'error');
                     return;
                 }
-            } catch (error) { 
-                console.warn("Duplicate check bypassed:", error); 
+            } catch (error) {
+                console.warn("Duplicate check bypassed:", error);
             }
 
             const btn = document.getElementById('btn-generate-invoice');
@@ -1210,9 +1284,9 @@
                 await setDoc(doc(db, "invoices", invNumber), {
                     userId: currentUser.uid,
                     invoiceNumber: invNumber,
-                    packageDetails: { 
-                        name: selectedPlan.name, 
-                        price: selectedPlan.price 
+                    packageDetails: {
+                        name: selectedPlan.name,
+                        price: selectedPlan.price
                     },
                     customerInfo: {
                         firstName: fName,
@@ -1233,7 +1307,7 @@
                       If it was soft-deleted, we CLEAR the delete markers
                       so the sub revives cleanly. */
                 const subSnap = await getDoc(subRef);
-                
+
                 if (subSnap.exists()) {
                     await setDoc(subRef, {
                         userId: currentUser.uid,
@@ -1246,10 +1320,10 @@
                         deletedBy: deleteField(),
                         deletedByEmail: deleteField(),
                         updatedAt: serverTimestamp(),
-                        customerInfo: { 
-                            firstName: fName, 
-                            lastName: lName, 
-                            email: email, 
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
                             phone: phone,
                             company: company,
                             zip: zip,
@@ -1267,10 +1341,10 @@
                         status: 'pending_payment',
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
-                        customerInfo: { 
-                            firstName: fName, 
-                            lastName: lName, 
-                            email: email, 
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
                             phone: phone,
                             company: company,
                             zip: zip,
@@ -1360,7 +1434,7 @@
                 const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
                 if (!invSnap.exists()) { showToast('Invoice not found.', 'error'); return; }
                 const invData = invSnap.data();
-                
+
                 const getSafeDate = (ts) => {
                     if (!ts) return new Date();
                     if (typeof ts.toDate === 'function') return ts.toDate();
@@ -1389,4 +1463,4 @@
         window.updatePlanButtons = updatePlanButtons;
     </script>
 </body>
-                                    </html>
+</html>

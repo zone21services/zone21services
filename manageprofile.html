@@ -55,7 +55,6 @@ body{
   position:relative;
   overflow-x:hidden;
 }
-/* Ambient background */
 body::before{
   content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:
@@ -260,7 +259,7 @@ body::after{
 .hero-pill i{font-size:.55rem}
 
 /* ============================================================
-   TRIAL COUNTDOWN CARD (floating below hero)
+   TRIAL COUNTDOWN CARD
    ============================================================ */
 .trial-card{
   margin:-3.2rem 2.5rem 0;
@@ -914,6 +913,17 @@ let unsubscribeSubs = null;
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r = 42
 
+/* ---------- LOADER CONTROL ---------- */
+let loaderHidden = false;
+function hideLoader(){
+  if(loaderHidden) return;
+  loaderHidden = true;
+  const overlay = document.getElementById('loadingOverlay');
+  if(overlay) overlay.classList.add('hidden');
+}
+/* Fail-safe: force-hide after 5s no matter what */
+setTimeout(hideLoader, 5000);
+
 /* ---------- HELPERS ---------- */
 const toDate = v => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
 
@@ -943,10 +953,17 @@ auth.onAuthStateChanged(async user => {
   if(!user){ window.location.href = 'index.html'; return; }
   currentUser = user;
 
-  await loadProviderData(user);
-  startTrialListener();
-  startSubscriptionsListener();
-  updateInboxBadge();
+  try{
+    await loadProviderData(user);
+    startTrialListener();
+    startSubscriptionsListener();
+    updateInboxBadge();
+  }catch(err){
+    console.error('Init error:', err);
+  }finally{
+    /* Hide loader as soon as we've rendered — even if Firestore was slow */
+    hideLoader();
+  }
 });
 
 /* ---------- PROVIDER ---------- */
@@ -992,7 +1009,11 @@ function startTrialListener(){
   unsubscribeTrial = db.collection('trials').doc(currentUser.uid).onSnapshot(doc => {
     trialData = doc.exists ? doc.data() : null;
     refreshAccess();
-  }, err => console.error('trial listener:', err));
+  }, err => {
+    console.error('trial listener:', err);
+    /* Even if trial read fails, unlock basic rendering */
+    refreshAccess();
+  });
 }
 
 /* ---------- SUBSCRIPTIONS LISTENER ---------- */
@@ -1016,12 +1037,15 @@ function startSubscriptionsListener(){
           approvedAt: d.approvedAt || null
         });
       });
-      // Sort: active first
       const order = { active:0, approved:0, pending:1, pending_payment:1, rejected:2 };
       subscriptions.sort((a,b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
       renderPlans();
       refreshAccess();
-    }, err => console.error('subs listener:', err));
+      hideLoader();
+    }, err => {
+      console.error('subs listener:', err);
+      hideLoader();
+    });
 }
 
 /* ---------- TRIAL STATUS ---------- */
@@ -1066,7 +1090,7 @@ function hasFullAccess(){
 }
 
 /* ============================================================
-   REFRESH ACCESS — renders trial card + locks/unlocks actions
+   REFRESH ACCESS
 ============================================================ */
 function refreshAccess(){
   const trial = getTrialStatus();
@@ -1091,19 +1115,17 @@ function renderTrialCard(trial, activeSub, unlocked){
   const text = document.getElementById('trialText');
   const actions = document.getElementById('trialActions');
 
-  // Reset classes
   card.className = 'trial-card';
   ring.className = 'trial-ring';
   tag.className = 'trial-tag';
 
-  // ----- Case 1: Active paid subscription wins -----
+  /* ----- Case 1: Active paid subscription wins ----- */
   if(activeSub){
     card.classList.add('state-subscribed');
     ring.classList.add('state-subscribed');
     tag.classList.add('subscribed');
     tag.innerHTML = '<i class="fas fa-check-circle"></i> Subscribed';
 
-    // Compute expiry of subscription
     const start = toDate(activeSub.approvedAt) || toDate(activeSub.createdAt) || new Date();
     const exp = new Date(start);
     exp.setMonth(exp.getMonth() + (activeSub.months || 1));
@@ -1129,7 +1151,7 @@ function renderTrialCard(trial, activeSub, unlocked){
     return;
   }
 
-  // ----- Case 2: Trial active -----
+  /* ----- Case 2: Trial active ----- */
   if(trial.active){
     card.classList.add('state-active');
     ring.classList.add('state-active');
@@ -1154,7 +1176,7 @@ function renderTrialCard(trial, activeSub, unlocked){
     return;
   }
 
-  // ----- Case 3: Trial used and expired -----
+  /* ----- Case 3: Trial used and expired ----- */
   if(trial.used && trial.expired){
     card.classList.add('state-expired');
     ring.classList.add('state-expired');
@@ -1178,7 +1200,7 @@ function renderTrialCard(trial, activeSub, unlocked){
     return;
   }
 
-  // ----- Case 4: Trial never started -----
+  /* ----- Case 4: Trial never started ----- */
   card.classList.add('state-none');
   ring.classList.add('state-none');
   tag.classList.add('none');
@@ -1212,7 +1234,6 @@ function updateHeroBadges(trial, activeSub, unlocked){
     pills.push(`<span class="hero-pill warning"><i class="fas fa-rocket"></i> Trial Available</span>`);
   }
 
-  // Provider type
   const planId = activeSub?.planId || trial.planId;
   if(planId === 'venue'){
     pills.push(`<span class="hero-pill pink"><i class="fas fa-building"></i> Venue</span>`);
@@ -1268,7 +1289,6 @@ function updateAccessCards(unlocked){
       } else {
         showToast('Subscribe to unlock this feature.', 'warning');
       }
-      // Slight pulse animation on trial card
       const tc = document.getElementById('trialCard');
       tc.style.transform = 'scale(1.02)';
       setTimeout(() => tc.style.transform = '', 220);
@@ -1446,13 +1466,15 @@ window.addEventListener('load', () => {
   setTimeout(() => {
     const trial = getTrialStatus();
     if(trial.active){
-      document.getElementById('ringFill').style.strokeDashoffset =
-        RING_CIRCUMFERENCE * (1 - trial.pct / 100);
+      const fill = document.getElementById('ringFill');
+      if(fill){
+        fill.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - trial.pct / 100);
+      }
     }
   }, 200);
 });
 
-console.log('✅ My Profile v2.0 — trial-aware access control active.');
+console.log('✅ My Profile v2.1 — loader fix + trial-aware access control active.');
 console.log('ℹ️  Locked actions: organisers.html · vendorinbox.html');
 </script>
 </body>

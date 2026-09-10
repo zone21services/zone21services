@@ -452,7 +452,6 @@ auth.onAuthStateChanged(async user => {
     hideLoader();
   }
 
-  /* Re-evaluate access every 60s so expiry locks mid-session */
   if(recheckInterval) clearInterval(recheckInterval);
   recheckInterval = setInterval(() => {
     refreshAccess();
@@ -571,9 +570,8 @@ function getTrialStatus(){
 }
 
 /* ============================================================
-   SUBSCRIPTION HELPERS (FIXED: expiry-aware)
+   SUBSCRIPTION HELPERS (expiry-aware)
 ============================================================ */
-/* Returns { status, label, isExpired } for a raw subscription */
 function classifySubscription(sub){
   const raw = sub.status || 'pending';
   if(raw === 'active' || raw === 'approved'){
@@ -591,7 +589,6 @@ function classifySubscription(sub){
   return { status:'none', label:raw, isExpired:false, expiryDate:null };
 }
 
-/* FIXED: now checks actual expiry, not just raw status */
 function getActiveSubInfo(){
   for(const s of subscriptions){
     const c = classifySubscription(s);
@@ -602,7 +599,6 @@ function getActiveSubInfo(){
 
 function hasActiveSubscription(){ return !!getActiveSubInfo(); }
 
-/* NEW: check for pending payment */
 function getPendingSubInfo(){
   for(const s of subscriptions){
     const c = classifySubscription(s);
@@ -613,6 +609,9 @@ function getPendingSubInfo(){
 
 /* ============================================================
    ACCESS CHECK
+   ────────────────────────────────────────────────────────────
+   Full access requires an ACTIVE trial OR an ACTIVE paid plan.
+   Pending subs do NOT grant access — they only hint at intent.
 ============================================================ */
 function hasFullAccess(){
   const t = getTrialStatus();
@@ -635,7 +634,7 @@ function refreshAccess(){
 }
 
 /* ============================================================
-   TRIAL CARD — handles all states including pending payment
+   TRIAL CARD
 ============================================================ */
 function renderTrialCard(trial, activeSub, pendingSub, unlocked){
   const card = document.getElementById('trialCard');
@@ -697,7 +696,6 @@ function renderTrialCard(trial, activeSub, pendingSub, unlocked){
     title.textContent = `${planLabel} — Trial Running`;
     text.innerHTML = `You have <strong>${trial.daysRemaining} day${trial.daysRemaining===1?'':'s'} left</strong> on your free trial. Full access to organisers and inbox messaging.`;
 
-    /* If a subscription is awaiting approval, show a hint */
     if(pendingSub){
       pendingHint.innerHTML = `<div class="trial-pending-hint"><i class="fas fa-clock"></i> ${pendingSub.planName} — payment awaiting approval</div>`;
     }
@@ -711,7 +709,6 @@ function renderTrialCard(trial, activeSub, pendingSub, unlocked){
   /* ----- Case 3: Trial expired; maybe pending sub ----- */
   if(trial.used && trial.expired){
     if(pendingSub){
-      /* Has pending payment — show awaiting approval state */
       card.classList.add('state-pending');
       ring.classList.add('state-pending');
       tag.classList.add('pending');
@@ -788,10 +785,10 @@ function updateHeroBadges(trial, activeSub, pendingSub){
     pills.push(`<span class="hero-pill warning"><i class="fas fa-rocket"></i> Trial Available</span>`);
   }
 
-  const planId = activeSub?.planId || pendingSub?.planId || trial.planId;
-  if(planId === 'venue' || (planId && planId.includes('venue'))){
+  const planId = activeSub?.planId || trial.planId || pendingSub?.planId;
+  if(planId && String(planId).toLowerCase().includes('venue')){
     pills.push(`<span class="hero-pill pink"><i class="fas fa-building"></i> Venue</span>`);
-  } else if(planId === 'service_provider' || (planId && planId.includes('service'))){
+  } else if(planId && String(planId).toLowerCase().includes('service')){
     pills.push(`<span class="hero-pill lime"><i class="fas fa-briefcase"></i> Provider</span>`);
   }
 
@@ -811,7 +808,7 @@ function updateStatusPulse(trial, activeSub, unlocked){
 }
 
 /* ============================================================
-   ACCESS CARDS
+   ACCESS CARDS — LOCK when no active trial or plan
 ============================================================ */
 function updateAccessCards(unlocked, trial, pendingSub){
   const c1 = document.getElementById('cardOrganisers');
@@ -825,10 +822,10 @@ function updateAccessCards(unlocked, trial, pendingSub){
     else card.classList.add('locked');
   });
 
-  /* Customize lock text based on state */
+  /* Context-aware lock text */
   let lockText = 'Subscribe to Unlock';
   if(pendingSub) lockText = 'Awaiting Approval';
-  else if(!trial.used && !trial.expired) lockText = 'Start Free Trial';
+  else if(!trial.used) lockText = 'Start Free Trial';
   else if(trial.expired) lockText = 'Subscribe to Unlock';
 
   if(lkText1) lkText1.textContent = lockText;
@@ -872,7 +869,6 @@ function updateAccessCards(unlocked, trial, pendingSub){
         showToast('Subscribe to unlock this feature.', 'warning');
       }
 
-      /* Pulse trial card to draw attention */
       const tc = document.getElementById('trialCard');
       if(tc){
         tc.style.transform = 'scale(1.02)';
@@ -883,7 +879,7 @@ function updateAccessCards(unlocked, trial, pendingSub){
 });
 
 /* ============================================================
-   RENDER PLANS (FIXED: expiry-aware status)
+   RENDER PLANS
 ============================================================ */
 function renderPlans(){
   const container = document.getElementById('planListContainer');
@@ -1015,17 +1011,32 @@ function updateInboxBadge(){
 function goBack(){ window.location.href = 'vendordashboard.html'; }
 function goToSubscribe(){ window.location.href = 'vendordashboard.html#subscription'; }
 function goToTrial(){ window.location.href = 'vendordashboard.html#trial'; }
+
+/* ════════════════════════════════════════════════════════════
+   FIXED: goToManageProfile now uses a clean priority chain.
+   Pending subs are IGNORED if an active trial or active paid
+   sub exists, because those actually grant access.
+   ════════════════════════════════════════════════════════════ */
 function goToManageProfile(){
   const trial = getTrialStatus();
   const activeSub = getActiveSubInfo();
   const pendingSub = getPendingSubInfo();
-  const planId = activeSub?.planId || pendingSub?.planId || trial.planId;
-  if(planId === 'venue'){
-    window.location.href = 'venueprofile.html';
-  } else {
-    window.location.href = 'vendorprofile.html';
+
+  let planId = null;
+  if(activeSub){
+    planId = activeSub.planId;
+  } else if(trial.active){
+    planId = trial.planId;
+  } else if(trial.used){
+    planId = trial.planId;
+  } else if(pendingSub){
+    planId = pendingSub.planId;
   }
+
+  const isVenue = planId && String(planId).toLowerCase().includes('venue');
+  window.location.href = isVenue ? 'venueprofile.html' : 'vendorprofile.html';
 }
+
 function refreshProfile(){
   showToast('Refreshing…', 'info');
   setTimeout(() => window.location.reload(), 400);
@@ -1067,7 +1078,7 @@ window.addEventListener('load', () => {
   }, 200);
 });
 
-console.log('✅ My Profile v2.2 — expiry-aware access, pending payment states, dashboard-aligned.');
+console.log('✅ My Profile v2.3 — routing fix + locked-by-default access panel.');
 </script>
 </body>
 </html>

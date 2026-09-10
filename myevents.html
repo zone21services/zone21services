@@ -653,6 +653,7 @@
 <body>
 
     <div class="app-container">
+
         <header class="page-header">
             <a href="index.html" class="brand">
                 <div class="logo-mark">Z</div>
@@ -679,6 +680,7 @@
                 <p>Loading your events…</p>
             </li>
         </ul>
+
     </div>
 
     <div class="modal-overlay" id="rename-modal">
@@ -738,6 +740,10 @@
 
         window.loadEvents = loadEvents;
 
+        /* ============================================================
+           REALTIME LISTENER — fetches subs on every change so we can
+           hide events whose subscription was soft-deleted by admin.
+        ============================================================ */
         async function setupRealtimeListener() {
             if (!currentUser) return;
 
@@ -757,47 +763,43 @@
                     events.push({ id: doc.id, ...doc.data() });
                 });
 
-                const pendingEvents = events.filter(e => 
+                /* ── ALWAYS fetch subscriptions so we can filter deleted ones ── */
+                const subsQuery = query(
+                    collection(db, 'subscriptions'),
+                    where('userId', '==', currentUser.uid)
+                );
+                const subsSnapshot = await getDocs(subsQuery);
+
+                const activeInvoiceNumbers = new Set();
+                const deletedInvoiceNumbers = new Set();
+
+                subsSnapshot.forEach(docSnap => {
+                    const sub = docSnap.data();
+                    if (sub.deletedAt) {
+                        /* Soft-deleted sub — remember its invoice so we can hide its events */
+                        if (sub.invoiceNumber) deletedInvoiceNumbers.add(sub.invoiceNumber);
+                    } else {
+                        const status = (sub.status || '').toLowerCase();
+                        if (status === 'active' || status === 'approved' || status === 'completed') {
+                            if (sub.invoiceNumber) activeInvoiceNumbers.add(sub.invoiceNumber);
+                        }
+                    }
+                });
+
+                /* ── HIDE events whose invoice belongs to a soft-deleted sub ── */
+                events = events.filter(e => {
+                    if (e.invoiceNumber && deletedInvoiceNumbers.has(e.invoiceNumber)) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                /* ── Self-heal: promote pending events whose invoice is now active ── */
+                const pendingEvents = events.filter(e =>
                     (e.status || '').toLowerCase() === 'pending_payment'
                 );
 
-                if (pendingEvents.length > 0) {
-                    const subsQuery = query(
-                        collection(db, 'subscriptions'),
-                        where('userId', '==', currentUser.uid)
-                    );
-                    const subsSnapshot = await getDocs(subsQuery);
-                    
-                    const activeInvoiceNumbers = new Set();
-                    subsSnapshot.forEach(docSnap => {
-                        const sub = docSnap.data();
-                        /* Skip soft-deleted subscriptions — their events are not covered */
-                        if (sub.deletedAt) return;
-                        const status = (sub.status || '').toLowerCase();
-                        if (status === 'active' || status === 'approved' || status === 'completed') {
-                            if (sub.invoiceNumber) {
-                                activeInvoiceNumbers.add(sub.invoiceNumber);
-                            }
-                        }
-                    });
-
-                    if (activeInvoiceNumbers.size > 0) {
-                        for (const invNum of activeInvoiceNumbers) {
-                            try {
-                                const invDoc = await getDoc(doc(db, 'invoices', invNum));
-                                if (invDoc.exists()) {
-                                    const invData = invDoc.data();
-                                    const status = (invData.status || invData.paymentStatus || '').toLowerCase();
-                                    if (status === 'approved' || status === 'active' || status === 'completed') {
-                                        activeInvoiceNumbers.add(invNum);
-                                    }
-                                }
-                            } catch (e) {
-                                console.warn('Could not check invoice:', invNum, e);
-                            }
-                        }
-                    }
-
+                if (pendingEvents.length > 0 && activeInvoiceNumbers.size > 0) {
                     let promotedCount = 0;
                     for (const event of pendingEvents) {
                         if (event.invoiceNumber && activeInvoiceNumbers.has(event.invoiceNumber)) {
@@ -815,11 +817,17 @@
                     }
 
                     if (promotedCount > 0) {
-                        console.log(`Promoted ${promotedCount} events from pending_payment to approved`);
                         const refreshedSnapshot = await getDocs(q);
                         events = [];
                         refreshedSnapshot.forEach(doc => {
                             events.push({ id: doc.id, ...doc.data() });
+                        });
+                        /* Re-apply the deleted filter after refresh */
+                        events = events.filter(e => {
+                            if (e.invoiceNumber && deletedInvoiceNumbers.has(e.invoiceNumber)) {
+                                return false;
+                            }
+                            return true;
                         });
                     }
                 }
@@ -831,6 +839,9 @@
             });
         }
 
+        /* ============================================================
+           MANUAL LOAD (fallback + refresh button)
+        ============================================================ */
         async function loadEvents() {
             if (!currentUser) return;
 
@@ -844,6 +855,28 @@
                 querySnapshot.forEach(doc => {
                     events.push({ id: doc.id, ...doc.data() });
                 });
+
+                /* Fetch subs to filter deleted */
+                const subsQuery = query(
+                    collection(db, 'subscriptions'),
+                    where('userId', '==', currentUser.uid)
+                );
+                const subsSnapshot = await getDocs(subsQuery);
+                const deletedInvoiceNumbers = new Set();
+                subsSnapshot.forEach(docSnap => {
+                    const sub = docSnap.data();
+                    if (sub.deletedAt && sub.invoiceNumber) {
+                        deletedInvoiceNumbers.add(sub.invoiceNumber);
+                    }
+                });
+
+                events = events.filter(e => {
+                    if (e.invoiceNumber && deletedInvoiceNumbers.has(e.invoiceNumber)) {
+                        return false;
+                    }
+                    return true;
+                });
+
                 renderEvents(events);
             } catch (error) {
                 console.error("Error loading events:", error);
@@ -863,6 +896,9 @@
             }
         }
 
+        /* ============================================================
+           RENDER
+        ============================================================ */
         function renderEvents(events) {
             const container = document.getElementById('event-list-container');
             

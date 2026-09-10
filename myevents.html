@@ -7,9 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        /* ============================================================
-           ROOT – MODERN LIGHT THEME
-           ============================================================ */
         :root {
             --bg-body: #f2f5f9;
             --bg-surface: #ffffff;
@@ -58,9 +55,6 @@
             margin: 0 auto;
         }
 
-        /* ============================================================
-           HEADER
-           ============================================================ */
         .page-header {
             display: flex;
             align-items: center;
@@ -150,9 +144,6 @@
             font-size: 0.8rem;
         }
 
-        /* ============================================================
-           SEARCH BAR
-           ============================================================ */
         .search-wrapper {
             margin-bottom: 1.5rem;
         }
@@ -195,9 +186,6 @@
             pointer-events: none;
         }
 
-        /* ============================================================
-           EVENT LIST
-           ============================================================ */
         .event-list {
             list-style: none;
             display: flex;
@@ -428,9 +416,6 @@
             color: #fff;
         }
 
-        /* ============================================================
-           EMPTY STATE
-           ============================================================ */
         .empty-state {
             text-align: center;
             padding: 3.5rem 2rem 4rem;
@@ -504,9 +489,6 @@
             font-size: 1.1rem;
         }
 
-        /* ============================================================
-           LOADING STATE
-           ============================================================ */
         .loading-state {
             text-align: center;
             padding: 4rem 2rem;
@@ -525,9 +507,6 @@
             font-weight: 500;
         }
 
-        /* ============================================================
-           RENAME MODAL
-           ============================================================ */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -638,9 +617,6 @@
             cursor: not-allowed;
         }
 
-        /* ============================================================
-           RESPONSIVE
-           ============================================================ */
         @media (max-width: 640px) {
             body { padding: 1rem 0.75rem; }
             .page-header { margin-bottom: 1.25rem; flex-wrap: wrap; gap: 8px; }
@@ -677,8 +653,6 @@
 <body>
 
     <div class="app-container">
-
-        <!-- ===== HEADER ===== -->
         <header class="page-header">
             <a href="index.html" class="brand">
                 <div class="logo-mark">Z</div>
@@ -692,7 +666,6 @@
             </div>
         </header>
 
-        <!-- ===== SEARCH ===== -->
         <div class="search-wrapper">
             <div class="search-icon">
                 <i class="fas fa-search"></i>
@@ -700,17 +673,14 @@
             </div>
         </div>
 
-        <!-- ===== EVENT LIST ===== -->
         <ul class="event-list" id="event-list-container">
             <li class="loading-state">
                 <i class="fas fa-spinner fa-spin"></i>
                 <p>Loading your events…</p>
             </li>
         </ul>
-
     </div>
 
-    <!-- ===== RENAME MODAL ===== -->
     <div class="modal-overlay" id="rename-modal">
         <div class="modal-card">
             <h3>Rename Event</h3>
@@ -724,9 +694,6 @@
     </div>
 
     <script type="module">
-        // ================================================================
-        //  FIREBASE IMPORTS
-        // ================================================================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { 
@@ -742,9 +709,6 @@
             onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ================================================================
-        //  FIREBASE CONFIG
-        // ================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
             authDomain: "zone21.firebaseapp.com",
@@ -763,9 +727,6 @@
         let activeEventIdToRename = null;
         let unsubscribeEvents = null;
 
-        // ================================================================
-        //  AUTH GUARD
-        // ================================================================
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -775,16 +736,11 @@
             }
         });
 
-        // Make loadEvents globally accessible
         window.loadEvents = loadEvents;
 
-        // ================================================================
-        //  REALTIME LISTENER - Auto-updates when data changes
-        // ================================================================
         async function setupRealtimeListener() {
             if (!currentUser) return;
 
-            // Clean up previous listener
             if (unsubscribeEvents) {
                 unsubscribeEvents();
                 unsubscribeEvents = null;
@@ -796,21 +752,16 @@
             );
 
             unsubscribeEvents = onSnapshot(q, async (snapshot) => {
-                // Build events array
                 let events = [];
                 snapshot.forEach(doc => {
                     events.push({ id: doc.id, ...doc.data() });
                 });
 
-                // ============================================================
-                //  SELF-HEAL: Check pending_payment events against active invoices
-                // ============================================================
                 const pendingEvents = events.filter(e => 
                     (e.status || '').toLowerCase() === 'pending_payment'
                 );
 
                 if (pendingEvents.length > 0) {
-                    // Get all active subscriptions for this user
                     const subsQuery = query(
                         collection(db, 'subscriptions'),
                         where('userId', '==', currentUser.uid)
@@ -820,6 +771,8 @@
                     const activeInvoiceNumbers = new Set();
                     subsSnapshot.forEach(docSnap => {
                         const sub = docSnap.data();
+                        /* Skip soft-deleted subscriptions — their events are not covered */
+                        if (sub.deletedAt) return;
                         const status = (sub.status || '').toLowerCase();
                         if (status === 'active' || status === 'approved' || status === 'completed') {
                             if (sub.invoiceNumber) {
@@ -828,7 +781,6 @@
                         }
                     });
 
-                    // Also check the invoices collection directly
                     if (activeInvoiceNumbers.size > 0) {
                         for (const invNum of activeInvoiceNumbers) {
                             try {
@@ -846,7 +798,6 @@
                         }
                     }
 
-                    // Promote events whose invoice is now active
                     let promotedCount = 0;
                     for (const event of pendingEvents) {
                         if (event.invoiceNumber && activeInvoiceNumbers.has(event.invoiceNumber)) {
@@ -865,7 +816,6 @@
 
                     if (promotedCount > 0) {
                         console.log(`Promoted ${promotedCount} events from pending_payment to approved`);
-                        // Reload the snapshot data after promotions
                         const refreshedSnapshot = await getDocs(q);
                         events = [];
                         refreshedSnapshot.forEach(doc => {
@@ -874,18 +824,13 @@
                     }
                 }
 
-                // Render the events
                 renderEvents(events);
             }, (error) => {
                 console.error("Realtime listener error:", error);
-                // Fallback to manual load
                 loadEvents();
             });
         }
 
-        // ================================================================
-        //  LOAD EVENTS (Manual fallback)
-        // ================================================================
         async function loadEvents() {
             if (!currentUser) return;
 
@@ -918,13 +863,9 @@
             }
         }
 
-        // ================================================================
-        //  RENDER EVENTS
-        // ================================================================
         function renderEvents(events) {
             const container = document.getElementById('event-list-container');
             
-            // Sort by newest first
             events.sort((a, b) => {
                 const da = a.createdAt?.seconds || a.createdAt || 0;
                 const db2 = b.createdAt?.seconds || b.createdAt || 0;
@@ -962,12 +903,10 @@
                 const statusBadge = getStatusBadge(status);
                 const statusDot = getStatusDot(status);
                 
-                // Determine if event is clickable (approved/active only)
                 const isClickable = ['approved', 'active'].includes(status.toLowerCase());
                 const clickClass = isClickable ? '' : 'disabled';
                 const clickHandler = isClickable ? `onclick="goToManageEvent('${event.id}')"` : '';
 
-                // Show invoice button for pending events
                 const showInvoiceBtn = ['pending', 'pending_payment', 'rejected'].includes(status.toLowerCase());
 
                 return `
@@ -1011,9 +950,6 @@
             }).join('');
         }
 
-        // ================================================================
-        //  HELPERS
-        // ================================================================
         function formatTime(timestamp) {
             if (!timestamp) return 'Just now';
             let dateObj;
@@ -1063,9 +999,6 @@
             return div.innerHTML;
         }
 
-        // ================================================================
-        //  VIEW INVOICE
-        // ================================================================
         window.viewInvoice = async function(eventId) {
             try {
                 const eventDoc = await getDoc(doc(db, 'events', eventId));
@@ -1073,7 +1006,6 @@
                 const eventData = eventDoc.data();
                 
                 if (eventData.invoiceNumber) {
-                    // Store and redirect to subscription page to view invoice
                     localStorage.setItem('zone21_view_invoice', eventData.invoiceNumber);
                     window.location.href = 'subscription.html?viewInvoice=' + eventData.invoiceNumber;
                 } else {
@@ -1085,16 +1017,10 @@
             }
         };
 
-        // ================================================================
-        //  NAVIGATION
-        // ================================================================
         window.goToManageEvent = function(eventId) {
             window.location.href = `manageevent.html?eventId=${eventId}`;
         };
 
-        // ================================================================
-        //  SEARCH
-        // ================================================================
         window.filterEvents = function() {
             const query = document.getElementById('search-input').value.toLowerCase();
             const items = document.querySelectorAll('.event-item');
@@ -1104,9 +1030,6 @@
             });
         };
 
-        // ================================================================
-        //  RENAME MODAL
-        // ================================================================
         const modal = document.getElementById('rename-modal');
         const renameInput = document.getElementById('rename-input');
         const saveBtn = document.getElementById('save-rename-btn');

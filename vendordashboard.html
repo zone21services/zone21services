@@ -452,7 +452,7 @@ body{background:var(--bg);display:flex;min-height:100vh;overflow-x:hidden;color:
     <a href="#" data-tab="settings"><i class="fas fa-cog"></i> Settings</a>
     <a href="index.html" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
   </div>
-  <div class="sidebar-footer"><p>Vendor Hub v4.4</p></div>
+  <div class="sidebar-footer"><p>Vendor Hub v4.5</p></div>
 </div>
 
 <!-- ============ MAIN WRAPPER ============ -->
@@ -510,7 +510,7 @@ body{background:var(--bg);display:flex;min-height:100vh;overflow-x:hidden;color:
       <div class="trial-cta" id="trialCta">
         <div class="tc-text">
           <span class="tc-badge">🎁 Limited Offer</span>
-          <h3>Start Your 1-Month Free Trial</h3>
+          <h3>Start Your 48-Hour Free Trial</h3>
           <p>Create <strong>one profile</strong> (Venue or Service Provider) and experience everything Zone21 offers — no payment required. When the trial ends, subscribe to keep managing your profile.</p>
         </div>
         <button class="tc-btn" id="startTrialBtn"><i class="fas fa-rocket"></i> Start Free Trial</button>
@@ -545,7 +545,7 @@ body{background:var(--bg);display:flex;min-height:100vh;overflow-x:hidden;color:
             <div class="fact">
               <div class="fact-icon">🎁</div>
               <div>
-                <div class="fact-title">30 Days Free</div>
+                <div class="fact-title">48 Hours Free</div>
                 <div class="fact-sub">No card needed. Cancel anytime.</div>
               </div>
             </div>
@@ -725,11 +725,11 @@ body{background:var(--bg);display:flex;min-height:100vh;overflow-x:hidden;color:
     <button class="modal-close" onclick="closeTrialModal()">&times;</button>
     <div class="modal-head">
       <h3>🎁 Start Your Free Trial</h3>
-      <p>Choose one profile type — free for 1 full month</p>
+      <p>Choose one profile type — free for 48 hours</p>
     </div>
     <div class="modal-body">
       <div class="trial-terms">
-        <strong>How it works:</strong> You get <strong>1 month free</strong> to create and manage <strong>one profile</strong> of your choice. When the trial ends, you'll need an active subscription to keep managing your profile.
+        <strong>How it works:</strong> You get <strong>48 hours free</strong> to create and manage <strong>one profile</strong> of your choice. When the trial ends, you'll need an active subscription to keep managing your profile.
       </div>
       <div class="trial-choice" id="trialChoice">
         <div class="choice" data-plan="service_provider">
@@ -788,6 +788,12 @@ let unsubscribeSubs = null;
 let unsubscribeProvider = null;
 let unsubscribeTrial = null;
 let expiryCheckInterval = null;
+
+/* ════════════════════════════════════════════════════════════
+   TRIAL LENGTH: 48 hours
+   ════════════════════════════════════════════════════════════ */
+const TRIAL_HOURS = 48;
+const TRIAL_MS = TRIAL_HOURS * 60 * 60 * 1000;
 
 const PLANS = [
   { id:'service_provider', name:'Service Provider Package', price:10, featured:true,
@@ -915,14 +921,22 @@ function startTrialListener(){
   }, err=>console.error(err));
 }
 
+/* ============================================================
+   TRIAL STATUS — now calculates hours remaining for 48h trial
+============================================================ */
 function getTrialStatus(){
-  if(!trialData) return { used:false, active:false, expired:false, daysRemaining:0, planId:null };
+  if(!trialData) return { used:false, active:false, expired:false, hoursRemaining:0, daysRemaining:0, planId:null };
   const start = toDate(trialData.createdAt) || new Date();
-  const exp = toDate(trialData.expiresAt) || (()=>{ const d = new Date(start); d.setMonth(d.getMonth()+1); return d; })();
-  const daysRemaining = Math.ceil((exp.getTime() - Date.now()) / 86400000);
+  const exp = toDate(trialData.expiresAt) || (()=>{ const d = new Date(start); d.setTime(d.getTime() + TRIAL_MS); return d; })();
+  const msRemaining = exp.getTime() - Date.now();
+  const hoursRemaining = Math.max(0, Math.ceil(msRemaining / (60 * 60 * 1000)));
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)));
   return {
-    used:true, active: daysRemaining > 0, expired: daysRemaining <= 0,
-    daysRemaining: Math.max(0, daysRemaining),
+    used:true,
+    active: msRemaining > 0,
+    expired: msRemaining <= 0,
+    hoursRemaining,
+    daysRemaining,
     planId: trialData.planId, expiresAt: exp, startedAt: start
   };
 }
@@ -978,7 +992,7 @@ function updateTrialCta(){
     return;
   }
 
-  /* 2. Active paid subscription — hide the trial CTA entirely (paid users see nothing) */
+  /* 2. Active paid subscription — hide the trial CTA entirely */
   if((overall.status === 'active' || overall.status === 'approved') && !overall.expired){
     cta.style.display = 'none';
     return;
@@ -992,11 +1006,12 @@ function updateTrialCta(){
 
   /* Trial active */
   if(t.active){
+    const hUnit = t.hoursRemaining === 1 ? 'hour' : 'hours';
     cta.innerHTML = `
       <div class="tc-text">
         <span class="tc-badge" style="background:rgba(192,200,0,.18)">✨ Trial Active</span>
         <h3>Your Free Trial is Running</h3>
-        <p>You have <strong>${t.daysRemaining} day${t.daysRemaining===1?'':'s'} left</strong> on your ${t.planId==='venue'?'Venue':'Service Provider'} trial. Subscribe before it ends to keep managing your profile.</p>
+        <p>You have <strong>${t.hoursRemaining} ${hUnit} left</strong> on your ${t.planId==='venue'?'Venue':'Service Provider'} trial. Subscribe before it ends to keep managing your profile.</p>
       </div>
       <a href="#" class="tc-btn" onclick="event.preventDefault();document.querySelector('[data-tab=subscription]').click()"><i class="fas fa-arrow-right"></i> View Plans</a>`;
     return;
@@ -1037,7 +1052,7 @@ function renderDashboard(){
       statusBadge = `<span class="badge active">Active</span>`;
     }
   } else if(trial.active){
-    statusBadge = `<span class="badge trial">TRIAL · ${trial.daysRemaining}d left</span>`;
+    statusBadge = `<span class="badge trial">TRIAL · ${trial.hoursRemaining}h left</span>`;
   } else if(trial.expired){
     statusBadge = `<span class="badge expired">TRIAL EXPIRED</span>`;
     warning = `<div class="expiry-warning"><i class="fas fa-exclamation-triangle"></i> Your free trial has expired. Subscribe to keep managing your profile.</div>`;
@@ -1128,7 +1143,8 @@ function renderDashboard(){
     else if(isTrialPlan){
       if(trial.active){
         extraClass = 'featured';
-        lockHtml = `<div class="trial-banner"><i class="fas fa-gift"></i> Free Trial Active — ${trial.daysRemaining} day${trial.daysRemaining===1?'':'s'} left</div>`;
+        const hUnit = trial.hoursRemaining === 1 ? 'hour' : 'hours';
+        lockHtml = `<div class="trial-banner"><i class="fas fa-gift"></i> Free Trial Active — ${trial.hoursRemaining} ${hUnit} left</div>`;
         actionHtml = `
           <button class="btn btn-success" onclick="window.location.href='manageprofile.html'"><i class="fas fa-user-cog"></i> Manage Profile</button>
           <button class="btn btn-outline" onclick="selectPlan('${plan.id}','${plan.name}',${plan.price})"><i class="fas fa-crown"></i> Subscribe — $${plan.price}/mo</button>`;
@@ -1162,7 +1178,7 @@ function renderDashboard(){
         ${lockHtml}
         <h4>${plan.name}</h4>
         <div class="price">$${plan.price} <small>/month</small></div>
-        ${!trial.used && !hasSub ? `<div class="trial-note"><i class="fas fa-gift"></i> Or start a 1-month free trial</div>` : ''}
+        ${!trial.used && !hasSub ? `<div class="trial-note"><i class="fas fa-gift"></i> Or start a 48-hour free trial</div>` : ''}
         <ul class="benefits">
           ${plan.benefits.map(b=>`<li><i class="fas fa-check-circle"></i> ${b}</li>`).join('')}
         </ul>
@@ -1183,6 +1199,7 @@ function renderSubscription(){
   const hasActivePaid = (overall.status==='active'||overall.status==='approved') && !overall.expired;
   if(trial.used && !hasActivePaid){
     const isActive = trial.active;
+    const hUnit = trial.hoursRemaining === 1 ? 'hour' : 'hours';
     html += `
       <div style="border:1px solid ${isActive?'rgba(124,58,237,.3)':'var(--danger)'}; border-radius:var(--radius-sm); padding:18px; margin-bottom:16px; border-left:4px solid ${isActive?'#7c3aed':'var(--danger)'}; background:${isActive?'linear-gradient(135deg,rgba(124,58,237,.04),transparent)':'rgba(220,38,38,.03)'}">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
@@ -1192,7 +1209,7 @@ function renderSubscription(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;font-size:.85rem">
           <div><span style="color:var(--muted)">Started</span> ${trial.startedAt.toLocaleDateString()}</div>
           <div><span style="color:var(--muted)">Expires</span> ${trial.expiresAt.toLocaleDateString()} ${isActive?'':'⚠️'}</div>
-          ${isActive?`<div><span style="color:var(--muted)">Days Left</span> ${trial.daysRemaining}</div>`:''}
+          ${isActive?`<div><span style="color:var(--muted)">Hours Left</span> ${trial.hoursRemaining} ${hUnit}</div>`:''}
           <div><span style="color:var(--muted)">Cost</span> $0.00</div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1302,14 +1319,15 @@ document.getElementById('confirmTrialBtn').addEventListener('click', async ()=>{
       closeTrialModal();
       return;
     }
+    /* 48-hour trial — set expiry by adding hours instead of a month */
     const now = new Date();
-    const exp = new Date(now); exp.setMonth(exp.getMonth() + 1);
+    const exp = new Date(now.getTime() + TRIAL_MS);
     await db.collection('trials').doc(currentUser.uid).set({
       planId: selectedTrialPlan, status: 'active',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       expiresAt: firebase.firestore.Timestamp.fromDate(exp)
     });
-    showToast('🎉 Free trial activated! Valid for 1 month.', 'success');
+    showToast('🎉 Free trial activated! Valid for 48 hours.', 'success');
     closeTrialModal();
   }catch(e){
     console.error(e);
@@ -1613,7 +1631,7 @@ async function changePassword(){
 }
 window.changePassword = changePassword;
 
-console.log('✅ Vendor Hub v4.4 — soft-deleted subscriptions now hidden.');
+console.log('✅ Vendor Hub v4.5 — trial is now 48 hours.');
 </script>
 </body>
 </html>

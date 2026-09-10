@@ -557,6 +557,8 @@ function startSubscriptionsListener(){
       subscriptions = [];
       snap.forEach(doc => {
         const d = doc.data();
+        /* Skip soft-deleted subscriptions — admin removed this plan */
+        if(d.deletedAt) return;
         subscriptions.push({
           id: doc.id,
           planId: d.planId || (d.planName ? d.planName.toLowerCase().replace(/[^a-z0-9]/g,'_') : 'unknown'),
@@ -624,11 +626,7 @@ function classifySubscription(sub){
 }
 
 /* ============================================================
-   ACTIVE GRANTS — ALL currently-active access rights
-============================================================
-   Returns an array of every live grant the user has, regardless
-   of whether it's a paid sub or an active free trial. Two active
-   grants on two different plans = two entries.
+   ACTIVE GRANTS
 ============================================================ */
 function getActiveGrants(){
   const grants = [];
@@ -731,7 +729,7 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
   tag.className = 'trial-tag';
   pendingHint.innerHTML = '';
 
-  /* ═══════════════ CASE: MULTIPLE ACTIVE GRANTS ═══════════════ */
+  /* MULTIPLE ACTIVE GRANTS */
   if(grants.length >= 2){
     card.classList.add('multi-active');
     ring.style.display = 'none';
@@ -742,7 +740,6 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     title.textContent = 'You have multiple active plans';
     text.innerHTML = `Each plan has its own profile. Manage them independently below.`;
 
-    /* Build grants list */
     const rows = grants.map(g => {
       const icon = g.isVenue ? 'fa-building' : (g.kind === 'trial' ? 'fa-gift' : 'fa-briefcase');
       const kindClass = g.kind === 'trial' ? 'trial' : (g.isVenue ? 'venue' : '');
@@ -771,10 +768,9 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     return;
   }
 
-  /* ═══════════════ CASE: ONE ACTIVE PAID SUB ═══════════════ */
+  /* ONE ACTIVE PAID SUB */
   if(activeSub && grants.length === 1){
     const g = grants[0];
-    const kindClass = g.isVenue ? 'venue' : '';
     tag.className = 'trial-tag subscribed';
 
     card.classList.add('state-subscribed');
@@ -795,7 +791,6 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     title.textContent = 'Subscription Active';
     text.innerHTML = `Your <strong>${activeSub.planName}</strong> is active. Full access to organisers and inbox messaging.${exp ? ` Expires <strong>${exp.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</strong>.` : ''}`;
 
-    /* Pending hint if the user ALSO has a pending sub on another plan */
     if(pendingSub && !samePlan(pendingSub.planId, activeSub.planId)){
       pendingHint.innerHTML = `<div class="trial-pending-hint"><i class="fas fa-clock"></i> ${pendingSub.planName} — payment awaiting approval</div>`;
     }
@@ -806,7 +801,7 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     return;
   }
 
-  /* ═══════════════ CASE: ONE ACTIVE TRIAL ═══════════════ */
+  /* ONE ACTIVE TRIAL */
   if(trial.active && grants.length === 1){
     card.classList.add('state-active');
     ring.classList.add('state-active');
@@ -831,7 +826,7 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     return;
   }
 
-  /* ═══════════════ CASE: TRIAL EXPIRED (maybe pending) ═══════════════ */
+  /* TRIAL EXPIRED (maybe pending) */
   if(trial.used && trial.expired){
     if(pendingSub){
       card.classList.add('state-pending');
@@ -870,7 +865,7 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
     return;
   }
 
-  /* ═══════════════ CASE: NOTHING YET ═══════════════ */
+  /* NOTHING YET */
   card.classList.add('state-none');
   ring.classList.add('state-none');
   tag.classList.add('none');
@@ -892,7 +887,7 @@ function renderTrialCard(trial, activeSub, pendingSub, grants, unlocked){
 }
 
 /* ============================================================
-   HERO BADGES — one pill per active grant
+   HERO BADGES
 ============================================================ */
 function updateHeroBadges(trial, activeSub, pendingSub, grants){
   const wrap = document.getElementById('heroBadges');
@@ -915,7 +910,6 @@ function updateHeroBadges(trial, activeSub, pendingSub, grants){
     pills.push(`<span class="hero-pill warning"><i class="fas fa-rocket"></i> Trial Available</span>`);
   }
 
-  /* Plan pills for each unique plan the user has access to */
   const seenPlans = new Set();
   for(const g of grants){
     const isVenue = g.isVenue;
@@ -1015,13 +1009,12 @@ function updateAccessCards(unlocked, trial, pendingSub){
 });
 
 /* ============================================================
-   BUILD UNIFIED PLAN ENTRIES (paid subs + trial as one list)
+   BUILD UNIFIED PLAN ENTRIES
 ============================================================ */
 function buildPlanEntries(){
   const entries = [];
   const trial = getTrialStatus();
 
-  /* Paid subs */
   for(const sub of subscriptions){
     const cls = classifySubscription(sub);
     entries.push({
@@ -1041,7 +1034,6 @@ function buildPlanEntries(){
     });
   }
 
-  /* Trial as virtual entry — skip if an active/pending sub already covers same plan */
   if(trial.used){
     const covered = entries.some(e =>
       (e.status === 'active' || e.status === 'pending') && samePlan(e.planId, trial.planId)
@@ -1066,7 +1058,6 @@ function buildPlanEntries(){
     }
   }
 
-  /* Sort: active first (trial first among actives), then pending, expired, rejected */
   const order = e => {
     if(e.status === 'active' && e.isTrial) return 0;
     if(e.status === 'active') return 1;
@@ -1108,7 +1099,6 @@ function renderPlans(){
     const isRejected = e.status === 'rejected';
     const isExpired = e.status === 'expired';
 
-    /* Status class drives the left accent bar + badge color */
     let statusClass = e.status;
     if(isActive && e.isTrial) statusClass = 'trial';
 
@@ -1128,7 +1118,6 @@ function renderPlans(){
       expiryStr = `${isExpired ? 'Expired' : 'Expires'} ${e.expiryDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
     }
 
-    /* Action button per entry */
     let actionHtml = '';
     if(isActive){
       actionHtml = `<button class="btn btn-lime btn-sm" onclick="goToProfileFor('${e.planId}')"><i class="fas fa-user-cog"></i> Manage</button>`;
@@ -1230,13 +1219,11 @@ function goBack(){ window.location.href = 'vendordashboard.html'; }
 function goToSubscribe(){ window.location.href = 'vendordashboard.html#subscription'; }
 function goToTrial(){ window.location.href = 'vendordashboard.html#trial'; }
 
-/* Direct routing by planId — used by per-grant buttons */
 function goToProfileFor(planId){
   const isVenue = isVenuePlan(planId, '');
   window.location.href = isVenue ? 'venueprofile.html' : 'vendorprofile.html';
 }
 
-/* Legacy — kept for compatibility. Picks the "best" plan to route to. */
 function goToManageProfile(){
   const trial = getTrialStatus();
   const activeSub = getActiveSubInfo();
@@ -1275,7 +1262,7 @@ window.addEventListener('load', () => {
   setTimeout(() => {
     const trial = getTrialStatus();
     const grants = getActiveGrants();
-    if(grants.length >= 2) return; /* multi-active has no ring */
+    if(grants.length >= 2) return;
 
     const fill = document.getElementById('ringFill');
     if(!fill) return;
@@ -1297,7 +1284,7 @@ window.addEventListener('load', () => {
   }, 200);
 });
 
-console.log('✅ My Profile v2.4 — multi-grant aware. Handles trial + paid on different plans.');
+console.log('✅ My Profile v2.5 — soft-deleted subscriptions now hidden.');
 </script>
 </body>
 </html>

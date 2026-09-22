@@ -222,10 +222,9 @@
         .service-slot-header h3 { margin: 0; color: var(--navy); font-size: 0.95rem; font-weight: 700; }
         .slot-status { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.4px; }
         .slot-status.not_sent { background: var(--grey); color: var(--text-secondary); }
-        .slot-status.pending { background: #FFF4DC; color: #B07B00; }
+        .slot-status.invited { background: #FFF4DC; color: #B07B00; }
         .slot-status.accepted { background: var(--mint-soft); color: var(--mint); }
         .slot-status.declined { background: var(--coral-soft); color: var(--coral); }
-        .slot-status.no_more { background: #EFEFEF; color: #666; }
 
         .vendor-card.is-invited { border-left-width: 4px; }
         .vendor-card.is-accepted { border-left-color: var(--mint); background: #F7FBFB; }
@@ -234,7 +233,7 @@
         .vendor-status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
         .vendor-status-badge { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.3px; }
         .vendor-status-badge.not_sent { background: var(--grey); color: var(--text-secondary); }
-        .vendor-status-badge.pending { background: #FFF4DC; color: #B07B00; }
+        .vendor-status-badge.invited { background: #FFF4DC; color: #B07B00; }
         .vendor-status-badge.accepted { background: var(--mint-soft); color: var(--mint); }
         .vendor-status-badge.declined { background: var(--coral-soft); color: var(--coral); }
 
@@ -242,6 +241,10 @@
         .approve-checkbox:hover { border-color: var(--mint); background: var(--mint-soft); }
         .approve-checkbox input { accent-color: var(--mint); width: 13px; height: 13px; cursor: pointer; }
         .approve-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .send-invites-btn { background: var(--mint); color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); }
+        .send-invites-btn:hover { background: #5A8A8A; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .send-invites-btn:disabled { background: var(--grey); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
         .confirm-banner { background: var(--mint); color: white; padding: 14px 20px; border-radius: var(--radius); margin: 12px 0; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-md); font-weight: 600; }
         .confirm-banner i { font-size: 1.3rem; }
@@ -329,7 +332,7 @@
             .blueprint-controls { display: none !important; }
             .zone21-help .help-actions { display: none !important; }
             .vendor-card .vendor-actions { display: none !important; }
-            .approve-checkbox { display: none !important; }
+            .approve-checkbox, .send-invites-btn { display: none !important; }
         }
     </style>
 </head>
@@ -834,8 +837,8 @@
                             <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge venue">Venue</span></span>
                             ${canInclude ? `
                                 <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
-                                    <input type="checkbox" data-approve-service="${escapeAttr(venueTargetService)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="handleAutomaticInvite(this)">
-                                    <span class="cb-label">Include & Send Invite</span>
+                                    <input type="checkbox" data-approve-service="${escapeAttr(venueTargetService)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
+                                    <span class="cb-label">Include</span>
                                 </label>
                             ` : ''}
                         </div>
@@ -855,7 +858,7 @@
                         </div>
                         ${canInclude ? `
                             <div class="vendor-status-line">
-                                <span class="vendor-status-badge not_sent">Not yet invited</span>
+                                <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
                             </div>
                         ` : ''}
                         <div class="vendor-actions">
@@ -874,11 +877,9 @@
         function statusLabel(status) {
             return ({
                 not_sent: 'Not yet invited',
-                pending: 'Awaiting response',
+                invited: 'Invited',
                 accepted: 'Confirmed',
-                declined: 'Declined',
-                no_more: 'No more providers',
-                skipped: 'Skipped'
+                declined: 'Declined'
             })[status] || status;
         }
 
@@ -890,11 +891,12 @@
                     <i class="fas fa-circle-info"></i>
                     <div class="txt">
                         <strong>How invitations work:</strong>
-                        Marking <strong>Include &amp; Send Invite</strong> next to a provider means you are officially inviting that provider. An automatic message with your event details will be sent immediately to the vendor, and a copy will be saved to your inbox.
+                        Marking <strong>Include</strong> next to a provider and then clicking
+                        <strong>Invite All Selected</strong> means you are officially inviting that provider to be part of your event.
+                        <br><br>
+                        An automatic message with your event details will be sent directly to their chat inbox. You can view all sent messages in your own inbox.
                         <br><br>
                         Each blueprint is completely independent. You can invite the same provider to multiple different events — the system will send a fresh invitation each time.
-                        <br><br>
-                        Zone21 Admin receives a copy in the management inbox for coordination.
                     </div>
                 </div>`;
 
@@ -926,8 +928,8 @@
                                 <div class="vendor-name" style="justify-content:space-between;">
                                     <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge">Provider</span></span>
                                     <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
-                                        <input type="checkbox" data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="handleAutomaticInvite(this)">
-                                        <span class="cb-label">Include & Send Invite</span>
+                                        <input type="checkbox" data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
+                                        <span class="cb-label">Include</span>
                                     </label>
                                 </div>
                                 <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
@@ -956,6 +958,12 @@
                 html += `</div>`;
             });
 
+            html += `<div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button class="send-invites-btn" id="invite-all-btn" onclick="sendAllInvitations()">
+                    <i class="fas fa-paper-plane"></i> Invite All Selected
+                </button>
+                <span class="deadline-note">Select the providers you want, then click invite.</span>
+            </div>`;
             return html;
         }
 
@@ -1540,11 +1548,6 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         // ============================================================
         //  BOOKING REQUEST SYSTEM
         // ============================================================
-        function isLocallyInvited(service, providerId) {
-            const h = (currentEventData && currentEventData.invitedHistory) || {};
-            return (h[service] || []).includes(providerId);
-        }
-
         function markLocallyInvited(service, providerId) {
             if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
             if (!currentEventData.invitedHistory[service]) currentEventData.invitedHistory[service] = [];
@@ -1555,33 +1558,11 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
 
         function buildInviteMessage(service, providerName) {
             const d = currentEventData;
-            return `📋 NEW SERVICE INVITATION
-
-Event: ${d.name}
-Service: ${service}
-Date: ${d.date} at ${d.time}
-Location: ${d.location}
-Budget: $${d.budget}
-Attendees: ${d.attendees}
-Contact: ${d.contact}
-
-Hello ${providerName || 'Provider'},
-
-You have been invited by the event organiser to provide "${service}" for this event.
-Please reply with ACCEPT or DECLINE, or send a message if you need more details.`;
+            return `hie im requestion for your ${service} service on the ${d.date}. Are you available or is the venue available for bookings?`;
         }
 
-        async function sendInvitationForSlot(service, provider, attemptNumber) {
+        async function sendInvitationForSlot(service, provider) {
             const providerUid = getProviderUid(provider);
-
-            console.log('[Zone21 Invite] → Sending:', {
-                service,
-                providerName: provider?.name,
-                providerDocId: provider?.id,
-                providerUid,
-                sessionId: currentSessionId,
-                package: userPackage
-            });
 
             if (!providerUid) {
                 console.warn('[Zone21 Invite] ✗ Provider has no UID — skipping');
@@ -1606,8 +1587,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 budget: currentEventData.budget,
                 notes: currentEventData.notes,
                 package: userPackage,
-                status: 'pending',
-                attemptNumber,
+                status: 'invited', // Simplified status
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -1621,7 +1601,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 throw e;
             }
 
-            // Send to Admin / Management Inbox
+            // 1. Send to Admin / Management Inbox
             try {
                 await db.collection('messages').add({
                     sender: 'user',
@@ -1649,37 +1629,50 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 console.warn('[Zone21 Invite] ✗ admin message failed:', e.message);
             }
 
-            // Send to Vendor
+            // 2. Send to Vendor Chat Thread
             if (providerUid && providerUid !== 'admin') {
                 try {
-                    await db.collection('messages').add({
-                        sender: 'user',
-                        senderId: currentUser.uid,
-                        senderType: 'organizer',
-                        senderName: currentEventData.name,
-                        subject: `New Service Request: ${service}`,
-                        message: messageText,
-                        type: 'service_request',
-                        recipientId: providerUid,
-                        providerId: providerUid,
-                        status: 'unread',
-                        eventId: currentSessionId,
-                        eventName: currentEventData.name,
-                        service,
-                        requestId: ref.id,
-                        date: currentEventData.date,
-                        time: currentEventData.time,
-                        location: currentEventData.location,
-                        budget: currentEventData.budget,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    // Find or create thread
+                    const threadsRef = db.collection('threads');
+                    const q = threadsRef.where('participants', 'array-contains', currentUser.uid);
+                    const snap = await q.get();
+                    let threadId = null;
+                    snap.forEach(doc => {
+                        if (doc.data().participants.includes(providerUid)) threadId = doc.id;
                     });
-                    console.log('[Zone21 Invite] ✓ vendor notified:', providerUid);
+
+                    if (!threadId) {
+                        const newThread = await threadsRef.add({
+                            participants: [currentUser.uid, providerUid],
+                            jobTitle: service,
+                            lastMessageText: messageText.substring(0, 80),
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        threadId = newThread.id;
+                    }
+
+                    // Write to thread messages
+                    await db.collection(`threads/${threadId}/messages`).add({
+                        senderId: currentUser.uid,
+                        text: messageText,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        isSystemRequest: true
+                    });
+
+                    // Update thread metadata
+                    await db.collection('threads').doc(threadId).update({
+                        lastMessageText: messageText.substring(0, 80),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    console.log('[Zone21 Invite] ✓ vendor chat notified:', providerUid);
                 } catch (e) {
-                    console.warn('[Zone21 Invite] ✗ vendor message failed:', e.message);
+                    console.warn('[Zone21 Invite] ✗ vendor chat message failed:', e.message);
                 }
             }
 
-            // ✅ Send to Organiser (so they see it in their inbox)
+            // 3. Send to Organiser Inbox (so they see a record)
             try {
                 await db.collection('messages').add({
                     sender: 'system',
@@ -1709,63 +1702,82 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             }
 
             markLocallyInvited(service, providerUid);
-
-            console.log('[Zone21 Invite] ✓✓ Sent to', provider.name, 'for', service);
-            return { requestId: ref.id, providerId: providerUid, attemptNumber, service, providerName: provider.name };
+            return { requestId: ref.id, providerId: providerUid, service, providerName: provider.name };
         }
 
-        // ✅ New Automatic Invite Handler
-        async function handleAutomaticInvite(cb) {
-            if (!cb.checked) return;
-
-            if (!currentSessionId || !currentEventData) {
-                showToast('Event session not ready. Please regenerate.', 'error');
-                cb.checked = false;
+        // ✅ Send All Invitations
+        async function sendAllInvitations() {
+            if (!currentUser || !currentEventData) {
+                showToast('Not ready. Please generate a blueprint first.', 'error');
+                return;
+            }
+            if (!currentSessionId) {
+                showToast('No active event session. Please regenerate the blueprint.', 'error');
                 return;
             }
 
-            const service = cb.getAttribute('data-approve-service');
-            const providerId = cb.getAttribute('data-approve-provider');
-            const provider = findProviderById(providerId);
-
-            if (!provider) {
-                showToast('Provider details not found.', 'error');
-                cb.checked = false;
+            const checkboxes = document.querySelectorAll('input[data-approve-provider]:checked');
+            if (checkboxes.length === 0) {
+                showToast('No providers selected. Tick "Include" next to the providers you want to invite.', 'info');
                 return;
             }
 
-            const card = cb.closest('.vendor-card');
-            const badge = card.querySelector('.vendor-status-badge');
-
-            // Set UI to sending state
-            cb.disabled = true;
-            if (badge) {
-                badge.className = 'vendor-status-badge pending';
-                badge.textContent = 'Sending...';
+            const btn = document.getElementById('invite-all-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
             }
 
-            try {
-                const result = await sendInvitationForSlot(service, provider, 1);
+            let sentCount = 0;
+            let failCount = 0;
 
-                if (result.skipped) {
-                    showToast(`Could not send invite to ${provider.name}.`, 'error');
-                    cb.checked = false;
-                    cb.disabled = false;
-                    if (badge) { badge.className = 'vendor-status-badge not_sent'; badge.textContent = 'Not yet invited'; }
-                } else {
-                    // Update state and refresh UI
-                    activeRequests[service] = { ...result, status: 'pending', providerName: provider.name };
-                    saveBlueprintState(lastGeneratedHTML);
-                    refreshSlotUI();
-                    showToast(`Invitation automatically sent to ${provider.name} for ${service}.`, 'success');
+            for (const cb of checkboxes) {
+                const service = cb.getAttribute('data-approve-service');
+                const providerId = cb.getAttribute('data-approve-provider');
+                const provider = findProviderById(providerId);
+
+                if (!provider) {
+                    console.warn('[Zone21] Provider not found in cache:', providerId);
+                    failCount++;
+                    continue;
                 }
-            } catch (e) {
-                console.error('[Zone21 Invite] Automatic invite error:', e);
-                showToast('Failed to send invitation.', 'error');
-                cb.checked = false;
-                cb.disabled = false;
-                if (badge) { badge.className = 'vendor-status-badge not_sent'; badge.textContent = 'Not yet invited'; }
+
+                try {
+                    const result = await sendInvitationForSlot(service, provider);
+                    if (result.skipped) {
+                        failCount++;
+                    } else {
+                        sentCount++;
+                        activeRequests[service] = { ...result, status: 'invited', providerName: provider.name };
+                    }
+                } catch (e) {
+                    console.error('[Zone21] invite error:', e);
+                    failCount++;
+                }
             }
+
+            saveBlueprintState(lastGeneratedHTML);
+            refreshSlotUI();
+
+            if (sentCount > 0) {
+                showToast(`✅ ${sentCount} invitation(s) sent.` + (failCount ? ` ⚠️ ${failCount} failed.` : ''), 'success');
+            } else {
+                showToast('❌ No invitations sent. Check console for details.', 'error');
+            }
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Invite All Selected';
+            }
+        }
+
+        function updateInviteButtonState() {
+            const btn = document.getElementById('invite-all-btn');
+            if (!btn) return;
+            const anyChecked = Array.from(
+                document.querySelectorAll('input[data-approve-provider]')
+            ).some(cb => cb.checked && !cb.disabled);
+            btn.disabled = !anyChecked;
         }
 
         // ============================================================
@@ -1782,7 +1794,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     snapshot.forEach(doc => {
                         const r = { id: doc.id, ...doc.data() };
                         const svc = r.service;
-                        if (!latestByService[svc] || (r.attemptNumber || 0) > (latestByService[svc].attemptNumber || 0)) {
+                        if (!latestByService[svc] || (r.createdAt && latestByService[svc].createdAt && r.createdAt.toMillis() > latestByService[svc].createdAt.toMillis())) {
                             latestByService[svc] = r;
                         }
                     });
@@ -1793,7 +1805,6 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                             providerId: latestByService[svc].providerId,
                             providerName: latestByService[svc].providerName,
                             status: latestByService[svc].status,
-                            attemptNumber: latestByService[svc].attemptNumber,
                             service: svc
                         };
                     });
@@ -1818,13 +1829,11 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 if (!active) {
                     if (slotStatusEl) { slotStatusEl.className = 'slot-status not_sent'; slotStatusEl.textContent = 'Not yet invited'; }
 
-                    // Reset checkboxes to default state
                     document.querySelectorAll(`input[data-approve-service="${CSS.escape(service)}"]`).forEach(cb => {
                         const providerId = cb.getAttribute('data-approve-provider');
                         const isInvited = (currentEventData.invitedHistory && currentEventData.invitedHistory[service] || []).includes(providerId);
 
                         if (isInvited) {
-                            // If history says it was invited, keep it locked
                             cb.checked = true;
                             cb.disabled = true;
                             const wrapper = cb.closest('.approve-checkbox');
@@ -1839,10 +1848,11 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                             if (wrapper) {
                                 wrapper.classList.remove('invited');
                                 const label = wrapper.querySelector('.cb-label');
-                                if (label) label.textContent = 'Include & Send Invite';
+                                if (label) label.textContent = 'Include';
                             }
                         }
                     });
+                    updateInviteButtonState();
                     return;
                 }
 
@@ -1862,14 +1872,13 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     if (active.status === 'declined') card.classList.add('is-declined');
                 }
 
-                // Update checkboxes based on invitedHistory
                 document.querySelectorAll(`input[data-approve-service="${CSS.escape(service)}"]`).forEach(cb => {
                     const providerId = cb.getAttribute('data-approve-provider');
                     const isInvited = (currentEventData.invitedHistory && currentEventData.invitedHistory[service] || []).includes(providerId);
 
                     if (isInvited) {
                         cb.checked = true;
-                        cb.disabled = true; // Lock it once invited
+                        cb.disabled = true;
                         const wrapper = cb.closest('.approve-checkbox');
                         if (wrapper) {
                             wrapper.classList.add('invited');
@@ -1879,6 +1888,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     }
                 });
             });
+            updateInviteButtonState();
         }
 
         function checkAllConfirmed() {
@@ -2028,7 +2038,8 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
         window.loadBlueprintSession = loadBlueprintSession;
         window.handleLogout = handleLogout;
         window.showToast = showToast;
-        window.handleAutomaticInvite = handleAutomaticInvite;
+        window.sendAllInvitations = sendAllInvitations;
+        window.updateInviteButtonState = updateInviteButtonState;
 
         // ============================================================
         //  INIT

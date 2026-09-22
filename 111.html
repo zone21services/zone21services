@@ -682,8 +682,19 @@
         // ============================================================
         //  HELPERS
         // ============================================================
+        // ✅ FIX: match by uid OR id (fallback) — vendors are keyed by Auth UID
         function findProviderById(id) {
-            return cachedProviders.find(p => p.id === id) || cachedVenues.find(v => v.id === id) || null;
+            if (!id) return null;
+            return cachedProviders.find(p => (p.uid || p.id) === id) ||
+                   cachedVenues.find(v => (v.uid || v.id) === id) ||
+                   cachedProviders.find(p => p.id === id) ||
+                   cachedVenues.find(v => v.id === id) || null;
+        }
+
+        // ✅ FIX: canonical UID resolver — always prefer uid, fall back to doc id
+        function getProviderUid(p) {
+            if (!p) return '';
+            return p.uid || p.id || '';
         }
 
         function pickVenueTargetService(requiredServices) {
@@ -815,6 +826,8 @@
                 html += `<p style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 8px;">Tick <strong>Include</strong> on any venue below to invite it as your <strong>${escapeHtml(venueTargetService)}</strong> provider.</p>`;
             }
             vendors.forEach((v, index) => {
+                // ✅ FIX: use canonical UID everywhere
+                const providerUid = getProviderUid(v);
                 const name = v.name || 'Unnamed';
                 const location = v.location || 'Location TBD';
                 const price = v.basePrice > 0 ? `$${v.basePrice}` : 'Pricing TBD';
@@ -823,15 +836,15 @@
                 const services = v.services || v.amenities || [];
                 const reasoning = v.reasoning || ['Available for your event'];
                 const borderColor = v.fitScore >= 4 ? 'var(--mint)' : v.fitScore >= 2 ? 'var(--slate)' : 'var(--coral)';
-                const canInclude = !!venueTargetService && !!v.id;
+                const canInclude = !!venueTargetService && !!providerUid;
 
                 html += `
-                    <div class="vendor-card" data-provider-id="${escapeAttr(v.id || '')}" data-service="${escapeAttr(venueTargetService || '')}" data-venue-card="1" style="border-left-color:${borderColor};">
+                    <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(venueTargetService || '')}" data-venue-card="1" style="border-left-color:${borderColor};">
                         <div class="vendor-name" style="justify-content:space-between;">
                             <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge venue">Venue</span></span>
                             ${canInclude ? `
-                                <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(v.id)}">
-                                    <input type="checkbox" checked data-approve-service="${escapeAttr(venueTargetService)}" data-approve-provider="${escapeAttr(v.id)}" onchange="updateSendButtonState()">
+                                <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
+                                    <input type="checkbox" checked data-approve-service="${escapeAttr(venueTargetService)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateSendButtonState()">
                                     <span class="cb-label">Include</span>
                                 </label>
                             ` : ''}
@@ -856,8 +869,8 @@
                             </div>
                         ` : ''}
                         <div class="vendor-actions">
-                            ${v.id ? `<button class="contact-btn primary" onclick="openChatForVendor('${v.id}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
-                            <button class="contact-btn whatsapp" onclick="openWhatsApp('${v.id || ''}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                            ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
+                            <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
                         </div>
                     </div>`;
             });
@@ -918,6 +931,8 @@
                     html += `<p style="font-size:0.85rem;color:var(--text-muted);margin:6px 0;">No providers found for this service in our database.</p>`;
                 } else {
                     providers.forEach((p, index) => {
+                        // ✅ FIX: canonical UID
+                        const providerUid = getProviderUid(p);
                         const name = p.name || 'Unnamed Provider';
                         const location = p.location || 'Location TBD';
                         const price = p.basePrice > 0 ? `$${p.basePrice}` : 'Pricing TBD';
@@ -927,11 +942,11 @@
                         const borderColor = p.fitScore >= 5 ? 'var(--mint)' : p.fitScore >= 3 ? 'var(--slate)' : 'var(--coral)';
 
                         html += `
-                            <div class="vendor-card" data-provider-id="${escapeAttr(p.id)}" data-service="${escapeAttr(service)}" data-rank="${index}" style="border-left-color:${borderColor};">
+                            <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(service)}" data-rank="${index}" style="border-left-color:${borderColor};">
                                 <div class="vendor-name" style="justify-content:space-between;">
                                     <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge">Provider</span></span>
-                                    <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(p.id)}">
-                                        <input type="checkbox" checked data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(p.id)}" onchange="updateSendButtonState()">
+                                    <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
+                                        <input type="checkbox" checked data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateSendButtonState()">
                                         <span class="cb-label">Include</span>
                                     </label>
                                 </div>
@@ -949,11 +964,11 @@
                                     }).join(' ')}
                                 </div>
                                 <div class="vendor-status-line">
-                                    <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(p.id)}">Not yet invited</span>
+                                    <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
                                 </div>
                                 <div class="vendor-actions">
-                                    ${p.id ? `<button class="contact-btn primary" onclick="openChatForVendor('${p.id}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
-                                    <button class="contact-btn whatsapp" onclick="openWhatsApp('${p.id || ''}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                                    ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
+                                    <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
                                 </div>
                             </div>`;
                     });
@@ -985,7 +1000,9 @@
             let vendor = findProviderById(vendorId);
             if (!vendor) { showToast('Vendor not found', 'error'); return; }
 
-            chatOtherUid = vendorId;
+            // ✅ FIX: canonical UID for thread participants
+            const vendorUid = getProviderUid(vendor);
+            chatOtherUid = vendorUid;
             chatOtherName = vendor.name || 'Vendor';
             chatOtherAvatar = vendor.avatar || null;
 
@@ -1524,8 +1541,13 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         }
 
         function regenerateBlueprint() {
-            if (currentEventData) generateBlueprint(true);
-            else showToast('No event data to regenerate.', 'error');
+            if (currentEventData) {
+                // ✅ FIX: warn the user that history is preserved on regenerate
+                showToast('Regenerating blueprint. Invitation history is kept for this event — use "New Event" to start fresh.', 'info');
+                generateBlueprint(true);
+            } else {
+                showToast('No event data to regenerate.', 'error');
+            }
         }
 
         // ============================================================
@@ -1576,13 +1598,19 @@ You have been invited by the event organiser to provide "${service}" for this ev
 Please reply with ACCEPT or DECLINE, or send a message if you need more details.`;
         }
 
+        // ✅ FIX: use canonical UID (provider.uid || provider.id) everywhere
         async function sendInvitationForSlot(service, provider, attemptNumber) {
-            if (isLocallyInvited(service, provider.id)) {
+            const providerUid = getProviderUid(provider);
+            if (!providerUid) {
+                return { skipped: true, reason: 'no_provider_uid' };
+            }
+
+            if (isLocallyInvited(service, providerUid)) {
                 return { skipped: true, reason: 'already_invited_locally' };
             }
-            const already = await checkAlreadyInvited(service, provider.id);
+            const already = await checkAlreadyInvited(service, providerUid);
             if (already) {
-                markLocallyInvited(service, provider.id);
+                markLocallyInvited(service, providerUid);
                 return { skipped: true, reason: 'already_invited_firestore' };
             }
 
@@ -1597,8 +1625,9 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 organiserUid: currentUser.uid,
                 organiserName: currentUser.displayName || currentUser.email || 'Organiser',
                 organiserContact: currentEventData.contact,
-                providerId: provider.id,
+                providerId: providerUid,       // ← canonical UID
                 providerName: provider.name || 'Provider',
+                providerDocId: provider.id || '',  // keep for reference
                 service,
                 budget: currentEventData.budget,
                 notes: currentEventData.notes,
@@ -1623,7 +1652,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     eventId: currentSessionId,
                     eventName: currentEventData.name,
                     service,
-                    providerId: provider.id,
+                    providerId: providerUid,
                     providerName: provider.name || 'Provider',
                     date: currentEventData.date,
                     time: currentEventData.time,
@@ -1634,7 +1663,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 });
             } catch (e) { console.error('admin inbox write failed:', e); }
 
-            if (provider.id && provider.id !== 'admin') {
+            if (providerUid && providerUid !== 'admin') {
                 try {
                     await db.collection('messages').add({
                         sender: 'user',
@@ -1644,7 +1673,8 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                         subject: `New Service Request: ${service}`,
                         message: messageText,
                         type: 'service_request',
-                        recipientId: provider.id,
+                        recipientId: providerUid,   // ← canonical UID
+                        providerId: providerUid,
                         status: 'unread',
                         eventId: currentSessionId,
                         eventName: currentEventData.name,
@@ -1659,8 +1689,8 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 } catch (e) { console.error('provider inbox write failed:', e); }
             }
 
-            markLocallyInvited(service, provider.id);
-            return { requestId: ref.id, providerId: provider.id, attemptNumber, service, providerName: provider.name };
+            markLocallyInvited(service, providerUid);
+            return { requestId: ref.id, providerId: providerUid, attemptNumber, service, providerName: provider.name };
         }
 
         async function approveAndSendInvitations() {
@@ -1684,7 +1714,6 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             let totalCount = 0;
             services.forEach(s => totalCount += queues[s].length);
 
-            // No confirm dialog — just send
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…'; }
             showToast(`Sending ${totalCount} invitation(s)…`, 'info');
 

@@ -714,7 +714,7 @@
             }
         });
 
-        // ── INVITATION BRIDGE ──
+        // ── INVITATION BRIDGE (from messages collection) ──
         // When an invitation is received in 'messages' collection, ensure a thread exists
         // between this vendor and the organiser, and post the invitation as a thread message.
         window.ensureThreadForInvitation = async function(invite, inviteId) {
@@ -797,6 +797,87 @@
             }
         };
 
+        // ── BOOKING REQUEST BRIDGE (from bookingRequests collection — fallback) ──
+        // Guarantees invitations arrive even if the 'messages' write failed.
+        window.ensureThreadForBooking = async function(requestId, req) {
+            if (!req || !req.organiserUid || req.organiserUid === window.currentUser.uid) return;
+            const organiserUid = req.organiserUid;
+
+            try {
+                // Find existing thread with this organiser
+                const threadQuery = window.fb.query(
+                    window.fb.collection(window.db, "threads"),
+                    window.fb.where("participants", "array-contains", window.currentUser.uid)
+                );
+                const snap = await window.fb.getDocs(threadQuery);
+                let existingThreadId = null;
+                snap.forEach(d => {
+                    const data = d.data();
+                    if (data.participants && data.participants.includes(organiserUid)) existingThreadId = d.id;
+                });
+
+                // Check if this request is already posted in the thread (by requestId)
+                if (existingThreadId) {
+                    const msgQuery = window.fb.query(
+                        window.fb.collection(window.db, `threads/${existingThreadId}/messages`),
+                        window.fb.where("requestId", "==", requestId)
+                    );
+                    const msgSnap = await window.fb.getDocs(msgQuery);
+                    if (!msgSnap.empty) return; // already bridged
+                }
+
+                const inviteMessage = {
+                    senderId: organiserUid,
+                    senderName: req.organiserName || req.eventName || 'Organiser',
+                    isSystemRequest: true,
+                    type: 'service_request',
+                    service: req.service || '',
+                    eventName: req.eventName || '',
+                    eventId: req.eventId || '',
+                    requestId: requestId,
+                    date: req.date || '',
+                    time: req.time || '',
+                    location: req.location || '',
+                    budget: req.budget || '',
+                    text: req.notes || req.message || '',
+                    sourceMessageId: requestId,
+                    timestamp: req.createdAt || window.fb.serverTimestamp()
+                };
+
+                const threadTitleText = `📋 New service request: ${req.service || 'Service'}`;
+
+                if (existingThreadId) {
+                    await window.fb.addDoc(
+                        window.fb.collection(window.db, `threads/${existingThreadId}/messages`),
+                        inviteMessage
+                    );
+                    await window.fb.updateDoc(
+                        window.fb.doc(window.db, 'threads', existingThreadId), {
+                            updatedAt: window.fb.serverTimestamp(),
+                            lastMessageText: threadTitleText.substring(0, 80)
+                        }
+                    );
+                } else {
+                    const newThread = {
+                        participants: [window.currentUser.uid, organiserUid],
+                        jobTitle: 'Event Organizer',
+                        lastMessageText: threadTitleText.substring(0, 80),
+                        createdAt: window.fb.serverTimestamp(),
+                        updatedAt: window.fb.serverTimestamp()
+                    };
+                    const threadRef = await window.fb.addDoc(
+                        window.fb.collection(window.db, 'threads'), newThread
+                    );
+                    await window.fb.addDoc(
+                        window.fb.collection(window.db, `threads/${threadRef.id}/messages`),
+                        inviteMessage
+                    );
+                }
+            } catch (err) {
+                console.warn('Booking bridge failed:', err);
+            }
+        };
+
         // ── INBOX ──
         window.setupRealtimeInbox = function() {
             // Existing: listen to threads
@@ -820,7 +901,7 @@
                 updateGlobalUnreadBadge();
             });
 
-            // NEW: listen to incoming invitations
+            // Listen to incoming invitations via 'messages' collection
             const invQuery = window.fb.query(
                 window.fb.collection(window.db, "messages"),
                 window.fb.where("type", "==", "service_request"),
@@ -830,6 +911,21 @@
                 for (const change of snapshot.docChanges()) {
                     if (change.type === 'added' || change.type === 'modified') {
                         await window.ensureThreadForInvitation(change.doc.data(), change.doc.id);
+                    }
+                }
+            });
+
+            // ✅ NEW: Listen to bookingRequests as a fallback for invitations.
+            // This guarantees invites arrive even if the 'messages' write failed.
+            const bookingQuery = window.fb.query(
+                window.fb.collection(window.db, "bookingRequests"),
+                window.fb.where("providerId", "==", window.currentUser.uid)
+            );
+            window.fb.onSnapshot(bookingQuery, async (snapshot) => {
+                for (const change of snapshot.docChanges()) {
+                    if (change.type === 'added' || change.type === 'modified') {
+                        const req = change.doc.data();
+                        await window.ensureThreadForBooking(change.doc.id, req);
                     }
                 }
             });
@@ -1627,7 +1723,7 @@
         window.closeProfileModal = closeProfileModal;
         window.copyProfileLink = copyProfileLink;
 
-        console.log('✅ Vendor Inbox updated: invitations render as cards with Accept/Decline.');
+        console.log('✅ Vendor Inbox updated: dual-bridge (messages + bookingRequests) for invitations.');
     </script>
 </body>
 </html>

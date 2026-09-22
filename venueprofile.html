@@ -10,7 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        /* (styles unchanged – same as before) */
         :root {
             --navy: #102838;
             --lime: #C0C800;
@@ -262,21 +261,11 @@
         .social-link:hover {
             transform: scale(1.1);
         }
-        .social-facebook {
-            background: #1877F2;
-        }
-        .social-instagram {
-            background: #E4405F;
-        }
-        .social-tiktok {
-            background: #000;
-        }
-        .social-youtube {
-            background: #FF0000;
-        }
-        .social-website {
-            background: var(--navy);
-        }
+        .social-facebook { background: #1877F2; }
+        .social-instagram { background: #E4405F; }
+        .social-tiktok { background: #000; }
+        .social-youtube { background: #FF0000; }
+        .social-website { background: var(--navy); }
         .share-btn {
             background: var(--lime);
             color: var(--navy);
@@ -372,20 +361,10 @@
             align-items: center;
             margin-bottom: 8px;
         }
-        .reviewer-name {
-            font-weight: 700;
-        }
-        .review-date {
-            font-size: 0.75rem;
-            color: var(--muted);
-        }
-        .review-stars {
-            color: #ffb400;
-        }
-        .review-comment {
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
+        .reviewer-name { font-weight: 700; }
+        .review-date { font-size: 0.75rem; color: var(--muted); }
+        .review-stars { color: #ffb400; }
+        .review-comment { font-size: 0.9rem; line-height: 1.5; }
         .loading,
         .error {
             text-align: center;
@@ -556,10 +535,100 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* ===== DRAFT BANNER ===== */
+        .draft-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 18px;
+            background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+            border: 1px solid #FFD54F;
+            border-left: 4px solid #FFA000;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #6D4C00;
+            animation: fadeIn 0.3s ease-out;
+            flex-wrap: wrap;
+        }
+        .draft-banner .draft-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 200px;
+        }
+        .draft-banner .draft-info i {
+            font-size: 1.2rem;
+            color: #EF6C00;
+        }
+        .draft-banner .draft-info strong {
+            color: #4E342E;
+        }
+        .draft-banner .draft-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .draft-banner button {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+            transition: 0.2s;
+        }
+        .draft-banner .btn-restore {
+            background: var(--navy);
+            color: var(--lime);
+        }
+        .draft-banner .btn-restore:hover {
+            background: #1a3a4a;
+        }
+        .draft-banner .btn-discard {
+            background: transparent;
+            color: #6D4C00;
+            border: 1px solid #FFB300;
+        }
+        .draft-banner .btn-discard:hover {
+            background: rgba(255, 167, 0, 0.12);
+        }
+
+        /* Draft status indicator (auto-save toast) */
+        .draft-status {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--navy);
+            color: var(--lime);
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(16, 40, 56, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .draft-status.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .draft-status i {
+            color: var(--lime);
+        }
+
         @media (max-width: 600px) {
-            .profile-info {
-                padding: 15px;
-            }
+            .profile-info { padding: 15px; }
             .profile-avatar {
                 margin-left: 20px;
                 width: 90px;
@@ -567,17 +636,19 @@
                 font-size: 1.8rem;
                 margin-top: -45px;
             }
-            .detail-grid {
-                grid-template-columns: 1fr;
-            }
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+            .detail-grid { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
             .edit-toggle-btn {
                 top: 10px;
                 right: 10px;
                 font-size: 0.8rem;
                 padding: 6px 12px;
+            }
+            .draft-status {
+                bottom: 12px;
+                right: 12px;
+                left: 12px;
+                justify-content: center;
             }
         }
     </style>
@@ -595,6 +666,11 @@
                 Loading venue profile...
             </div>
         </div>
+    </div>
+
+    <div class="draft-status" id="draft-status">
+        <i class="fas fa-cloud-arrow-up"></i>
+        <span id="draft-status-text">Draft saved</span>
     </div>
 
     <template id="review-template">
@@ -635,7 +711,192 @@
         let uploadedImages = [];
         let currentUser = null;
 
-        // ===== RESOLVE VENUE ID =====
+        // ============================================================
+        //  DRAFT AUTO-SAVE (localStorage)
+        // ============================================================
+        const DRAFT_KEY_PREFIX = 'zone21_venue_profile_draft_';
+        let draftSaveTimer = null;
+        let draftStatusTimer = null;
+        let draftRestoredFromStorage = false;
+
+        function getDraftKey() {
+            return DRAFT_KEY_PREFIX + (currentVenueId || 'unknown');
+        }
+
+        function collectFormState() {
+            const state = {
+                name: document.getElementById('e-name')?.value ?? undefined,
+                location: document.getElementById('e-loc')?.value ?? undefined,
+                basePrice: document.getElementById('e-price')?.value ?? undefined,
+                capacity: document.getElementById('e-capacity')?.value ?? undefined,
+                venueType: document.getElementById('e-venue-type')?.value ?? undefined,
+                description: document.getElementById('e-desc')?.value ?? undefined,
+                amenities: Array.from(document.querySelectorAll('.edit-amenity-chk:checked')).map(cb => cb.value),
+                pricingPackages: document.getElementById('e-pricing')?.value ?? undefined,
+                rentalPolicies: document.getElementById('e-policies')?.value ?? undefined,
+                deposit: document.getElementById('e-deposit')?.value ?? undefined,
+                operatingHours: document.getElementById('e-hours')?.value ?? undefined,
+                parking: document.getElementById('e-parking')?.value ?? undefined,
+                catering: document.getElementById('e-catering')?.value ?? undefined,
+                tiktok: document.getElementById('e-tt')?.value ?? undefined,
+                instagram: document.getElementById('e-ig')?.value ?? undefined,
+                facebook: document.getElementById('e-fb')?.value ?? undefined,
+                youtube: document.getElementById('e-yt')?.value ?? undefined,
+                website: document.getElementById('e-web')?.value ?? undefined,
+                avatar: venueData?.avatar || null,
+                images: uploadedImages,
+                _savedAt: Date.now()
+            };
+            return state;
+        }
+
+        function scheduleDraftSave() {
+            clearTimeout(draftSaveTimer);
+            draftSaveTimer = setTimeout(() => {
+                saveDraftNow();
+            }, 400);
+        }
+
+        function saveDraftNow() {
+            try {
+                const state = collectFormState();
+                const payload = JSON.stringify(state);
+
+                // Guard against quota — try full payload first, then strip images
+                try {
+                    localStorage.setItem(getDraftKey(), payload);
+                } catch (quotaErr) {
+                    console.warn('Draft too large with images, saving without images.', quotaErr);
+                    const slimState = { ...state, images: [], avatar: null, _slim: true };
+                    localStorage.setItem(getDraftKey(), JSON.stringify(slimState));
+                    showDraftStatus('Draft saved (images not saved — too large)');
+                    return;
+                }
+
+                showDraftStatus('Draft saved • ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}));
+            } catch (e) {
+                console.warn('Draft save failed:', e);
+            }
+        }
+
+        function loadDraft() {
+            try {
+                const raw = localStorage.getItem(getDraftKey());
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) {
+                console.warn('Draft load failed:', e);
+                return null;
+            }
+        }
+
+        function clearDraft() {
+            try { localStorage.removeItem(getDraftKey()); } catch (e) {}
+            draftRestoredFromStorage = false;
+        }
+
+        function showDraftStatus(text) {
+            const el = document.getElementById('draft-status');
+            const txt = document.getElementById('draft-status-text');
+            if (!el || !txt) return;
+            txt.textContent = text;
+            el.classList.add('visible');
+            clearTimeout(draftStatusTimer);
+            draftStatusTimer = setTimeout(() => {
+                el.classList.remove('visible');
+            }, 2200);
+        }
+
+        function attachDraftListeners() {
+            // Text/number/select/textarea
+            const fields = [
+                'e-name', 'e-loc', 'e-price', 'e-capacity', 'e-venue-type', 'e-desc',
+                'e-pricing', 'e-policies', 'e-deposit', 'e-hours', 'e-parking', 'e-catering',
+                'e-tt', 'e-ig', 'e-fb', 'e-yt', 'e-web'
+            ];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', scheduleDraftSave);
+                el.addEventListener('change', scheduleDraftSave);
+            });
+
+            // Amenity checkboxes
+            document.querySelectorAll('.edit-amenity-chk').forEach(cb => {
+                cb.addEventListener('change', scheduleDraftSave);
+            });
+        }
+
+        function applyDraftToForm(draft) {
+            if (!draft) return;
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val !== undefined && val !== null) el.value = val;
+            };
+            setVal('e-name', draft.name);
+            setVal('e-loc', draft.location);
+            setVal('e-price', draft.basePrice);
+            setVal('e-capacity', draft.capacity);
+            setVal('e-venue-type', draft.venueType);
+            setVal('e-desc', draft.description);
+            setVal('e-pricing', draft.pricingPackages);
+            setVal('e-policies', draft.rentalPolicies);
+            setVal('e-deposit', draft.deposit);
+            setVal('e-hours', draft.operatingHours);
+            setVal('e-parking', draft.parking);
+            setVal('e-catering', draft.catering);
+            setVal('e-tt', draft.tiktok);
+            setVal('e-ig', draft.instagram);
+            setVal('e-fb', draft.facebook);
+            setVal('e-yt', draft.youtube);
+            setVal('e-web', draft.website);
+
+            // Amenities
+            const amenitySet = new Set(draft.amenities || []);
+            document.querySelectorAll('.edit-amenity-chk').forEach(cb => {
+                cb.checked = amenitySet.has(cb.value);
+            });
+
+            // Images & avatar
+            if (!draft._slim) {
+                if (Array.isArray(draft.images)) uploadedImages = draft.images;
+                if (draft.avatar) venueData.avatar = draft.avatar;
+            }
+        }
+
+        function renderDraftBanner(savedAt) {
+            const content = document.getElementById('profile-content');
+            const card = content.querySelector('.profile-card');
+            if (!card) return;
+
+            const timeStr = savedAt ? new Date(savedAt).toLocaleString() : 'earlier';
+            const banner = document.createElement('div');
+            banner.className = 'draft-banner';
+            banner.id = 'draft-banner';
+            banner.innerHTML = `
+                <div class="draft-info">
+                    <i class="fas fa-clock-rotate-left"></i>
+                    <div>
+                        <strong>Unsaved changes restored</strong><br>
+                        <span style="font-size:0.8rem;">Last auto-saved: ${timeStr}</span>
+                    </div>
+                </div>
+                <div class="draft-actions">
+                    <button class="btn-discard" onclick="discardDraft()"><i class="fas fa-trash-can"></i> Discard Draft</button>
+                </div>
+            `;
+            card.insertBefore(banner, card.firstChild);
+        }
+
+        function discardDraft() {
+            if (!confirm('Discard all unsaved changes? This cannot be undone.')) return;
+            clearDraft();
+            loadVenueProfile();
+        }
+
+        // ============================================================
+        //  RESOLVE VENUE ID
+        // ============================================================
         async function resolveVenueId(user) {
             const urlParams = new URLSearchParams(window.location.search);
             const idFromUrl = urlParams.get('id');
@@ -659,7 +920,8 @@
             currentUser = user;
             currentVenueId = await resolveVenueId(user);
             if (currentVenueId) {
-                isOwner = user && (user.uid === currentVenueId || (venueData && venueData.email === user.email));
+                // Initial ownership guess (refined after venueData loads)
+                isOwner = !!(user && (user.uid === currentVenueId));
                 if (isOwner) document.getElementById('dash-btn').style.display = 'block';
                 loadVenueProfile();
             } else if (user) {
@@ -724,17 +986,34 @@
                 const doc = await db.collection('venues').doc(currentVenueId).get();
                 if (!doc.exists) { showProfileNotFound(auth.currentUser ? true : false); return; }
                 venueData = doc.data();
+
+                // Recompute ownership now that venueData is available
+                if (currentUser) {
+                    isOwner = currentUser.uid === currentVenueId ||
+                             (venueData.email && venueData.email === currentUser.email);
+                    document.getElementById('dash-btn').style.display = isOwner ? 'block' : 'none';
+                } else {
+                    isOwner = false;
+                }
+
                 uploadedImages = venueData.images || [];
                 if (viewMode === 'public') renderPublicView();
                 else renderEditView();
                 if (viewMode === 'public') loadReviews(currentVenueId);
             } catch (error) {
+                console.error(error);
                 document.getElementById('profile-content').innerHTML = '<div class="error">Failed to load profile.</div>';
             }
         }
 
         function toggleMode() {
+            if (viewMode === 'edit') {
+                // Leaving edit mode — draft is preserved in localStorage
+                // so if they come back, progress is restored
+                clearTimeout(draftSaveTimer);
+            }
             viewMode = viewMode === 'public' ? 'edit' : 'public';
+            draftRestoredFromStorage = false;
             loadVenueProfile();
         }
 
@@ -771,7 +1050,6 @@
                 `<img src="${venueData.avatar}" alt="Avatar">` :
                 initials;
 
-            // Social links
             const socialLinks = [];
             if (venueData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
                 url: venueData.facebook, label: 'Facebook' });
@@ -803,80 +1081,17 @@
                 else starsHtml += '<i class="far fa-star"></i>';
             }
 
-            // ---- DETAIL GRID (venue-specific) ----
             const detailItems = [];
-            if (venueData.capacity) {
-                detailItems.push({
-                    icon: 'fa-users',
-                    label: 'Capacity',
-                    value: `${venueData.capacity} guests`
-                });
-            }
-            if (venueData.venueType) {
-                detailItems.push({
-                    icon: 'fa-archway',
-                    label: 'Venue Type',
-                    value: venueData.venueType
-                });
-            }
-            if (venueData.basePrice) {
-                detailItems.push({
-                    icon: 'fa-tag',
-                    label: 'Starting Price',
-                    value: `$${venueData.basePrice}`
-                });
-            }
-            if (venueData.pricingPackages) {
-                detailItems.push({
-                    icon: 'fa-layer-group',
-                    label: 'Pricing Packages',
-                    value: venueData.pricingPackages,
-                    cls: 'secondary-svc'
-                });
-            }
-            if (venueData.rentalPolicies) {
-                detailItems.push({
-                    icon: 'fa-file-contract',
-                    label: 'Rental Policies',
-                    value: venueData.rentalPolicies,
-                    cls: 'secondary-svc'
-                });
-            }
-            if (venueData.deposit) {
-                detailItems.push({
-                    icon: 'fa-hand-holding-usd',
-                    label: 'Deposit Required',
-                    value: venueData.deposit
-                });
-            }
-            if (venueData.operatingHours) {
-                detailItems.push({
-                    icon: 'fa-clock',
-                    label: 'Operating Hours',
-                    value: venueData.operatingHours
-                });
-            }
-            if (venueData.parking) {
-                detailItems.push({
-                    icon: 'fa-parking',
-                    label: 'Parking',
-                    value: venueData.parking
-                });
-            }
-            if (venueData.catering) {
-                detailItems.push({
-                    icon: 'fa-utensils',
-                    label: 'Catering',
-                    value: venueData.catering
-                });
-            }
-            if (venueData.location) {
-                detailItems.push({
-                    icon: 'fa-map-marker-alt',
-                    label: 'Location',
-                    value: venueData.location
-                });
-            }
+            if (venueData.capacity) detailItems.push({ icon: 'fa-users', label: 'Capacity', value: `${venueData.capacity} guests` });
+            if (venueData.venueType) detailItems.push({ icon: 'fa-archway', label: 'Venue Type', value: venueData.venueType });
+            if (venueData.basePrice) detailItems.push({ icon: 'fa-tag', label: 'Starting Price', value: `$${venueData.basePrice}` });
+            if (venueData.pricingPackages) detailItems.push({ icon: 'fa-layer-group', label: 'Pricing Packages', value: venueData.pricingPackages, cls: 'secondary-svc' });
+            if (venueData.rentalPolicies) detailItems.push({ icon: 'fa-file-contract', label: 'Rental Policies', value: venueData.rentalPolicies, cls: 'secondary-svc' });
+            if (venueData.deposit) detailItems.push({ icon: 'fa-hand-holding-usd', label: 'Deposit Required', value: venueData.deposit });
+            if (venueData.operatingHours) detailItems.push({ icon: 'fa-clock', label: 'Operating Hours', value: venueData.operatingHours });
+            if (venueData.parking) detailItems.push({ icon: 'fa-parking', label: 'Parking', value: venueData.parking });
+            if (venueData.catering) detailItems.push({ icon: 'fa-utensils', label: 'Catering', value: venueData.catering });
+            if (venueData.location) detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: venueData.location });
 
             const detailHtml = detailItems.length > 0 ?
                 detailItems.map(item =>
@@ -890,7 +1105,6 @@
                 ).join('') :
                 '<p style="color:var(--muted); grid-column:1/-1; padding:8px 0;">No additional details provided.</p>';
 
-            // ---- REVIEW FORM: show only if not owner and logged in ----
             let reviewFormHtml = '';
             if (!isOwner && currentUser) {
                 reviewFormHtml = `
@@ -958,29 +1172,24 @@
 
             if (!isOwner && currentUser) {
                 setupStarRating();
-                // Check if user already reviewed
                 checkExistingReview(currentVenueId, 'venues').then(existing => {
                     if (existing) {
                         document.getElementById('review-status').textContent = 'You have already reviewed. Edit below.';
                         document.getElementById('submit-review-btn').textContent = 'Update Review';
-                        // pre-fill
                         document.getElementById('reviewer-name').value = existing.reviewerName || '';
                         document.getElementById('review-comment').value = existing.comment || '';
-                        // set rating
                         selectedRating = existing.rating;
                         updateStarInputUI(selectedRating);
-                        // store review id for update
                         document.getElementById('submit-review-btn').dataset.reviewId = existing.id;
                     } else {
                         document.getElementById('submit-review-btn').dataset.reviewId = '';
                     }
                 });
-                document.getElementById('submit-review-btn').addEventListener('click', () => submitReview(currentVenueId,
-                    'venues'));
+                document.getElementById('submit-review-btn').addEventListener('click', () => submitReview(currentVenueId, 'venues'));
             }
         }
 
-        // ===== RENDER EDIT VIEW (unchanged) =====
+        // ===== RENDER EDIT VIEW (with draft restore + auto-save hooks) =====
         function renderEditView() {
             let amenitiesCheckboxes = amenitiesList.map(am => `
                 <label class="amenity-checkbox">
@@ -1073,13 +1282,46 @@
                     </div>
                     <div class="standard-gallery" id="edit-gallery">${imagesHtml}</div>
 
-                    <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:30px;">
+                        <button class="btn-create" style="flex:1; min-width:220px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+                    </div>
                 </div>
             `;
             document.getElementById('profile-content').innerHTML = html;
+
+            // Attach auto-save listeners to every field
+            attachDraftListeners();
+
+            // Restore draft if one exists
+            const draft = loadDraft();
+            if (draft && draft._savedAt) {
+                applyDraftToForm(draft);
+                // Refresh avatar preview if it was in the draft
+                if (draft.avatar) {
+                    const box = document.getElementById('avatar-preview-box');
+                    if (box) {
+                        box.innerHTML = `<img src="${draft.avatar}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+                    }
+                }
+                // Refresh gallery html
+                if (Array.isArray(draft.images) && draft.images.length > 0 && !draft._slim) {
+                    const galleryEl = document.getElementById('edit-gallery');
+                    if (galleryEl) {
+                        galleryEl.innerHTML = draft.images.map((url, i) => `
+                            <div class="gallery-item">
+                                <img src="${url}">
+                                <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
+                            </div>
+                        `).join('');
+                    }
+                }
+                renderDraftBanner(draft._savedAt);
+                draftRestoredFromStorage = true;
+                showDraftStatus('Draft restored • ' + new Date(draft._savedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+            }
         }
 
-        // ===== EDIT HANDLERS (unchanged) =====
+        // ===== EDIT HANDLERS =====
         function handleAvatarUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1089,6 +1331,7 @@
                 venueData.avatar = base64;
                 box.innerHTML =
                     `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+                scheduleDraftSave();
             });
         }
 
@@ -1102,7 +1345,10 @@
                 compressToBase64(file, 800, 0.6, (base64) => {
                     uploadedImages.push(base64);
                     processed++;
-                    if (processed === files.length) renderEditView();
+                    if (processed === files.length) {
+                        renderEditView();
+                        scheduleDraftSave();
+                    }
                 });
             });
         }
@@ -1110,6 +1356,7 @@
         function removeImage(index) {
             uploadedImages.splice(index, 1);
             renderEditView();
+            scheduleDraftSave();
         }
 
         async function saveProfileData() {
@@ -1147,6 +1394,9 @@
             try {
                 await db.collection('venues').doc(currentVenueId).set(updates, { merge: true });
                 venueData = { ...venueData, ...updates };
+                // Success! Clear the local draft
+                clearDraft();
+                showDraftStatus('Saved to cloud ✓');
                 toggleMode();
             } catch (e) {
                 console.error(e);
@@ -1157,7 +1407,7 @@
         }
 
         // ============================================================
-        //  REVIEW SYSTEM – venue (and reused for provider)
+        //  REVIEW SYSTEM
         // ============================================================
         let selectedRating = 0;
 
@@ -1221,41 +1471,24 @@
 
                 let reviewRef;
                 if (existingReviewId) {
-                    // Update existing
                     reviewRef = db.collection(collectionName).doc(profileId).collection('reviews').doc(existingReviewId);
                     await reviewRef.update(reviewData);
-                    // We also need to update the average rating if rating changed? We'll recompute.
-                    // For simplicity, we'll just recompute average from all reviews.
                 } else {
-                    // Add new
                     reviewData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     reviewRef = await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
                 }
 
-                // Recompute average rating
                 await updateProfileRating(profileId, collectionName);
-
-                // Reload reviews and form state
                 loadReviews(profileId);
-                // Reset form or show success
+
                 document.getElementById('review-status').textContent = 'Review saved successfully!';
                 btn.textContent = 'Update Review';
-                btn.dataset.reviewId = existingReviewId || (await reviewRef).id; // if new, we need the id
-                // If new, we need to store the id for future updates. We'll get it from the ref.
                 if (!existingReviewId) {
-                    // We have the doc ref from add, but we didn't store the id. We'll get it from the snapshot.
-                    // Better: we can query again to get the id. But we'll just reload the whole page to avoid complexity.
-                    // Let's just reload reviews and re-check.
-                }
-                // Actually we can just re-check existing review after update.
-                const updatedReview = await checkExistingReview(profileId, collectionName);
-                if (updatedReview) {
-                    btn.dataset.reviewId = updatedReview.id;
+                    const updatedReview = await checkExistingReview(profileId, collectionName);
+                    if (updatedReview) btn.dataset.reviewId = updatedReview.id;
                 }
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-paper-plane"></i> Update Review';
-                // Reload the page? Or just update the list.
-                loadReviews(profileId);
             } catch (e) {
                 console.error(e);
                 alert('Failed to submit review. Please try again.');
@@ -1288,6 +1521,7 @@
 
         async function loadReviews(profileId) {
             const list = document.getElementById('review-list');
+            if (!list) return;
             list.innerHTML = '<p style="color:var(--muted);"><span class="spinner-sm" style="border-left-color:var(--navy);"></span> Loading reviews...</p>';
             try {
                 const snap = await db.collection('venues').doc(profileId).collection('reviews').orderBy('createdAt',

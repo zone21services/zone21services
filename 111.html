@@ -699,6 +699,10 @@
             return 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
         }
 
+        function getChatId(uid1, uid2) {
+            return [uid1, uid2].sort().join('_');
+        }
+
         // ============================================================
         //  AVAILABILITY (deterministic)
         // ============================================================
@@ -986,6 +990,7 @@
             chatOtherUid = vendorUid;
             chatOtherName = vendor.name || 'Vendor';
             chatOtherAvatar = vendor.avatar || null;
+            chatThreadId = getChatId(currentUser.uid, vendorUid);
 
             document.getElementById('modalChatName').textContent = chatOtherName;
             document.getElementById('modalChatSub').textContent = vendor.category || vendor.serviceType || 'Service Provider';
@@ -1012,41 +1017,15 @@
 
             const msgContainer = document.getElementById('modalChatMessages');
             msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
-            await findOrCreateChatThread(vendor);
-        }
+            
+            // Ensure the thread document exists before subscribing
+            await db.collection('threads').doc(chatThreadId).set({
+                participants: [currentUser.uid, chatOtherUid],
+                jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
 
-        async function findOrCreateChatThread(vendor) {
-            if (!currentUser) return;
-            try {
-                const threadsRef = db.collection('threads');
-                const q = threadsRef.where('participants', 'array-contains', currentUser.uid);
-                const snap = await q.get();
-                let threadId = null;
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    if (data.participants && data.participants.includes(chatOtherUid)) threadId = doc.id;
-                });
-                if (threadId) {
-                    chatThreadId = threadId;
-                    subscribeToChatMessages(threadId);
-                } else {
-                    const newThread = {
-                        participants: [currentUser.uid, chatOtherUid],
-                        jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
-                        lastMessageText: 'Start your conversation',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    const docRef = await threadsRef.add(newThread);
-                    chatThreadId = docRef.id;
-                    subscribeToChatMessages(docRef.id);
-                }
-            } catch (err) {
-                console.error('Thread error:', err);
-                showToast('Failed to start conversation', 'error');
-                const msgContainer = document.getElementById('modalChatMessages');
-                msgContainer.innerHTML = '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--coral);"></i><p>Could not load conversation.</p></div>';
-            }
+            subscribeToChatMessages(chatThreadId);
         }
 
         function subscribeToChatMessages(threadId) {
@@ -1548,6 +1527,11 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         // ============================================================
         //  BOOKING REQUEST SYSTEM
         // ============================================================
+        function isLocallyInvited(service, providerId) {
+            const h = (currentEventData && currentEventData.invitedHistory) || {};
+            return (h[service] || []).includes(providerId);
+        }
+
         function markLocallyInvited(service, providerId) {
             if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
             if (!currentEventData.invitedHistory[service]) currentEventData.invitedHistory[service] = [];
@@ -1564,14 +1548,18 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         async function sendInvitationForSlot(service, provider) {
             const providerUid = getProviderUid(provider);
 
+            console.log('[Zone21 Invite] Processing:', { service, providerName: provider?.name, providerUid });
+
             if (!providerUid) {
                 console.warn('[Zone21 Invite] ✗ Provider has no UID — skipping');
                 return { skipped: true, reason: 'no_provider_uid' };
             }
 
             const messageText = buildInviteMessage(service, provider.name);
+            const requestRef = db.collection('bookingRequests').doc();
 
             const requestDoc = {
+                userId: currentUser.uid, // ✅ CRITICAL FIX: Satisfies the fallback Firestore rule
                 eventId: currentSessionId,
                 eventName: currentEventData.name,
                 date: currentEventData.date,
@@ -1587,21 +1575,21 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                 budget: currentEventData.budget,
                 notes: currentEventData.notes,
                 package: userPackage,
-                status: 'invited', // Simplified status
+                status: 'invited',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            let ref;
+            // 1. Create Booking Request (isolated so a failure doesn't stop the chat message)
             try {
-                ref = await db.collection('bookingRequests').add(requestDoc);
-                console.log('[Zone21 Invite] ✓ bookingRequests created:', ref.id);
+                await requestRef.set(requestDoc);
+                console.log('[Zone21 Invite] ✓ bookingRequests created:', requestRef.id);
             } catch (e) {
-                console.error('[Zone21 Invite] ✗ FAILED bookingRequests write:', e);
-                throw e;
+                console.error('[Zone21 Invite] ✗ FAILED bookingRequests write (check Firebase rules):', e);
+                // We do not throw here anymore, so the chat message can still try to send
             }
 
-            // 1. Send to Admin / Management Inbox
+            // 2. Send to Admin / Management Inbox
             try {
                 await db.collection('messages').add({
                     sender: 'user',
@@ -1622,57 +1610,43 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                     time: currentEventData.time,
                     location: currentEventData.location,
                     budget: currentEventData.budget,
-                    requestId: ref.id,
+                    requestId: requestRef.id,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+                console.log('[Zone21 Invite] ✓ admin inbox notified');
             } catch (e) {
                 console.warn('[Zone21 Invite] ✗ admin message failed:', e.message);
             }
 
-            // 2. Send to Vendor Chat Thread
+            // 3. Send directly to Vendor Chat Thread (Deterministic ID)
             if (providerUid && providerUid !== 'admin') {
                 try {
-                    // Find or create thread
-                    const threadsRef = db.collection('threads');
-                    const q = threadsRef.where('participants', 'array-contains', currentUser.uid);
-                    const snap = await q.get();
-                    let threadId = null;
-                    snap.forEach(doc => {
-                        if (doc.data().participants.includes(providerUid)) threadId = doc.id;
-                    });
+                    const chatId = getChatId(currentUser.uid, providerUid);
+                    
+                    // Ensure thread exists
+                    await db.collection('threads').doc(chatId).set({
+                        participants: [currentUser.uid, providerUid],
+                        jobTitle: service,
+                        lastMessageText: messageText.substring(0, 80),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
 
-                    if (!threadId) {
-                        const newThread = await threadsRef.add({
-                            participants: [currentUser.uid, providerUid],
-                            jobTitle: service,
-                            lastMessageText: messageText.substring(0, 80),
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        threadId = newThread.id;
-                    }
-
-                    // Write to thread messages
-                    await db.collection(`threads/${threadId}/messages`).add({
+                    // Add message
+                    await db.collection(`threads/${chatId}/messages`).add({
                         senderId: currentUser.uid,
                         text: messageText,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                         isSystemRequest: true
                     });
 
-                    // Update thread metadata
-                    await db.collection('threads').doc(threadId).update({
-                        lastMessageText: messageText.substring(0, 80),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-
-                    console.log('[Zone21 Invite] ✓ vendor chat notified:', providerUid);
+                    console.log('[Zone21 Invite] ✓ vendor chat message sent to', chatId);
                 } catch (e) {
-                    console.warn('[Zone21 Invite] ✗ vendor chat message failed:', e.message);
+                    console.error('[Zone21 Invite] ✗ vendor chat message failed:', e);
+                    showToast('⚠️ Chat message could not be sent. Check console for details.', 'error');
                 }
             }
 
-            // 3. Send to Organiser Inbox (so they see a record)
+            // 4. Send to Organiser Inbox (so they see a record)
             try {
                 await db.collection('messages').add({
                     sender: 'system',
@@ -1693,7 +1667,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                     time: currentEventData.time,
                     location: currentEventData.location,
                     budget: currentEventData.budget,
-                    requestId: ref.id,
+                    requestId: requestRef.id,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 console.log('[Zone21 Invite] ✓ organiser inbox notified');
@@ -1702,7 +1676,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             }
 
             markLocallyInvited(service, providerUid);
-            return { requestId: ref.id, providerId: providerUid, service, providerName: provider.name };
+            return { requestId: requestRef.id, providerId: providerUid, service, providerName: provider.name };
         }
 
         // ✅ Send All Invitations
@@ -1717,6 +1691,8 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             }
 
             const checkboxes = document.querySelectorAll('input[data-approve-provider]:checked');
+            console.log('[Zone21] Found checkboxes:', checkboxes.length);
+            
             if (checkboxes.length === 0) {
                 showToast('No providers selected. Tick "Include" next to the providers you want to invite.', 'info');
                 return;
@@ -1730,10 +1706,20 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
 
             let sentCount = 0;
             let failCount = 0;
+            let skipCount = 0;
 
             for (const cb of checkboxes) {
                 const service = cb.getAttribute('data-approve-service');
                 const providerId = cb.getAttribute('data-approve-provider');
+                
+                console.log('[Zone21] Attempting invite for:', service, providerId);
+
+                if (isLocallyInvited(service, providerId)) {
+                    console.log('[Zone21] Skipping already invited:', providerId);
+                    skipCount++;
+                    continue;
+                }
+
                 const provider = findProviderById(providerId);
 
                 if (!provider) {
@@ -1751,7 +1737,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                         activeRequests[service] = { ...result, status: 'invited', providerName: provider.name };
                     }
                 } catch (e) {
-                    console.error('[Zone21] invite error:', e);
+                    console.error('[Zone21] Invite error caught in main loop:', e);
                     failCount++;
                 }
             }
@@ -1759,10 +1745,15 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             saveBlueprintState(lastGeneratedHTML);
             refreshSlotUI();
 
+            let msg = '';
+            if (sentCount > 0) msg += `✅ ${sentCount} invitation(s) sent. `;
+            if (skipCount > 0) msg += `ℹ️ ${skipCount} already invited. `;
+            if (failCount > 0) msg += `❌ ${failCount} failed. `;
+            
             if (sentCount > 0) {
-                showToast(`✅ ${sentCount} invitation(s) sent.` + (failCount ? ` ⚠️ ${failCount} failed.` : ''), 'success');
+                showToast(msg, 'success');
             } else {
-                showToast('❌ No invitations sent. Check console for details.', 'error');
+                showToast(msg || '❌ No invitations sent. Check console for details.', 'error');
             }
 
             if (btn) {

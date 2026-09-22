@@ -5,651 +5,180 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Venue Profile | Zone21</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
-        :root {
-            --navy: #102838;
-            --lime: #C0C800;
-            --pink: #F80070;
-            --bg: #f5f7fa;
-            --card: #ffffff;
-            --text: #1a1a2e;
-            --muted: #6c757d;
-            --border: #e0e0e8;
-            --radius: 20px;
-            --shadow: 0 12px 40px rgba(16, 40, 56, 0.1);
-        }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-        body {
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            position: relative;
-        }
-        .header .logo {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--navy);
-        }
-        .header .logo span {
-            color: var(--pink);
-        }
-        .back-btn {
-            position: absolute;
-            left: 0;
-            top: 0;
-            background: var(--navy);
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: 0.2s;
-        }
-        .back-btn:hover {
-            background: var(--lime);
-            color: var(--navy);
-        }
-        .profile-card {
-            background: var(--card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            margin-bottom: 20px;
-            animation: fadeIn 0.4s ease-out;
-        }
-        .profile-cover {
-            height: 180px;
-            background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%);
-            position: relative;
-        }
-        .profile-avatar {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: var(--lime);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--navy);
-            border: 4px solid white;
-            margin-top: -60px;
-            margin-left: 30px;
-            position: relative;
-            z-index: 2;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-        .profile-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .avatar-edit-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: 0.3s;
-            font-size: 1.5rem;
-        }
-        .profile-avatar.editable:hover .avatar-edit-overlay {
-            opacity: 1;
-        }
-        .profile-info {
-            padding: 20px 30px 30px;
-            position: relative;
-        }
-        .edit-toggle-btn {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            background: #f0f4f8;
-            color: var(--navy);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .edit-toggle-btn:hover {
-            background: var(--navy);
-            color: white;
-        }
-        .name {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--navy);
-            margin-bottom: 4px;
-        }
-        .category {
-            color: var(--muted);
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 10px;
-        }
-        .rating-summary {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        .stars {
-            color: #ffb400;
-            font-size: 1.4rem;
-            letter-spacing: 2px;
-        }
-        .rating-number {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-        .reviews-count {
-            color: var(--muted);
-            font-size: 0.85rem;
-        }
-        .services-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 15px 0;
-        }
-        .service-tag {
-            background: #f0f4f8;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--navy);
-        }
-        .description {
-            margin: 15px 0;
-            line-height: 1.6;
-            color: #444;
-        }
-        .detail-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin: 20px 0;
-        }
-        .detail-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 12px 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            border: 1px solid transparent;
-            transition: 0.2s;
-        }
-        .detail-item:hover {
-            background: #e9ecef;
-            border-color: var(--border);
-        }
-        .detail-item i {
-            width: 20px;
-            text-align: center;
-            font-size: 1.1rem;
-            margin-top: 2px;
-            color: var(--pink);
-            flex-shrink: 0;
-        }
-        .detail-item .label {
-            font-weight: 600;
-            color: var(--navy);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            display: block;
-        }
-        .detail-item .value {
-            color: var(--text);
-            word-break: break-word;
-        }
-        .detail-item .value.secondary-svc {
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-        .social-links {
-            display: flex;
-            gap: 12px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-        }
-        .social-link {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            text-decoration: none;
-            transition: 0.2s;
-        }
-        .social-link:hover {
-            transform: scale(1.1);
-        }
+        :root { --navy: #102838; --lime: #C0C800; --pink: #F80070; --bg: #f5f7fa; --card: #ffffff;
+            --text: #1a1a2e; --muted: #6c757d; --border: #e0e0e8; --radius: 20px;
+            --shadow: 0 12px 40px rgba(16, 40, 56, 0.1); }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; position: relative; }
+        .header .logo { font-size: 1.8rem; font-weight: 800; color: var(--navy); }
+        .header .logo span { color: var(--pink); }
+        .back-btn { position: absolute; left: 0; top: 0; background: var(--navy); color: white; border: none;
+            padding: 8px 15px; border-radius: 20px; cursor: pointer; text-decoration: none; font-size: 0.9rem;
+            font-weight: 600; transition: 0.2s; }
+        .back-btn:hover { background: var(--lime); color: var(--navy); }
+        .profile-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+            overflow: hidden; margin-bottom: 20px; animation: fadeIn 0.4s ease-out; }
+        .profile-cover { height: 180px; background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 100%); }
+        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; background: var(--lime); display: flex;
+            align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 800; color: var(--navy);
+            border: 4px solid white; margin-top: -60px; margin-left: 30px; position: relative; z-index: 2;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow: hidden; }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-edit-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: white; display: flex;
+            align-items: center; justify-content: center; opacity: 0; transition: 0.3s; font-size: 1.5rem; }
+        .profile-avatar.editable:hover .avatar-edit-overlay { opacity: 1; }
+        .profile-info { padding: 20px 30px 30px; position: relative; }
+        .edit-toggle-btn { position: absolute; top: 20px; right: 30px; background: #f0f4f8; color: var(--navy);
+            border: 1px solid var(--border); padding: 8px 16px; border-radius: 20px; font-weight: 600;
+            cursor: pointer; transition: 0.2s; }
+        .edit-toggle-btn:hover { background: var(--navy); color: white; }
+        .name { font-size: 1.8rem; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
+        .category { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+        .rating-summary { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .stars { color: #ffb400; font-size: 1.4rem; letter-spacing: 2px; }
+        .rating-number { font-weight: 700; font-size: 1.1rem; }
+        .reviews-count { color: var(--muted); font-size: 0.85rem; }
+        .services-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+        .service-tag { background: #f0f4f8; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;
+            font-weight: 600; color: var(--navy); }
+        .description { margin: 15px 0; line-height: 1.6; color: #444; }
+        .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 20px 0; }
+        .detail-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 15px; background: #f8f9fa;
+            border-radius: 10px; font-size: 0.9rem; border: 1px solid transparent; transition: 0.2s; }
+        .detail-item:hover { background: #e9ecef; border-color: var(--border); }
+        .detail-item i { width: 20px; text-align: center; font-size: 1.1rem; margin-top: 2px; color: var(--pink);
+            flex-shrink: 0; }
+        .detail-item .label { font-weight: 600; color: var(--navy); font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.03em; display: block; }
+        .detail-item .value { color: var(--text); word-break: break-word; }
+        .detail-item .value.secondary-svc { font-size: 0.85rem; line-height: 1.5; }
+        .social-links { display: flex; gap: 12px; margin: 15px 0; flex-wrap: wrap; }
+        .social-link { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; color: white; font-size: 1.2rem; text-decoration: none; transition: 0.2s; }
+        .social-link:hover { transform: scale(1.1); }
         .social-facebook { background: #1877F2; }
         .social-instagram { background: #E4405F; }
         .social-tiktok { background: #000; }
         .social-youtube { background: #FF0000; }
         .social-website { background: var(--navy); }
-        .share-btn {
-            background: var(--lime);
-            color: var(--navy);
-            padding: 10px 20px;
-            border-radius: 30px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            border: none;
-            transition: 0.2s;
-        }
-        .share-btn:hover {
-            background: #d4dc00;
-        }
-        .gallery-section {
-            margin: 25px 0;
-        }
-        .standard-gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 15px;
-        }
-        .standard-gallery .gallery-item {
-            border-radius: 12px;
-            overflow: hidden;
-            aspect-ratio: 1/1;
-            background: #e9ecef;
-            cursor: pointer;
-            transition: 0.3s;
-            position: relative;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-        .standard-gallery .gallery-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s;
-        }
-        .standard-gallery .gallery-item:hover img {
-            transform: scale(1.05);
-        }
-        .review-section {
-            margin: 25px 0;
-        }
-        .review-form {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-        .review-form h3 {
-            margin-bottom: 10px;
-        }
-        .star-rating-input {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-            font-size: 1.5rem;
-        }
-        .star-rating-input i {
-            cursor: pointer;
-            color: #ccc;
-        }
-        .star-rating-input i.active {
-            color: #ffb400;
-        }
-        .review-form input,
-        .review-form textarea {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-        .review-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .review-item {
-            padding: 15px;
-            background: #fff;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            animation: fadeIn 0.4s ease-out;
-        }
-        .review-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        .share-btn { background: var(--lime); color: var(--navy); padding: 10px 20px; border-radius: 30px;
+            display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; border: none;
+            transition: 0.2s; }
+        .share-btn:hover { background: #d4dc00; }
+        .gallery-section { margin: 25px 0; }
+        .standard-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
+        .standard-gallery .gallery-item { border-radius: 12px; overflow: hidden; aspect-ratio: 1/1; background: #e9ecef;
+            cursor: pointer; transition: 0.3s; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .standard-gallery .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+        .standard-gallery .gallery-item:hover img { transform: scale(1.05); }
+        .review-section { margin: 25px 0; }
+        .review-form { background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .review-form h3 { margin-bottom: 10px; }
+        .star-rating-input { display: flex; gap: 5px; margin-bottom: 10px; font-size: 1.5rem; }
+        .star-rating-input i { cursor: pointer; color: #ccc; }
+        .star-rating-input i.active { color: #ffb400; }
+        .review-form input, .review-form textarea { width: 100%; padding: 10px; margin-bottom: 10px;
+            border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
+        .review-list { display: flex; flex-direction: column; gap: 15px; }
+        .review-item { padding: 15px; background: #fff; border-radius: 10px; border: 1px solid var(--border);
+            animation: fadeIn 0.4s ease-out; }
+        .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .reviewer-name { font-weight: 700; }
         .review-date { font-size: 0.75rem; color: var(--muted); }
         .review-stars { color: #ffb400; }
         .review-comment { font-size: 0.9rem; line-height: 1.5; }
-        .loading,
-        .error {
-            text-align: center;
-            padding: 60px 20px;
-            font-size: 1.1rem;
-            color: var(--muted);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-        .btn-create {
-            display: inline-block;
-            padding: 12px 30px;
-            background: var(--navy);
-            color: var(--lime);
-            border-radius: 30px;
-            font-weight: 600;
-            text-decoration: none;
-            margin-top: 15px;
-            cursor: pointer;
-            border: none;
-            font-size: 1rem;
-            transition: 0.2s;
-        }
-        .btn-create:hover {
-            background: #1a3a4a;
-        }
-        .submit-review-btn {
-            background: var(--navy);
-            color: var(--lime);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .submit-review-btn:hover {
-            background: #1a3a4a;
-            transform: translateY(-2px);
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        .input-group label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--navy);
-        }
-        .input-group input,
-        .input-group textarea,
-        .input-group select {
-            padding: 10px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-            background: #f9fafb;
-            outline: none;
-            transition: 0.3s;
-        }
-        .input-group input:focus,
-        .input-group textarea:focus {
-            border-color: var(--navy);
-            background: white;
-        }
-        .full-width {
-            grid-column: 1 / -1;
-        }
-        .amenities-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .amenity-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: #f0f4f8;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--navy);
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .amenity-checkbox:hover {
-            background: #e0e8f0;
-        }
-        .amenity-checkbox input {
-            accent-color: var(--pink);
-        }
-        .upload-area {
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            cursor: pointer;
-            background: #f9fafb;
-            margin-bottom: 15px;
-            transition: 0.3s;
-        }
-        .upload-area:hover {
-            border-color: var(--navy);
-            background: #f0f4f8;
-        }
-        .delete-img-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: var(--pink);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            transition: 0.2s;
-        }
-        .delete-img-btn:hover {
-            transform: scale(1.1);
-        }
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(16, 40, 56, 0.1);
-            border-left-color: var(--pink);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        .spinner-sm {
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-left-color: #fff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+        .loading, .error { text-align: center; padding: 60px 20px; font-size: 1.1rem; color: var(--muted);
+            display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .btn-create { display: inline-block; padding: 12px 30px; background: var(--navy); color: var(--lime);
+            border-radius: 30px; font-weight: 600; text-decoration: none; margin-top: 15px; cursor: pointer;
+            border: none; font-size: 1rem; transition: 0.2s; }
+        .btn-create:hover { background: #1a3a4a; }
+        .submit-review-btn { background: var(--navy); color: var(--lime); border: none; padding: 12px 24px;
+            border-radius: 30px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+        .submit-review-btn:hover { background: #1a3a4a; transform: translateY(-2px); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 0.85rem; font-weight: 600; color: var(--navy); }
+        .input-group input, .input-group textarea, .input-group select { padding: 10px; border: 1px solid var(--border);
+            border-radius: 8px; font-size: 0.9rem; background: #f9fafb; outline: none; transition: 0.3s; }
+        .input-group input:focus, .input-group textarea:focus { border-color: var(--navy); background: white; }
+        .full-width { grid-column: 1 / -1; }
+        .amenities-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .amenity-checkbox { display: flex; align-items: center; gap: 5px; background: #f0f4f8; padding: 8px 12px;
+            border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: var(--navy); cursor: pointer;
+            transition: 0.2s; }
+        .amenity-checkbox:hover { background: #e0e8f0; }
+        .amenity-checkbox input { accent-color: var(--pink); }
+        .upload-area { border: 2px dashed var(--border); border-radius: 12px; padding: 30px; text-align: center;
+            cursor: pointer; background: #f9fafb; margin-bottom: 15px; transition: 0.3s; }
+        .upload-area:hover { border-color: var(--navy); background: #f0f4f8; }
+        .delete-img-btn { position: absolute; top: 8px; right: 8px; background: var(--pink); color: white;
+            border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: 0.2s; }
+        .delete-img-btn:hover { transform: scale(1.1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(16,40,56,0.1); border-left-color: var(--pink);
+            border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner-sm { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-left-color: #fff;
+            border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== SIZE METER ===== */
+        .size-meter { background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px;
+            padding: 14px 18px; margin-bottom: 15px; font-size: 0.85rem; }
+        .size-meter .size-row { display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+        .size-meter .size-row:last-child { margin-bottom: 0; }
+        .size-meter .size-label { font-weight: 600; color: var(--navy); }
+        .size-meter .size-value { font-family: 'Courier New', monospace; font-weight: 700; color: var(--text); }
+        .size-meter .size-value.warn { color: #D97706; }
+        .size-meter .size-value.danger { color: var(--pink); }
+        .size-meter .size-value.ok { color: #16A34A; }
+        .size-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 10px; }
+        .size-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #16A34A, #84CC16);
+            border-radius: 4px; transition: width 0.3s, background 0.3s; }
+        .size-bar-fill.warn { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+        .size-bar-fill.danger { background: linear-gradient(90deg, #F80070, #DC2626); }
+        .img-size-badge { position: absolute; bottom: 6px; left: 6px; background: rgba(16,40,56,0.85); color: white;
+            font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 10px;
+            font-family: 'Courier New', monospace; letter-spacing: 0.5px; }
+        .img-size-badge.warn { background: rgba(217,119,6,0.9); }
+        .img-size-badge.danger { background: rgba(248,0,112,0.95); }
 
         /* ===== DRAFT BANNER ===== */
-        .draft-banner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 12px 18px;
-            background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
-            border: 1px solid #FFD54F;
-            border-left: 4px solid #FFA000;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            color: #6D4C00;
-            animation: fadeIn 0.3s ease-out;
-            flex-wrap: wrap;
-        }
-        .draft-banner .draft-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex: 1;
-            min-width: 200px;
-        }
-        .draft-banner .draft-info i {
-            font-size: 1.2rem;
-            color: #EF6C00;
-        }
-        .draft-banner .draft-info strong {
-            color: #4E342E;
-        }
-        .draft-banner .draft-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .draft-banner button {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            border: none;
-            font-family: inherit;
-            transition: 0.2s;
-        }
-        .draft-banner .btn-restore {
-            background: var(--navy);
-            color: var(--lime);
-        }
-        .draft-banner .btn-restore:hover {
-            background: #1a3a4a;
-        }
-        .draft-banner .btn-discard {
-            background: transparent;
-            color: #6D4C00;
-            border: 1px solid #FFB300;
-        }
-        .draft-banner .btn-discard:hover {
-            background: rgba(255, 167, 0, 0.12);
-        }
-
-        /* Draft status indicator (auto-save toast) */
-        .draft-status {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: var(--navy);
-            color: var(--lime);
-            padding: 10px 18px;
-            border-radius: 30px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            box-shadow: 0 8px 24px rgba(16, 40, 56, 0.25);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.3s, transform 0.3s;
-            pointer-events: none;
-            z-index: 9999;
-        }
-        .draft-status.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .draft-status i {
-            color: var(--lime);
-        }
+        .draft-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 12px 18px; background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+            border: 1px solid #FFD54F; border-left: 4px solid #FFA000; border-radius: 10px; margin-bottom: 20px;
+            font-size: 0.9rem; color: #6D4C00; animation: fadeIn 0.3s ease-out; flex-wrap: wrap; }
+        .draft-banner .draft-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+        .draft-banner .draft-info i { font-size: 1.2rem; color: #EF6C00; }
+        .draft-banner .draft-info strong { color: #4E342E; }
+        .draft-banner .draft-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .draft-banner button { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;
+            cursor: pointer; border: none; font-family: inherit; transition: 0.2s; }
+        .draft-banner .btn-discard { background: transparent; color: #6D4C00; border: 1px solid #FFB300; }
+        .draft-banner .btn-discard:hover { background: rgba(255,167,0,0.12); }
+        .draft-status { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: var(--lime);
+            padding: 10px 18px; border-radius: 30px; font-size: 0.8rem; font-weight: 600;
+            box-shadow: 0 8px 24px rgba(16,40,56,0.25); display: flex; align-items: center; gap: 8px;
+            opacity: 0; transform: translateY(20px); transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none; z-index: 9999; max-width: calc(100% - 48px); }
+        .draft-status.visible { opacity: 1; transform: translateY(0); }
 
         @media (max-width: 600px) {
             .profile-info { padding: 15px; }
-            .profile-avatar {
-                margin-left: 20px;
-                width: 90px;
-                height: 90px;
-                font-size: 1.8rem;
-                margin-top: -45px;
-            }
+            .profile-avatar { margin-left: 20px; width: 90px; height: 90px; font-size: 1.8rem; margin-top: -45px; }
             .detail-grid { grid-template-columns: 1fr; }
             .form-grid { grid-template-columns: 1fr; }
-            .edit-toggle-btn {
-                top: 10px;
-                right: 10px;
-                font-size: 0.8rem;
-                padding: 6px 12px;
-            }
-            .draft-status {
-                bottom: 12px;
-                right: 12px;
-                left: 12px;
-                justify-content: center;
-            }
+            .edit-toggle-btn { top: 10px; right: 10px; font-size: 0.8rem; padding: 6px 12px; }
+            .draft-status { bottom: 12px; right: 12px; left: 12px; justify-content: center; }
+            .size-meter { padding: 12px 14px; font-size: 0.78rem; }
         }
     </style>
 </head>
@@ -659,12 +188,8 @@
             <a href="vendordashboard.html" class="back-btn" id="dash-btn" style="display:none;"><i class="fas fa-arrow-left"></i> Dashboard</a>
             <div class="logo">Zone<span>21</span> Venue</div>
         </div>
-
         <div id="profile-content">
-            <div class="loading">
-                <div class="spinner"></div>
-                Loading venue profile...
-            </div>
+            <div class="loading"><div class="spinner"></div> Loading venue profile...</div>
         </div>
     </div>
 
@@ -699,32 +224,125 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ===== AMENITIES LIST =====
-        const amenitiesList = ["Parking", "Catering Area", "Stage", "Dance Floor", "Air Conditioning", "Bar", "Sound System",
-            "WiFi", "Backup Generator", "Security", "VIP Lounge", "Outdoor Space", "Swimming Pool", "Bridal Suite"
-        ];
+        // ===== FIRESTORE SIZE LIMITS =====
+        // Hard limit is 1,048,576 bytes. We set our own cap lower for safety.
+        const FIRESTORE_LIMIT = 1048576;
+        const SAFE_TOTAL_LIMIT = 900 * 1024;      // 900 KB — refuse save above this
+        const WARN_TOTAL_LIMIT = 700 * 1024;      // 700 KB — warn user
+        const MAX_PER_GALLERY_IMAGE = 160 * 1024; // 160 KB target max per image
+        const MAX_PER_AVATAR = 60 * 1024;         // 60 KB target max for avatar
+
+        // Compression settings (adjusted for base64 in Firestore)
+        const GALLERY_MAX_WIDTH = 600;   // was 800
+        const GALLERY_QUALITY   = 0.5;   // was 0.6
+        const AVATAR_MAX_WIDTH  = 300;   // was 400
+        const AVATAR_QUALITY    = 0.6;   // was 0.7
+
+        const amenitiesList = ["Parking", "Catering Area", "Stage", "Dance Floor", "Air Conditioning", "Bar",
+            "Sound System", "WiFi", "Backup Generator", "Security", "VIP Lounge", "Outdoor Space",
+            "Swimming Pool", "Bridal Suite"];
 
         let currentVenueId = null;
         let venueData = null;
         let isOwner = false;
         let viewMode = 'public';
-        let uploadedImages = [];
+        let uploadedImages = [];   // array of base64 strings
         let currentUser = null;
 
         // ============================================================
-        //  DRAFT AUTO-SAVE (localStorage)
+        //  SIZE HELPERS
+        // ============================================================
+        function bytesFromBase64(str) {
+            if (!str || typeof str !== 'string') return 0;
+            // UTF-16 char count ≈ bytes stored in Firestore (each char = 1 byte in UTF-8 for base64 chars)
+            return str.length;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(2) + ' MB';
+        }
+
+        function calculateTotalImageBytes() {
+            let total = 0;
+            uploadedImages.forEach(img => { total += bytesFromBase64(img); });
+            if (venueData?.avatar) total += bytesFromBase64(venueData.avatar);
+            return total;
+        }
+
+        function estimateFullDocSize() {
+            // Rough: images + avatar + ~2KB for text fields
+            return calculateTotalImageBytes() + 2048;
+        }
+
+        function getSizeClass(bytes) {
+            if (bytes > SAFE_TOTAL_LIMIT) return 'danger';
+            if (bytes > WARN_TOTAL_LIMIT) return 'warn';
+            return 'ok';
+        }
+
+        // ============================================================
+        //  IMAGE COMPRESSION (higher compression to fit 1 MB)
+        // ============================================================
+        // Iteratively compress until we're under targetSize, dropping
+        // quality/dimensions as needed.
+        async function compressToTarget(file, maxWidth, startQuality, targetSize) {
+            const originalDataUrl = await fileToDataURL(file);
+            let quality = startQuality;
+            let width = maxWidth;
+            let best = null;
+
+            for (let attempt = 0; attempt < 5; attempt++) {
+                const result = await drawAndEncode(originalDataUrl, width, quality);
+                best = result;
+                if (bytesFromBase64(result) <= targetSize) break;
+                // Reduce dimensions on odd attempts, quality on even
+                if (attempt % 2 === 0) quality = Math.max(0.3, quality - 0.1);
+                else width = Math.round(width * 0.8);
+            }
+            return best;
+        }
+
+        function fileToDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function drawAndEncode(dataUrl, maxWidth, quality) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => reject(new Error('Failed to load image'));
+                img.src = dataUrl;
+            });
+        }
+
+        // ============================================================
+        //  DRAFT AUTO-SAVE
         // ============================================================
         const DRAFT_KEY_PREFIX = 'zone21_venue_profile_draft_';
         let draftSaveTimer = null;
         let draftStatusTimer = null;
         let draftRestoredFromStorage = false;
 
-        function getDraftKey() {
-            return DRAFT_KEY_PREFIX + (currentVenueId || 'unknown');
-        }
+        function getDraftKey() { return DRAFT_KEY_PREFIX + (currentVenueId || 'unknown'); }
 
         function collectFormState() {
-            const state = {
+            return {
                 name: document.getElementById('e-name')?.value ?? undefined,
                 location: document.getElementById('e-loc')?.value ?? undefined,
                 basePrice: document.getElementById('e-price')?.value ?? undefined,
@@ -747,47 +365,36 @@
                 images: uploadedImages,
                 _savedAt: Date.now()
             };
-            return state;
         }
 
         function scheduleDraftSave() {
             clearTimeout(draftSaveTimer);
-            draftSaveTimer = setTimeout(() => {
-                saveDraftNow();
-            }, 400);
+            draftSaveTimer = setTimeout(saveDraftNow, 400);
         }
 
         function saveDraftNow() {
             try {
                 const state = collectFormState();
                 const payload = JSON.stringify(state);
-
-                // Guard against quota — try full payload first, then strip images
                 try {
                     localStorage.setItem(getDraftKey(), payload);
                 } catch (quotaErr) {
-                    console.warn('Draft too large with images, saving without images.', quotaErr);
-                    const slimState = { ...state, images: [], avatar: null, _slim: true };
-                    localStorage.setItem(getDraftKey(), JSON.stringify(slimState));
-                    showDraftStatus('Draft saved (images not saved — too large)');
+                    // localStorage has ~5MB limit; if too big, strip images
+                    console.warn('Draft too large, saving without images.');
+                    const slim = { ...state, images: [], avatar: null, _slim: true };
+                    localStorage.setItem(getDraftKey(), JSON.stringify(slim));
+                    showDraftStatus('Draft saved (images not persisted)');
                     return;
                 }
-
-                showDraftStatus('Draft saved • ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}));
-            } catch (e) {
-                console.warn('Draft save failed:', e);
-            }
+                showDraftStatus('Draft saved • ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+            } catch (e) { console.warn('Draft save failed:', e); }
         }
 
         function loadDraft() {
             try {
                 const raw = localStorage.getItem(getDraftKey());
-                if (!raw) return null;
-                return JSON.parse(raw);
-            } catch (e) {
-                console.warn('Draft load failed:', e);
-                return null;
-            }
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
         }
 
         function clearDraft() {
@@ -802,62 +409,31 @@
             txt.textContent = text;
             el.classList.add('visible');
             clearTimeout(draftStatusTimer);
-            draftStatusTimer = setTimeout(() => {
-                el.classList.remove('visible');
-            }, 2200);
+            draftStatusTimer = setTimeout(() => el.classList.remove('visible'), 2200);
         }
 
         function attachDraftListeners() {
-            // Text/number/select/textarea
-            const fields = [
-                'e-name', 'e-loc', 'e-price', 'e-capacity', 'e-venue-type', 'e-desc',
-                'e-pricing', 'e-policies', 'e-deposit', 'e-hours', 'e-parking', 'e-catering',
-                'e-tt', 'e-ig', 'e-fb', 'e-yt', 'e-web'
-            ];
-            fields.forEach(id => {
+            ['e-name','e-loc','e-price','e-capacity','e-venue-type','e-desc','e-pricing','e-policies',
+             'e-deposit','e-hours','e-parking','e-catering','e-tt','e-ig','e-fb','e-yt','e-web'].forEach(id => {
                 const el = document.getElementById(id);
-                if (!el) return;
-                el.addEventListener('input', scheduleDraftSave);
-                el.addEventListener('change', scheduleDraftSave);
+                if (el) { el.addEventListener('input', scheduleDraftSave); el.addEventListener('change', scheduleDraftSave); }
             });
-
-            // Amenity checkboxes
-            document.querySelectorAll('.edit-amenity-chk').forEach(cb => {
-                cb.addEventListener('change', scheduleDraftSave);
-            });
+            document.querySelectorAll('.edit-amenity-chk').forEach(cb => cb.addEventListener('change', scheduleDraftSave));
         }
 
         function applyDraftToForm(draft) {
             if (!draft) return;
-            const setVal = (id, val) => {
-                const el = document.getElementById(id);
-                if (el && val !== undefined && val !== null) el.value = val;
-            };
-            setVal('e-name', draft.name);
-            setVal('e-loc', draft.location);
-            setVal('e-price', draft.basePrice);
-            setVal('e-capacity', draft.capacity);
-            setVal('e-venue-type', draft.venueType);
-            setVal('e-desc', draft.description);
-            setVal('e-pricing', draft.pricingPackages);
-            setVal('e-policies', draft.rentalPolicies);
-            setVal('e-deposit', draft.deposit);
-            setVal('e-hours', draft.operatingHours);
-            setVal('e-parking', draft.parking);
-            setVal('e-catering', draft.catering);
-            setVal('e-tt', draft.tiktok);
-            setVal('e-ig', draft.instagram);
-            setVal('e-fb', draft.facebook);
-            setVal('e-yt', draft.youtube);
-            setVal('e-web', draft.website);
-
-            // Amenities
+            const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+            setVal('e-name', draft.name); setVal('e-loc', draft.location); setVal('e-price', draft.basePrice);
+            setVal('e-capacity', draft.capacity); setVal('e-venue-type', draft.venueType);
+            setVal('e-desc', draft.description); setVal('e-pricing', draft.pricingPackages);
+            setVal('e-policies', draft.rentalPolicies); setVal('e-deposit', draft.deposit);
+            setVal('e-hours', draft.operatingHours); setVal('e-parking', draft.parking);
+            setVal('e-catering', draft.catering); setVal('e-tt', draft.tiktok);
+            setVal('e-ig', draft.instagram); setVal('e-fb', draft.facebook);
+            setVal('e-yt', draft.youtube); setVal('e-web', draft.website);
             const amenitySet = new Set(draft.amenities || []);
-            document.querySelectorAll('.edit-amenity-chk').forEach(cb => {
-                cb.checked = amenitySet.has(cb.value);
-            });
-
-            // Images & avatar
+            document.querySelectorAll('.edit-amenity-chk').forEach(cb => { cb.checked = amenitySet.has(cb.value); });
             if (!draft._slim) {
                 if (Array.isArray(draft.images)) uploadedImages = draft.images;
                 if (draft.avatar) venueData.avatar = draft.avatar;
@@ -865,14 +441,12 @@
         }
 
         function renderDraftBanner(savedAt) {
-            const content = document.getElementById('profile-content');
-            const card = content.querySelector('.profile-card');
+            const card = document.querySelector('#profile-content .profile-card');
             if (!card) return;
-
-            const timeStr = savedAt ? new Date(savedAt).toLocaleString() : 'earlier';
             const banner = document.createElement('div');
             banner.className = 'draft-banner';
             banner.id = 'draft-banner';
+            const timeStr = savedAt ? new Date(savedAt).toLocaleString() : 'earlier';
             banner.innerHTML = `
                 <div class="draft-info">
                     <i class="fas fa-clock-rotate-left"></i>
@@ -883,8 +457,7 @@
                 </div>
                 <div class="draft-actions">
                     <button class="btn-discard" onclick="discardDraft()"><i class="fas fa-trash-can"></i> Discard Draft</button>
-                </div>
-            `;
+                </div>`;
             card.insertBefore(banner, card.firstChild);
         }
 
@@ -895,14 +468,40 @@
         }
 
         // ============================================================
-        //  RESOLVE VENUE ID
+        //  SIZE METER UI
+        // ============================================================
+        function renderSizeMeter() {
+            const el = document.getElementById('size-meter-container');
+            if (!el) return;
+            const total = estimateFullDocSize();
+            const pct = Math.min(100, (total / SAFE_TOTAL_LIMIT) * 100);
+            const cls = getSizeClass(total);
+            const clsText = cls === 'danger' ? 'TOO LARGE — remove images to save'
+                          : cls === 'warn'   ? 'Getting large — consider removing an image'
+                          : 'Ready to save';
+            el.innerHTML = `
+                <div class="size-meter">
+                    <div class="size-row">
+                        <span class="size-label"><i class="fas fa-database"></i> Firestore document size</span>
+                        <span class="size-value ${cls}">${formatBytes(total)} / ${formatBytes(SAFE_TOTAL_LIMIT)}</span>
+                    </div>
+                    <div class="size-row" style="font-size:0.78rem; color:var(--muted);">
+                        <span>${uploadedImages.length} gallery + ${venueData?.avatar ? 1 : 0} avatar</span>
+                        <span>${clsText}</span>
+                    </div>
+                    <div class="size-bar">
+                        <div class="size-bar-fill ${cls}" style="width:${pct}%;"></div>
+                    </div>
+                </div>`;
+        }
+
+        // ============================================================
+        //  RESOLVE VENUE ID & AUTH
         // ============================================================
         async function resolveVenueId(user) {
             const urlParams = new URLSearchParams(window.location.search);
             const idFromUrl = urlParams.get('id');
-            if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') {
-                return idFromUrl;
-            }
+            if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') return idFromUrl;
             if (user) {
                 try {
                     const doc = await db.collection('venues').doc(user.uid).get();
@@ -920,7 +519,6 @@
             currentUser = user;
             currentVenueId = await resolveVenueId(user);
             if (currentVenueId) {
-                // Initial ownership guess (refined after venueData loads)
                 isOwner = !!(user && (user.uid === currentVenueId));
                 if (isOwner) document.getElementById('dash-btn').style.display = 'block';
                 loadVenueProfile();
@@ -960,21 +558,10 @@
                 name: email.split('@')[0] || 'My Venue',
                 category: 'Venue / Space Rental',
                 services: ['Venue / Space Rental'],
-                description: '',
-                location: '',
-                basePrice: 0,
-                capacity: 0,
-                venueType: 'Indoor',
-                amenities: [],
-                pricingPackages: '',
-                rentalPolicies: '',
-                deposit: '',
-                operatingHours: '',
-                parking: '',
-                catering: '',
-                rating: 0,
-                reviewsCount: 0,
-                status: 'pending',
+                description: '', location: '', basePrice: 0, capacity: 0, venueType: 'Indoor',
+                amenities: [], pricingPackages: '', rentalPolicies: '', deposit: '',
+                operatingHours: '', parking: '', catering: '',
+                rating: 0, reviewsCount: 0, status: 'pending',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             await db.collection('venues').doc(uid).set(defaultData);
@@ -984,22 +571,16 @@
         async function loadVenueProfile() {
             try {
                 const doc = await db.collection('venues').doc(currentVenueId).get();
-                if (!doc.exists) { showProfileNotFound(auth.currentUser ? true : false); return; }
+                if (!doc.exists) { showProfileNotFound(!!auth.currentUser); return; }
                 venueData = doc.data();
-
-                // Recompute ownership now that venueData is available
                 if (currentUser) {
                     isOwner = currentUser.uid === currentVenueId ||
                              (venueData.email && venueData.email === currentUser.email);
                     document.getElementById('dash-btn').style.display = isOwner ? 'block' : 'none';
-                } else {
-                    isOwner = false;
-                }
-
+                } else { isOwner = false; }
                 uploadedImages = venueData.images || [];
-                if (viewMode === 'public') renderPublicView();
+                if (viewMode === 'public') { renderPublicView(); loadReviews(currentVenueId); }
                 else renderEditView();
-                if (viewMode === 'public') loadReviews(currentVenueId);
             } catch (error) {
                 console.error(error);
                 document.getElementById('profile-content').innerHTML = '<div class="error">Failed to load profile.</div>';
@@ -1007,68 +588,29 @@
         }
 
         function toggleMode() {
-            if (viewMode === 'edit') {
-                // Leaving edit mode — draft is preserved in localStorage
-                // so if they come back, progress is restored
-                clearTimeout(draftSaveTimer);
-            }
+            if (viewMode === 'edit') clearTimeout(draftSaveTimer);
             viewMode = viewMode === 'public' ? 'edit' : 'public';
             draftRestoredFromStorage = false;
             loadVenueProfile();
         }
 
-        // ===== IMAGE COMPRESSION =====
-        function compressToBase64(file, maxWidth, quality, callback) {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = function(event) {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
-                    callback(dataUrl);
-                };
-            };
-        }
-
-        // ===== RENDER PUBLIC VIEW =====
+        // ============================================================
+        //  PUBLIC VIEW (unchanged)
+        // ============================================================
         function renderPublicView() {
-            const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
-                .toUpperCase();
-            const avatarHtml = venueData.avatar ?
-                `<img src="${venueData.avatar}" alt="Avatar">` :
-                initials;
+            const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+            const avatarHtml = venueData.avatar ? `<img src="${venueData.avatar}" alt="Avatar">` : initials;
 
             const socialLinks = [];
-            if (venueData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
-                url: venueData.facebook, label: 'Facebook' });
-            if (venueData.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram',
-                url: venueData.instagram, label: 'Instagram' });
-            if (venueData.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: venueData
-                    .tiktok, label: 'TikTok' });
-            if (venueData.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: venueData
-                    .youtube, label: 'YouTube' });
-            if (venueData.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: venueData
-                    .website, label: 'Website' });
+            if (venueData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: venueData.facebook, label: 'Facebook' });
+            if (venueData.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: venueData.instagram, label: 'Instagram' });
+            if (venueData.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: venueData.tiktok, label: 'TikTok' });
+            if (venueData.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: venueData.youtube, label: 'YouTube' });
+            if (venueData.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: venueData.website, label: 'Website' });
 
-            const amenitiesHtml = (venueData.amenities || []).map(a =>
-                `<span class="service-tag">${a}</span>`).join('');
-
+            const amenitiesHtml = (venueData.amenities || []).map(a => `<span class="service-tag">${a}</span>`).join('');
             const galleryHtml = (venueData.images || []).length > 0 ?
-                venueData.images.map(img =>
-                    `<div class="gallery-item" onclick="window.open('${img}', '_blank')"><img src="${img}" alt="Gallery"></div>`
-                    ).join('') :
+                venueData.images.map(img => `<div class="gallery-item" onclick="window.open('${img}', '_blank')"><img src="${img}" alt="Gallery" loading="lazy"></div>`).join('') :
                 '<p style="color:var(--muted); grid-column: 1/-1;">No images available</p>';
 
             const rating = venueData.rating || 0;
@@ -1094,15 +636,14 @@
             if (venueData.location) detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: venueData.location });
 
             const detailHtml = detailItems.length > 0 ?
-                detailItems.map(item =>
-                    `<div class="detail-item">
-                            <i class="fas ${item.icon}"></i>
-                            <div>
-                                <span class="label">${item.label}</span>
-                                <div class="value ${item.cls || ''}">${item.value}</div>
-                            </div>
-                        </div>`
-                ).join('') :
+                detailItems.map(item => `
+                    <div class="detail-item">
+                        <i class="fas ${item.icon}"></i>
+                        <div>
+                            <span class="label">${item.label}</span>
+                            <div class="value ${item.cls || ''}">${item.value}</div>
+                        </div>
+                    </div>`).join('') :
                 '<p style="color:var(--muted); grid-column:1/-1; padding:8px 0;">No additional details provided.</p>';
 
             let reviewFormHtml = '';
@@ -1111,14 +652,15 @@
                     <div class="review-form" id="review-form-container">
                         <h3>Rate this venue</h3>
                         <div class="star-rating-input" id="star-input">
-                            <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i><i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i><i class="far fa-star" data-value="5"></i>
+                            <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i>
+                            <i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i>
+                            <i class="far fa-star" data-value="5"></i>
                         </div>
                         <input type="text" id="reviewer-name" placeholder="Your name (optional)">
                         <textarea id="review-comment" placeholder="Write your review..."></textarea>
                         <button class="submit-review-btn" id="submit-review-btn"><i class="fas fa-paper-plane"></i> Submit Review</button>
                         <div id="review-status" style="margin-top:8px; font-size:0.85rem; color:var(--muted);"></div>
-                    </div>
-                `;
+                    </div>`;
             } else if (isOwner) {
                 reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">You cannot review your own venue.</p>`;
             } else {
@@ -1133,20 +675,15 @@
                         ${isOwner ? `<button class="edit-toggle-btn" onclick="toggleMode()"><i class="fas fa-pen"></i> Edit Profile</button>` : ''}
                         <div class="name">${venueData.name || 'Unnamed Venue'}</div>
                         <div class="category">Venue / Space Rental</div>
-
                         <div class="rating-summary">
                             <span class="stars">${starsHtml}</span>
                             <span class="rating-number">${rating.toFixed(1)}</span>
                             <span class="reviews-count">(${venueData.reviewsCount || 0} reviews)</span>
                         </div>
-
                         ${amenitiesHtml ? `<div class="services-tags"><strong>Amenities:</strong> ${amenitiesHtml}</div>` : ''}
                         ${venueData.description ? `<div class="description">${venueData.description}</div>` : ''}
-
                         <div class="detail-grid">${detailHtml}</div>
-
                         ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
-
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                             <button class="share-btn" onclick="copyProfileLink('${currentVenueId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
                         </div>
@@ -1166,8 +703,7 @@
                         ${reviewFormHtml}
                         <div class="review-list" id="review-list"></div>
                     </div>
-                </div>
-            `;
+                </div>`;
             document.getElementById('profile-content').innerHTML = html;
 
             if (!isOwner && currentUser) {
@@ -1189,24 +725,29 @@
             }
         }
 
-        // ===== RENDER EDIT VIEW (with draft restore + auto-save hooks) =====
+        // ============================================================
+        //  EDIT VIEW (with size meter + per-image badges)
+        // ============================================================
         function renderEditView() {
-            let amenitiesCheckboxes = amenitiesList.map(am => `
+            const amenitiesCheckboxes = amenitiesList.map(am => `
                 <label class="amenity-checkbox">
                     <input type="checkbox" class="edit-amenity-chk" value="${am}" ${(venueData.amenities || []).includes(am) ? 'checked' : ''}> ${am}
-                </label>
-            `).join('');
+                </label>`).join('');
 
-            let imagesHtml = uploadedImages.map((url, i) => `
+            const imagesHtml = uploadedImages.map((url, i) => {
+                const bytes = bytesFromBase64(url);
+                const cls = bytes > MAX_PER_GALLERY_IMAGE ? 'warn' : '';
+                return `
                 <div class="gallery-item">
                     <img src="${url}">
+                    <span class="img-size-badge ${cls}">${formatBytes(bytes)}</span>
                     <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
 
-            const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2)
-                .toUpperCase();
+            const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
             const avatarHtml = venueData.avatar ? `<img src="${venueData.avatar}" alt="Avatar">` : initials;
+            const avatarBytes = venueData.avatar ? bytesFromBase64(venueData.avatar) : 0;
 
             const html = `
                 <div class="profile-card" style="padding:30px;">
@@ -1221,7 +762,9 @@
                             <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
                         </div>
                         <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
-                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
+                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">
+                            Click to change profile picture ${avatarBytes ? `(${formatBytes(avatarBytes)})` : ''}
+                        </p>
                     </div>
 
                     <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
@@ -1245,27 +788,17 @@
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Venue Details</h3>
                     <div class="form-grid">
-                        <div class="input-group full-width"><label>Pricing Packages <span style="font-weight:400;color:var(--muted);">(e.g. Full day: $5000, Half day: $3000)</span></label>
-                            <textarea id="e-pricing" rows="2">${venueData.pricingPackages || ''}</textarea>
-                        </div>
-                        <div class="input-group full-width"><label>Rental Policies <span style="font-weight:400;color:var(--muted);">(e.g. Damage deposit, cancellation policy, etc.)</span></label>
-                            <textarea id="e-policies" rows="2">${venueData.rentalPolicies || ''}</textarea>
-                        </div>
-                        <div class="input-group"><label>Deposit Required</label>
-                            <input type="text" id="e-deposit" value="${venueData.deposit || ''}" placeholder="e.g. 30% or $1000">
-                        </div>
-                        <div class="input-group"><label>Operating Hours</label>
-                            <input type="text" id="e-hours" value="${venueData.operatingHours || ''}" placeholder="e.g. Mon–Sun 8am – 11pm">
-                        </div>
-                        <div class="input-group"><label>Parking Information</label>
-                            <input type="text" id="e-parking" value="${venueData.parking || ''}" placeholder="e.g. 50 spaces, free">
-                        </div>
-                        <div class="input-group"><label>Catering Options</label>
-                            <input type="text" id="e-catering" value="${venueData.catering || ''}" placeholder="e.g. In-house, External allowed">
-                        </div>
+                        <div class="input-group full-width"><label>Pricing Packages</label>
+                            <textarea id="e-pricing" rows="2">${venueData.pricingPackages || ''}</textarea></div>
+                        <div class="input-group full-width"><label>Rental Policies</label>
+                            <textarea id="e-policies" rows="2">${venueData.rentalPolicies || ''}</textarea></div>
+                        <div class="input-group"><label>Deposit Required</label><input type="text" id="e-deposit" value="${venueData.deposit || ''}" placeholder="e.g. 30% or $1000"></div>
+                        <div class="input-group"><label>Operating Hours</label><input type="text" id="e-hours" value="${venueData.operatingHours || ''}" placeholder="e.g. Mon–Sun 8am – 11pm"></div>
+                        <div class="input-group"><label>Parking Information</label><input type="text" id="e-parking" value="${venueData.parking || ''}" placeholder="e.g. 50 spaces, free"></div>
+                        <div class="input-group"><label>Catering Options</label><input type="text" id="e-catering" value="${venueData.catering || ''}" placeholder="e.g. In-house, External allowed"></div>
                     </div>
 
-                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media (no phone/email)</h3>
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media</h3>
                     <div class="form-grid">
                         <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${venueData.tiktok || ''}"></div>
                         <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${venueData.instagram || ''}"></div>
@@ -1274,7 +807,13 @@
                         <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${venueData.website || ''}"></div>
                     </div>
 
-                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">
+                        Gallery (Max 5 Images) 
+                        <span style="font-weight:400;font-size:0.85rem;color:var(--muted);">— auto-compressed to fit Firestore</span>
+                    </h3>
+
+                    <div id="size-meter-container"></div>
+
                     <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
                         <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
                         <p id="upload-text">Click to add gallery images.</p>
@@ -1285,72 +824,101 @@
                     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:30px;">
                         <button class="btn-create" style="flex:1; min-width:220px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
                     </div>
-                </div>
-            `;
+                </div>`;
             document.getElementById('profile-content').innerHTML = html;
-
-            // Attach auto-save listeners to every field
             attachDraftListeners();
+            renderSizeMeter();
 
-            // Restore draft if one exists
+            // Restore draft
             const draft = loadDraft();
             if (draft && draft._savedAt) {
                 applyDraftToForm(draft);
-                // Refresh avatar preview if it was in the draft
                 if (draft.avatar) {
                     const box = document.getElementById('avatar-preview-box');
-                    if (box) {
-                        box.innerHTML = `<img src="${draft.avatar}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
-                    }
+                    if (box) box.innerHTML = `<img src="${draft.avatar}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
                 }
-                // Refresh gallery html
                 if (Array.isArray(draft.images) && draft.images.length > 0 && !draft._slim) {
                     const galleryEl = document.getElementById('edit-gallery');
                     if (galleryEl) {
-                        galleryEl.innerHTML = draft.images.map((url, i) => `
+                        galleryEl.innerHTML = draft.images.map((url, i) => {
+                            const bytes = bytesFromBase64(url);
+                            const cls = bytes > MAX_PER_GALLERY_IMAGE ? 'warn' : '';
+                            return `
                             <div class="gallery-item">
                                 <img src="${url}">
+                                <span class="img-size-badge ${cls}">${formatBytes(bytes)}</span>
                                 <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
-                            </div>
-                        `).join('');
+                            </div>`;
+                        }).join('');
                     }
                 }
                 renderDraftBanner(draft._savedAt);
+                renderSizeMeter();
                 draftRestoredFromStorage = true;
                 showDraftStatus('Draft restored • ' + new Date(draft._savedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
             }
         }
 
-        // ===== EDIT HANDLERS =====
-        function handleAvatarUpload(event) {
+        // ============================================================
+        //  EDIT HANDLERS (base64 with aggressive compression)
+        // ============================================================
+        async function handleAvatarUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+            if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
             const box = document.getElementById('avatar-preview-box');
-            box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
-            compressToBase64(file, 400, 0.7, (base64) => {
+            const originalHtml = box.innerHTML;
+            box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div>';
+            try {
+                const base64 = await compressToTarget(file, AVATAR_MAX_WIDTH, AVATAR_QUALITY, MAX_PER_AVATAR);
                 venueData.avatar = base64;
-                box.innerHTML =
-                    `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+                box.innerHTML = `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+                renderSizeMeter();
+                showDraftStatus(`Avatar saved (${formatBytes(bytesFromBase64(base64))})`);
                 scheduleDraftSave();
-            });
+            } catch (e) {
+                console.error('Avatar compression failed:', e);
+                alert('Failed to process image. Please try another file.');
+                box.innerHTML = originalHtml;
+            } finally {
+                event.target.value = '';
+            }
         }
 
-        function handleGalleryUpload(event) {
+        async function handleGalleryUpload(event) {
             const files = Array.from(event.target.files);
-            if (uploadedImages.length + files.length > 5) { alert("Maximum 5 images allowed in the gallery."); return; }
+            if (uploadedImages.length + files.length > 5) {
+                alert("Maximum 5 images allowed in the gallery.");
+                event.target.value = '';
+                return;
+            }
             const txt = document.getElementById('upload-text');
-            txt.innerHTML = '<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing images...';
-            let processed = 0;
-            files.forEach(file => {
-                compressToBase64(file, 800, 0.6, (base64) => {
+            txt.innerHTML = `<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing 0/${files.length}...`;
+
+            let added = 0;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file.type.startsWith('image/')) continue;
+                try {
+                    txt.innerHTML = `<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Compressing ${i+1}/${files.length}...`;
+                    const base64 = await compressToTarget(file, GALLERY_MAX_WIDTH, GALLERY_QUALITY, MAX_PER_GALLERY_IMAGE);
                     uploadedImages.push(base64);
-                    processed++;
-                    if (processed === files.length) {
-                        renderEditView();
-                        scheduleDraftSave();
-                    }
-                });
-            });
+                    added++;
+                } catch (e) {
+                    console.error('Image compression failed:', file.name, e);
+                }
+            }
+            event.target.value = '';
+            renderEditView();
+            if (added > 0) {
+                const total = estimateFullDocSize();
+                if (total > SAFE_TOTAL_LIMIT) {
+                    alert(`⚠ You now have ${formatBytes(total)} of images — this exceeds the ${formatBytes(SAFE_TOTAL_LIMIT)} safe limit.\n\nPlease remove one or more images before saving.`);
+                } else {
+                    showDraftStatus(`${added} image${added > 1 ? 's' : ''} added (${formatBytes(total)} total)`);
+                }
+                scheduleDraftSave();
+            }
         }
 
         function removeImage(index) {
@@ -1359,8 +927,19 @@
             scheduleDraftSave();
         }
 
+        // ============================================================
+        //  SAVE — with hard size check
+        // ============================================================
         async function saveProfileData() {
             const btn = document.getElementById('save-btn');
+
+            // HARD SIZE CHECK before touching Firestore
+            const estimatedSize = estimateFullDocSize();
+            if (estimatedSize > SAFE_TOTAL_LIMIT) {
+                alert(`❌ Cannot save — your profile images total ${formatBytes(estimatedSize)}.\n\nThe Firestore limit is ${formatBytes(FIRESTORE_LIMIT)}, and we recommend staying under ${formatBytes(SAFE_TOTAL_LIMIT)}.\n\nPlease remove one or more gallery images (or reduce the avatar) and try again.`);
+                return;
+            }
+
             btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
             btn.disabled = true;
 
@@ -1394,13 +973,16 @@
             try {
                 await db.collection('venues').doc(currentVenueId).set(updates, { merge: true });
                 venueData = { ...venueData, ...updates };
-                // Success! Clear the local draft
                 clearDraft();
                 showDraftStatus('Saved to cloud ✓');
                 toggleMode();
             } catch (e) {
                 console.error(e);
-                alert("Error saving profile. Ensure document size is within limits.");
+                if (e.code === 'invalid-argument' || /size|too large|long/i.test(e.message || '')) {
+                    alert(`❌ Still too large for Firestore.\n\nPlease remove another gallery image and try again.`);
+                } else {
+                    alert("Error saving profile. Please check your connection and try again.");
+                }
                 btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
                 btn.disabled = false;
             }
@@ -1412,12 +994,10 @@
         let selectedRating = 0;
 
         function setupStarRating() {
-            const stars = document.querySelectorAll('#star-input i');
-            stars.forEach(star => {
+            document.querySelectorAll('#star-input i').forEach(star => {
                 star.addEventListener('mouseover', () => updateStarInputUI(parseInt(star.dataset.value)));
                 star.addEventListener('mouseleave', () => updateStarInputUI(selectedRating));
-                star.addEventListener('click', () => { selectedRating = parseInt(star.dataset.value);
-                    updateStarInputUI(selectedRating); });
+                star.addEventListener('click', () => { selectedRating = parseInt(star.dataset.value); updateStarInputUI(selectedRating); });
             });
         }
 
@@ -1432,60 +1012,40 @@
             try {
                 const snap = await db.collection(collectionName).doc(profileId).collection('reviews')
                     .where('reviewerId', '==', currentUser.uid).get();
-                if (!snap.empty) {
-                    const doc = snap.docs[0];
-                    return { id: doc.id, ...doc.data() };
-                }
+                if (!snap.empty) { const doc = snap.docs[0]; return { id: doc.id, ...doc.data() }; }
                 return null;
-            } catch (e) {
-                console.error('Error checking existing review:', e);
-                return null;
-            }
+            } catch (e) { console.error('Error checking existing review:', e); return null; }
         }
 
         async function submitReview(profileId, collectionName) {
-            if (selectedRating === 0) {
-                alert('Please select a star rating.');
-                return;
-            }
+            if (selectedRating === 0) { alert('Please select a star rating.'); return; }
             const comment = document.getElementById('review-comment').value.trim();
-            if (!comment) {
-                alert('Please write a comment.');
-                return;
-            }
+            if (!comment) { alert('Please write a comment.'); return; }
             const reviewerName = document.getElementById('reviewer-name').value.trim() || 'Anonymous';
             const btn = document.getElementById('submit-review-btn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-sm"></span> Sending...';
-
             const existingReviewId = btn.dataset.reviewId || null;
 
             try {
                 const reviewData = {
-                    rating: selectedRating,
-                    reviewerName: reviewerName,
-                    comment: comment,
+                    rating: selectedRating, reviewerName, comment,
                     reviewerId: currentUser.uid,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-
-                let reviewRef;
                 if (existingReviewId) {
-                    reviewRef = db.collection(collectionName).doc(profileId).collection('reviews').doc(existingReviewId);
-                    await reviewRef.update(reviewData);
+                    await db.collection(collectionName).doc(profileId).collection('reviews').doc(existingReviewId).update(reviewData);
                 } else {
                     reviewData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    reviewRef = await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
+                    await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
                 }
-
                 await updateProfileRating(profileId, collectionName);
                 loadReviews(profileId);
-
                 document.getElementById('review-status').textContent = 'Review saved successfully!';
                 btn.textContent = 'Update Review';
                 if (!existingReviewId) {
-                    const updatedReview = await checkExistingReview(profileId, collectionName);
-                    if (updatedReview) btn.dataset.reviewId = updatedReview.id;
+                    const updated = await checkExistingReview(profileId, collectionName);
+                    if (updated) btn.dataset.reviewId = updated.id;
                 }
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-paper-plane"></i> Update Review';
@@ -1500,23 +1060,14 @@
         async function updateProfileRating(profileId, collectionName) {
             try {
                 const reviewsSnap = await db.collection(collectionName).doc(profileId).collection('reviews').get();
-                let total = 0;
-                let count = 0;
+                let total = 0, count = 0;
                 reviewsSnap.forEach(doc => {
                     const data = doc.data();
-                    if (data.rating) {
-                        total += data.rating;
-                        count++;
-                    }
+                    if (data.rating) { total += data.rating; count++; }
                 });
                 const avg = count > 0 ? total / count : 0;
-                await db.collection(collectionName).doc(profileId).update({
-                    rating: avg,
-                    reviewsCount: count
-                });
-            } catch (e) {
-                console.error('Error updating profile rating:', e);
-            }
+                await db.collection(collectionName).doc(profileId).update({ rating: avg, reviewsCount: count });
+            } catch (e) { console.error('Error updating profile rating:', e); }
         }
 
         async function loadReviews(profileId) {
@@ -1524,8 +1075,7 @@
             if (!list) return;
             list.innerHTML = '<p style="color:var(--muted);"><span class="spinner-sm" style="border-left-color:var(--navy);"></span> Loading reviews...</p>';
             try {
-                const snap = await db.collection('venues').doc(profileId).collection('reviews').orderBy('createdAt',
-                    'desc').get();
+                const snap = await db.collection('venues').doc(profileId).collection('reviews').orderBy('createdAt', 'desc').get();
                 list.innerHTML = '';
                 if (snap.empty) { list.innerHTML = '<p style="color:var(--muted);">No reviews yet.</p>'; return; }
                 const tmpl = document.getElementById('review-template');
@@ -1536,8 +1086,7 @@
                     let d = 'Recently';
                     if (r.createdAt && r.createdAt.toDate) d = new Date(r.createdAt.toDate()).toLocaleDateString();
                     clone.querySelector('.review-date').textContent = d;
-                    clone.querySelector('.review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5 - r
-                        .rating);
+                    clone.querySelector('.review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
                     clone.querySelector('.review-comment').textContent = r.comment || '';
                     list.appendChild(clone);
                 });

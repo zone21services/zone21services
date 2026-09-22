@@ -682,7 +682,6 @@
         // ============================================================
         //  HELPERS
         // ============================================================
-        // ✅ FIX: match by uid OR id (fallback) — vendors are keyed by Auth UID
         function findProviderById(id) {
             if (!id) return null;
             return cachedProviders.find(p => (p.uid || p.id) === id) ||
@@ -691,7 +690,6 @@
                    cachedVenues.find(v => v.id === id) || null;
         }
 
-        // ✅ FIX: canonical UID resolver — always prefer uid, fall back to doc id
         function getProviderUid(p) {
             if (!p) return '';
             return p.uid || p.id || '';
@@ -826,7 +824,6 @@
                 html += `<p style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 8px;">Tick <strong>Include</strong> on any venue below to invite it as your <strong>${escapeHtml(venueTargetService)}</strong> provider.</p>`;
             }
             vendors.forEach((v, index) => {
-                // ✅ FIX: use canonical UID everywhere
                 const providerUid = getProviderUid(v);
                 const name = v.name || 'Unnamed';
                 const location = v.location || 'Location TBD';
@@ -904,13 +901,10 @@
                         <strong>Approve &amp; Send Invitations</strong> means you are officially inviting that
                         provider to be part of your event.
                         <br><br>
-                        They will receive a message in their inbox with your event details
-                        (date, time, location, service, budget). Zone21 Admin receives a copy in the
-                        management inbox for coordination.
+                        Each blueprint is completely independent. You can invite the same provider to
+                        multiple different events — the system will send a fresh invitation each time.
                         <br><br>
-                        Invitations <strong>never expire</strong>. You can invite additional listed providers
-                        at any time — the system automatically blocks duplicate invitations to the
-                        same provider <em>within this event</em>.
+                        Zone21 Admin receives a copy in the management inbox for coordination.
                     </div>
                 </div>`;
 
@@ -931,7 +925,6 @@
                     html += `<p style="font-size:0.85rem;color:var(--text-muted);margin:6px 0;">No providers found for this service in our database.</p>`;
                 } else {
                     providers.forEach((p, index) => {
-                        // ✅ FIX: canonical UID
                         const providerUid = getProviderUid(p);
                         const name = p.name || 'Unnamed Provider';
                         const location = p.location || 'Location TBD';
@@ -980,7 +973,7 @@
                 <button class="send-invites-btn" onclick="approveAndSendInvitations()">
                     <i class="fas fa-paper-plane"></i> Approve &amp; Send Invitations
                 </button>
-                <span class="deadline-note">Invitations do not expire — you can invite additional providers at any time.</span>
+                <span class="deadline-note">Each blueprint is independent — invites are never blocked by prior events.</span>
             </div>`;
             return html;
         }
@@ -1000,7 +993,6 @@
             let vendor = findProviderById(vendorId);
             if (!vendor) { showToast('Vendor not found', 'error'); return; }
 
-            // ✅ FIX: canonical UID for thread participants
             const vendorUid = getProviderUid(vendor);
             chatOtherUid = vendorUid;
             chatOtherName = vendor.name || 'Vendor';
@@ -1193,6 +1185,7 @@
                     generateBtn.disabled = true;
                     generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe';
                     showToast('Please subscribe to a package.', 'info');
+                    renderHistorySidebar();
                     return false;
                 }
 
@@ -1231,10 +1224,12 @@
                 });
 
                 showToast(`Welcome! ${pkg.name} package active.`, 'success');
+                renderHistorySidebar();
                 return true;
             } catch (err) {
                 console.error('Package load error:', err);
                 showToast('Failed to load subscription data.', 'error');
+                renderHistorySidebar();
                 return false;
             }
         }
@@ -1427,17 +1422,18 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             loadingDiv.style.display = 'block';
             loadingStatus.textContent = 'Analyzing your event...';
 
-            // Fresh session ID + fresh invite state ONLY for new events (not on regenerate)
-            if (!currentSessionId || !isRegenerating) {
+            // ✅ Non-regenerate = ALWAYS brand new session + fresh invite state
+            if (!isRegenerating) {
                 currentSessionId = makeSessionId();
                 currentEventData.invitedHistory = {};
                 currentEventData.inviteQueues = {};
+                activeRequests = {};
+                console.log('[Zone21] 🆕 New blueprint session:', currentSessionId, '| package:', userPackage);
             } else {
-                // Regenerate: keep history so duplicates stay blocked within the same event
                 if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
                 if (!currentEventData.inviteQueues) currentEventData.inviteQueues = {};
+                console.log('[Zone21] ♻️ Regenerating existing session:', currentSessionId);
             }
-            activeRequests = {};
 
             loadingStatus.textContent = 'Finding venues and providers...';
 
@@ -1541,12 +1537,23 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         }
 
         function regenerateBlueprint() {
-            if (currentEventData) {
-                // ✅ FIX: warn the user that history is preserved on regenerate
-                showToast('Regenerating blueprint. Invitation history is kept for this event — use "New Event" to start fresh.', 'info');
+            if (!currentEventData) {
+                showToast('No event data to regenerate.', 'error');
+                return;
+            }
+            const keepHistory = confirm(
+                'Regenerate blueprint?\n\n' +
+                'OK = Keep existing invitation history (prevents re-inviting same providers)\n' +
+                'Cancel = Start completely fresh (allows re-inviting everyone)'
+            );
+            if (keepHistory) {
                 generateBlueprint(true);
             } else {
-                showToast('No event data to regenerate.', 'error');
+                currentSessionId = null;
+                currentEventData.invitedHistory = {};
+                currentEventData.inviteQueues = {};
+                activeRequests = {};
+                generateBlueprint(false);
             }
         }
 
@@ -1566,18 +1573,9 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             }
         }
 
+        // ✅ Dedup permanently disabled — each blueprint is independent
         async function checkAlreadyInvited(service, providerId) {
-            try {
-                const q = await db.collection('bookingRequests')
-                    .where('eventId', '==', currentSessionId)
-                    .where('service', '==', service)
-                    .where('providerId', '==', providerId)
-                    .limit(1).get();
-                return !q.empty;
-            } catch (e) {
-                console.warn('dedup check failed (safe to ignore):', e.message);
-                return false;
-            }
+            return false;
         }
 
         function buildInviteMessage(service, providerName) {
@@ -1598,20 +1596,22 @@ You have been invited by the event organiser to provide "${service}" for this ev
 Please reply with ACCEPT or DECLINE, or send a message if you need more details.`;
         }
 
-        // ✅ FIX: use canonical UID (provider.uid || provider.id) everywhere
+        // ✅ No dedup — every send goes through
         async function sendInvitationForSlot(service, provider, attemptNumber) {
             const providerUid = getProviderUid(provider);
-            if (!providerUid) {
-                return { skipped: true, reason: 'no_provider_uid' };
-            }
 
-            if (isLocallyInvited(service, providerUid)) {
-                return { skipped: true, reason: 'already_invited_locally' };
-            }
-            const already = await checkAlreadyInvited(service, providerUid);
-            if (already) {
-                markLocallyInvited(service, providerUid);
-                return { skipped: true, reason: 'already_invited_firestore' };
+            console.log('[Zone21 Invite] → Sending:', {
+                service,
+                providerName: provider?.name,
+                providerDocId: provider?.id,
+                providerUid,
+                sessionId: currentSessionId,
+                package: userPackage
+            });
+
+            if (!providerUid) {
+                console.warn('[Zone21 Invite] ✗ Provider has no UID — skipping');
+                return { skipped: true, reason: 'no_provider_uid' };
             }
 
             const messageText = buildInviteMessage(service, provider.name);
@@ -1625,18 +1625,27 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 organiserUid: currentUser.uid,
                 organiserName: currentUser.displayName || currentUser.email || 'Organiser',
                 organiserContact: currentEventData.contact,
-                providerId: providerUid,       // ← canonical UID
+                providerId: providerUid,
                 providerName: provider.name || 'Provider',
-                providerDocId: provider.id || '',  // keep for reference
+                providerDocId: provider.id || '',
                 service,
                 budget: currentEventData.budget,
                 notes: currentEventData.notes,
+                package: userPackage,
                 status: 'pending',
                 attemptNumber,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            const ref = await db.collection('bookingRequests').add(requestDoc);
+
+            let ref;
+            try {
+                ref = await db.collection('bookingRequests').add(requestDoc);
+                console.log('[Zone21 Invite] ✓ bookingRequests created:', ref.id);
+            } catch (e) {
+                console.error('[Zone21 Invite] ✗ FAILED bookingRequests write:', e);
+                throw e;
+            }
 
             try {
                 await db.collection('messages').add({
@@ -1661,7 +1670,9 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     requestId: ref.id,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-            } catch (e) { console.error('admin inbox write failed:', e); }
+            } catch (e) {
+                console.warn('[Zone21 Invite] ✗ admin message failed:', e.message);
+            }
 
             if (providerUid && providerUid !== 'admin') {
                 try {
@@ -1673,7 +1684,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                         subject: `New Service Request: ${service}`,
                         message: messageText,
                         type: 'service_request',
-                        recipientId: providerUid,   // ← canonical UID
+                        recipientId: providerUid,
                         providerId: providerUid,
                         status: 'unread',
                         eventId: currentSessionId,
@@ -1686,57 +1697,89 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                         budget: currentEventData.budget,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                } catch (e) { console.error('provider inbox write failed:', e); }
+                    console.log('[Zone21 Invite] ✓ vendor notified:', providerUid);
+                } catch (e) {
+                    console.warn('[Zone21 Invite] ✗ vendor message failed:', e.message);
+                }
             }
 
             markLocallyInvited(service, providerUid);
+
+            console.log('[Zone21 Invite] ✓✓ Sent to', provider.name, 'for', service);
             return { requestId: ref.id, providerId: providerUid, attemptNumber, service, providerName: provider.name };
         }
 
         async function approveAndSendInvitations() {
-            if (!currentUser || !currentEventData) return;
+            if (!currentUser || !currentEventData) {
+                showToast('Not ready. Please generate a blueprint first.', 'error');
+                return;
+            }
+            if (!currentSessionId) {
+                showToast('No active event session. Please regenerate the blueprint.', 'error');
+                return;
+            }
 
             const btn = document.querySelector('.send-invites-btn');
             if (btn && btn.disabled) return;
 
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+            }
+
             const queues = {};
-            document.querySelectorAll('input[data-approve-provider]:not(:disabled)').forEach(cb => {
+            document.querySelectorAll('input[data-approve-provider]').forEach(cb => {
                 if (!cb.checked) return;
                 const service = cb.getAttribute('data-approve-service');
                 const providerId = cb.getAttribute('data-approve-provider');
+                if (!service || !providerId) return;
                 if (!queues[service]) queues[service] = [];
                 queues[service].push(providerId);
             });
 
+            console.log('[Zone21] Sending invites — session:', currentSessionId, 'package:', userPackage);
+            console.log('[Zone21] queues:', queues);
+
             const services = Object.keys(queues).filter(s => queues[s].length > 0);
-            if (!services.length) { showToast('No new providers selected to invite.', 'info'); return; }
+            if (!services.length) {
+                showToast('No providers selected. Tick "Include" next to providers you want to invite.', 'info');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Approve &amp; Send Invitations'; }
+                return;
+            }
 
             let totalCount = 0;
             services.forEach(s => totalCount += queues[s].length);
-
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…'; }
             showToast(`Sending ${totalCount} invitation(s)…`, 'info');
 
             currentEventData.inviteQueues = Object.assign({}, currentEventData.inviteQueues || {}, queues);
 
-            let sentCount = 0, skippedCount = 0;
+            let sentCount = 0;
+            let failCount = 0;
 
             for (const service of services) {
                 for (let i = 0; i < queues[service].length; i++) {
                     const providerId = queues[service][i];
                     const provider = findProviderById(providerId);
-                    if (!provider) continue;
+
+                    if (!provider) {
+                        console.warn('[Zone21] Provider not found in cache:', providerId);
+                        failCount++;
+                        continue;
+                    }
+
                     try {
                         const result = await sendInvitationForSlot(service, provider, i + 1);
-                        if (result.skipped) skippedCount++;
-                        else {
+                        if (result.skipped) {
+                            failCount++;
+                        } else {
                             sentCount++;
                             activeRequests[service] = {
                                 ...result, status: 'pending', providerName: provider.name
                             };
                         }
                     } catch (e) {
-                        console.error('invite failed:', e);
+                        console.error('[Zone21] invite error:', e);
+                        failCount++;
                     }
                 }
             }
@@ -1746,13 +1789,9 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             updateSendButtonState();
 
             if (sentCount > 0) {
-                showToast(
-                    `${sentCount} invitation(s) sent.` +
-                    (skippedCount ? ` ${skippedCount} already invited in this event.` : ''),
-                    'success'
-                );
+                showToast(`✅ ${sentCount} invitation(s) sent.` + (failCount ? ` ⚠️ ${failCount} failed.` : ''), 'success');
             } else {
-                showToast('No new invitations sent — all selected providers were already invited to this event.', 'info');
+                showToast('❌ No invitations sent. Check console for details.', 'error');
             }
         }
 
@@ -1779,7 +1818,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             try {
                 const attempt = history.length + 1;
                 const result = await sendInvitationForSlot(service, provider, attempt);
-                if (result.skipped) { showToast('Already invited — skipping.', 'info'); return; }
+                if (result.skipped) { showToast('Skipped — see console.', 'info'); return; }
                 activeRequests[service] = { ...result, status: 'pending', providerName: provider.name };
                 saveBlueprintState(lastGeneratedHTML);
                 refreshSlotUI();
@@ -1793,13 +1832,13 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
         function updateSendButtonState() {
             const btn = document.querySelector('.send-invites-btn');
             if (!btn) return;
-            const anyNewChecked = Array.from(
-                document.querySelectorAll('input[data-approve-provider]:not(:disabled)')
+            const anyChecked = Array.from(
+                document.querySelectorAll('input[data-approve-provider]')
             ).some(cb => cb.checked);
-            btn.disabled = !anyNewChecked;
-            btn.innerHTML = anyNewChecked
+            btn.disabled = !anyChecked;
+            btn.innerHTML = anyChecked
                 ? '<i class="fas fa-paper-plane"></i> Approve &amp; Send Invitations'
-                : '<i class="fas fa-check"></i> All Selected Providers Invited';
+                : '<i class="fas fa-check"></i> Select Providers to Invite';
         }
 
         // ============================================================
@@ -1850,17 +1889,14 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                     card.classList.remove('is-invited', 'is-accepted', 'is-declined');
                 });
 
+                // Reset checkboxes — no more "locked/invited" state, always allow re-invite
                 document.querySelectorAll(`input[data-approve-service="${CSS.escape(service)}"]`).forEach(cb => {
-                    const pid = cb.getAttribute('data-approve-provider');
-                    if (isLocallyInvited(service, pid)) {
-                        cb.checked = true;
-                        cb.disabled = true;
-                        const wrapper = cb.closest('.approve-checkbox');
-                        if (wrapper) {
-                            wrapper.classList.add('invited');
-                            const label = wrapper.querySelector('.cb-label');
-                            if (label) label.textContent = '✓ Invited';
-                        }
+                    cb.disabled = false;
+                    const wrapper = cb.closest('.approve-checkbox');
+                    if (wrapper) {
+                        wrapper.classList.remove('invited');
+                        const label = wrapper.querySelector('.cb-label');
+                        if (label) label.textContent = 'Include';
                     }
                 });
 
@@ -1919,7 +1955,8 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                         organiserUid: currentUser.uid,
                         eventName: currentEventData.name,
                         date: currentEventData.date,
-                        time: currentEventData.time
+                        time: currentEventData.time,
+                        package: userPackage
                     }, { merge: true }).catch(() => {});
                 }
             } else if (banner) {
@@ -1928,7 +1965,7 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
         }
 
         // ============================================================
-        //  HISTORY
+        //  HISTORY (filtered by active package)
         // ============================================================
         function saveBlueprintState(htmlOutput) {
             const title = currentEventData.name || `${currentEventData.location} Event`;
@@ -1945,11 +1982,30 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             renderHistorySidebar();
         }
 
+        // ✅ Sidebar filtered by active package
         function renderHistorySidebar() {
             const historyList = document.getElementById('history-list');
+            if (!historyList) return;
             historyList.innerHTML = '';
-            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-            Object.values(localSessions)
+
+            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+
+            const filtered = Object.values(allSessions).filter(s => {
+                const pkg = s?.formData?.package;
+                if (!pkg) return true; // legacy sessions without package — show them
+                return pkg === userPackage;
+            });
+
+            if (filtered.length === 0) {
+                historyList.innerHTML = `
+                    <div style="padding:14px 12px;text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5;">
+                        <i class="fas fa-folder-open" style="font-size:1.4rem;display:block;margin-bottom:6px;opacity:0.4;"></i>
+                        No ${userPackageName || ''} blueprints yet.<br>Generate one to see it here.
+                    </div>`;
+                return;
+            }
+
+            filtered
                 .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
                 .forEach(session => {
                     const item = document.createElement('div');
@@ -1962,11 +2018,19 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 });
         }
 
+        // ✅ Guard against loading cross-package sessions
         function loadBlueprintSession(sessionId) {
             closeSidebar();
-            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-            const session = localSessions[sessionId];
+            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            const session = allSessions[sessionId];
             if (!session) return;
+
+            const sessionPkg = session?.formData?.package;
+            if (sessionPkg && userPackage && sessionPkg !== userPackage) {
+                showToast(`This blueprint belongs to the "${sessionPkg}" package. Switch plans to view it.`, 'error');
+                return;
+            }
+
             currentSessionId = session.id;
             currentEventData = session.formData;
             if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};

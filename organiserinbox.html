@@ -2000,8 +2000,22 @@
                 }
                 const data = docSnap.data();
 
-                if (data.role !== 'organizer') {
-                    if (data.role === 'service_provider') {
+                // --- FIX: MATCH LOGIN PAGE FALLBACK ---
+                // If role is missing in DB, treat as 'organizer' exactly like login.html does
+                const userRole = data.role || 'organizer';
+                
+                // Auto-repair missing role in the database
+                if (!data.role) {
+                    try {
+                        await updateDoc(docRef, { role: 'organizer' });
+                        console.log("Auto-repaired missing role to 'organizer'");
+                    } catch (e) {
+                        console.warn("Failed to auto-repair role:", e);
+                    }
+                }
+
+                if (userRole !== 'organizer') {
+                    if (userRole === 'service_provider') {
                         window.location.href = 'vendorinbox.html';
                     } else {
                         window.location.href = 'index.html';

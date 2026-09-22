@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Venue Profile | Zone21</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -129,28 +130,6 @@
             border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ===== SIZE METER ===== */
-        .size-meter { background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px;
-            padding: 14px 18px; margin-bottom: 15px; font-size: 0.85rem; }
-        .size-meter .size-row { display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
-        .size-meter .size-row:last-child { margin-bottom: 0; }
-        .size-meter .size-label { font-weight: 600; color: var(--navy); }
-        .size-meter .size-value { font-family: 'Courier New', monospace; font-weight: 700; color: var(--text); }
-        .size-meter .size-value.warn { color: #D97706; }
-        .size-meter .size-value.danger { color: var(--pink); }
-        .size-meter .size-value.ok { color: #16A34A; }
-        .size-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 10px; }
-        .size-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #16A34A, #84CC16);
-            border-radius: 4px; transition: width 0.3s, background 0.3s; }
-        .size-bar-fill.warn { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-        .size-bar-fill.danger { background: linear-gradient(90deg, #F80070, #DC2626); }
-        .img-size-badge { position: absolute; bottom: 6px; left: 6px; background: rgba(16,40,56,0.85); color: white;
-            font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 10px;
-            font-family: 'Courier New', monospace; letter-spacing: 0.5px; }
-        .img-size-badge.warn { background: rgba(217,119,6,0.9); }
-        .img-size-badge.danger { background: rgba(248,0,112,0.95); }
-
         /* ===== DRAFT BANNER ===== */
         .draft-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px;
             padding: 12px 18px; background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
@@ -178,7 +157,6 @@
             .form-grid { grid-template-columns: 1fr; }
             .edit-toggle-btn { top: 10px; right: 10px; font-size: 0.8rem; padding: 6px 12px; }
             .draft-status { bottom: 12px; right: 12px; left: 12px; justify-content: center; }
-            .size-meter { padding: 12px 14px; font-size: 0.78rem; }
         }
     </style>
 </head>
@@ -224,20 +202,6 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ===== FIRESTORE SIZE LIMITS =====
-        // Hard limit is 1,048,576 bytes. We set our own cap lower for safety.
-        const FIRESTORE_LIMIT = 1048576;
-        const SAFE_TOTAL_LIMIT = 900 * 1024;      // 900 KB — refuse save above this
-        const WARN_TOTAL_LIMIT = 700 * 1024;      // 700 KB — warn user
-        const MAX_PER_GALLERY_IMAGE = 160 * 1024; // 160 KB target max per image
-        const MAX_PER_AVATAR = 60 * 1024;         // 60 KB target max for avatar
-
-        // Compression settings (adjusted for base64 in Firestore)
-        const GALLERY_MAX_WIDTH = 600;   // was 800
-        const GALLERY_QUALITY   = 0.5;   // was 0.6
-        const AVATAR_MAX_WIDTH  = 300;   // was 400
-        const AVATAR_QUALITY    = 0.6;   // was 0.7
-
         const amenitiesList = ["Parking", "Catering Area", "Stage", "Dance Floor", "Air Conditioning", "Bar",
             "Sound System", "WiFi", "Backup Generator", "Security", "VIP Lounge", "Outdoor Space",
             "Swimming Pool", "Bridal Suite"];
@@ -246,93 +210,38 @@
         let venueData = null;
         let isOwner = false;
         let viewMode = 'public';
-        let uploadedImages = [];   // array of base64 strings
+        let uploadedImages = [];
         let currentUser = null;
 
         // ============================================================
-        //  SIZE HELPERS
+        //  IMAGE COMPRESSION (silent, just works)
         // ============================================================
-        function bytesFromBase64(str) {
-            if (!str || typeof str !== 'string') return 0;
-            // UTF-16 char count ≈ bytes stored in Firestore (each char = 1 byte in UTF-8 for base64 chars)
-            return str.length;
-        }
-
-        function formatBytes(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / 1048576).toFixed(2) + ' MB';
-        }
-
-        function calculateTotalImageBytes() {
-            let total = 0;
-            uploadedImages.forEach(img => { total += bytesFromBase64(img); });
-            if (venueData?.avatar) total += bytesFromBase64(venueData.avatar);
-            return total;
-        }
-
-        function estimateFullDocSize() {
-            // Rough: images + avatar + ~2KB for text fields
-            return calculateTotalImageBytes() + 2048;
-        }
-
-        function getSizeClass(bytes) {
-            if (bytes > SAFE_TOTAL_LIMIT) return 'danger';
-            if (bytes > WARN_TOTAL_LIMIT) return 'warn';
-            return 'ok';
-        }
-
-        // ============================================================
-        //  IMAGE COMPRESSION (higher compression to fit 1 MB)
-        // ============================================================
-        // Iteratively compress until we're under targetSize, dropping
-        // quality/dimensions as needed.
-        async function compressToTarget(file, maxWidth, startQuality, targetSize) {
-            const originalDataUrl = await fileToDataURL(file);
-            let quality = startQuality;
-            let width = maxWidth;
-            let best = null;
-
-            for (let attempt = 0; attempt < 5; attempt++) {
-                const result = await drawAndEncode(originalDataUrl, width, quality);
-                best = result;
-                if (bytesFromBase64(result) <= targetSize) break;
-                // Reduce dimensions on odd attempts, quality on even
-                if (attempt % 2 === 0) quality = Math.max(0.3, quality - 0.1);
-                else width = Math.round(width * 0.8);
-            }
-            return best;
-        }
-
-        function fileToDataURL(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = () => reject(new Error('Failed to read file'));
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function drawAndEncode(dataUrl, maxWidth, quality) {
-            return new Promise((resolve, reject) => {
+        function compressToBase64(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(event) {
                 const img = new Image();
-                img.onload = () => {
+                img.src = event.target.result;
+                img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
-                    canvas.width = w;
-                    canvas.height = h;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    callback(dataUrl);
                 };
-                img.onerror = () => reject(new Error('Failed to load image'));
-                img.src = dataUrl;
-            });
+            };
         }
 
         // ============================================================
-        //  DRAFT AUTO-SAVE
+        //  DRAFT AUTO-SAVE (localStorage)
         // ============================================================
         const DRAFT_KEY_PREFIX = 'zone21_venue_profile_draft_';
         let draftSaveTimer = null;
@@ -379,14 +288,13 @@
                 try {
                     localStorage.setItem(getDraftKey(), payload);
                 } catch (quotaErr) {
-                    // localStorage has ~5MB limit; if too big, strip images
-                    console.warn('Draft too large, saving without images.');
+                    // localStorage has a limit; if images make it too big, save without them
                     const slim = { ...state, images: [], avatar: null, _slim: true };
                     localStorage.setItem(getDraftKey(), JSON.stringify(slim));
-                    showDraftStatus('Draft saved (images not persisted)');
+                    showDraftStatus('Progress saved');
                     return;
                 }
-                showDraftStatus('Draft saved • ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+                showDraftStatus('Progress saved • ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
             } catch (e) { console.warn('Draft save failed:', e); }
         }
 
@@ -465,34 +373,6 @@
             if (!confirm('Discard all unsaved changes? This cannot be undone.')) return;
             clearDraft();
             loadVenueProfile();
-        }
-
-        // ============================================================
-        //  SIZE METER UI
-        // ============================================================
-        function renderSizeMeter() {
-            const el = document.getElementById('size-meter-container');
-            if (!el) return;
-            const total = estimateFullDocSize();
-            const pct = Math.min(100, (total / SAFE_TOTAL_LIMIT) * 100);
-            const cls = getSizeClass(total);
-            const clsText = cls === 'danger' ? 'TOO LARGE — remove images to save'
-                          : cls === 'warn'   ? 'Getting large — consider removing an image'
-                          : 'Ready to save';
-            el.innerHTML = `
-                <div class="size-meter">
-                    <div class="size-row">
-                        <span class="size-label"><i class="fas fa-database"></i> Firestore document size</span>
-                        <span class="size-value ${cls}">${formatBytes(total)} / ${formatBytes(SAFE_TOTAL_LIMIT)}</span>
-                    </div>
-                    <div class="size-row" style="font-size:0.78rem; color:var(--muted);">
-                        <span>${uploadedImages.length} gallery + ${venueData?.avatar ? 1 : 0} avatar</span>
-                        <span>${clsText}</span>
-                    </div>
-                    <div class="size-bar">
-                        <div class="size-bar-fill ${cls}" style="width:${pct}%;"></div>
-                    </div>
-                </div>`;
         }
 
         // ============================================================
@@ -595,7 +475,7 @@
         }
 
         // ============================================================
-        //  PUBLIC VIEW (unchanged)
+        //  PUBLIC VIEW
         // ============================================================
         function renderPublicView() {
             const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
@@ -726,7 +606,7 @@
         }
 
         // ============================================================
-        //  EDIT VIEW (with size meter + per-image badges)
+        //  EDIT VIEW (clean — no size meter, no badges)
         // ============================================================
         function renderEditView() {
             const amenitiesCheckboxes = amenitiesList.map(am => `
@@ -734,20 +614,14 @@
                     <input type="checkbox" class="edit-amenity-chk" value="${am}" ${(venueData.amenities || []).includes(am) ? 'checked' : ''}> ${am}
                 </label>`).join('');
 
-            const imagesHtml = uploadedImages.map((url, i) => {
-                const bytes = bytesFromBase64(url);
-                const cls = bytes > MAX_PER_GALLERY_IMAGE ? 'warn' : '';
-                return `
+            const imagesHtml = uploadedImages.map((url, i) => `
                 <div class="gallery-item">
                     <img src="${url}">
-                    <span class="img-size-badge ${cls}">${formatBytes(bytes)}</span>
                     <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
-                </div>`;
-            }).join('');
+                </div>`).join('');
 
             const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
             const avatarHtml = venueData.avatar ? `<img src="${venueData.avatar}" alt="Avatar">` : initials;
-            const avatarBytes = venueData.avatar ? bytesFromBase64(venueData.avatar) : 0;
 
             const html = `
                 <div class="profile-card" style="padding:30px;">
@@ -762,9 +636,7 @@
                             <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
                         </div>
                         <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
-                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">
-                            Click to change profile picture ${avatarBytes ? `(${formatBytes(avatarBytes)})` : ''}
-                        </p>
+                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
                     </div>
 
                     <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
@@ -807,13 +679,7 @@
                         <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${venueData.website || ''}"></div>
                     </div>
 
-                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">
-                        Gallery (Max 5 Images) 
-                        <span style="font-weight:400;font-size:0.85rem;color:var(--muted);">— auto-compressed to fit Firestore</span>
-                    </h3>
-
-                    <div id="size-meter-container"></div>
-
+                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
                     <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
                         <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
                         <p id="upload-text">Click to add gallery images.</p>
@@ -827,9 +693,8 @@
                 </div>`;
             document.getElementById('profile-content').innerHTML = html;
             attachDraftListeners();
-            renderSizeMeter();
 
-            // Restore draft
+            // Restore draft if exists
             const draft = loadDraft();
             if (draft && draft._savedAt) {
                 applyDraftToForm(draft);
@@ -840,27 +705,21 @@
                 if (Array.isArray(draft.images) && draft.images.length > 0 && !draft._slim) {
                     const galleryEl = document.getElementById('edit-gallery');
                     if (galleryEl) {
-                        galleryEl.innerHTML = draft.images.map((url, i) => {
-                            const bytes = bytesFromBase64(url);
-                            const cls = bytes > MAX_PER_GALLERY_IMAGE ? 'warn' : '';
-                            return `
+                        galleryEl.innerHTML = draft.images.map((url, i) => `
                             <div class="gallery-item">
                                 <img src="${url}">
-                                <span class="img-size-badge ${cls}">${formatBytes(bytes)}</span>
                                 <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
-                            </div>`;
-                        }).join('');
+                            </div>`).join('');
                     }
                 }
                 renderDraftBanner(draft._savedAt);
-                renderSizeMeter();
                 draftRestoredFromStorage = true;
                 showDraftStatus('Draft restored • ' + new Date(draft._savedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
             }
         }
 
         // ============================================================
-        //  EDIT HANDLERS (base64 with aggressive compression)
+        //  EDIT HANDLERS
         // ============================================================
         async function handleAvatarUpload(event) {
             const file = event.target.files[0];
@@ -869,20 +728,13 @@
             const box = document.getElementById('avatar-preview-box');
             const originalHtml = box.innerHTML;
             box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div>';
-            try {
-                const base64 = await compressToTarget(file, AVATAR_MAX_WIDTH, AVATAR_QUALITY, MAX_PER_AVATAR);
+            compressToBase64(file, 400, 0.7, (base64) => {
                 venueData.avatar = base64;
                 box.innerHTML = `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
-                renderSizeMeter();
-                showDraftStatus(`Avatar saved (${formatBytes(bytesFromBase64(base64))})`);
+                showDraftStatus('Avatar updated');
                 scheduleDraftSave();
-            } catch (e) {
-                console.error('Avatar compression failed:', e);
-                alert('Failed to process image. Please try another file.');
-                box.innerHTML = originalHtml;
-            } finally {
-                event.target.value = '';
-            }
+            });
+            event.target.value = '';
         }
 
         async function handleGalleryUpload(event) {
@@ -893,32 +745,29 @@
                 return;
             }
             const txt = document.getElementById('upload-text');
-            txt.innerHTML = `<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing 0/${files.length}...`;
+            txt.innerHTML = `<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing...`;
 
             let added = 0;
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!file.type.startsWith('image/')) continue;
-                try {
-                    txt.innerHTML = `<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Compressing ${i+1}/${files.length}...`;
-                    const base64 = await compressToTarget(file, GALLERY_MAX_WIDTH, GALLERY_QUALITY, MAX_PER_GALLERY_IMAGE);
+            let processed = 0;
+            files.forEach(file => {
+                if (!file.type.startsWith('image/')) {
+                    processed++;
+                    return;
+                }
+                compressToBase64(file, 800, 0.6, (base64) => {
                     uploadedImages.push(base64);
                     added++;
-                } catch (e) {
-                    console.error('Image compression failed:', file.name, e);
-                }
-            }
+                    processed++;
+                    if (processed === files.length) {
+                        renderEditView();
+                        if (added > 0) {
+                            showDraftStatus(`${added} image${added > 1 ? 's' : ''} added`);
+                            scheduleDraftSave();
+                        }
+                    }
+                });
+            });
             event.target.value = '';
-            renderEditView();
-            if (added > 0) {
-                const total = estimateFullDocSize();
-                if (total > SAFE_TOTAL_LIMIT) {
-                    alert(`⚠ You now have ${formatBytes(total)} of images — this exceeds the ${formatBytes(SAFE_TOTAL_LIMIT)} safe limit.\n\nPlease remove one or more images before saving.`);
-                } else {
-                    showDraftStatus(`${added} image${added > 1 ? 's' : ''} added (${formatBytes(total)} total)`);
-                }
-                scheduleDraftSave();
-            }
         }
 
         function removeImage(index) {
@@ -928,18 +777,10 @@
         }
 
         // ============================================================
-        //  SAVE — with hard size check
+        //  SAVE — with friendly, non-technical error messages
         // ============================================================
         async function saveProfileData() {
             const btn = document.getElementById('save-btn');
-
-            // HARD SIZE CHECK before touching Firestore
-            const estimatedSize = estimateFullDocSize();
-            if (estimatedSize > SAFE_TOTAL_LIMIT) {
-                alert(`❌ Cannot save — your profile images total ${formatBytes(estimatedSize)}.\n\nThe Firestore limit is ${formatBytes(FIRESTORE_LIMIT)}, and we recommend staying under ${formatBytes(SAFE_TOTAL_LIMIT)}.\n\nPlease remove one or more gallery images (or reduce the avatar) and try again.`);
-                return;
-            }
-
             btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
             btn.disabled = true;
 
@@ -974,15 +815,20 @@
                 await db.collection('venues').doc(currentVenueId).set(updates, { merge: true });
                 venueData = { ...venueData, ...updates };
                 clearDraft();
-                showDraftStatus('Saved to cloud ✓');
+                showDraftStatus('Saved ✓');
                 toggleMode();
             } catch (e) {
-                console.error(e);
-                if (e.code === 'invalid-argument' || /size|too large|long/i.test(e.message || '')) {
-                    alert(`❌ Still too large for Firestore.\n\nPlease remove another gallery image and try again.`);
+                console.error('Save error:', e);
+                // Friendly, non-technical error message
+                let msg = 'Could not save your changes right now. ';
+                if (e.code === 'permission-denied') {
+                    msg += 'Please make sure you are signed in to the correct account and try again.';
+                } else if (e.code === 'unavailable' || e.code === 'deadline-exceeded') {
+                    msg += 'Please check your internet connection and try again.';
                 } else {
-                    alert("Error saving profile. Please check your connection and try again.");
+                    msg += 'Please try again in a moment.';
                 }
+                alert(msg);
                 btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
                 btn.disabled = false;
             }

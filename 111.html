@@ -552,8 +552,6 @@
             large: { id: 'large', name: 'Large / Enterprise', maxAttendees: Infinity, label: 'Enterprise', budgetHint: 'Unlimited', limitDisplay: '∞' }
         };
 
-        const INVITE_RESPONSE_NOTE_DAYS = 4;
-
         // ============================================================
         //  STATE
         // ============================================================
@@ -689,8 +687,11 @@
         }
 
         function pickVenueTargetService(requiredServices) {
-            // Venues get an Include checkbox only when the organiser needs a venue.
             return requiredServices.includes("Venue / Space Rental") ? "Venue / Space Rental" : null;
+        }
+
+        function makeSessionId() {
+            return 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
         }
 
         // ============================================================
@@ -801,7 +802,7 @@
         }
 
         // ============================================================
-        //  HTML: VENUE CARDS  (now with Include + status badge)
+        //  HTML: VENUE CARDS
         // ============================================================
         function generateVenueHTML(vendors, venueTargetService) {
             if (!vendors || vendors.length === 0) {
@@ -896,7 +897,7 @@
                         <br><br>
                         Invitations <strong>never expire</strong>. You can invite additional listed providers
                         at any time — the system automatically blocks duplicate invitations to the
-                        same provider.
+                        same provider <em>within this event</em>.
                     </div>
                 </div>`;
 
@@ -1255,7 +1256,9 @@
                 services: selectedServices,
                 package: userPackage,
                 packageName: userPackageName,
-                packageLimit: userPackageLimit
+                packageLimit: userPackageLimit,
+                invitedHistory: {},
+                inviteQueues: {}
             };
 
             generateBlueprint(false);
@@ -1407,16 +1410,23 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             loadingDiv.style.display = 'block';
             loadingStatus.textContent = 'Analyzing your event...';
 
-            if (!currentSessionId || !isRegenerating) currentSessionId = 'evt_' + Date.now();
+            // Fresh session ID + fresh invite state ONLY for new events (not on regenerate)
+            if (!currentSessionId || !isRegenerating) {
+                currentSessionId = makeSessionId();
+                currentEventData.invitedHistory = {};
+                currentEventData.inviteQueues = {};
+            } else {
+                // Regenerate: keep history so duplicates stay blocked within the same event
+                if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
+                if (!currentEventData.inviteQueues) currentEventData.inviteQueues = {};
+            }
+            activeRequests = {};
 
             loadingStatus.textContent = 'Finding venues and providers...';
 
             const matchedVenues = matchVenues(currentEventData.location, currentEventData.attendees, currentEventData.budget, currentEventData.services);
             serviceMatches = matchProvidersByService(currentEventData.location, currentEventData.services, currentEventData.budget, currentEventData.date);
             const venueTargetService = pickVenueTargetService(currentEventData.services);
-
-            if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
-            activeRequests = {};
 
             loadingStatus.textContent = 'Crafting your blueprint...';
 
@@ -1543,7 +1553,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                     .limit(1).get();
                 return !q.empty;
             } catch (e) {
-                console.warn('dedup check failed', e);
+                console.warn('dedup check failed (safe to ignore):', e.message);
                 return false;
             }
         }
@@ -1568,12 +1578,12 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
 
         async function sendInvitationForSlot(service, provider, attemptNumber) {
             if (isLocallyInvited(service, provider.id)) {
-                return { skipped: true, reason: 'already_invited' };
+                return { skipped: true, reason: 'already_invited_locally' };
             }
             const already = await checkAlreadyInvited(service, provider.id);
             if (already) {
                 markLocallyInvited(service, provider.id);
-                return { skipped: true, reason: 'already_invited' };
+                return { skipped: true, reason: 'already_invited_firestore' };
             }
 
             const messageText = buildInviteMessage(service, provider.name);
@@ -1599,7 +1609,6 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             };
             const ref = await db.collection('bookingRequests').add(requestDoc);
 
-            // Zone21 Admin inbox
             try {
                 await db.collection('messages').add({
                     sender: 'user',
@@ -1625,7 +1634,6 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
                 });
             } catch (e) { console.error('admin inbox write failed:', e); }
 
-            // Provider inbox
             if (provider.id && provider.id !== 'admin') {
                 try {
                     await db.collection('messages').add({
@@ -1658,6 +1666,9 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
         async function approveAndSendInvitations() {
             if (!currentUser || !currentEventData) return;
 
+            const btn = document.querySelector('.send-invites-btn');
+            if (btn && btn.disabled) return;
+
             const queues = {};
             document.querySelectorAll('input[data-approve-provider]:not(:disabled)').forEach(cb => {
                 if (!cb.checked) return;
@@ -1673,16 +1684,9 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             let totalCount = 0;
             services.forEach(s => totalCount += queues[s].length);
 
-            const ok = confirm(
-                `You are about to invite ${totalCount} provider(s)/venue(s) for ${services.length} service(s).\n\n` +
-                `Each selected provider will receive an inbox message with your event details. ` +
-                `Zone21 Admin will be notified for coordination.\n\n` +
-                `Invitations never expire. Duplicate invitations to the same provider are blocked automatically.\n\n` +
-                `Send invitations now?`
-            );
-            if (!ok) return;
-
-            showToast('Sending invitations…', 'info');
+            // No confirm dialog — just send
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…'; }
+            showToast(`Sending ${totalCount} invitation(s)…`, 'info');
 
             currentEventData.inviteQueues = Object.assign({}, currentEventData.inviteQueues || {}, queues);
 
@@ -1715,11 +1719,11 @@ Please reply with ACCEPT or DECLINE, or send a message if you need more details.
             if (sentCount > 0) {
                 showToast(
                     `${sentCount} invitation(s) sent.` +
-                    (skippedCount ? ` ${skippedCount} duplicate(s) skipped.` : ''),
+                    (skippedCount ? ` ${skippedCount} already invited in this event.` : ''),
                     'success'
                 );
             } else {
-                showToast('No new invitations sent — all selected providers were already invited.', 'info');
+                showToast('No new invitations sent — all selected providers were already invited to this event.', 'info');
             }
         }
 

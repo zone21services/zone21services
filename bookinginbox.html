@@ -12,23 +12,23 @@
 <!--
 ═══════════════════════════════════════════════════════════════════
   THREADING CONVENTION
-
-  Every message doc in `messages/` can carry a `threadId` field.
     · Root messages (no threadId) → threadId = their own docId
-    · Replies (admin or user)     → threadId = root doc's ID
+    · Replies                     → threadId = root doc's ID
 
-  Types produced by existing pages:
-    · 'artist_booking'      ← from discover.html   (has bookingRef, bookingId)
-    · 'subscription_invoice'← from bookingsub.html (has invoiceNumber)
-    · 'chat'                ← from support.html
-    · 'general_query'       ← from support.html
-    · 'payment_proof'       ← from support.html
-    · 'admin_reply'         ← admin panel
-    · 'user_reply'          ← this page
+  MESSAGE TYPES
+    · 'artist_booking'       ← discover.html
+    · 'subscription_invoice' ← bookingsub.html
+    · 'chat' / 'general_query' / 'payment_proof' ← support.html
+    · 'admin_reply'          ← admin panel
+    · 'user_reply'           ← this page
 
-  AUTH: In-page modal (sign in / sign up). No redirect.
-
-  LOADING: Flickering logo until Firebase Auth resolves.
+  FIXES IN THIS VERSION
+    1. Subscription status badge now reads LIVE from subscriptions/{uid}_annual
+       (was stuck on the static message status, so "PENDING" never changed
+       even after admin approved).
+    2. Reply box now supports base64 image attachments (compressed to 800px,
+       0.7 quality, ~100-200KB per image — well under Firestore's 1MB limit).
+    3. Removed the duplicated invoice number in the thread header.
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -76,9 +76,7 @@ img{display:block;max-width:100%}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
 
-/* ═══════════════════════════════════════════════════════════
-   LOADING SPLASH
-   ═══════════════════════════════════════════════════════════ */
+/* LOADING SPLASH */
 body.z21-loading > *:not(#z21Loader){ visibility:hidden; }
 body.z21-loading{ overflow:hidden; }
 
@@ -274,7 +272,7 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-search-bar input::placeholder{color:var(--text-dim)}
 
-/* INBOX LAYOUT (split) */
+/* INBOX LAYOUT */
 .z21-inbox{
   display:grid;
   grid-template-columns:minmax(320px,420px) 1fr;
@@ -509,19 +507,6 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-msg.me .z21-msg-time{text-align:right}
 
-.z21-system{
-  align-self:center;max-width:90%;
-  padding:8px 16px;
-  background:rgba(255,255,255,.04);
-  border:1px solid var(--border);
-  border-radius:100px;
-  font-size:11.5px;font-weight:600;
-  color:var(--text-dim);
-  text-align:center;
-  display:inline-flex;align-items:center;gap:8px;
-}
-.z21-system i{font-size:11px}
-
 /* REPLY BOX */
 .z21-reply{
   padding:16px 22px 20px;
@@ -529,21 +514,72 @@ body.z21-loading{ overflow:hidden; }
   background:rgba(255,255,255,.01);
   flex-shrink:0;
 }
+
+/* Attachment preview (above the input bar) */
+.z21-attach-preview{
+  position:relative;
+  display:inline-flex;
+  margin-bottom:10px;
+  max-width:180px;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid var(--border-2);
+  background:var(--surface-2);
+  animation:z21ToastIn .25s cubic-bezier(.25,1,.5,1);
+}
+.z21-attach-preview img{
+  width:100%;height:auto;max-height:140px;
+  object-fit:cover;display:block;
+}
+.z21-attach-remove{
+  position:absolute;top:6px;right:6px;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.18);
+  color:#fff;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;
+}
+.z21-attach-remove:hover{background:rgba(250,36,60,.85);border-color:rgba(250,36,60,.9)}
+.z21-attach-size{
+  position:absolute;bottom:6px;left:6px;
+  padding:3px 8px;border-radius:100px;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  font-size:10px;font-weight:700;
+  color:rgba(255,255,255,.9);
+}
+
 .z21-reply-bar{
   display:flex;gap:10px;align-items:flex-end;
   background:var(--surface-2);
   border:1px solid var(--border);
   border-radius:22px;
-  padding:8px 8px 8px 16px;
+  padding:8px 8px 8px 8px;
   transition:border-color .2s;
 }
 .z21-reply-bar:focus-within{border-color:rgba(250,36,60,.5)}
+
+.z21-attach-btn{
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--border);
+  color:var(--text-muted);font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .2s;
+}
+.z21-attach-btn:hover{background:rgba(255,255,255,.12);color:#fff;border-color:var(--border-2)}
+.z21-attach-btn.has-image{
+  background:var(--accent);color:#fff;border-color:var(--accent);
+}
+
 .z21-reply textarea{
   flex:1;background:none;border:none;outline:none;
   color:var(--text);font-size:14px;
   resize:none;line-height:1.4;
   max-height:120px;min-height:24px;
-  padding:8px 0;
+  padding:10px 4px;
   font-family:inherit;
 }
 .z21-reply textarea::placeholder{color:var(--text-dim)}
@@ -639,7 +675,7 @@ body.z21-loading{ overflow:hidden; }
   border:2px solid #000;
 }
 
-/* MODAL (shared shell) */
+/* MODAL */
 .z21-modal{
   position:fixed;inset:0;z-index:1000;display:none;
   align-items:center;justify-content:center;padding:16px;
@@ -876,7 +912,6 @@ body.z21-loading{ overflow:hidden; }
         <button class="z21-mark-read" id="markAllRead"><i class="fas fa-check-double"></i> Mark all read</button>
       </div>
       <div class="z21-threads" id="threadList">
-        <!-- skeleton -->
         <div class="z21-skel-row"><div class="z21-skel-icon"></div><div class="z21-skel-body"><div class="z21-skel-line w40"></div><div class="z21-skel-line w90"></div></div></div>
         <div class="z21-skel-row"><div class="z21-skel-icon"></div><div class="z21-skel-body"><div class="z21-skel-line w40"></div><div class="z21-skel-line w90"></div></div></div>
         <div class="z21-skel-row"><div class="z21-skel-icon"></div><div class="z21-skel-body"><div class="z21-skel-line w40"></div><div class="z21-skel-line w90"></div></div></div>
@@ -908,9 +943,7 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </nav>
 
-<!-- ═══════════════════════════════════════════════════════════
-     AUTH MODAL — Sign In / Sign Up
-     ═══════════════════════════════════════════════════════════ -->
+<!-- AUTH MODAL -->
 <div class="z21-modal" id="authModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -928,7 +961,6 @@ body.z21-loading{ overflow:hidden; }
 
       <div class="z21-form-msg" id="authMsg"></div>
 
-      <!-- SIGN IN -->
       <form id="signinForm" autocomplete="on">
         <div class="z21-field">
           <label>Email</label>
@@ -943,7 +975,6 @@ body.z21-loading{ overflow:hidden; }
         </button>
       </form>
 
-      <!-- SIGN UP -->
       <form id="signupForm" style="display:none" autocomplete="on">
         <div class="z21-field">
           <label>Full Name</label>
@@ -1000,6 +1031,8 @@ const firebaseConfig = {
   measurementKind: "G-KE007Y89F1"
 };
 
+const PLAN_ID = 'annual';
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -1035,6 +1068,11 @@ let currentUser = null;
 let userProfile = null;
 let allMessages = [];
 let allBookings = {};
+
+/* NEW: subscription cache — maps invoiceNumber → sub doc, and the primary sub doc */
+let userSubsByInvoice = {};
+let userSubsPrimary = null;
+
 let threads = [];
 let filteredThreads = [];
 let activeThreadId = null;
@@ -1043,6 +1081,10 @@ let searchQuery = '';
 let unsubSent = null;
 let unsubReceived = null;
 let unsubBookings = null;
+let unsubUserSubs = null;   // ← new
+
+/* Attachment state */
+let pendingReplyImage = null;   // base64 data URL or null
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -1133,6 +1175,50 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   IMAGE COMPRESSION → BASE64
+   Small target (800px max, 0.7 quality) to stay well under
+   Firestore's 1MB per-document limit.
+   ═══════════════════════════════════════════════════════════ */
+function compressImageToBase64(file, maxDim = 800, quality = 0.7){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width: w, height: h } = img;
+
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+
+        // Safety: retry harder if the base64 is > 700KB
+        if(base64.length > 700000){
+          resolve(canvas.toDataURL('image/jpeg', 0.5));
+          return;
+        }
+        resolve(base64);
+      };
+      img.onerror = () => reject(new Error('Invalid image file'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
    AUTH MODAL
    ═══════════════════════════════════════════════════════════ */
 function openAuthModal(mode = 'signin'){
@@ -1158,7 +1244,6 @@ document.querySelectorAll('.z21-auth-tab').forEach(t => {
   t.addEventListener('click', () => switchAuthTab(t.dataset.authTab));
 });
 
-/* Sign In form */
 $('signinForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1172,7 +1257,6 @@ $('signinForm').addEventListener('submit', async (e) => {
     showToast('Welcome back!', 'success');
     closeModal('authModal');
     $('signinForm').reset();
-    // onAuthStateChanged fires → loads inbox
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1181,7 +1265,6 @@ $('signinForm').addEventListener('submit', async (e) => {
   }
 });
 
-/* Sign Up form */
 $('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1202,8 +1285,6 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    /* Don't overwrite existing subscriptionStatus. Only set defaults on
-       first creation — same fix as discover.html. */
     const uRef = doc(db, 'users', uid);
     const uSnap = await getDoc(uRef);
     if(!uSnap.exists()){
@@ -1220,7 +1301,6 @@ $('signupForm').addEventListener('submit', async (e) => {
     showToast('Account created — welcome to Zone21!', 'success');
     closeModal('authModal');
     $('signupForm').reset();
-    // onAuthStateChanged fires → loads inbox
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1238,6 +1318,11 @@ onAuthStateChanged(auth, async (user) => {
   if(unsubSent){ unsubSent(); unsubSent = null; }
   if(unsubReceived){ unsubReceived(); unsubReceived = null; }
   if(unsubBookings){ unsubBookings(); unsubBookings = null; }
+  if(unsubUserSubs){ unsubUserSubs(); unsubUserSubs = null; }
+
+  // reset local sub cache
+  userSubsByInvoice = {};
+  userSubsPrimary = null;
 
   if(!user){
     userProfile = null;
@@ -1263,6 +1348,7 @@ onAuthStateChanged(auth, async (user) => {
 
   renderNavUser();
   startListeners();
+  startSubscriptionListener();
   hideLoader();
 });
 
@@ -1297,11 +1383,50 @@ $('menuSignOut').addEventListener('click', async () => {
   await signOut(auth);
   $('userMenu').classList.remove('open');
   showToast('Signed out.', 'info');
-  // No redirect — onAuthStateChanged re-renders the page
 });
 
 /* ═══════════════════════════════════════════════════════════
-   LISTENERS — messages + bookings
+   SUBSCRIPTION LISTENER (NEW)
+   Keeps the subscription badge in sync with admin approvals.
+   ═══════════════════════════════════════════════════════════ */
+function startSubscriptionListener(){
+  const uid = currentUser.uid;
+
+  unsubUserSubs = onSnapshot(
+    query(collection(db, 'subscriptions'), where('userId', '==', uid)),
+    (snap) => {
+      userSubsByInvoice = {};
+      userSubsPrimary = null;
+
+      snap.forEach(d => {
+        const s = { id: d.id, ...d.data() };
+        if(s.invoiceNumber) userSubsByInvoice[s.invoiceNumber] = s;
+
+        // Prefer the compound {uid}_annual doc as primary;
+        // else fall back to any active sub
+        if(d.id === `${uid}_${PLAN_ID}`){
+          userSubsPrimary = s;
+        } else if(
+          !userSubsPrimary &&
+          (s.status === 'active' || s.status === 'approved') &&
+          !s.deletedAt
+        ){
+          userSubsPrimary = s;
+        }
+      });
+
+      // Re-enrich threads with fresh sub status + re-render
+      threads = threads.map(t => enrichThread(t));
+      filteredThreads = applyFiltersToThreads(threads);
+      renderThreadList();
+      if(activeThreadId) renderDetail(activeThreadId);
+    },
+    (err) => console.warn('Subscriptions listener error:', err)
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MESSAGES + BOOKINGS LISTENERS
    ═══════════════════════════════════════════════════════════ */
 function startListeners(){
   const uid = currentUser.uid;
@@ -1428,9 +1553,34 @@ function enrichThread(t){
   }
   else if(t.type === 'subscription'){
     out.title = 'Subscription';
-    out.subtitle = t.root.invoiceNumber || '';
-    out.status = t.root.status === 'unread' ? 'pending' : (t.root.status || 'pending');
-    out.ref = t.root.invoiceNumber || '';
+
+    /* ── Look up the REAL sub doc by invoice number ──
+       The message's own `status` field is set at creation time and
+       NEVER updates — that's why the badge was stuck on "pending".
+       The subscription doc is the live source of truth. */
+    const invNum = t.root?.invoiceNumber;
+    const subDoc = invNum ? userSubsByInvoice[invNum] : null;
+
+    // Fallback: if we can't match by invoice, use the primary sub
+    // (covers older messages whose invoiceNumber may have been cleared)
+    const fallbackSub = !subDoc && userSubsPrimary ? userSubsPrimary : null;
+    const effective = subDoc || fallbackSub;
+
+    let displayStatus = 'pending';
+    if(effective){
+      const s = effective.status;
+      if(s === 'active' || s === 'approved') displayStatus = 'active';
+      else if(s === 'rejected') displayStatus = 'rejected';
+      else if(s === 'pending_payment' || s === 'pending') displayStatus = 'pending';
+      else displayStatus = 'pending';
+
+      // Also respect soft-delete → treat as not-subscribed
+      if(effective.deletedAt) displayStatus = 'pending';
+    }
+
+    out.subscriptionStatus = displayStatus;
+    out.subtitle = '';   // hide the duplicate invoice number
+    out.ref = invNum || '';
   }
   else if(t.type === 'payment'){
     out.title = 'Payment proof';
@@ -1588,13 +1738,8 @@ function threadBadgeHTML(t){
            (t.ref ? `<span class="z21-pill neutral">${escapeHTML(t.ref)}</span>` : '');
   }
   if(t.type === 'subscription'){
-    const s = t.root?.status === 'active' ? 'active'
-            : t.root?.status === 'rejected' ? 'rejected'
-            : 'pending';
-    const label = s === 'active' ? 'active'
-                : s === 'rejected' ? 'rejected'
-                : 'pending';
-    return `<span class="z21-pill ${s}">${label}</span>`;
+    const s = t.subscriptionStatus || 'pending';   // ← live status from sub doc
+    return `<span class="z21-pill ${s}">${s}</span>`;
   }
   if(t.type === 'payment'){
     return `<span class="z21-pill ${t.status === 'read' ? 'completed' : 'pending'}">${escapeHTML(t.status === 'read' ? 'received' : t.status)}</span>`;
@@ -1606,6 +1751,7 @@ function threadPreviewText(t){
   if(!last) return '';
   const who = (last.sender === 'admin' || last.senderType === 'admin') ? 'Zone21: ' : '';
   let body = last.message || last.subject || '';
+  if(!body && (last.image || last.proofImage)) body = '[Image]';
   body = body.replace(/\n+/g, ' · ').trim();
   if(body.length > 120) body = body.slice(0, 120) + '…';
   return who + body;
@@ -1710,10 +1856,15 @@ function renderDetail(threadId){
         </div>
       </div>`;
   } else if(t.type === 'subscription'){
+    const liveStatus = t.subscriptionStatus || 'pending';
+    const statusLabel = liveStatus === 'active' ? 'Active'
+                      : liveStatus === 'rejected' ? 'Rejected'
+                      : 'Pending';
     scrollHTML += `
       <div class="z21-context">
         <div class="z21-context-head">
           <span class="z21-context-title">Subscription</span>
+          <span class="z21-pill ${liveStatus}">${statusLabel}</span>
         </div>
         <div class="z21-context-grid">
           <div class="z21-context-item"><small>Plan</small><strong>Full Access · Annual</strong></div>
@@ -1748,12 +1899,14 @@ function renderDetail(threadId){
     const imgHTML = m.image || m.proofImage
       ? `<img src="${escapeHTML(m.image || m.proofImage)}" alt="" data-img="${escapeHTML(m.image || m.proofImage)}">`
       : '';
+    const text = m.message || m.subject || '';
+    const emptyText = !text && imgHTML ? '' : (text || '[Attachment]');
 
     scrollHTML += `
       <div class="z21-msg ${isMe ? 'me' : 'them'}">
         <div class="z21-msg-avatar ${isMe ? 'me' : 'them'}">${avatarLabel}</div>
         <div class="z21-msg-body">
-          <div class="z21-bubble">${escapeHTML(m.message || m.subject || '[Attachment]')}${imgHTML}</div>
+          <div class="z21-bubble">${escapeHTML(emptyText)}${imgHTML}</div>
           <div class="z21-msg-time" title="${escapeHTML(fullTime)}">${escapeHTML(timeStr)}</div>
         </div>
       </div>`;
@@ -1762,7 +1915,19 @@ function renderDetail(threadId){
 
   const replyHTML = `
     <div class="z21-reply">
+      <div class="z21-attach-preview" id="attachPreview" style="display:none;">
+        <img id="attachPreviewImg" alt="">
+        <button class="z21-attach-remove" id="attachRemove" aria-label="Remove attachment">
+          <i class="fas fa-times"></i>
+        </button>
+        <span class="z21-attach-size" id="attachSize"></span>
+      </div>
+
       <div class="z21-reply-bar">
+        <input type="file" id="replyFileInput" accept="image/*" style="display:none">
+        <button class="z21-attach-btn" id="replyAttachBtn" aria-label="Attach image">
+          <i class="fas fa-image"></i>
+        </button>
         <textarea id="replyInput" placeholder="Reply to Zone21 team…" rows="1" maxlength="2000"></textarea>
         <button class="z21-send" id="sendReply" disabled aria-label="Send">
           <i class="fas fa-paper-plane"></i>
@@ -1770,7 +1935,7 @@ function renderDetail(threadId){
       </div>
       <div class="z21-reply-hint">
         <i class="fas fa-info-circle"></i>
-        Replies reach the Zone21 team and appear in your inbox thread.
+        Attach a screenshot for context · Replies reach the Zone21 team.
       </div>
     </div>`;
 
@@ -1786,11 +1951,30 @@ function renderDetail(threadId){
     img.addEventListener('click', () => window.open(img.dataset.img, '_blank'));
   });
 
+  // Wire reply input
   const input = $('replyInput');
   const send = $('sendReply');
+  const attachBtn = $('replyAttachBtn');
+  const fileInput = $('replyFileInput');
+  const preview = $('attachPreview');
+  const previewImg = $('attachPreviewImg');
+  const removeBtn = $('attachRemove');
+  const sizeLabel = $('attachSize');
+
+  // Reset attachment state when switching threads
+  pendingReplyImage = null;
+  if(preview) preview.style.display = 'none';
+  if(attachBtn) attachBtn.classList.remove('has-image');
+
+  function updateSendState(){
+    const hasText = input.value.trim().length > 0;
+    const hasImage = !!pendingReplyImage;
+    send.disabled = !hasText && !hasImage;
+  }
+
   if(input && send){
     input.addEventListener('input', () => {
-      send.disabled = input.value.trim().length === 0;
+      updateSendState();
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 120) + 'px';
     });
@@ -1801,6 +1985,56 @@ function renderDetail(threadId){
       }
     });
     send.addEventListener('click', () => submitReply(t));
+  }
+
+  // Attach button → open file picker
+  if(attachBtn && fileInput){
+    attachBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+
+      if(file.size > 5 * 1024 * 1024){
+        showToast('Image must be under 5MB.', 'error');
+        e.target.value = '';
+        return;
+      }
+      if(!file.type.startsWith('image/')){
+        showToast('Please select an image file.', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      try{
+        const base64 = await compressImageToBase64(file, 800, 0.7);
+        pendingReplyImage = base64;
+
+        const kb = Math.round(base64.length / 1024);
+        previewImg.src = base64;
+        sizeLabel.textContent = kb + 'KB';
+        preview.style.display = 'inline-flex';
+        attachBtn.classList.add('has-image');
+        updateSendState();
+
+        if(kb > 800){
+          showToast(`Large image (${kb}KB) — sending may be slow.`, 'info');
+        }
+      }catch(err){
+        console.error(err);
+        showToast('Could not process image: ' + err.message, 'error');
+      }finally{
+        e.target.value = '';
+      }
+    });
+
+    removeBtn.addEventListener('click', () => {
+      pendingReplyImage = null;
+      preview.style.display = 'none';
+      previewImg.src = '';
+      attachBtn.classList.remove('has-image');
+      updateSendState();
+    });
   }
 }
 
@@ -1814,20 +2048,22 @@ function threadIconBg(iconClass){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBMIT REPLY
+   SUBMIT REPLY (now supports base64 image attachment)
    ═══════════════════════════════════════════════════════════ */
 async function submitReply(thread){
   const input = $('replyInput');
   const send = $('sendReply');
   const text = input.value.trim();
-  if(!text) return;
+  const image = pendingReplyImage;
+
+  if(!text && !image) return;
 
   input.disabled = true;
   send.disabled = true;
   send.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
   try{
-    await addDoc(collection(db, 'messages'), {
+    const payload = {
       sender: 'user',
       senderId: currentUser.uid,
       senderType: 'organizer',
@@ -1842,10 +2078,17 @@ async function submitReply(thread){
       message: text,
       status: 'unread',
       createdAt: serverTimestamp()
-    });
+    };
+
+    if(image) payload.image = image;   // base64 data URL
+
+    await addDoc(collection(db, 'messages'), payload);
+
     input.value = '';
     input.style.height = 'auto';
-    showToast('Reply sent.', 'success');
+    pendingReplyImage = null;
+
+    showToast(image ? 'Reply sent with image.' : 'Reply sent.', 'success');
   }catch(e){
     console.error(e);
     showToast('Could not send: ' + e.message, 'error');
@@ -1938,7 +2181,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   EXPOSE AUTH OPENER (used by empty-state buttons)
+   EXPOSE AUTH OPENER
    ═══════════════════════════════════════════════════════════ */
 window.zone21OpenAuth = openAuthModal;
 
@@ -1949,4 +2192,4 @@ renderThreadList();
 renderDetail();
 </script>
 </body>
-</html>
+  </html>

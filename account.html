@@ -34,6 +34,69 @@ img{display:block;max-width:100%}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
 
+/* ═══════════════════════════════════════════════════════════
+   LOADING SPLASH
+   ═══════════════════════════════════════════════════════════ */
+body.z21-loading > *:not(#z21Loader){ visibility:hidden; }
+body.z21-loading{ overflow:hidden; }
+
+.z21-loader{
+  position:fixed;inset:0;z-index:9999;
+  background:#000;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .6s ease,visibility .6s ease;
+}
+.z21-loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.z21-loader::before{
+  content:'';position:absolute;
+  width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(250,36,60,.22) 0%,transparent 65%);
+  pointer-events:none;
+  animation:z21Glow 4s ease-in-out infinite;
+}
+.z21-loader-logo{
+  display:flex;align-items:center;gap:16px;
+  position:relative;z-index:1;
+  animation:z21Flicker 3.6s ease-in-out infinite;
+}
+.z21-loader-mark{
+  width:64px;height:64px;border-radius:16px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;font-weight:900;color:#fff;
+  box-shadow:0 16px 48px var(--accent-glow);
+  flex-shrink:0;
+}
+.z21-loader-name{
+  font-size:clamp(28px,6vw,36px);
+  font-weight:800;letter-spacing:-.035em;color:var(--text);
+}
+.z21-loader-name span{color:var(--accent)}
+
+@keyframes z21Flicker{
+  0%{opacity:1;filter:brightness(1)}
+  6%{opacity:1;filter:brightness(1)}
+  7%{opacity:.5;filter:brightness(.7)}
+  9%{opacity:1;filter:brightness(1)}
+  22%{opacity:1;filter:brightness(1)}
+  23%{opacity:.82;filter:brightness(.9)}
+  24%{opacity:1;filter:brightness(1)}
+  50%{opacity:1;filter:brightness(1)}
+  51%{opacity:.68;filter:brightness(.85)}
+  53%{opacity:1;filter:brightness(1)}
+  71%{opacity:1;filter:brightness(1)}
+  72%{opacity:.55;filter:brightness(.75)}
+  74%{opacity:1;filter:brightness(1)}
+  100%{opacity:1;filter:brightness(1)}
+}
+@keyframes z21Glow{
+  0%,100%{opacity:.8;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.08)}
+}
+@media(prefers-reduced-motion:reduce){
+  .z21-loader-logo,.z21-loader::before{animation:none}
+}
+
 /* NAV */
 .z21-nav{
   position:sticky;top:0;z-index:100;height:var(--nav-h);
@@ -555,16 +618,24 @@ img{display:block;max-width:100%}
 }
 </style>
 </head>
-<body>
+<body class="z21-loading">
+
+<!-- LOADER SPLASH -->
+<div class="z21-loader" id="z21Loader" aria-hidden="true">
+  <div class="z21-loader-logo">
+    <div class="z21-loader-mark">Z</div>
+    <div class="z21-loader-name">Zone<span>21</span></div>
+  </div>
+</div>
 
 <!-- NAV -->
 <nav class="z21-nav">
-  <a href="Discover.html" class="z21-logo">
+  <a href="discover.html" class="z21-logo">
     <div class="z21-logo-mark">Z</div>
     Zone<span>21</span>
   </a>
   <div class="z21-nav-links">
-    <a href="Discover.html" class="z21-nav-link">Home</a>
+    <a href="discover.html" class="z21-nav-link">Home</a>
     <a href="bookingsub.html" class="z21-nav-link">Subscription</a>
     <a href="bookinginbox.html" class="z21-nav-link">Inbox</a>
     <a href="support.html" class="z21-nav-link">Support</a>
@@ -734,7 +805,7 @@ img{display:block;max-width:100%}
 <!-- BOTTOM NAV -->
 <nav class="z21-bottom-nav">
   <div class="z21-bottom-nav-inner">
-    <a href="Discover.html" class="z21-bottom-link"><i class="fas fa-compass"></i> Home</a>
+    <a href="discover.html" class="z21-bottom-link"><i class="fas fa-compass"></i> Home</a>
     <a href="bookingsub.html" class="z21-bottom-link"><i class="fas fa-crown"></i> Plans</a>
     <a href="bookinginbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i> Inbox</a>
     <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i> Support</a>
@@ -985,6 +1056,30 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
+   LOADER SPLASH
+   ═══════════════════════════════════════════════════════════ */
+const PAGE_START = Date.now();
+const MIN_LOADER_MS = 900;
+const FAILSAFE_MS = 8000;
+let loaderHidden = false;
+
+function hideLoader(){
+  if(loaderHidden) return;
+  loaderHidden = true;
+  const elapsed = Date.now() - PAGE_START;
+  const wait = Math.max(0, MIN_LOADER_MS - elapsed);
+  setTimeout(() => {
+    document.body.classList.remove('z21-loading');
+    const el = document.getElementById('z21Loader');
+    if(el){
+      el.classList.add('hidden');
+      setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 700);
+    }
+  }, wait);
+}
+setTimeout(hideLoader, FAILSAFE_MS);
+
+/* ═══════════════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════════════ */
 let currentUser = null;
@@ -1009,7 +1104,6 @@ function escapeHTML(s){
 }
 function safeUrl(url){
   if(!url) return '';
-  // Accept http/https URLs AND base64 data URLs (for avatars)
   if(url.startsWith('data:image/')) return url;
   try{ const u = new URL(url); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''; }
   catch{ return ''; }
@@ -1070,7 +1164,6 @@ function friendlyAuthError(err){
 /* ═══════════════════════════════════════════════════════════
    IMAGE COMPRESSION → BASE64
    Avatars are small, so we compress hard: 200px max, 0.7 quality.
-   Result is typically 15–30 KB per avatar.
    ═══════════════════════════════════════════════════════════ */
 function compressImageToBase64(file, maxDim = 200, quality = 0.7){
   return new Promise((resolve, reject) => {
@@ -1080,12 +1173,10 @@ function compressImageToBase64(file, maxDim = 200, quality = 0.7){
       img.onload = () => {
         let { width: w, height: h } = img;
 
-        // Square crop from center so avatars don't squish
         const size = Math.min(w, h);
         const sx = (w - size) / 2;
         const sy = (h - size) / 2;
 
-        // Target dimension
         const target = Math.min(maxDim, size);
 
         const canvas = document.createElement('canvas');
@@ -1159,7 +1250,6 @@ $('signinForm').addEventListener('submit', async (e) => {
     showToast('Welcome back!', 'success');
     closeModal('authModal');
     $('signinForm').reset();
-    // onAuthStateChanged re-renders everything
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1189,12 +1279,20 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    await setDoc(doc(db, 'users', uid), {
-      name, email, phone, university,
-      role: 'student',
-      subscriptionStatus: 'none',
-      createdAt: serverTimestamp()
-    }, { merge: true });
+    /* Don't overwrite existing subscriptionStatus. Only set defaults on
+       first creation — same fix as everywhere else. */
+    const uRef = doc(db, 'users', uid);
+    const uSnap = await getDoc(uRef);
+    if(!uSnap.exists()){
+      await setDoc(uRef, {
+        name, email, phone, university,
+        role: 'student',
+        subscriptionStatus: 'none',
+        createdAt: serverTimestamp()
+      });
+    } else {
+      await setDoc(uRef, { name, email, phone, university }, { merge: true });
+    }
 
     showToast('Account created — welcome to Zone21!', 'success');
     closeModal('authModal');
@@ -1220,6 +1318,7 @@ onAuthStateChanged(auth, async (user) => {
     renderHeroCard();
     renderProfile();
     renderSubCard();
+    hideLoader();
     return;
   }
 
@@ -1238,6 +1337,7 @@ onAuthStateChanged(auth, async (user) => {
   renderHeroCard();
   renderProfile();
   renderSubCard();
+  hideLoader();
 });
 
 async function loadSubscription(){
@@ -1609,7 +1709,6 @@ function updateAvatarPreview(base64){
   const initial = (userProfile?.name || 'U').charAt(0).toUpperCase();
   if(base64){
     prev.classList.add('has-image');
-    // Preserve the overlay — rebuild inner content with image + overlay
     prev.innerHTML = `
       <img src="${escapeHTML(base64)}" alt="">
       <div class="z21-avatar-overlay">
@@ -1627,7 +1726,6 @@ function updateAvatarPreview(base64){
   }
 }
 
-/* Tap on the big avatar to open file picker too */
 $('avatarPreview').addEventListener('click', () => $('avatarFileInput').click());
 $('avatarPickBtn').addEventListener('click', () => $('avatarFileInput').click());
 
@@ -1805,7 +1903,7 @@ $('deleteForm').addEventListener('submit', async (e) => {
     showFormMsg('deleteMsg', 'Account deleted. Redirecting…', 'success');
     showToast('Account deleted.', 'success');
 
-    setTimeout(() => { window.location.href = 'Discover.html'; }, 1400);
+    setTimeout(() => { window.location.href = 'discover.html'; }, 1400);
   }catch(err){
     console.error(err);
     const code = err?.code || '';
@@ -1850,4 +1948,4 @@ window.zone21OpenAuth = openAuthModal;
 renderHeroCard();
 </script>
 </body>
-</html>
+            </html>

@@ -11,14 +11,9 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 ADMIN PANEL — single page, no sidebar
-  Sections: Artists · Bookings · Messages (switched via nav cards)
-  External: Payments page · Public site
-
-  IMAGE STORAGE: base64 data URLs stored in Firestore (photoUrl).
-  Compressed to 500px / 0.6 quality — no Firebase Storage required.
-
-  Firestore: artists/{id} · bookings/{id} · messages/{id} · admins/{uid}
+  ZONE21 ADMIN PANEL — single page, no sidebar, history-aware
+  Sections: Artists · Bookings · Messages
+  Back button navigates between sections (pushState/popstate)
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -134,17 +129,6 @@ img{max-width:100%;display:block}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   max-width:130px;
 }
-.icon-btn{
-  width:38px;height:38px;border-radius:50%;
-  background:var(--surface-2);
-  border:1px solid var(--border);
-  color:var(--text-2);
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;
-  transition:all .15s;
-  flex-shrink:0;
-}
-.icon-btn:hover{background:#fee2e2;color:var(--danger);border-color:#fecaca}
 
 /* ═════════ NAV CARDS ═════════ */
 .nav-cards{
@@ -303,6 +287,88 @@ img{max-width:100%;display:block}
   transition:all .15s;
 }
 .search-box input:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(16,40,56,.08)}
+
+/* ═════════ SMART FILTER PILLS (bookings) ═════════ */
+.smart-filters{
+  display:flex;
+  gap:8px;
+  margin-bottom:18px;
+  overflow-x:auto;
+  padding:2px 2px 8px;
+  scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch;
+}
+.smart-filters::-webkit-scrollbar{height:6px}
+.smart-filters::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+
+.smart-filter{
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  padding:9px 14px;
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:100px;
+  cursor:pointer;
+  transition:all .15s cubic-bezier(.4,0,.2,1);
+  white-space:nowrap;
+  font-size:13px;
+}
+.smart-filter:hover{
+  border-color:var(--border-2);
+  transform:translateY(-1px);
+  box-shadow:0 4px 14px rgba(16,40,56,.08);
+}
+.smart-filter.active{
+  background:var(--navy);
+  border-color:var(--navy);
+  box-shadow:0 6px 18px rgba(16,40,56,.22);
+}
+.smart-filter-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--accent,var(--text-3));
+  flex-shrink:0;
+  transition:all .15s;
+}
+.smart-filter.active .smart-filter-dot{
+  background:var(--lime);
+  box-shadow:0 0 0 3px rgba(192,200,0,.25);
+}
+.smart-filter-label{
+  font-weight:700;
+  color:var(--text-2);
+  font-size:13px;
+  letter-spacing:-.01em;
+}
+.smart-filter.active .smart-filter-label{color:#fff}
+.smart-filter-count{
+  min-width:24px;
+  padding:1px 7px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:100px;
+  font-size:11.5px;
+  font-weight:800;
+  color:var(--text);
+  text-align:center;
+  line-height:1.4;
+  transition:all .15s;
+}
+.smart-filter.active .smart-filter-count{
+  background:var(--lime);
+  border-color:var(--lime);
+  color:var(--navy);
+}
+.smart-filter[data-status="all"]{--accent:var(--navy)}
+.smart-filter[data-status="pending"]{--accent:var(--warning)}
+.smart-filter[data-status="confirmed"]{--accent:var(--success)}
+.smart-filter[data-status="completed"]{--accent:var(--info)}
+.smart-filter[data-status="declined"]{--accent:var(--danger)}
+
+/* ═════════ LEGACY FILTER TABS (messages) ═════════ */
 .filter-tabs{
   display:flex;gap:4px;
   background:var(--surface-2);
@@ -874,9 +940,6 @@ tbody tr.clickable{cursor:pointer}
           <small id="adminEmail">—</small>
         </div>
       </div>
-      <button class="icon-btn" id="signOutBtn" title="Sign out">
-        <i class="fas fa-sign-out-alt"></i>
-      </button>
     </div>
   </header>
 
@@ -963,13 +1026,35 @@ tbody tr.clickable{cursor:pointer}
             <i class="fas fa-search"></i>
             <input type="text" id="bookingSearch" placeholder="Search by ref, artist, student, venue…">
           </div>
-          <div class="filter-tabs" id="bookingFilters">
-            <button class="filter-tab active" data-status="all">All <span class="filter-count" id="cAll">0</span></button>
-            <button class="filter-tab" data-status="pending">Pending <span class="filter-count" id="cPending">0</span></button>
-            <button class="filter-tab" data-status="confirmed">Confirmed <span class="filter-count" id="cConfirmed">0</span></button>
-            <button class="filter-tab" data-status="completed">Completed <span class="filter-count" id="cCompleted">0</span></button>
-            <button class="filter-tab" data-status="declined">Declined <span class="filter-count" id="cDeclined">0</span></button>
-          </div>
+        </div>
+
+        <!-- SMART FILTER LIST -->
+        <div class="smart-filters" id="bookingFilters">
+          <button class="smart-filter active" data-status="all">
+            <span class="smart-filter-dot"></span>
+            <span class="smart-filter-label">All</span>
+            <span class="smart-filter-count" id="cAll">0</span>
+          </button>
+          <button class="smart-filter" data-status="pending">
+            <span class="smart-filter-dot"></span>
+            <span class="smart-filter-label">Pending</span>
+            <span class="smart-filter-count" id="cPending">0</span>
+          </button>
+          <button class="smart-filter" data-status="confirmed">
+            <span class="smart-filter-dot"></span>
+            <span class="smart-filter-label">Confirmed</span>
+            <span class="smart-filter-count" id="cConfirmed">0</span>
+          </button>
+          <button class="smart-filter" data-status="completed">
+            <span class="smart-filter-dot"></span>
+            <span class="smart-filter-label">Completed</span>
+            <span class="smart-filter-count" id="cCompleted">0</span>
+          </button>
+          <button class="smart-filter" data-status="declined">
+            <span class="smart-filter-dot"></span>
+            <span class="smart-filter-label">Declined</span>
+            <span class="smart-filter-count" id="cDeclined">0</span>
+          </button>
         </div>
 
         <div class="card">
@@ -1231,14 +1316,14 @@ const firebaseConfig = {
 };
 
 const LOGIN_URL  = 'admin.html';
-const PANEL_URL  = 'admindashboard.html';
-const PUBLIC_URL = 'Discover.html';
 
 const ZIM_LOCATIONS = [
   'Harare','Bulawayo','Chitungwiza','Mutare','Gweru','Kwekwe','Kadoma',
   'Masvingo','Chinhoyi','Marondera','Victoria Falls','Hwange','Beitbridge',
   'Kariba','Bindura','Rusape','Zvishavane','Gwanda','Nationwide'
 ];
+
+const VALID_SECTIONS = ['artists','bookings','messages'];
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -1390,32 +1475,58 @@ async function safeSignOutAndRedirect(reason){
   window.location.replace(url);
 }
 
-$('signOutBtn').addEventListener('click', async () => {
-  try{ await signOut(auth); }catch(_){}
-  window.location.replace(`${LOGIN_URL}?signout=1`);
-});
-
 /* ═══════════════════════════════════════════════════════════
-   NAV — dynamic cards
+   NAV — history-aware section switching
+   Each section switch pushes a history entry so the browser
+   Back button walks back through sections, not to the login.
    ═══════════════════════════════════════════════════════════ */
-const PAGE_LABELS = {
-  artists:  'Roster management',
-  bookings: 'Review requests',
-  messages: 'Student inbox'
-};
+function switchSection(name, push = true){
+  if(!VALID_SECTIONS.includes(name)) name = 'artists';
 
-function switchSection(name){
+  // Close mobile thread pane when leaving Messages
+  if(name !== 'messages'){
+    const pane = $('threadDetailPane');
+    if(pane) pane.classList.remove('mobile-open');
+    activeThreadId = null;
+  }
+
+  // Update UI
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-card[data-section]').forEach(l => {
-    l.classList.toggle('active', l.dataset.section === name);
+  document.querySelectorAll('.nav-card[data-section]').forEach(c => {
+    c.classList.toggle('active', c.dataset.section === name);
   });
   const sec = $(`section-${name}`);
   if(sec) sec.classList.add('active');
+
+  // Push a history entry so Back walks sections
+  if(push){
+    const current = history.state && history.state.section;
+    if(current !== name || location.hash !== `#${name}`){
+      history.pushState({section: name}, '', `#${name}`);
+    }
+  }
 }
 
+// Nav card clicks
 document.querySelectorAll('.nav-card[data-section]').forEach(card => {
-  card.addEventListener('click', () => switchSection(card.dataset.section));
+  card.addEventListener('click', () => switchSection(card.dataset.section, true));
 });
+
+// Browser Back / Forward
+window.addEventListener('popstate', (e) => {
+  const state = e.state || {};
+  const name = state.section || (location.hash || '#artists').replace('#','');
+  switchSection(name, false);
+});
+
+// Initialize section from URL hash on load
+(function initSection(){
+  let initial = (location.hash || '').replace('#','');
+  if(!VALID_SECTIONS.includes(initial)) initial = 'artists';
+  switchSection(initial, false);
+  // Replace current entry so our state is stored
+  history.replaceState({section: initial}, '', `#${initial}`);
+})();
 
 /* ═══════════════════════════════════════════════════════════
    LISTENERS
@@ -1464,7 +1575,7 @@ function startListeners(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   NAV COUNTS — replaces old stats grid
+   NAV COUNTS
    ═══════════════════════════════════════════════════════════ */
 function updateNavCounts(){
   const pending = allBookings.filter(b => (b.status||'pending') === 'pending').length;
@@ -1473,25 +1584,21 @@ function updateNavCounts(){
     (m.status === 'unread' || m.status === 'pending')
   ).length;
 
-  // Artists
   $('navCountArtists').textContent = allArtists.length;
   $('navSubArtists').textContent = allArtists.length === 1
     ? '1 artist in roster'
     : `${allArtists.length} artists in roster`;
 
-  // Bookings
   $('navCountBookings').textContent = allBookings.length;
   $('navSubBookings').textContent = pending > 0
     ? `${pending} pending review`
     : 'No pending requests';
 
-  // Messages
   $('navCountMessages').textContent = unread > 0 ? unread : threads.length;
   $('navSubMessages').textContent = unread > 0
     ? `${unread} unread`
     : (threads.length > 0 ? `${threads.length} conversations` : 'Student inbox');
 
-  // Notification dots
   $('dotBookings').style.display = pending > 0 ? '' : 'none';
   $('dotMessages').style.display = unread > 0 ? '' : 'none';
 }
@@ -1827,9 +1934,9 @@ function updateBookingCounts(){
   $('cDeclined').textContent = counts.declined;
 }
 
-document.querySelectorAll('#bookingFilters .filter-tab').forEach(tab => {
+document.querySelectorAll('#bookingFilters .smart-filter').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('#bookingFilters .filter-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#bookingFilters .smart-filter').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     currentBookingFilter = tab.dataset.status;
     renderBookings();
@@ -2029,7 +2136,7 @@ function buildStatusMessage(b, status){
 
 window.zone21MessageUser = (userId, ref) => {
   closeModal('bookingModal');
-  switchSection('messages');
+  switchSection('messages', true);
   setTimeout(() => {
     const t = threads.find(x => x.root?.senderId === userId);
     if(t){
@@ -2197,7 +2304,7 @@ function getThreadTitle(t){
 }
 
 window.zone21OpenThread = (threadId) => {
-  switchSection('messages');
+  switchSection('messages', true);
   openThread(threadId);
 };
 
@@ -2425,7 +2532,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-console.log('✅ Zone21 Admin — single-page layout, dynamic nav cards');
+console.log('✅ Zone21 Admin — history-aware sections + smart filter list');
 </script>
 </body>
 </html>

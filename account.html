@@ -317,6 +317,22 @@ img{display:block;max-width:100%}
 .z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
 .z21-modal-body{padding:20px 26px 26px}
 
+/* Auth tabs */
+.z21-auth-tabs{
+  display:flex;gap:4px;padding:4px;
+  background:var(--surface-2);border-radius:100px;
+  margin-bottom:20px;
+}
+.z21-auth-tab{
+  flex:1;padding:10px;border-radius:100px;
+  font-size:14px;font-weight:700;
+  color:var(--text-muted);transition:all .2s;
+}
+.z21-auth-tab.active{
+  background:var(--surface-3);color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
+
 .z21-field{margin-bottom:14px}
 .z21-field label{
   display:block;font-size:12px;font-weight:700;
@@ -337,6 +353,11 @@ img{display:block;max-width:100%}
   border-color:rgba(250,36,60,.6);
   background:var(--surface-3);
   box-shadow:0 0 0 4px rgba(250,36,60,.09);
+}
+.z21-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.z21-field-optional{
+  font-size:11px;color:var(--text-dim);
+  text-transform:none;letter-spacing:0;font-weight:500;margin-left:4px;
 }
 .z21-field-hint{
   font-size:12px;color:var(--text-dim);
@@ -416,6 +437,51 @@ img{display:block;max-width:100%}
   box-shadow:0 0 0 4px rgba(250,36,60,.09);
 }
 
+/* AVATAR UPLOAD */
+.z21-avatar-drop{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  padding:8px 0 4px;
+}
+.z21-avatar-big{
+  width:140px;height:140px;border-radius:50%;
+  background:var(--surface-2);
+  border:3px dashed var(--border-2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:44px;font-weight:800;color:var(--accent);
+  overflow:hidden;position:relative;
+  cursor:pointer;transition:all .25s;
+}
+.z21-avatar-big:hover{
+  border-color:var(--accent);
+  background:var(--surface-3);
+  transform:scale(1.02);
+}
+.z21-avatar-big.has-image{
+  border-style:solid;
+  border-color:var(--border-2);
+}
+.z21-avatar-big img{width:100%;height:100%;object-fit:cover}
+.z21-avatar-big .z21-avatar-overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,.55);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;
+  opacity:0;transition:opacity .2s;
+  color:#fff;font-size:12px;font-weight:700;
+  pointer-events:none;
+}
+.z21-avatar-big:hover .z21-avatar-overlay{opacity:1}
+.z21-avatar-overlay i{font-size:22px}
+
+.z21-avatar-actions{
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+}
+.z21-avatar-actions .z21-btn-full{width:auto;padding:11px 22px;font-size:14px;margin-top:0}
+.z21-avatar-hint{
+  font-size:12px;color:var(--text-dim);
+  text-align:center;line-height:1.55;max-width:340px;
+}
+
 /* TOAST */
 .z21-toast-wrap{
   position:fixed;top:80px;left:50%;transform:translateX(-50%);
@@ -480,6 +546,8 @@ img{display:block;max-width:100%}
   .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
   .z21-row{padding:16px 18px;gap:14px}
   .z21-row-icon{width:34px;height:34px;font-size:14px}
+  .z21-field-row{grid-template-columns:1fr;gap:0}
+  .z21-avatar-big{width:120px;height:120px;font-size:38px}
   .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
 }
 @media(prefers-reduced-motion:reduce){
@@ -631,7 +699,7 @@ img{display:block;max-width:100%}
         <div class="z21-row-icon info"><i class="fas fa-image"></i></div>
         <div class="z21-row-body">
           <div class="z21-row-title">Profile picture</div>
-          <div class="z21-row-sub">Add or update your avatar URL</div>
+          <div class="z21-row-sub">Upload a photo from your device</div>
         </div>
         <div class="z21-row-action"><i class="fas fa-chevron-right"></i></div>
       </div>
@@ -673,6 +741,77 @@ img{display:block;max-width:100%}
     <a href="account.html" class="z21-bottom-link active"><i class="fas fa-user"></i> Account</a>
   </div>
 </nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH MODAL — Sign In / Sign Up
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="authModal">
+  <div class="z21-modal-panel">
+    <div class="z21-modal-head">
+      <div>
+        <h2 id="authTitle">Sign in to your account</h2>
+        <p id="authSub">Create a free account or sign in to manage your profile.</p>
+      </div>
+      <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-auth-tabs">
+        <button class="z21-auth-tab active" data-auth-tab="signin">Sign In</button>
+        <button class="z21-auth-tab" data-auth-tab="signup">Sign Up</button>
+      </div>
+
+      <div class="z21-form-msg" id="authMsg"></div>
+
+      <!-- SIGN IN -->
+      <form id="signinForm" autocomplete="on">
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signinEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <div class="z21-pw-wrap">
+            <input type="password" id="signinPassword" required placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="z21-pw-toggle" data-toggle="signinPassword"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signinSubmit">
+          <i class="fas fa-arrow-right"></i> Sign In
+        </button>
+      </form>
+
+      <!-- SIGN UP -->
+      <form id="signupForm" style="display:none" autocomplete="on">
+        <div class="z21-field">
+          <label>Full Name</label>
+          <input type="text" id="signupName" required placeholder="e.g. Tafadzwa Moyo" autocomplete="name">
+        </div>
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signupEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Phone (WhatsApp)</label>
+          <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+        </div>
+        <div class="z21-field">
+          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <div class="z21-pw-wrap">
+            <input type="password" id="signupPassword" required placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+            <button type="button" class="z21-pw-toggle" data-toggle="signupPassword"><i class="fas fa-eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signupSubmit">
+          <i class="fas fa-user-plus"></i> Create Account
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- CHANGE PASSWORD MODAL -->
 <div class="z21-modal" id="pwModal">
@@ -717,33 +856,47 @@ img{display:block;max-width:100%}
   </div>
 </div>
 
-<!-- AVATAR MODAL -->
+<!-- AVATAR MODAL — file upload (base64) -->
 <div class="z21-modal" id="avatarModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
       <div>
         <h2>Profile picture</h2>
-        <p>Paste an image URL. Recommended: square image, at least 200×200.</p>
+        <p>Choose a photo from your device. It'll be compressed and stored securely.</p>
       </div>
       <button class="z21-modal-close" data-close="avatarModal"><i class="fas fa-times"></i></button>
     </div>
     <div class="z21-modal-body">
       <div class="z21-form-msg" id="avatarMsg"></div>
-      <div style="display:flex;justify-content:center;margin-bottom:22px">
-        <div class="z21-hero-avatar" id="avatarPreview" style="cursor:default">
+
+      <div class="z21-avatar-drop">
+        <div class="z21-avatar-big" id="avatarPreview">
           <span id="avatarPreviewText">Z</span>
+          <div class="z21-avatar-overlay">
+            <i class="fas fa-camera"></i>
+            <span>Tap to choose</span>
+          </div>
+        </div>
+
+        <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
+
+        <div class="z21-avatar-actions">
+          <button type="button" class="z21-btn-full primary" id="avatarPickBtn">
+            <i class="fas fa-upload"></i> <span>Choose Photo</span>
+          </button>
+          <button type="button" class="z21-btn-full secondary" id="avatarRemoveBtn" style="display:none">
+            <i class="fas fa-trash"></i> <span>Remove</span>
+          </button>
+        </div>
+
+        <div class="z21-avatar-hint">
+          JPG, PNG, or WebP · Max 5MB · Automatically resized to 200px, ~20KB.
         </div>
       </div>
-      <form id="avatarForm">
-        <div class="z21-field">
-          <label>Image URL</label>
-          <input type="url" id="avatarUrlInput" placeholder="https://example.com/photo.jpg">
-          <div class="z21-field-hint">Leave empty to remove your picture and use initials.</div>
-        </div>
-        <button type="submit" class="z21-btn-full primary" id="avatarSubmit">
-          <i class="fas fa-save"></i> Save Picture
-        </button>
-      </form>
+
+      <button type="button" class="z21-btn-full primary" id="avatarSaveBtn" disabled style="margin-top:20px">
+        <i class="fas fa-save"></i> <span>Save Picture</span>
+      </button>
     </div>
   </div>
 </div>
@@ -804,6 +957,7 @@ img{display:block;max-width:100%}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signOut, updateProfile,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
   EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
@@ -838,6 +992,10 @@ let userProfile = null;
 let subscription = null;
 let isEditingProfile = false;
 
+/* Avatar upload state */
+let pendingAvatarBase64 = null;   // compressed base64 data URL
+let pendingAvatarDirty  = false;  // true when user picked/removed a photo
+
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
    ═══════════════════════════════════════════════════════════ */
@@ -851,6 +1009,8 @@ function escapeHTML(s){
 }
 function safeUrl(url){
   if(!url) return '';
+  // Accept http/https URLs AND base64 data URLs (for avatars)
+  if(url.startsWith('data:image/')) return url;
   try{ const u = new URL(url); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''; }
   catch{ return ''; }
 }
@@ -895,8 +1055,160 @@ function fmtDate(d){
 }
 function daysBetween(a, b){ return Math.ceil((b - a) / 86400000); }
 
+function friendlyAuthError(err){
+  const code = err?.code || '';
+  if(code.includes('invalid-credential')) return 'Incorrect email or password.';
+  if(code.includes('user-not-found')) return 'No account found for that email.';
+  if(code.includes('wrong-password')) return 'Incorrect email or password.';
+  if(code.includes('email-already-in-use')) return 'That email is already registered. Try signing in.';
+  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('invalid-email')) return 'That email address doesn\'t look valid.';
+  if(code.includes('network-request-failed')) return 'Network error. Check your connection.';
+  return err?.message || 'Something went wrong. Please try again.';
+}
+
 /* ═══════════════════════════════════════════════════════════
-   AUTH
+   IMAGE COMPRESSION → BASE64
+   Avatars are small, so we compress hard: 200px max, 0.7 quality.
+   Result is typically 15–30 KB per avatar.
+   ═══════════════════════════════════════════════════════════ */
+function compressImageToBase64(file, maxDim = 200, quality = 0.7){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width: w, height: h } = img;
+
+        // Square crop from center so avatars don't squish
+        const size = Math.min(w, h);
+        const sx = (w - size) / 2;
+        const sy = (h - size) / 2;
+
+        // Target dimension
+        const target = Math.min(maxDim, size);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = target;
+        canvas.height = target;
+
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, target, target);
+
+        const base64 = canvas.toDataURL('image/jpeg', quality);
+        resolve(base64);
+      };
+      img.onerror = () => reject(new Error('Invalid image file'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH MODAL
+   ═══════════════════════════════════════════════════════════ */
+function openAuthModal(mode = 'signin'){
+  switchAuthTab(mode);
+  clearFormMsg('authMsg');
+  openModal('authModal');
+}
+
+function switchAuthTab(mode){
+  document.querySelectorAll('.z21-auth-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.authTab === mode);
+  });
+  $('signinForm').style.display = mode === 'signin' ? '' : 'none';
+  $('signupForm').style.display = mode === 'signup' ? '' : 'none';
+  $('authTitle').textContent = mode === 'signin' ? 'Sign in to your account' : 'Create your account';
+  $('authSub').textContent = mode === 'signin'
+    ? 'Welcome back. Sign in to continue.'
+    : 'Free to create. Manage your profile here.';
+  clearFormMsg('authMsg');
+}
+
+document.querySelectorAll('.z21-auth-tab').forEach(t => {
+  t.addEventListener('click', () => switchAuthTab(t.dataset.authTab));
+});
+
+/* Password visibility toggles */
+document.querySelectorAll('.z21-pw-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = $(btn.dataset.toggle);
+    if(!input) return;
+    const isPw = input.type === 'password';
+    input.type = isPw ? 'text' : 'password';
+    btn.innerHTML = `<i class="fas ${isPw ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+  });
+});
+
+/* Sign In form */
+$('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signinSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
+
+  try{
+    await signInWithEmailAndPassword(auth, $('signinEmail').value.trim(), $('signinPassword').value);
+    showToast('Welcome back!', 'success');
+    closeModal('authModal');
+    $('signinForm').reset();
+    // onAuthStateChanged re-renders everything
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* Sign Up form */
+$('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signupSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating…';
+
+  const name = $('signupName').value.trim();
+  const email = $('signupEmail').value.trim();
+  const phone = $('signupPhone').value.trim();
+  const university = $('signupUniversity').value.trim();
+  const password = $('signupPassword').value;
+
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
+
+    try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
+
+    await setDoc(doc(db, 'users', uid), {
+      name, email, phone, university,
+      role: 'student',
+      subscriptionStatus: 'none',
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    showToast('Account created — welcome to Zone21!', 'success');
+    closeModal('authModal');
+    $('signupForm').reset();
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH STATE
    ═══════════════════════════════════════════════════════════ */
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
@@ -957,7 +1269,8 @@ function renderNavUser(){
       $('userMenu').classList.toggle('open');
     });
   } else {
-    zone.innerHTML = `<a href="Discover.html" class="z21-btn-nav">Sign In</a>`;
+    zone.innerHTML = `<button class="z21-btn-nav" id="navSignInBtn">Sign In</button>`;
+    $('navSignInBtn').addEventListener('click', () => openAuthModal('signin'));
   }
 }
 
@@ -983,16 +1296,19 @@ function renderHeroCard(){
         <h2>Sign in to continue</h2>
         <div class="email">Create an account to manage your Zone21 profile.</div>
         <div class="z21-hero-chips">
-          <a href="Discover.html" class="z21-btn-sm primary"><i class="fas fa-arrow-right"></i> Go to Sign In</a>
+          <button class="z21-btn-sm primary" id="heroSignInBtn">
+            <i class="fas fa-arrow-right"></i> Sign In / Sign Up
+          </button>
         </div>
       </div>`;
+    const heroBtn = $('heroSignInBtn');
+    if(heroBtn) heroBtn.addEventListener('click', () => openAuthModal('signin'));
     return;
   }
 
   const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
   const avatar = safeUrl(userProfile.avatarUrl);
 
-  // Membership status chip
   const status = subscription?.status || 'none';
   let chipClass = 'none', chipIcon = 'fa-circle-xmark', chipText = 'Not subscribed';
   if(status === 'active' || status === 'approved'){
@@ -1044,7 +1360,7 @@ function setProfileEditing(on){
   ['inpName','inpPhone','inpUniversity','inpCity'].forEach(id => {
     $(id).disabled = !on;
   });
-  $('inpEmail').disabled = true; // email never editable from here
+  $('inpEmail').disabled = true;
 
   const editBtn = $('profileEditBtn');
   const cancelBtn = $('profileCancelBtn');
@@ -1052,9 +1368,8 @@ function setProfileEditing(on){
   if(on){
     editBtn.innerHTML = '<i class="fas fa-save"></i> <span>Save Changes</span>';
     editBtn.classList.remove('primary');
-    editBtn.classList.add('primary'); // keep primary
+    editBtn.classList.add('primary');
     cancelBtn.style.display = '';
-    // focus first field
     setTimeout(() => $('inpName').focus(), 100);
   } else {
     editBtn.innerHTML = '<i class="fas fa-pen"></i> <span>Edit Profile</span>';
@@ -1064,7 +1379,7 @@ function setProfileEditing(on){
 
 $('profileEditBtn').addEventListener('click', async () => {
   if(!currentUser){
-    window.location.href = 'Discover.html';
+    openAuthModal('signin');
     return;
   }
 
@@ -1073,7 +1388,6 @@ $('profileEditBtn').addEventListener('click', async () => {
     return;
   }
 
-  // Save
   const name = $('inpName').value.trim();
   const phone = $('inpPhone').value.trim();
   const university = $('inpUniversity').value.trim();
@@ -1091,19 +1405,14 @@ $('profileEditBtn').addEventListener('click', async () => {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
 
   try{
-    // Update Firestore
     await setDoc(doc(db, 'users', currentUser.uid), {
-      name,
-      phone,
-      university,
+      name, phone, university,
       address: { city, country: 'Zimbabwe' },
       updatedAt: serverTimestamp()
     }, { merge: true });
 
-    // Update Auth displayName
     try{ await updateProfile(currentUser, { displayName: name }); }catch(_){}
 
-    // Update local state
     userProfile.name = name;
     userProfile.phone = phone;
     userProfile.university = university;
@@ -1190,7 +1499,6 @@ function renderSubCard(){
     return;
   }
 
-  // Fallback
   badgeWrap.innerHTML = `<span class="z21-chip"><i class="fas fa-circle-info"></i> ${escapeHTML(status)}</span>`;
 }
 
@@ -1202,20 +1510,10 @@ $('manageSubBtn').addEventListener('click', () => {
    PASSWORD MODAL
    ═══════════════════════════════════════════════════════════ */
 $('changePwBtn').addEventListener('click', () => {
-  if(!currentUser){ window.location.href = 'Discover.html'; return; }
+  if(!currentUser){ openAuthModal('signin'); return; }
   clearFormMsg('pwMsg');
   $('pwForm').reset();
   openModal('pwModal');
-});
-
-document.querySelectorAll('.z21-pw-toggle').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const input = $(btn.dataset.toggle);
-    if(!input) return;
-    const isPw = input.type === 'password';
-    input.type = isPw ? 'text' : 'password';
-    btn.innerHTML = `<i class="fas ${isPw ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
-  });
 });
 
 $('pwForm').addEventListener('submit', async (e) => {
@@ -1249,14 +1547,10 @@ $('pwForm').addEventListener('submit', async (e) => {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
 
   try{
-    // Reauthenticate (Firebase requires recent login for password changes)
     const cred = EmailAuthProvider.credential(currentUser.email, current);
     await reauthenticateWithCredential(currentUser, cred);
-
-    // Update password
     await updatePassword(currentUser, next);
 
-    // Log to Firestore (optional audit trail)
     try{
       await setDoc(doc(db, 'users', currentUser.uid), {
         passwordChangedAt: serverTimestamp()
@@ -1292,56 +1586,114 @@ $('pwForm').addEventListener('submit', async (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   AVATAR MODAL
+   AVATAR MODAL — file upload, base64 stored in Firestore
    ═══════════════════════════════════════════════════════════ */
 function openAvatarModal(){
+  if(!currentUser){ openAuthModal('signin'); return; }
   clearFormMsg('avatarMsg');
-  const url = safeUrl(userProfile?.avatarUrl);
-  $('avatarUrlInput').value = url || '';
-  updateAvatarPreview(url);
+
+  pendingAvatarBase64 = safeUrl(userProfile?.avatarUrl) || null;
+  pendingAvatarDirty = false;
+
+  updateAvatarPreview(pendingAvatarBase64);
+  $('avatarSaveBtn').disabled = true;
+  $('avatarRemoveBtn').style.display = pendingAvatarBase64 ? '' : 'none';
+
   openModal('avatarModal');
 }
 
 $('avatarBtn').addEventListener('click', openAvatarModal);
 
-function updateAvatarPreview(url){
+function updateAvatarPreview(base64){
   const prev = $('avatarPreview');
   const initial = (userProfile?.name || 'U').charAt(0).toUpperCase();
-  if(url){
-    prev.innerHTML = `<img src="${escapeHTML(url)}" alt="" onerror="this.parentNode.innerHTML='<span>${escapeHTML(initial)}</span>'">`;
+  if(base64){
+    prev.classList.add('has-image');
+    // Preserve the overlay — rebuild inner content with image + overlay
+    prev.innerHTML = `
+      <img src="${escapeHTML(base64)}" alt="">
+      <div class="z21-avatar-overlay">
+        <i class="fas fa-camera"></i>
+        <span>Change photo</span>
+      </div>`;
   } else {
-    prev.innerHTML = `<span>${escapeHTML(initial)}</span>`;
+    prev.classList.remove('has-image');
+    prev.innerHTML = `
+      <span>${escapeHTML(initial)}</span>
+      <div class="z21-avatar-overlay">
+        <i class="fas fa-camera"></i>
+        <span>Tap to choose</span>
+      </div>`;
   }
 }
 
-$('avatarUrlInput').addEventListener('input', (e) => {
-  updateAvatarPreview(safeUrl(e.target.value.trim()));
-});
+/* Tap on the big avatar to open file picker too */
+$('avatarPreview').addEventListener('click', () => $('avatarFileInput').click());
+$('avatarPickBtn').addEventListener('click', () => $('avatarFileInput').click());
 
-$('avatarForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  clearFormMsg('avatarMsg');
+$('avatarFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
 
-  const raw = $('avatarUrlInput').value.trim();
-  const url = raw ? safeUrl(raw) : '';
-
-  if(raw && !url){
-    showFormMsg('avatarMsg', 'Please enter a valid http/https image URL.', 'error');
+  if(file.size > 5 * 1024 * 1024){
+    showFormMsg('avatarMsg', 'Image must be under 5MB.', 'error');
+    e.target.value = '';
+    return;
+  }
+  if(!file.type.startsWith('image/')){
+    showFormMsg('avatarMsg', 'Please select an image file.', 'error');
+    e.target.value = '';
     return;
   }
 
-  const btn = $('avatarSubmit');
+  clearFormMsg('avatarMsg');
+
+  try{
+    const base64 = await compressImageToBase64(file, 200, 0.7);
+    pendingAvatarBase64 = base64;
+    pendingAvatarDirty = true;
+    updateAvatarPreview(base64);
+    $('avatarRemoveBtn').style.display = '';
+    $('avatarSaveBtn').disabled = false;
+
+    const kb = Math.round(base64.length / 1024);
+    showFormMsg('avatarMsg', `Photo ready (${kb}KB compressed). Tap Save to apply.`, 'info');
+  }catch(err){
+    showFormMsg('avatarMsg', 'Could not process image: ' + err.message, 'error');
+    e.target.value = '';
+  }
+});
+
+$('avatarRemoveBtn').addEventListener('click', () => {
+  pendingAvatarBase64 = null;
+  pendingAvatarDirty = true;
+  $('avatarFileInput').value = '';
+  updateAvatarPreview(null);
+  $('avatarRemoveBtn').style.display = 'none';
+  $('avatarSaveBtn').disabled = false;
+  clearFormMsg('avatarMsg');
+});
+
+$('avatarSaveBtn').addEventListener('click', async () => {
+  if(!currentUser) return;
+  if(!pendingAvatarDirty){
+    showFormMsg('avatarMsg', 'Choose a photo first, or tap Remove to clear it.', 'error');
+    return;
+  }
+
+  const btn = $('avatarSaveBtn');
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  clearFormMsg('avatarMsg');
 
   try{
     await setDoc(doc(db, 'users', currentUser.uid), {
-      avatarUrl: url || null,
+      avatarUrl: pendingAvatarBase64 || null,
       updatedAt: serverTimestamp()
     }, { merge: true });
 
-    userProfile.avatarUrl = url || null;
+    userProfile.avatarUrl = pendingAvatarBase64 || null;
 
     showToast('Profile picture updated.', 'success');
     setTimeout(() => {
@@ -1352,7 +1704,6 @@ $('avatarForm').addEventListener('submit', async (e) => {
   }catch(err){
     console.error(err);
     showFormMsg('avatarMsg', 'Could not save: ' + err.message, 'error');
-  }finally{
     btn.disabled = false;
     btn.innerHTML = orig;
   }
@@ -1367,7 +1718,7 @@ async function doSignOut(){
   try{
     await signOut(auth);
     showToast('Signed out.', 'info');
-    setTimeout(() => window.location.href = 'Discover.html', 500);
+    // No redirect — onAuthStateChanged re-renders the page
   }catch(e){
     showToast('Could not sign out: ' + e.message, 'error');
   }
@@ -1377,7 +1728,7 @@ async function doSignOut(){
    DELETE ACCOUNT
    ═══════════════════════════════════════════════════════════ */
 $('deleteBtn').addEventListener('click', () => {
-  if(!currentUser){ window.location.href = 'Discover.html'; return; }
+  if(!currentUser){ openAuthModal('signin'); return; }
   clearFormMsg('deleteMsg');
   $('deleteForm').reset();
   $('deleteSubmit').disabled = true;
@@ -1413,11 +1764,9 @@ $('deleteForm').addEventListener('submit', async (e) => {
   const email = currentUser.email;
 
   try{
-    // 1. Re-authenticate
     const cred = EmailAuthProvider.credential(email, pw);
     await reauthenticateWithCredential(currentUser, cred);
 
-    // 2. Anonymise bookings & invoices (keep for admin/tax, strip PII)
     const safeUpdate = async (collName, fields) => {
       try{
         const snap = await getDocs(query(collection(db, collName), where('userId', '==', uid)));
@@ -1443,25 +1792,20 @@ $('deleteForm').addEventListener('submit', async (e) => {
       anonymisedAt: serverTimestamp()
     });
 
-    // 3. Delete subscription doc
     try{
       await deleteDoc(doc(db, 'subscriptions', `${uid}_${PLAN.id}`));
     }catch(e){ console.warn('Sub delete failed:', e); }
 
-    // 4. Delete user profile doc
     try{
       await deleteDoc(doc(db, 'users', uid));
     }catch(e){ console.warn('User doc delete failed:', e); }
 
-    // 5. Delete Firebase Auth account
     await deleteUser(currentUser);
 
     showFormMsg('deleteMsg', 'Account deleted. Redirecting…', 'success');
     showToast('Account deleted.', 'success');
 
-    setTimeout(() => {
-      window.location.href = 'Discover.html';
-    }, 1400);
+    setTimeout(() => { window.location.href = 'Discover.html'; }, 1400);
   }catch(err){
     console.error(err);
     const code = err?.code || '';
@@ -1494,6 +1838,11 @@ document.addEventListener('keydown', (e) => {
     document.querySelectorAll('.z21-modal.open').forEach(m => closeModal(m.id));
   }
 });
+
+/* ═══════════════════════════════════════════════════════════
+   EXPOSE (empty-state buttons)
+   ═══════════════════════════════════════════════════════════ */
+window.zone21OpenAuth = openAuthModal;
 
 /* ═══════════════════════════════════════════════════════════
    BOOT

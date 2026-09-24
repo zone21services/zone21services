@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Discover Artists · Zone21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<!--
+═══════════════════════════════════════════════════════════════════
+  FIRESTORE SCHEMA this page expects the ADMIN PAGE to create
+
+  artists/{autoId}
+    name              : string
+    photoUrl          : string (Firebase Storage download URL)
+    gallery           : string[]   (optional)
+    bio               : string
+    genres            : string[]   e.g. ["Afrobeats","Amapiano"]
+    locations         : string[]   e.g. ["Harare","Bulawayo"] or ["Nationwide"]
+    rateType          : "per_event" | "per_hour" | "per_day"
+    priceFrom         : number
+    priceTo           : number     (optional)
+    currency          : string     "USD"
+    availabilityStatus: "available" | "busy" | "fully_booked"
+    blockedDates      : Timestamp[]   (optional)
+    socials           : { instagram, tiktok, youtube, facebook }  (optional)
+    featured          : boolean
+    rating            : number     (0-5)
+    ratingCount       : number
+    createdAt         : Timestamp
+
+  bookings/{autoId}
+    userId, userName, userEmail, userPhone
+    artistId, artistName, artistPhoto
+    eventDate, eventTime, eventType, venue, budget
+    description
+    status: "pending" | "confirmed" | "declined" | "completed"
+    ref: "BK-XXXXXX"
+    source: "web" | "whatsapp"
+    createdAt
+═══════════════════════════════════════════════════════════════════
+-->
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  --bg:#000;
+  --surface:#101012;
+  --surface-2:#18181b;
+  --surface-3:#222226;
+  --border:rgba(255,255,255,.08);
+  --border-2:rgba(255,255,255,.14);
+  --text:#fff;
+  --text-muted:rgba(255,255,255,.62);
+  --text-dim:rgba(255,255,255,.38);
+  --accent:#fa243c;
+  --accent-2:#ff3b52;
+  --accent-glow:rgba(250,36,60,.35);
+  --lime:#C0C800;
+  --pink:#F80070;
+  --success:#30d158;
+  --warn:#ff9f0a;
+  --radius-sm:10px;
+  --radius:14px;
+  --radius-lg:20px;
+  --radius-xl:28px;
+  --nav-h:64px;
+  --bottom-nav-h:68px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Plus Jakarta Sans","Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body{
+  padding-bottom:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+img{display:block;max-width:100%}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+/* ═══════════════════════════════════════════════════════════
+   TOP NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+.z21-nav{
+  position:sticky;
+  top:0;
+  z-index:100;
+  height:var(--nav-h);
+  display:flex;
+  align-items:center;
+  padding:0 clamp(16px,4vw,48px);
+  gap:32px;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.z21-logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:800;
+  font-size:17px;
+  letter-spacing:-.02em;
+  flex-shrink:0;
+}
+.z21-logo-mark{
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  font-weight:900;
+  color:#fff;
+}
+.z21-logo span{color:var(--accent)}
+.z21-nav-links{
+  display:flex;
+  gap:4px;
+  flex:1;
+}
+.z21-nav-link{
+  padding:8px 14px;
+  border-radius:100px;
+  font-size:14px;
+  font-weight:600;
+  color:var(--text-muted);
+  transition:all .2s;
+}
+.z21-nav-link:hover{
+  color:var(--text);
+  background:rgba(255,255,255,.05);
+}
+.z21-nav-link.active{
+  color:var(--text);
+  background:rgba(255,255,255,.09);
+}
+.z21-nav-user{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-shrink:0;
+}
+.z21-avatar{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  overflow:hidden;
+  background:var(--surface-3);
+  border:2px solid var(--border-2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:13px;
+  color:var(--accent);
+  cursor:pointer;
+  transition:border-color .2s;
+}
+.z21-avatar:hover{border-color:var(--accent)}
+.z21-avatar img{width:100%;height:100%;object-fit:cover}
+.z21-btn-nav{
+  padding:8px 18px;
+  border-radius:100px;
+  background:var(--accent);
+  color:#fff;
+  font-size:13px;
+  font-weight:700;
+  transition:all .2s;
+}
+.z21-btn-nav:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+/* User dropdown */
+.z21-user-menu{
+  position:absolute;
+  top:calc(var(--nav-h) - 6px);
+  right:clamp(16px,4vw,48px);
+  background:var(--surface-2);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius);
+  padding:6px;
+  min-width:230px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+  display:none;
+  z-index:120;
+}
+.z21-user-menu.open{display:block;animation:z21MenuIn .18s ease}
+@keyframes z21MenuIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.z21-user-menu-head{
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:6px;
+}
+.z21-user-menu-head strong{display:block;font-size:14px;font-weight:700}
+.z21-user-menu-head small{display:block;font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-all}
+.z21-menu-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 14px;
+  border-radius:9px;
+  font-size:14px;
+  font-weight:500;
+  color:var(--text-muted);
+  width:100%;
+  text-align:left;
+  transition:all .15s;
+}
+.z21-menu-item:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.z21-menu-item.danger:hover{background:rgba(250,36,60,.1);color:var(--accent)}
+.z21-menu-item i{width:18px;font-size:14px;text-align:center}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO / GREETING
+   ═══════════════════════════════════════════════════════════ */
+.z21-hero{
+  padding:clamp(32px,5vw,64px) clamp(16px,4vw,48px) 28px;
+  max-width:1600px;
+  margin:0 auto;
+}
+.z21-hero-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:14px;
+}
+.z21-hero-tag::before{
+  content:'';
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 10px var(--accent-glow);
+  animation:z21Pulse 2s infinite;
+}
+@keyframes z21Pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.z21-hero h1{
+  font-size:clamp(30px,4.5vw,52px);
+  font-weight:800;
+  letter-spacing:-.035em;
+  line-height:1.08;
+  margin-bottom:12px;
+  max-width:820px;
+}
+.z21-hero h1 .grad{
+  background:linear-gradient(135deg,#ff2a54,#fa243c,#c0132b);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.z21-hero p{
+  font-size:clamp(15px,1.6vw,18px);
+  color:var(--text-muted);
+  max-width:620px;
+  line-height:1.55;
+}
+
+/* Subscription banner */
+.z21-sub-banner{
+  margin-top:24px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:14px 20px;
+  background:linear-gradient(90deg,rgba(250,36,60,.14),rgba(250,36,60,.04));
+  border:1px solid rgba(250,36,60,.28);
+  border-radius:var(--radius);
+  max-width:820px;
+  flex-wrap:wrap;
+}
+.z21-sub-banner i{
+  color:var(--accent);
+  font-size:18px;
+  flex-shrink:0;
+}
+.z21-sub-banner-text{
+  flex:1;
+  min-width:200px;
+  font-size:14px;
+  line-height:1.45;
+}
+.z21-sub-banner-text strong{color:#fff;font-weight:700}
+.z21-sub-banner-text span{color:var(--text-muted)}
+.z21-sub-banner a{
+  padding:9px 18px;
+  background:var(--accent);
+  border-radius:100px;
+  font-size:13px;
+  font-weight:700;
+  white-space:nowrap;
+  transition:all .2s;
+}
+.z21-sub-banner a:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+.z21-active-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-top:18px;
+  padding:8px 16px;
+  background:rgba(48,209,88,.1);
+  border:1px solid rgba(48,209,88,.28);
+  border-radius:100px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--success);
+}
+.z21-active-badge i{font-size:11px}
+
+/* ═══════════════════════════════════════════════════════════
+   SEARCH & FILTERS
+   ═══════════════════════════════════════════════════════════ */
+.z21-search-wrap{
+  padding:0 clamp(16px,4vw,48px);
+  max-width:1600px;
+  margin:0 auto 20px;
+}
+.z21-search-bar{
+  position:relative;
+  display:flex;
+  align-items:center;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:0 18px;
+  height:54px;
+  transition:all .2s;
+}
+.z21-search-bar:focus-within{
+  border-color:rgba(250,36,60,.5);
+  box-shadow:0 0 0 4px rgba(250,36,60,.1);
+}
+.z21-search-bar i.fa-search{
+  color:var(--text-dim);
+  font-size:15px;
+  margin-right:12px;
+}
+.z21-search-bar input{
+  flex:1;
+  background:none;
+  border:none;
+  outline:none;
+  color:var(--text);
+  font-size:15px;
+  font-weight:500;
+  padding:0;
+  height:100%;
+  min-width:0;
+}
+.z21-search-bar input::placeholder{color:var(--text-dim)}
+.z21-search-clear{
+  width:28px;height:28px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  color:var(--text-muted);
+  flex-shrink:0;
+}
+.z21-search-clear.show{display:flex}
+.z21-search-clear:hover{background:rgba(255,255,255,.15);color:#fff}
+
+.z21-filter-row{
+  display:flex;
+  gap:10px;
+  margin-top:14px;
+  overflow-x:auto;
+  padding-bottom:4px;
+  scrollbar-width:none;
+}
+.z21-filter-row::-webkit-scrollbar{display:none}
+.z21-filter{
+  position:relative;
+  flex-shrink:0;
+}
+.z21-filter-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:100px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-muted);
+  transition:all .2s;
+  white-space:nowrap;
+}
+.z21-filter-pill:hover{border-color:var(--border-2);color:var(--text)}
+.z21-filter-pill.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.z21-filter-pill i.fa-chevron-down{font-size:10px;opacity:.7}
+.z21-filter select{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+  width:100%;
+  height:100%;
+}
+
+.z21-results-meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:20px;
+  padding:0 clamp(16px,4vw,48px);
+  max-width:1600px;
+  margin-left:auto;
+  margin-right:auto;
+  font-size:13px;
+  color:var(--text-dim);
+  font-weight:500;
+}
+.z21-results-meta strong{color:var(--text)}
+.z21-reset-btn{
+  color:var(--accent);
+  font-size:13px;
+  font-weight:600;
+  display:none;
+  align-items:center;
+  gap:6px;
+}
+.z21-reset-btn.show{display:inline-flex}
+
+/* ═══════════════════════════════════════════════════════════
+   ARTIST GRID
+   ═══════════════════════════════════════════════════════════ */
+.z21-grid-wrap{
+  padding:20px clamp(16px,4vw,48px) 60px;
+  max-width:1600px;
+  margin:0 auto;
+}
+.z21-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:22px;
+}
+
+.z21-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  transition:all .35s cubic-bezier(.25,1,.5,1);
+  position:relative;
+}
+.z21-card:hover{
+  transform:translateY(-4px);
+  border-color:var(--border-2);
+  box-shadow:0 24px 60px rgba(0,0,0,.6);
+}
+.z21-card-img{
+  position:relative;
+  aspect-ratio:1/1;
+  overflow:hidden;
+  background:var(--surface-3);
+}
+.z21-card-img img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transition:transform .6s cubic-bezier(.25,1,.5,1);
+}
+.z21-card:hover .z21-card-img img{transform:scale(1.06)}
+.z21-card-img::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.65) 100%);
+  pointer-events:none;
+}
+.z21-featured-tag{
+  position:absolute;
+  top:14px;
+  left:14px;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 10px;
+  background:rgba(0,0,0,.65);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:100px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:#fff;
+}
+.z21-featured-tag i{color:var(--accent);font-size:9px}
+
+.z21-avail-badge{
+  position:absolute;
+  bottom:14px;
+  left:14px;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 11px;
+  background:rgba(0,0,0,.7);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-radius:100px;
+  font-size:11px;
+  font-weight:700;
+}
+.z21-avail-badge .dot{
+  width:7px;height:7px;border-radius:50%;
+}
+.z21-avail-badge.available{color:var(--success)}
+.z21-avail-badge.available .dot{background:var(--success);box-shadow:0 0 8px var(--success)}
+.z21-avail-badge.busy{color:var(--warn)}
+.z21-avail-badge.busy .dot{background:var(--warn)}
+.z21-avail-badge.fully_booked{color:var(--accent)}
+.z21-avail-badge.fully_booked .dot{background:var(--accent)}
+
+.z21-card-body{
+  padding:16px 16px 18px;
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  gap:8px;
+}
+.z21-card-name{
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:-.02em;
+  line-height:1.2;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.z21-verified{
+  color:var(--accent);
+  font-size:12px;
+  flex-shrink:0;
+}
+.z21-card-meta{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  font-size:12.5px;
+  color:var(--text-muted);
+}
+.z21-card-meta > div{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.z21-card-meta i{
+  width:12px;
+  color:var(--text-dim);
+  font-size:11px;
+  flex-shrink:0;
+}
+.z21-card-genres{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:2px;
+}
+.z21-genre-chip{
+  font-size:10.5px;
+  font-weight:600;
+  padding:3px 9px;
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--border);
+  border-radius:100px;
+  color:var(--text-muted);
+}
+.z21-card-footer{
+  margin-top:auto;
+  padding-top:12px;
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.z21-price{
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:-.01em;
+}
+.z21-price small{
+  font-size:10.5px;
+  font-weight:500;
+  color:var(--text-dim);
+  display:block;
+  margin-bottom:1px;
+  letter-spacing:0;
+}
+.z21-price-from{
+  color:var(--text-dim);
+  font-size:11px;
+  font-weight:500;
+  margin-right:2px;
+}
+.z21-book-btn{
+  padding:9px 18px;
+  background:var(--accent);
+  color:#fff;
+  border-radius:100px;
+  font-size:13px;
+  font-weight:700;
+  transition:all .2s;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.z21-book-btn:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-book-btn:disabled{
+  background:var(--surface-3);
+  color:var(--text-dim);
+  cursor:not-allowed;
+  transform:none;
+}
+.z21-book-btn i{font-size:11px}
+
+/* ═══════════════════════════════════════════════════════════
+   SKELETON / EMPTY / ERROR
+   ═══════════════════════════════════════════════════════════ */
+.z21-skeleton{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.z21-skeleton-img{
+  aspect-ratio:1/1;
+  background:linear-gradient(90deg,var(--surface-2) 0%,var(--surface-3) 50%,var(--surface-2) 100%);
+  background-size:200% 100%;
+  animation:z21Shimmer 1.4s infinite;
+}
+.z21-skeleton-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.z21-skeleton-line{
+  height:12px;
+  border-radius:6px;
+  background:linear-gradient(90deg,var(--surface-2) 0%,var(--surface-3) 50%,var(--surface-2) 100%);
+  background-size:200% 100%;
+  animation:z21Shimmer 1.4s infinite;
+}
+.z21-skeleton-line.w60{width:60%}
+.z21-skeleton-line.w40{width:40%}
+.z21-skeleton-line.w80{width:80%}
+@keyframes z21Shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+
+.z21-state{
+  grid-column:1/-1;
+  padding:80px 24px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+}
+.z21-state-icon{
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  background:var(--surface-2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:26px;
+  color:var(--text-dim);
+  margin-bottom:6px;
+}
+.z21-state h3{
+  font-size:19px;
+  font-weight:700;
+  letter-spacing:-.02em;
+}
+.z21-state p{
+  color:var(--text-muted);
+  font-size:14px;
+  max-width:420px;
+  line-height:1.55;
+}
+.z21-state button{
+  margin-top:6px;
+  padding:11px 24px;
+  background:var(--accent);
+  border-radius:100px;
+  font-size:14px;
+  font-weight:700;
+  transition:all .2s;
+}
+.z21-state button:hover{background:var(--accent-2)}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGINATION
+   ═══════════════════════════════════════════════════════════ */
+.z21-pagination{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  padding:24px 16px 40px;
+  flex-wrap:wrap;
+}
+.z21-page-btn{
+  min-width:40px;
+  height:40px;
+  padding:0 14px;
+  border-radius:100px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  color:var(--text-muted);
+  font-size:14px;
+  font-weight:600;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  transition:all .2s;
+}
+.z21-page-btn:hover:not(:disabled):not(.active){
+  background:var(--surface-3);
+  color:var(--text);
+  border-color:var(--border-2);
+}
+.z21-page-btn.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.z21-page-btn:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+}
+.z21-page-dots{
+  color:var(--text-dim);
+  padding:0 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE BOTTOM NAV
+   ═══════════════════════════════════════════════════════════ */
+.z21-bottom-nav{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  height:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  background:rgba(0,0,0,.85);
+  backdrop-filter:saturate(180%) blur(24px);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  border-top:1px solid var(--border);
+  display:none;
+  z-index:99;
+}
+.z21-bottom-nav-inner{
+  display:flex;
+  height:var(--bottom-nav-h);
+}
+.z21-bottom-link{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  font-size:10px;
+  font-weight:600;
+  color:var(--text-dim);
+  transition:color .2s;
+  position:relative;
+}
+.z21-bottom-link i{font-size:17px}
+.z21-bottom-link.active{color:var(--accent)}
+.z21-bottom-link:active{opacity:.7}
+.z21-bottom-badge{
+  position:absolute;
+  top:8px;
+  right:calc(50% - 18px);
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  border-radius:100px;
+  background:var(--accent);
+  color:#fff;
+  font-size:9px;
+  font-weight:800;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:2px solid #000;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODALS (shared shell)
+   ═══════════════════════════════════════════════════════════ */
+.z21-modal{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  animation:z21FadeIn .2s ease;
+}
+.z21-modal.open{display:flex}
+@keyframes z21FadeIn{from{opacity:0}to{opacity:1}}
+
+.z21-modal-panel{
+  background:var(--surface);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-xl);
+  width:100%;
+  max-width:540px;
+  max-height:92vh;
+  overflow-y:auto;
+  box-shadow:0 40px 120px rgba(0,0,0,.7);
+  animation:z21SlideUp .3s cubic-bezier(.25,1,.5,1);
+  position:relative;
+}
+@keyframes z21SlideUp{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.z21-modal-head{
+  padding:24px 24px 0;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+}
+.z21-modal-head h2{
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:-.025em;
+  line-height:1.15;
+}
+.z21-modal-head p{
+  font-size:14px;
+  color:var(--text-muted);
+  margin-top:6px;
+  line-height:1.5;
+}
+.z21-modal-close{
+  width:34px;height:34px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--text-muted);
+  font-size:14px;
+  flex-shrink:0;
+  transition:all .2s;
+}
+.z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
+.z21-modal-body{padding:20px 24px 24px}
+
+/* Auth tabs */
+.z21-auth-tabs{
+  display:flex;
+  gap:4px;
+  padding:4px;
+  background:var(--surface-2);
+  border-radius:100px;
+  margin-bottom:20px;
+}
+.z21-auth-tab{
+  flex:1;
+  padding:10px;
+  border-radius:100px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--text-muted);
+  transition:all .2s;
+}
+.z21-auth-tab.active{
+  background:var(--surface-3);
+  color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
+
+/* Form fields */
+.z21-field{margin-bottom:14px}
+.z21-field label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--text-muted);
+  margin-bottom:7px;
+}
+.z21-field input,
+.z21-field select,
+.z21-field textarea{
+  width:100%;
+  padding:13px 16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  font-size:15px;
+  font-weight:500;
+  outline:none;
+  transition:all .2s;
+}
+.z21-field input:focus,
+.z21-field select:focus,
+.z21-field textarea:focus{
+  border-color:rgba(250,36,60,.6);
+  background:var(--surface-3);
+  box-shadow:0 0 0 4px rgba(250,36,60,.09);
+}
+.z21-field textarea{
+  min-height:88px;
+  resize:vertical;
+  font-family:inherit;
+  line-height:1.5;
+}
+.z21-field-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.z21-field-optional{
+  font-size:11px;
+  color:var(--text-dim);
+  text-transform:none;
+  letter-spacing:0;
+  font-weight:500;
+  margin-left:4px;
+}
+
+.z21-btn-full{
+  width:100%;
+  padding:15px;
+  border-radius:100px;
+  font-size:15px;
+  font-weight:700;
+  transition:all .2s;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-top:6px;
+}
+.z21-btn-full.primary{
+  background:var(--accent);
+  color:#fff;
+}
+.z21-btn-full.primary:hover:not(:disabled){
+  background:var(--accent-2);
+  transform:translateY(-1px);
+}
+.z21-btn-full.secondary{
+  background:var(--surface-2);
+  color:var(--text);
+  border:1px solid var(--border);
+}
+.z21-btn-full.secondary:hover{background:var(--surface-3)}
+.z21-btn-full.whatsapp{
+  background:#25d366;
+  color:#fff;
+}
+.z21-btn-full.whatsapp:hover{background:#1ebe5b}
+.z21-btn-full:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+.z21-divider{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:18px 0;
+  color:var(--text-dim);
+  font-size:12px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+}
+.z21-divider::before,
+.z21-divider::after{
+  content:'';
+  flex:1;
+  height:1px;
+  background:var(--border);
+}
+
+.z21-form-msg{
+  padding:11px 14px;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:500;
+  margin-bottom:14px;
+  display:none;
+  line-height:1.5;
+}
+.z21-form-msg.show{display:block}
+.z21-form-msg.error{
+  background:rgba(250,36,60,.1);
+  border:1px solid rgba(250,36,60,.3);
+  color:#ff9aa5;
+}
+.z21-form-msg.success{
+  background:rgba(48,209,88,.1);
+  border:1px solid rgba(48,209,88,.3);
+  color:#7ee89a;
+}
+
+/* Booking modal — artist header */
+.z21-book-artist-head{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:20px;
+}
+.z21-book-artist-head img{
+  width:60px;height:60px;
+  border-radius:50%;
+  object-fit:cover;
+  flex-shrink:0;
+}
+.z21-book-artist-head .info{flex:1;min-width:0}
+.z21-book-artist-head .info strong{
+  display:block;
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:3px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.z21-book-artist-head .info small{
+  font-size:12.5px;
+  color:var(--text-muted);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════════════ */
+.z21-toast-wrap{
+  position:fixed;
+  top:80px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:2000;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-width:90vw;
+  pointer-events:none;
+}
+.z21-toast{
+  padding:13px 20px;
+  background:var(--surface-2);
+  border:1px solid var(--border-2);
+  border-radius:100px;
+  font-size:13.5px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  box-shadow:0 16px 48px rgba(0,0,0,.6);
+  pointer-events:auto;
+  animation:z21ToastIn .3s cubic-bezier(.25,1,.5,1);
+  white-space:nowrap;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@keyframes z21ToastIn{
+  from{opacity:0;transform:translateY(-16px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.z21-toast.success{border-color:rgba(48,209,88,.4);color:#7ee89a}
+.z21-toast.success i{color:var(--success)}
+.z21-toast.error{border-color:rgba(250,36,60,.4);color:#ff9aa5}
+.z21-toast.error i{color:var(--accent)}
+.z21-toast.info i{color:var(--text-muted)}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media(max-width:900px){
+  .z21-nav-links{display:none}
+  .z21-bottom-nav{display:block}
+}
+@media(max-width:640px){
+  .z21-hero{padding-top:24px}
+  .z21-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+  .z21-card-body{padding:12px 12px 14px;gap:6px}
+  .z21-card-name{font-size:15px}
+  .z21-card-meta{font-size:11.5px}
+  .z21-genre-chip{font-size:10px;padding:2px 8px}
+  .z21-price{font-size:14px}
+  .z21-book-btn{padding:8px 14px;font-size:12px}
+  .z21-filter-row{margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
+  .z21-field-row{grid-template-columns:1fr;gap:0}
+  .z21-modal-panel{border-radius:22px}
+  .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
+  .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    transition-duration:.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOP NAVIGATION
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="z21-nav">
+  <a href="Discover.html" class="z21-logo">
+    <div class="z21-logo-mark">Z</div>
+    Zone<span>21</span>
+  </a>
+
+  <div class="z21-nav-links">
+    <a href="Discover.html" class="z21-nav-link active">Home</a>
+    <a href="bookingsub.html" class="z21-nav-link">Subscription</a>
+    <a href="bookinginbox.html" class="z21-nav-link">Inbox</a>
+    <a href="support.html" class="z21-nav-link">Support</a>
+    <a href="account.html" class="z21-nav-link">My Account</a>
+  </div>
+
+  <div class="z21-nav-user" id="navUser">
+    <button class="z21-btn-nav" id="navSignInBtn">Sign In</button>
+  </div>
+</nav>
+
+<div class="z21-user-menu" id="userMenu">
+  <div class="z21-user-menu-head">
+    <strong id="menuName">—</strong>
+    <small id="menuEmail">—</small>
+  </div>
+  <a href="account.html" class="z21-menu-item"><i class="fas fa-user"></i> My Account</a>
+  <a href="bookingsub.html" class="z21-menu-item"><i class="fas fa-crown"></i> Subscription</a>
+  <a href="bookinginbox.html" class="z21-menu-item"><i class="fas fa-inbox"></i> Inbox</a>
+  <a href="support.html" class="z21-menu-item"><i class="fas fa-headset"></i> Support</a>
+  <button class="z21-menu-item danger" id="menuSignOut"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HERO / GREETING
+     ═══════════════════════════════════════════════════════════ -->
+<section class="z21-hero">
+  <div class="z21-hero-tag" id="heroTag">Discover</div>
+  <h1 id="heroTitle">Find Zimbabwe's <span class="grad">hottest artists</span> for your next event.</h1>
+  <p id="heroSub">Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.</p>
+
+  <div id="subscriptionZone"></div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SEARCH & FILTERS
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-search-wrap">
+  <div class="z21-search-bar">
+    <i class="fas fa-search"></i>
+    <input type="text" id="searchInput" placeholder="Search by artist name, genre, or bio…" autocomplete="off">
+    <button class="z21-search-clear" id="searchClear" aria-label="Clear search">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <div class="z21-filter-row">
+    <div class="z21-filter">
+      <button class="z21-filter-pill" id="locationPill">
+        <i class="fas fa-map-marker-alt"></i>
+        <span id="locationLabel">All Locations</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <select id="locationSelect" aria-label="Filter by location">
+        <option value="">All Locations</option>
+      </select>
+    </div>
+
+    <div class="z21-filter">
+      <button class="z21-filter-pill" id="genrePill">
+        <i class="fas fa-music"></i>
+        <span id="genreLabel">All Genres</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <select id="genreSelect" aria-label="Filter by genre">
+        <option value="">All Genres</option>
+      </select>
+    </div>
+
+    <div class="z21-filter">
+      <button class="z21-filter-pill" id="availPill">
+        <i class="fas fa-circle-check"></i>
+        <span id="availLabel">Any Availability</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <select id="availSelect" aria-label="Filter by availability">
+        <option value="">Any Availability</option>
+        <option value="available">Available</option>
+        <option value="busy">Busy</option>
+        <option value="fully_booked">Fully Booked</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="z21-results-meta">
+  <span><strong id="resultsCount">0</strong> <span id="resultsWord">artists</span></span>
+  <button class="z21-reset-btn" id="resetBtn"><i class="fas fa-rotate-left"></i> Reset filters</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ARTIST GRID
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-grid-wrap">
+  <div class="z21-grid" id="artistGrid"></div>
+  <div class="z21-pagination" id="pagination"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MOBILE BOTTOM NAV
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="z21-bottom-nav">
+  <div class="z21-bottom-nav-inner">
+    <a href="Discover.html" class="z21-bottom-link active"><i class="fas fa-compass"></i> Home</a>
+    <a href="bookingsub.html" class="z21-bottom-link"><i class="fas fa-crown"></i> Plans</a>
+    <a href="bookinginbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i> Inbox</a>
+    <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i> Support</a>
+    <a href="account.html" class="z21-bottom-link"><i class="fas fa-user"></i> Account</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH MODAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="authModal">
+  <div class="z21-modal-panel">
+    <div class="z21-modal-head">
+      <div>
+        <h2 id="authTitle">Sign in to book</h2>
+        <p id="authSub">Create your free Zone21 account to continue booking artists.</p>
+      </div>
+      <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-auth-tabs">
+        <button class="z21-auth-tab active" data-auth-tab="signin">Sign In</button>
+        <button class="z21-auth-tab" data-auth-tab="signup">Sign Up</button>
+      </div>
+
+      <div class="z21-form-msg" id="authMsg"></div>
+
+      <!-- SIGN IN -->
+      <form id="signinForm" autocomplete="on">
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signinEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <input type="password" id="signinPassword" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signinSubmit">
+          <i class="fas fa-arrow-right"></i> Sign In
+        </button>
+      </form>
+
+      <!-- SIGN UP -->
+      <form id="signupForm" style="display:none" autocomplete="on">
+        <div class="z21-field">
+          <label>Full Name</label>
+          <input type="text" id="signupName" required placeholder="e.g. Tafadzwa Moyo" autocomplete="name">
+        </div>
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signupEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Phone (WhatsApp)</label>
+          <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+        </div>
+        <div class="z21-field">
+          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <input type="password" id="signupPassword" required placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signupSubmit">
+          <i class="fas fa-user-plus"></i> Create Account
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SUBSCRIPTION GATE MODAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="gateModal">
+  <div class="z21-modal-panel" style="max-width:460px">
+    <div class="z21-modal-head">
+      <div>
+        <h2>Subscribe to book artists</h2>
+        <p>You need an active Zone21 subscription to send booking requests. It takes under 2 minutes.</p>
+      </div>
+      <button class="z21-modal-close" data-close="gateModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div style="display:flex;align-items:center;gap:14px;padding:16px;background:rgba(250,36,60,.07);border:1px solid rgba(250,36,60,.25);border-radius:14px;margin-bottom:20px">
+        <i class="fas fa-lock" style="color:var(--accent);font-size:20px"></i>
+        <div style="font-size:13.5px;line-height:1.5;color:var(--text-muted)">
+          <strong style="color:#fff;display:block;margin-bottom:2px">Booking is locked</strong>
+          Subscribe to unlock unlimited booking requests, priority support, and event management tools.
+        </div>
+      </div>
+      <a href="bookingsub.html" class="z21-btn-full primary" style="text-decoration:none">
+        <i class="fas fa-crown"></i> View Subscription Plans
+      </a>
+      <button class="z21-btn-full secondary" data-close="gateModal" style="margin-top:10px">
+        Maybe later
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOOKING MODAL
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="bookingModal">
+  <div class="z21-modal-panel">
+    <div class="z21-modal-head">
+      <div>
+        <h2>Send booking request</h2>
+        <p>Tell us about your event. The admin will review and reply via your inbox.</p>
+      </div>
+      <button class="z21-modal-close" data-close="bookingModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-book-artist-head">
+        <img id="bookArtistImg" src="" alt="">
+        <div class="info">
+          <strong id="bookArtistName">—</strong>
+          <small id="bookArtistMeta">—</small>
+        </div>
+      </div>
+
+      <div class="z21-form-msg" id="bookMsg"></div>
+
+      <form id="bookingForm">
+        <div class="z21-field-row">
+          <div class="z21-field">
+            <label>Event Date</label>
+            <input type="date" id="bookDate" required>
+          </div>
+          <div class="z21-field">
+            <label>Event Time</label>
+            <input type="time" id="bookTime" required>
+          </div>
+        </div>
+        <div class="z21-field">
+          <label>Event Type</label>
+          <select id="bookEventType" required>
+            <option value="">Select event type…</option>
+            <option>Campus Party</option>
+            <option>Concert</option>
+            <option>Private Gig</option>
+            <option>Wedding</option>
+            <option>Corporate Event</option>
+            <option>Festival</option>
+            <option>Birthday</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="z21-field">
+          <label>Venue / Location</label>
+          <input type="text" id="bookVenue" required placeholder="e.g. UZ Great Hall, Harare">
+        </div>
+        <div class="z21-field">
+          <label>Budget (USD) <span class="z21-field-optional">(optional)</span></label>
+          <input type="number" id="bookBudget" min="0" placeholder="e.g. 250">
+        </div>
+        <div class="z21-field">
+          <label>Additional Details <span class="z21-field-optional">(optional)</span></label>
+          <textarea id="bookDescription" placeholder="Set length, special requests, expected attendance, stage requirements…"></textarea>
+        </div>
+
+        <button type="submit" class="z21-btn-full primary" id="bookSubmit">
+          <i class="fas fa-paper-plane"></i> Send Request on Site
+        </button>
+
+        <div class="z21-divider">or</div>
+
+        <button type="button" class="z21-btn-full whatsapp" id="bookWhatsApp">
+          <i class="fab fa-whatsapp"></i> Book via WhatsApp
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-toast-wrap" id="toastWrap"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP LOGIC
+     ═══════════════════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, signOut, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, addDoc, collection,
+  getDocs, query, where, serverTimestamp, limit
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+  authDomain: "zone21.firebaseapp.com",
+  projectId: "zone21",
+  storageBucket: "zone21.firebasestorage.app",
+  messagingSenderId: "405963057292",
+  appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+  measurementId: "G-KE007Y89F1"
+};
+
+const ADMIN_WHATSAPP = "263789912268"; // Zone21 admin
+const PER_PAGE = 12;
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+let currentUser = null;
+let userProfile = null;
+let isSubscribed = false;
+let allArtists = [];
+let filteredArtists = [];
+let currentPage = 1;
+let pendingArtistAfterAuth = null; // artist user tried to book while logged out
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+
+function escapeHTML(s){
+  if(s == null) return "";
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function showToast(msg, type = 'info', duration = 3400){
+  const wrap = $('toastWrap');
+  const t = document.createElement('div');
+  t.className = `z21-toast ${type}`;
+  const icon = type === 'success' ? 'fa-circle-check'
+             : type === 'error'   ? 'fa-circle-exclamation'
+             : 'fa-circle-info';
+  t.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHTML(msg)}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateY(-10px)';
+    t.style.transition = 'all .3s';
+    setTimeout(() => t.remove(), 300);
+  }, duration);
+}
+
+function showFormMsg(elId, msg, type = 'error'){
+  const el = $(elId);
+  el.textContent = msg;
+  el.className = `z21-form-msg show ${type}`;
+}
+function clearFormMsg(elId){
+  const el = $(elId);
+  el.textContent = '';
+  el.className = 'z21-form-msg';
+}
+
+function openModal(id){ $(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id){
+  $(id).classList.remove('open');
+  if(!document.querySelector('.z21-modal.open')) document.body.style.overflow = '';
+}
+
+function genBookingRef(){
+  return 'BK-' + Math.floor(100000 + Math.random() * 900000);
+}
+
+function fmtPrice(n){
+  if(n == null || n === '') return '—';
+  const num = Number(n);
+  if(Number.isNaN(num)) return '—';
+  return '$' + num.toLocaleString('en-US');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH STATE
+   ═══════════════════════════════════════════════════════════ */
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+
+  if(user){
+    try{
+      const uDoc = await getDoc(doc(db, 'users', user.uid));
+      userProfile = uDoc.exists() ? uDoc.data() : { name: user.displayName || 'Member', email: user.email };
+      if(!userProfile.email) userProfile.email = user.email;
+      if(!userProfile.name)  userProfile.name  = user.displayName || (user.email || '').split('@')[0];
+    }catch(e){
+      console.warn('Profile load failed:', e);
+      userProfile = { name: user.displayName || 'Member', email: user.email };
+    }
+    isSubscribed = await checkSubscription(user.uid);
+    renderNavUser();
+    renderSubscriptionZone();
+  } else {
+    userProfile = null;
+    isSubscribed = false;
+    renderNavUser();
+    renderSubscriptionZone();
+  }
+});
+
+async function checkSubscription(uid){
+  try{
+    // Fast path: check users/{uid}.subscriptionStatus
+    const uDoc = await getDoc(doc(db, 'users', uid));
+    if(uDoc.exists() && uDoc.data().subscriptionStatus === 'active'){
+      return true;
+    }
+
+    // Safe path: scan subscriptions for any active, non-deleted sub
+    const snap = await getDocs(query(
+      collection(db, 'subscriptions'),
+      where('userId', '==', uid)
+    ));
+    let active = false;
+    snap.forEach(d => {
+      const data = d.data();
+      if(!data.deletedAt && (data.status === 'active' || data.status === 'approved')){
+        active = true;
+      }
+    });
+    return active;
+  }catch(e){
+    console.warn('Sub check failed:', e);
+    return false;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAV USER
+   ═══════════════════════════════════════════════════════════ */
+function renderNavUser(){
+  const zone = $('navUser');
+  if(currentUser && userProfile){
+    const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
+    const avatarHtml = userProfile.avatarUrl
+      ? `<img src="${escapeHTML(userProfile.avatarUrl)}" alt="">`
+      : initial;
+    zone.innerHTML = `
+      <button class="z21-avatar" id="navAvatar" aria-label="Open account menu">${avatarHtml}</button>
+    `;
+    $('navAvatar').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = $('userMenu');
+      $('menuName').textContent = userProfile.name || 'Member';
+      $('menuEmail').textContent = userProfile.email || currentUser.email || '';
+      menu.classList.toggle('open');
+    });
+  } else {
+    zone.innerHTML = `<button class="z21-btn-nav" id="navSignInBtn">Sign In</button>`;
+    $('navSignInBtn').addEventListener('click', () => openAuthModal('signin'));
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const menu = $('userMenu');
+  if(menu.classList.contains('open') && !menu.contains(e.target) && !e.target.closest('#navAvatar')){
+    menu.classList.remove('open');
+  }
+});
+
+$('menuSignOut').addEventListener('click', async () => {
+  await signOut(auth);
+  $('userMenu').classList.remove('open');
+  showToast('Signed out.', 'info');
+  setTimeout(() => window.location.reload(), 500);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SUBSCRIPTION ZONE (banner under hero)
+   ═══════════════════════════════════════════════════════════ */
+function renderSubscriptionZone(){
+  const zone = $('subscriptionZone');
+  if(!currentUser){
+    zone.innerHTML = '';
+    return;
+  }
+  if(isSubscribed){
+    zone.innerHTML = `
+      <div class="z21-active-badge">
+        <i class="fas fa-circle-check"></i>
+        Subscription active — you can book any artist
+      </div>`;
+  } else {
+    zone.innerHTML = `
+      <div class="z21-sub-banner">
+        <i class="fas fa-lock"></i>
+        <div class="z21-sub-banner-text">
+          <strong>You haven't subscribed yet.</strong>
+          <span>Browse freely — subscribe to unlock booking.</span>
+        </div>
+        <a href="bookingsub.html">Subscribe now</a>
+      </div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GREETING
+   ═══════════════════════════════════════════════════════════ */
+function updateGreeting(){
+  if(currentUser && userProfile){
+    const firstName = (userProfile.name || 'there').split(' ')[0];
+    $('heroTag').textContent = 'Welcome back';
+    $('heroTitle').innerHTML = `Hey ${escapeHTML(firstName)}, find your next <span class="grad">showstopper</span>.`;
+    $('heroSub').textContent = 'Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.';
+  } else {
+    $('heroTag').textContent = 'Discover';
+    $('heroTitle').innerHTML = `Find Zimbabwe's <span class="grad">hottest artists</span> for your next event.`;
+    $('heroSub').textContent = 'Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD ARTISTS
+   ═══════════════════════════════════════════════════════════ */
+async function loadArtists(){
+  renderSkeletons();
+  try{
+    const snap = await getDocs(query(collection(db, 'artists'), limit(500)));
+    allArtists = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if(allArtists.length === 0){
+      // Empty collection — show friendly state (admin hasn't added any yet)
+      renderEmpty();
+      populateFilterOptions();
+      return;
+    }
+
+    // Sort: featured first, then newest
+    allArtists.sort((a, b) => {
+      const af = a.featured ? 1 : 0;
+      const bf = b.featured ? 1 : 0;
+      if(af !== bf) return bf - af;
+      const at = a.createdAt?.toMillis?.() || 0;
+      const bt = b.createdAt?.toMillis?.() || 0;
+      return bt - at;
+    });
+
+    populateFilterOptions();
+    applyFilters();
+  }catch(e){
+    console.error('Load artists failed:', e);
+    renderError(e.message);
+  }
+}
+
+function renderSkeletons(){
+  const grid = $('artistGrid');
+  grid.innerHTML = Array.from({length: 8}).map(() => `
+    <div class="z21-skeleton">
+      <div class="z21-skeleton-img"></div>
+      <div class="z21-skeleton-body">
+        <div class="z21-skeleton-line w60"></div>
+        <div class="z21-skeleton-line w80"></div>
+        <div class="z21-skeleton-line w40"></div>
+      </div>
+    </div>`).join('');
+  $('pagination').innerHTML = '';
+  $('resultsCount').textContent = '0';
+}
+
+function renderEmpty(){
+  $('artistGrid').innerHTML = `
+    <div class="z21-state">
+      <div class="z21-state-icon"><i class="fas fa-microphone-lines"></i></div>
+      <h3>No artists listed yet</h3>
+      <p>Zone21's artist roster is being built. Once artists are added, they'll appear here.</p>
+    </div>`;
+  $('resultsCount').textContent = '0';
+  $('resultsWord').textContent = 'artists';
+}
+
+function renderError(msg){
+  $('artistGrid').innerHTML = `
+    <div class="z21-state">
+      <div class="z21-state-icon" style="color:var(--accent)"><i class="fas fa-triangle-exclamation"></i></div>
+      <h3>Couldn't load artists</h3>
+      <p>${escapeHTML(msg || 'Check your connection and try again.')}</p>
+      <button onclick="window.location.reload()"><i class="fas fa-rotate-right"></i> Retry</button>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILTERS
+   ═══════════════════════════════════════════════════════════ */
+const FALLBACK_LOCATIONS = [
+  'Harare','Bulawayo','Chitungwiza','Mutare','Gweru','Kwekwe','Kadoma',
+  'Masvingo','Chinhoyi','Marondera','Victoria Falls','Hwange','Beitbridge',
+  'Kariba','Bindura','Rusape','Zvishavane','Gwanda','Nationwide'
+];
+
+function populateFilterOptions(){
+  // Locations — union of hardcoded + artist locations
+  const locSet = new Set(FALLBACK_LOCATIONS);
+  allArtists.forEach(a => {
+    const locs = Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []);
+    locs.forEach(l => l && locSet.add(l));
+  });
+  const locSel = $('locationSelect');
+  const currentLoc = locSel.value;
+  locSel.innerHTML = `<option value="">All Locations</option>` +
+    [...locSet].sort().map(l => `<option value="${escapeHTML(l)}">${escapeHTML(l)}</option>`).join('');
+  locSel.value = currentLoc;
+
+  // Genres — union from artists
+  const genreSet = new Set();
+  allArtists.forEach(a => {
+    (Array.isArray(a.genres) ? a.genres : []).forEach(g => g && genreSet.add(g));
+  });
+  const genreSel = $('genreSelect');
+  const currentGenre = genreSel.value;
+  genreSel.innerHTML = `<option value="">All Genres</option>` +
+    [...genreSet].sort().map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
+  genreSel.value = currentGenre;
+}
+
+function applyFilters(){
+  const q = $('searchInput').value.trim().toLowerCase();
+  const loc = $('locationSelect').value;
+  const genre = $('genreSelect').value;
+  const avail = $('availSelect').value;
+
+  filteredArtists = allArtists.filter(a => {
+    // Location
+    if(loc){
+      const locs = (Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []))
+        .map(x => String(x).toLowerCase());
+      const wanted = loc.toLowerCase();
+      const hasLoc = locs.some(l => l === wanted) || locs.some(l => l.includes('nationwide'));
+      if(!hasLoc) return false;
+    }
+
+    // Genre
+    if(genre){
+      const genres = (Array.isArray(a.genres) ? a.genres : []).map(x => String(x).toLowerCase());
+      if(!genres.includes(genre.toLowerCase())) return false;
+    }
+
+    // Availability
+    if(avail){
+      const status = (a.availabilityStatus || 'available').toLowerCase();
+      if(status !== avail) return false;
+    }
+
+    // Text search
+    if(q){
+      const haystack = [
+        a.name,
+        a.bio,
+        ...(Array.isArray(a.genres) ? a.genres : []),
+        ...(Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []))
+      ].filter(Boolean).join(' ').toLowerCase();
+      if(!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  currentPage = 1;
+  renderArtists();
+  updateResetBtn();
+}
+
+function updateResetBtn(){
+  const any = $('searchInput').value || $('locationSelect').value
+           || $('genreSelect').value || $('availSelect').value;
+  $('resetBtn').classList.toggle('show', !!any);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER ARTISTS
+   ═══════════════════════════════════════════════════════════ */
+function renderArtists(){
+  const grid = $('artistGrid');
+
+  if(filteredArtists.length === 0){
+    grid.innerHTML = `
+      <div class="z21-state">
+        <div class="z21-state-icon"><i class="fas fa-search"></i></div>
+        <h3>No artists match your filters</h3>
+        <p>Try clearing your search or picking a different location or genre.</p>
+        <button onclick="document.getElementById('resetBtn').click()"><i class="fas fa-rotate-left"></i> Reset filters</button>
+      </div>`;
+    $('pagination').innerHTML = '';
+    $('resultsCount').textContent = '0';
+    return;
+  }
+
+  const start = (currentPage - 1) * PER_PAGE;
+  const pageArtists = filteredArtists.slice(start, start + PER_PAGE);
+
+  grid.innerHTML = pageArtists.map(a => renderCard(a)).join('');
+  $('resultsCount').textContent = filteredArtists.length;
+  $('resultsWord').textContent = filteredArtists.length === 1 ? 'artist' : 'artists';
+
+  // Attach book handlers
+  grid.querySelectorAll('[data-book-id]').forEach(btn => {
+    btn.addEventListener('click', () => handleBookClick(btn.dataset.bookId));
+  });
+
+  renderPagination();
+}
+
+function renderCard(a){
+  const name = escapeHTML(a.name || 'Unnamed Artist');
+  const photo = a.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name||'A')}&background=222226&color=fa243c&size=400&bold=true`;
+  const bio = a.bio ? escapeHTML(a.bio) : '';
+  const genres = Array.isArray(a.genres) ? a.genres.slice(0, 3) : [];
+  const locations = Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []);
+  const status = (a.availabilityStatus || 'available').toLowerCase();
+  const statusLabel = status === 'available' ? 'Available'
+                     : status === 'busy'      ? 'Limited'
+                     : 'Fully Booked';
+
+  const priceFrom = a.priceFrom;
+  const currency = a.currency || 'USD';
+  const currencySymbol = currency === 'USD' ? '$' : currency + ' ';
+  const priceLabel = priceFrom != null
+    ? `${currencySymbol}${Number(priceFrom).toLocaleString('en-US')}`
+    : 'Enquire';
+
+  return `
+    <article class="z21-card">
+      <div class="z21-card-img">
+        <img src="${escapeHTML(photo)}" alt="${name}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(a.name||'A')}&background=222226&color=fa243c&size=400&bold=true'">
+        ${a.featured ? `<span class="z21-featured-tag"><i class="fas fa-star"></i> Featured</span>` : ''}
+        <span class="z21-avail-badge ${status}"><span class="dot"></span>${statusLabel}</span>
+      </div>
+      <div class="z21-card-body">
+        <div class="z21-card-name">
+          ${name}
+          ${(a.ratingCount||0) >= 3 ? `<i class="fas fa-circle-check z21-verified" title="Verified"></i>` : ''}
+        </div>
+        <div class="z21-card-meta">
+          ${locations.length ? `<div><i class="fas fa-map-marker-alt"></i> ${escapeHTML(locations.slice(0,2).join(', '))}${locations.length>2?` +${locations.length-2}`:''}</div>` : ''}
+          ${genres.length ? `<div class="z21-card-genres">${genres.map(g => `<span class="z21-genre-chip">${escapeHTML(g)}</span>`).join('')}</div>` : ''}
+        </div>
+        ${bio ? `<div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px">${bio}</div>` : ''}
+        <div class="z21-card-footer">
+          <div class="z21-price">
+            <small>From</small>
+            <span class="z21-price-from"></span>${priceLabel}
+          </div>
+          <button class="z21-book-btn" data-book-id="${a.id}">
+            <i class="fas fa-bolt"></i> Book
+          </button>
+        </div>
+      </div>
+    </article>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGINATION
+   ═══════════════════════════════════════════════════════════ */
+function renderPagination(){
+  const totalPages = Math.ceil(filteredArtists.length / PER_PAGE);
+  const pg = $('pagination');
+  if(totalPages <= 1){ pg.innerHTML = ''; return; }
+
+  const btn = (label, page, opts = {}) => {
+    const { active = false, disabled = false, icon = null } = opts;
+    const cls = `z21-page-btn${active ? ' active' : ''}`;
+    const attrs = [
+      `data-page="${page}"`,
+      disabled ? 'disabled' : '',
+      active ? 'aria-current="page"' : ''
+    ].filter(Boolean).join(' ');
+    return `<button class="${cls}" ${attrs}>${icon ? `<i class="fas ${icon}"></i>` : ''}${label}</button>`;
+  };
+
+  let html = '';
+  html += btn('Prev', currentPage - 1, { disabled: currentPage === 1, icon: 'fa-chevron-left' });
+
+  // Page numbers with ellipsis
+  const pages = [];
+  const push = (n) => pages.push(n);
+  const showEllipsis = () => pages.push('…');
+
+  if(totalPages <= 7){
+    for(let i = 1; i <= totalPages; i++) push(i);
+  } else {
+    push(1);
+    if(currentPage > 3) showEllipsis();
+    const from = Math.max(2, currentPage - 1);
+    const to = Math.min(totalPages - 1, currentPage + 1);
+    for(let i = from; i <= to; i++) push(i);
+    if(currentPage < totalPages - 2) showEllipsis();
+    push(totalPages);
+  }
+
+  pages.forEach(p => {
+    if(p === '…'){
+      html += `<span class="z21-page-dots">…</span>`;
+    } else {
+      html += btn(String(p), p, { active: p === currentPage });
+    }
+  });
+
+  html += btn('Next', currentPage + 1, { disabled: currentPage === totalPages, icon: 'fa-chevron-right' });
+
+  pg.innerHTML = html;
+
+  pg.querySelectorAll('[data-page]').forEach(b => {
+    if(b.disabled) return;
+    b.addEventListener('click', () => {
+      const p = parseInt(b.dataset.page, 10);
+      if(Number.isNaN(p) || p < 1 || p > totalPages || p === currentPage) return;
+      currentPage = p;
+      renderArtists();
+      window.scrollTo({ top: document.querySelector('.z21-search-wrap').offsetTop - 80, behavior: 'smooth' });
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOK FLOW
+   ═══════════════════════════════════════════════════════════ */
+let activeArtist = null;
+
+function handleBookClick(artistId){
+  const artist = allArtists.find(a => a.id === artistId);
+  if(!artist) return;
+
+  // Case 1: not logged in → open auth modal, remember artist
+  if(!currentUser){
+    pendingArtistAfterAuth = artist;
+    openAuthModal('signup');
+    return;
+  }
+
+  // Case 2: logged in but not subscribed → gate modal
+  if(!isSubscribed){
+    showToast('Please subscribe first to book artists.', 'error');
+    openModal('gateModal');
+    return;
+  }
+
+  // Case 3: logged in + subscribed → open booking modal
+  openBookingModal(artist);
+}
+
+function openBookingModal(artist){
+  activeArtist = artist;
+  $('bookArtistImg').src = artist.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name||'A')}&background=222226&color=fa243c&size=200&bold=true`;
+  $('bookArtistName').textContent = artist.name || 'Artist';
+  const locs = Array.isArray(artist.locations) ? artist.locations.slice(0,2).join(', ') : (artist.location || '');
+  const genres = Array.isArray(artist.genres) ? artist.genres.slice(0,2).join(' · ') : '';
+  $('bookArtistMeta').innerHTML = [locs, genres].filter(Boolean).map(escapeHTML).join(' &nbsp;·&nbsp; ') || 'Performer';
+
+  // Prefill user phone if we have it
+  clearFormMsg('bookMsg');
+
+  // Minimum date = today
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  $('bookDate').min = `${yyyy}-${mm}-${dd}`;
+
+  openModal('bookingModal');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOKING SUBMIT
+   ═══════════════════════════════════════════════════════════ */
+function collectBookingForm(){
+  const date = $('bookDate').value;
+  const time = $('bookTime').value;
+  const eventType = $('bookEventType').value;
+  const venue = $('bookVenue').value.trim();
+  const budget = $('bookBudget').value;
+  const description = $('bookDescription').value.trim();
+
+  if(!date || !time || !eventType || !venue){
+    showFormMsg('bookMsg', 'Please fill in date, time, event type, and venue.', 'error');
+    return null;
+  }
+  return { date, time, eventType, venue, budget, description };
+}
+
+async function saveBooking(formData, source){
+  const ref = genBookingRef();
+  const payload = {
+    userId: currentUser.uid,
+    userName: userProfile?.name || 'Member',
+    userEmail: userProfile?.email || currentUser.email || '',
+    userPhone: userProfile?.phone || '',
+    artistId: activeArtist.id,
+    artistName: activeArtist.name || '',
+    artistPhoto: activeArtist.photoUrl || '',
+    eventDate: formData.date,
+    eventTime: formData.time,
+    eventType: formData.eventType,
+    venue: formData.venue,
+    budget: formData.budget ? Number(formData.budget) : null,
+    description: formData.description || '',
+    status: 'pending',
+    ref,
+    source,
+    createdAt: serverTimestamp()
+  };
+  const docRef = await addDoc(collection(db, 'bookings'), payload);
+
+  // Also drop a message into the inbox thread so admin sees it there
+  try{
+    await addDoc(collection(db, 'messages'), {
+      sender: 'user',
+      senderId: currentUser.uid,
+      senderType: 'organizer',
+      senderName: payload.userName,
+      recipientId: 'admin',
+      type: 'artist_booking',
+      subject: `Booking request · ${payload.artistName}`,
+      message: `New booking request ${ref}\n\nArtist: ${payload.artistName}\nDate: ${payload.eventDate} ${payload.eventTime}\nEvent: ${payload.eventType}\nVenue: ${payload.venue}\nBudget: ${payload.budget ? '$'+payload.budget : 'Not specified'}\n\nDetails: ${payload.description || '—'}`,
+      bookingRef: ref,
+      bookingId: docRef.id,
+      artistId: payload.artistId,
+      status: 'unread',
+      createdAt: serverTimestamp()
+    });
+  }catch(e){
+    console.warn('Inbox message write failed:', e);
+  }
+
+  return { ref, id: docRef.id };
+}
+
+$('bookingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('bookMsg');
+  const formData = collectBookingForm();
+  if(!formData) return;
+
+  const btn = $('bookSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+
+  try{
+    const { ref } = await saveBooking(formData, 'web');
+    showFormMsg('bookMsg', `Booking request sent — reference ${ref}. Check your inbox for the admin's reply.`, 'success');
+    showToast(`Request sent · ${ref}`, 'success');
+    setTimeout(() => {
+      closeModal('bookingModal');
+      $('bookingForm').reset();
+      clearFormMsg('bookMsg');
+    }, 1800);
+  }catch(err){
+    console.error(err);
+    showFormMsg('bookMsg', 'Could not send request: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+$('bookWhatsApp').addEventListener('click', async () => {
+  clearFormMsg('bookMsg');
+  const formData = collectBookingForm();
+  if(!formData) return;
+
+  const btn = $('bookWhatsApp');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing…';
+
+  try{
+    const { ref } = await saveBooking(formData, 'whatsapp');
+
+    const msg = [
+      `*Zone21 Booking Request*`,
+      `Ref: ${ref}`,
+      ``,
+      `*Artist:* ${activeArtist.name || ''}`,
+      `*Date:* ${formData.date} at ${formData.time}`,
+      `*Event:* ${formData.eventType}`,
+      `*Venue:* ${formData.venue}`,
+      formData.budget ? `*Budget:* $${formData.budget}` : null,
+      formData.description ? `*Details:* ${formData.description}` : null,
+      ``,
+      `From: ${userProfile?.name || 'Member'} (${userProfile?.email || currentUser.email || ''})`
+    ].filter(Boolean).join('\n');
+
+    const waUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+    showToast(`Request saved · ${ref}`, 'success');
+    setTimeout(() => {
+      window.open(waUrl, '_blank', 'noopener');
+      closeModal('bookingModal');
+      $('bookingForm').reset();
+      clearFormMsg('bookMsg');
+    }, 700);
+  }catch(err){
+    console.error(err);
+    showFormMsg('bookMsg', 'Could not prepare WhatsApp message: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH MODAL
+   ═══════════════════════════════════════════════════════════ */
+function openAuthModal(mode = 'signin'){
+  switchAuthTab(mode);
+  clearFormMsg('authMsg');
+  openModal('authModal');
+}
+
+function switchAuthTab(mode){
+  document.querySelectorAll('.z21-auth-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.authTab === mode);
+  });
+  $('signinForm').style.display = mode === 'signin' ? '' : 'none';
+  $('signupForm').style.display = mode === 'signup' ? '' : 'none';
+  $('authTitle').textContent = mode === 'signin' ? 'Sign in to book' : 'Create your account';
+  $('authSub').textContent = mode === 'signin'
+    ? 'Welcome back. Sign in to continue.'
+    : 'Free to create. Subscribe when you\'re ready to book.';
+  clearFormMsg('authMsg');
+}
+
+document.querySelectorAll('.z21-auth-tab').forEach(t => {
+  t.addEventListener('click', () => switchAuthTab(t.dataset.authTab));
+});
+
+$('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signinSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
+
+  try{
+    await signInWithEmailAndPassword(auth, $('signinEmail').value.trim(), $('signinPassword').value);
+    showToast('Welcome back!', 'success');
+    closeModal('authModal');
+    $('signinForm').reset();
+    // If a booking was pending, resume it once auth state settles
+    afterAuthResume();
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+$('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signupSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating…';
+
+  const name = $('signupName').value.trim();
+  const email = $('signupEmail').value.trim();
+  const phone = $('signupPhone').value.trim();
+  const university = $('signupUniversity').value.trim();
+  const password = $('signupPassword').value;
+
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
+
+    try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
+
+    // Create user profile doc
+    await setDoc(doc(db, 'users', uid), {
+      name, email, phone, university,
+      role: 'student',
+      subscriptionStatus: 'none',
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    showToast('Account created — welcome to Zone21!', 'success');
+    closeModal('authModal');
+    $('signupForm').reset();
+    afterAuthResume();
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+function friendlyAuthError(err){
+  const code = err?.code || '';
+  if(code.includes('invalid-credential')) return 'Incorrect email or password.';
+  if(code.includes('user-not-found')) return 'No account found for that email.';
+  if(code.includes('wrong-password')) return 'Incorrect email or password.';
+  if(code.includes('email-already-in-use')) return 'That email is already registered. Try signing in.';
+  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('invalid-email')) return 'That email address doesn\'t look valid.';
+  if(code.includes('network-request-failed')) return 'Network error. Check your connection.';
+  return err?.message || 'Something went wrong. Please try again.';
+}
+
+/* After signin/signup, wait a tick for auth state to settle, then resume */
+function afterAuthResume(){
+  if(!pendingArtistAfterAuth) return;
+  const artist = pendingArtistAfterAuth;
+  pendingArtistAfterAuth = null;
+  // Wait for onAuthStateChanged + subscription check to finish
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts++;
+    if(currentUser && userProfile){
+      clearInterval(interval);
+      if(isSubscribed){
+        openBookingModal(artist);
+      } else {
+        showToast('Please subscribe first to book artists.', 'error');
+        openModal('gateModal');
+      }
+    } else if(attempts > 40){ // ~4s timeout
+      clearInterval(interval);
+    }
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL CLOSE HANDLERS
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.z21-modal').forEach(m => {
+  m.addEventListener('click', (e) => {
+    if(e.target === m) closeModal(m.id);
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.z21-modal.open').forEach(m => closeModal(m.id));
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SEARCH & FILTER HANDLERS
+   ═══════════════════════════════════════════════════════════ */
+let searchTimer = null;
+$('searchInput').addEventListener('input', (e) => {
+  $('searchClear').classList.toggle('show', !!e.target.value);
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(applyFilters, 220);
+});
+$('searchClear').addEventListener('click', () => {
+  $('searchInput').value = '';
+  $('searchClear').classList.remove('show');
+  applyFilters();
+});
+
+$('locationSelect').addEventListener('change', (e) => {
+  const v = e.target.value;
+  $('locationLabel').textContent = v || 'All Locations';
+  $('locationPill').classList.toggle('active', !!v);
+  applyFilters();
+});
+$('genreSelect').addEventListener('change', (e) => {
+  const v = e.target.value;
+  $('genreLabel').textContent = v || 'All Genres';
+  $('genrePill').classList.toggle('active', !!v);
+  applyFilters();
+});
+$('availSelect').addEventListener('change', (e) => {
+  const v = e.target.value;
+  const label = v === 'available' ? 'Available'
+              : v === 'busy'      ? 'Busy'
+              : v === 'fully_booked' ? 'Fully Booked'
+              : 'Any Availability';
+  $('availLabel').textContent = label;
+  $('availPill').classList.toggle('active', !!v);
+  applyFilters();
+});
+
+$('resetBtn').addEventListener('click', () => {
+  $('searchInput').value = '';
+  $('locationSelect').value = '';
+  $('genreSelect').value = '';
+  $('availSelect').value = '';
+  $('locationLabel').textContent = 'All Locations';
+  $('genreLabel').textContent = 'All Genres';
+  $('availLabel').textContent = 'Any Availability';
+  $('locationPill').classList.remove('active');
+  $('genrePill').classList.remove('active');
+  $('availPill').classList.remove('active');
+  $('searchClear').classList.remove('show');
+  applyFilters();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+loadArtists();
+
+// Re-render greeting when auth state changes
+auth.onAuthStateChanged(() => updateGreeting());
+updateGreeting();
+</script>
+</body>
+</html>

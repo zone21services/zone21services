@@ -12,6 +12,10 @@
 <!--
 ═══════════════════════════════════════════════════════════════════
   SINGLE PLAN:  Full Access — Annual — $150/year
+
+  AUTH: In-page modal (sign in / sign up). No redirect.
+  After auth, if user was trying to subscribe → checkout auto-resumes.
+
   Firestore writes:
     invoices/{INV-XXXXXX}
     subscriptions/{uid}_annual
@@ -456,6 +460,22 @@ img{display:block;max-width:100%}
 }
 .z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
 .z21-modal-body{padding:20px 26px 26px}
+
+/* Auth tabs */
+.z21-auth-tabs{
+  display:flex;gap:4px;padding:4px;
+  background:var(--surface-2);border-radius:100px;
+  margin-bottom:20px;
+}
+.z21-auth-tab{
+  flex:1;padding:10px;border-radius:100px;
+  font-size:14px;font-weight:700;
+  color:var(--text-muted);transition:all .2s;
+}
+.z21-auth-tab.active{
+  background:var(--surface-3);color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
 
 /* Steps indicator */
 .z21-steps-ind{
@@ -913,6 +933,71 @@ img{display:block;max-width:100%}
   </div>
 </nav>
 
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH MODAL — Sign In / Sign Up
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="authModal">
+  <div class="z21-modal-panel">
+    <div class="z21-modal-head">
+      <div>
+        <h2 id="authTitle">Sign in to subscribe</h2>
+        <p id="authSub">Create a free account or sign in to continue.</p>
+      </div>
+      <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-auth-tabs">
+        <button class="z21-auth-tab active" data-auth-tab="signin">Sign In</button>
+        <button class="z21-auth-tab" data-auth-tab="signup">Sign Up</button>
+      </div>
+
+      <div class="z21-form-msg" id="authMsg"></div>
+
+      <!-- SIGN IN -->
+      <form id="signinForm" autocomplete="on">
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signinEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <input type="password" id="signinPassword" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signinSubmit">
+          <i class="fas fa-arrow-right"></i> Sign In
+        </button>
+      </form>
+
+      <!-- SIGN UP -->
+      <form id="signupForm" style="display:none" autocomplete="on">
+        <div class="z21-field">
+          <label>Full Name</label>
+          <input type="text" id="signupName" required placeholder="e.g. Tafadzwa Moyo" autocomplete="name">
+        </div>
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="signupEmail" required placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="z21-field">
+          <label>Phone (WhatsApp)</label>
+          <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+        </div>
+        <div class="z21-field">
+          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
+        </div>
+        <div class="z21-field">
+          <label>Password</label>
+          <input type="password" id="signupPassword" required placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="signupSubmit">
+          <i class="fas fa-user-plus"></i> Create Account
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- CHECKOUT MODAL -->
 <div class="z21-modal" id="checkoutModal">
   <div class="z21-modal-panel">
@@ -1062,7 +1147,8 @@ img{display:block;max-width:100%}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signOut
+  getAuth, onAuthStateChanged, signOut,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, addDoc, collection,
@@ -1103,6 +1189,11 @@ let userProfile = null;
 let subscription = null;   // current sub doc data (with id)
 let currentInvoice = null; // invoice just generated (for modal)
 let isRenewalFlow = false;
+
+/* ═══════════════════════════════════════════════════════════
+   PENDING CHECKOUT (resumes after sign-in)
+   ═══════════════════════════════════════════════════════════ */
+let pendingCheckout = null; // null | { isRenewal: bool }
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -1173,8 +1264,110 @@ function daysBetween(a, b){
   return Math.ceil((b - a) / 86400000);
 }
 
+function friendlyAuthError(err){
+  const code = err?.code || '';
+  if(code.includes('invalid-credential')) return 'Incorrect email or password.';
+  if(code.includes('user-not-found')) return 'No account found for that email.';
+  if(code.includes('wrong-password')) return 'Incorrect email or password.';
+  if(code.includes('email-already-in-use')) return 'That email is already registered. Try signing in.';
+  if(code.includes('weak-password')) return 'Password should be at least 6 characters.';
+  if(code.includes('invalid-email')) return 'That email address doesn\'t look valid.';
+  if(code.includes('network-request-failed')) return 'Network error. Check your connection.';
+  return err?.message || 'Something went wrong. Please try again.';
+}
+
 /* ═══════════════════════════════════════════════════════════
-   AUTH
+   AUTH MODAL
+   ═══════════════════════════════════════════════════════════ */
+function openAuthModal(mode = 'signin'){
+  switchAuthTab(mode);
+  clearFormMsg('authMsg');
+  openModal('authModal');
+}
+
+function switchAuthTab(mode){
+  document.querySelectorAll('.z21-auth-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.authTab === mode);
+  });
+  $('signinForm').style.display = mode === 'signin' ? '' : 'none';
+  $('signupForm').style.display = mode === 'signup' ? '' : 'none';
+  $('authTitle').textContent = mode === 'signin' ? 'Sign in to subscribe' : 'Create your account';
+  $('authSub').textContent = mode === 'signin'
+    ? 'Welcome back. Sign in to continue.'
+    : 'Free to create. Subscribe when you\'re ready.';
+  clearFormMsg('authMsg');
+}
+
+document.querySelectorAll('.z21-auth-tab').forEach(t => {
+  t.addEventListener('click', () => switchAuthTab(t.dataset.authTab));
+});
+
+/* Sign In form */
+$('signinForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signinSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in…';
+
+  try{
+    await signInWithEmailAndPassword(auth, $('signinEmail').value.trim(), $('signinPassword').value);
+    showToast('Welcome back!', 'success');
+    closeModal('authModal');
+    $('signinForm').reset();
+    // onAuthStateChanged will handle resume below
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* Sign Up form */
+$('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('authMsg');
+  const btn = $('signupSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating…';
+
+  const name = $('signupName').value.trim();
+  const email = $('signupEmail').value.trim();
+  const phone = $('signupPhone').value.trim();
+  const university = $('signupUniversity').value.trim();
+  const password = $('signupPassword').value;
+
+  try{
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = cred.user.uid;
+
+    try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
+
+    // Create user profile — same schema as Discover.html
+    await setDoc(doc(db, 'users', uid), {
+      name, email, phone, university,
+      role: 'student',
+      subscriptionStatus: 'none',
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    showToast('Account created — welcome to Zone21!', 'success');
+    closeModal('authModal');
+    $('signupForm').reset();
+    // onAuthStateChanged will handle resume below
+  }catch(err){
+    showFormMsg('authMsg', friendlyAuthError(err), 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH STATE
    ═══════════════════════════════════════════════════════════ */
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
@@ -1200,6 +1393,15 @@ onAuthStateChanged(auth, async (user) => {
   await loadSubscription();
   renderNavUser();
   renderStatus();
+
+  /* ── Resume pending checkout if user was trying to subscribe ── */
+  if(pendingCheckout){
+    const { isRenewal } = pendingCheckout;
+    pendingCheckout = null;
+    setTimeout(() => {
+      try{ startCheckout(isRenewal); }catch(e){ console.warn('Resume checkout failed:', e); }
+    }, 400);
+  }
 });
 
 async function loadSubscription(){
@@ -1236,7 +1438,8 @@ function renderNavUser(){
       $('userMenu').classList.toggle('open');
     });
   } else {
-    zone.innerHTML = `<a href="Discover.html" class="z21-btn-nav">Sign In</a>`;
+    zone.innerHTML = `<button class="z21-btn-nav" id="navSignInBtn">Sign In</button>`;
+    $('navSignInBtn').addEventListener('click', () => openAuthModal('signin'));
   }
 }
 
@@ -1251,7 +1454,7 @@ $('menuSignOut').addEventListener('click', async () => {
   await signOut(auth);
   $('userMenu').classList.remove('open');
   showToast('Signed out.', 'info');
-  setTimeout(() => window.location.reload(), 400);
+  // No redirect — the page re-renders automatically
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -1271,9 +1474,12 @@ function renderStatus(){
         <div class="z21-status-title">Sign in to subscribe</div>
         <p class="z21-status-desc">Create a free Zone21 account or sign in to unlock your full-access subscription.</p>
         <div class="z21-status-actions">
-          <a href="Discover.html" class="z21-btn-status primary"><i class="fas fa-arrow-right"></i> Go to Sign In</a>
+          <button class="z21-btn-status primary" id="statusSignInBtn">
+            <i class="fas fa-arrow-right"></i> Sign In / Sign Up
+          </button>
         </div>
       </div>`;
+    $('statusSignInBtn').addEventListener('click', () => openAuthModal('signin'));
     setPlanCtaState('signin');
     return;
   }
@@ -1448,7 +1654,7 @@ function setPlanCtaState(state){
   switch(state){
     case 'signin':
       txt.textContent = 'Sign in to subscribe';
-      cta.onclick = () => { window.location.href = 'Discover.html'; };
+      cta.onclick = () => openAuthModal('signin');
       break;
     case 'subscribe':
     case 'retry':
@@ -1471,11 +1677,13 @@ function setPlanCtaState(state){
    CHECKOUT
    ═══════════════════════════════════════════════════════════ */
 function startCheckout(isRenewal){
+  /* Not signed in → open auth modal, remember intent */
   if(!currentUser){
-    showToast('Please sign in first.', 'error');
-    setTimeout(() => { window.location.href = 'Discover.html'; }, 900);
+    pendingCheckout = { isRenewal: !!isRenewal };
+    openAuthModal('signin');
     return;
   }
+
   isRenewalFlow = !!isRenewal;
   clearFormMsg('checkoutMsg');
 

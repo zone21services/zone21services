@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Subscription · Zone21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<!--
+═══════════════════════════════════════════════════════════════════
+  SINGLE PLAN:  Full Access — Annual — $150/year
+  Firestore writes:
+    invoices/{INV-XXXXXX}
+    subscriptions/{uid}_annual
+    users/{uid}  → subscriptionStatus
+═══════════════════════════════════════════════════════════════════
+-->
+
+<style>
+:root{
+  --bg:#000;
+  --surface:#101012;
+  --surface-2:#18181b;
+  --surface-3:#222226;
+  --border:rgba(255,255,255,.08);
+  --border-2:rgba(255,255,255,.14);
+  --text:#fff;
+  --text-muted:rgba(255,255,255,.62);
+  --text-dim:rgba(255,255,255,.38);
+  --accent:#fa243c;
+  --accent-2:#ff3b52;
+  --accent-glow:rgba(250,36,60,.35);
+  --success:#30d158;
+  --warn:#ff9f0a;
+  --radius-sm:10px;
+  --radius:14px;
+  --radius-lg:20px;
+  --radius-xl:28px;
+  --nav-h:64px;
+  --bottom-nav-h:68px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Plus Jakarta Sans","Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body{
+  padding-bottom:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+img{display:block;max-width:100%}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+/* NAV */
+.z21-nav{
+  position:sticky;top:0;z-index:100;height:var(--nav-h);
+  display:flex;align-items:center;
+  padding:0 clamp(16px,4vw,48px);gap:32px;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.z21-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.02em;flex-shrink:0}
+.z21-logo-mark{
+  width:32px;height:32px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;color:#fff;
+}
+.z21-logo span{color:var(--accent)}
+.z21-nav-links{display:flex;gap:4px;flex:1}
+.z21-nav-link{
+  padding:8px 14px;border-radius:100px;font-size:14px;font-weight:600;
+  color:var(--text-muted);transition:all .2s;
+}
+.z21-nav-link:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.z21-nav-link.active{color:var(--text);background:rgba(255,255,255,.09)}
+.z21-nav-user{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.z21-avatar{
+  width:34px;height:34px;border-radius:50%;overflow:hidden;
+  background:var(--surface-3);border:2px solid var(--border-2);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;color:var(--accent);
+  cursor:pointer;transition:border-color .2s;
+}
+.z21-avatar:hover{border-color:var(--accent)}
+.z21-avatar img{width:100%;height:100%;object-fit:cover}
+.z21-btn-nav{
+  padding:8px 18px;border-radius:100px;
+  background:var(--accent);color:#fff;
+  font-size:13px;font-weight:700;transition:all .2s;
+}
+.z21-btn-nav:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+.z21-user-menu{
+  position:absolute;top:calc(var(--nav-h) - 6px);
+  right:clamp(16px,4vw,48px);
+  background:var(--surface-2);border:1px solid var(--border-2);
+  border-radius:var(--radius);padding:6px;min-width:230px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+  display:none;z-index:120;
+}
+.z21-user-menu.open{display:block;animation:z21MenuIn .18s ease}
+@keyframes z21MenuIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.z21-user-menu-head{padding:12px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.z21-user-menu-head strong{display:block;font-size:14px;font-weight:700}
+.z21-user-menu-head small{display:block;font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-all}
+.z21-menu-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:9px;
+  font-size:14px;font-weight:500;color:var(--text-muted);
+  width:100%;text-align:left;transition:all .15s;
+}
+.z21-menu-item:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.z21-menu-item.danger:hover{background:rgba(250,36,60,.1);color:var(--accent)}
+.z21-menu-item i{width:18px;font-size:14px;text-align:center}
+
+/* PAGE */
+.z21-page{max-width:1200px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
+
+/* HERO */
+.z21-hero{padding:clamp(40px,6vw,80px) 0 32px;text-align:center;position:relative}
+.z21-hero::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:min(900px,90vw);height:400px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(250,36,60,.18) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+}
+.z21-hero > *{position:relative;z-index:1}
+.z21-hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 18px;background:rgba(250,36,60,.1);
+  border:1px solid rgba(250,36,60,.28);border-radius:100px;
+  font-size:12px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:22px;
+}
+.z21-hero-tag i{font-size:11px}
+.z21-hero h1{
+  font-size:clamp(32px,5.5vw,60px);font-weight:800;
+  letter-spacing:-.04em;line-height:1.05;margin-bottom:18px;
+}
+.z21-hero h1 .grad{
+  background:linear-gradient(135deg,#ff2a54,#fa243c,#c0132b);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.z21-hero p{
+  font-size:clamp(15px,1.7vw,19px);color:var(--text-muted);
+  max-width:600px;margin:0 auto;line-height:1.55;
+}
+
+/* STATUS CARD */
+.z21-status-wrap{margin-top:40px;margin-bottom:32px}
+.z21-status-card{
+  background:linear-gradient(135deg,rgba(250,36,60,.08) 0%,rgba(250,36,60,.02) 100%);
+  border:1px solid rgba(250,36,60,.25);
+  border-radius:var(--radius-xl);
+  padding:clamp(22px,3.5vw,32px);
+  position:relative;overflow:hidden;
+}
+.z21-status-card.active{
+  background:linear-gradient(135deg,rgba(48,209,88,.09) 0%,rgba(48,209,88,.02) 100%);
+  border-color:rgba(48,209,88,.28);
+}
+.z21-status-card.pending{
+  background:linear-gradient(135deg,rgba(255,159,10,.09) 0%,rgba(255,159,10,.02) 100%);
+  border-color:rgba(255,159,10,.28);
+}
+.z21-status-card::after{
+  content:'';position:absolute;top:-40%;right:-10%;
+  width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(250,36,60,.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+.z21-status-card.active::after{background:radial-gradient(circle,rgba(48,209,88,.16) 0%,transparent 70%)}
+.z21-status-card.pending::after{background:radial-gradient(circle,rgba(255,159,10,.16) 0%,transparent 70%)}
+.z21-status-inner{position:relative;z-index:1}
+.z21-status-top{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;margin-bottom:18px;
+}
+.z21-status-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:100px;
+  font-size:11.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.z21-status-badge.none{background:rgba(250,36,60,.14);color:#ff9aa5;border:1px solid rgba(250,36,60,.3)}
+.z21-status-badge.active{background:rgba(48,209,88,.14);color:#7ee89a;border:1px solid rgba(48,209,88,.3)}
+.z21-status-badge.pending{background:rgba(255,159,10,.14);color:#ffce8a;border:1px solid rgba(255,159,10,.3)}
+.z21-status-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.z21-status-ref{font-size:12px;color:var(--text-dim);font-family:'SF Mono',Menlo,monospace}
+.z21-status-title{
+  font-size:clamp(22px,3vw,28px);font-weight:800;
+  letter-spacing:-.03em;margin-bottom:8px;
+}
+.z21-status-desc{
+  font-size:14.5px;color:var(--text-muted);line-height:1.55;
+  max-width:600px;margin-bottom:20px;
+}
+.z21-status-meta{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:16px;padding-top:20px;border-top:1px solid var(--border);
+}
+.z21-status-meta-item small{
+  display:block;font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;
+}
+.z21-status-meta-item strong{font-size:18px;font-weight:800;letter-spacing:-.02em}
+
+.z21-progress{
+  height:8px;background:rgba(255,255,255,.08);
+  border-radius:8px;overflow:hidden;margin-top:20px;
+}
+.z21-progress-fill{
+  height:100%;border-radius:8px;
+  background:linear-gradient(90deg,var(--success),#5ee47a);
+  transition:width .6s cubic-bezier(.25,1,.5,1);
+  box-shadow:0 0 16px rgba(48,209,88,.5);
+}
+.z21-progress-fill.warn{background:linear-gradient(90deg,var(--warn),#ffbe4d);box-shadow:0 0 16px rgba(255,159,10,.5)}
+.z21-progress-fill.danger{background:linear-gradient(90deg,var(--accent),var(--accent-2));box-shadow:0 0 16px var(--accent-glow)}
+
+.z21-status-actions{
+  display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;
+}
+.z21-btn-status{
+  padding:11px 22px;border-radius:100px;font-size:14px;font-weight:700;
+  transition:all .2s;display:inline-flex;align-items:center;gap:8px;
+}
+.z21-btn-status.primary{background:var(--accent);color:#fff}
+.z21-btn-status.primary:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-btn-status.ghost{
+  background:rgba(255,255,255,.06);color:var(--text);
+  border:1px solid var(--border-2);
+}
+.z21-btn-status.ghost:hover{background:rgba(255,255,255,.1)}
+.z21-btn-status.success{background:var(--success);color:#fff}
+.z21-btn-status.success:hover{background:#2bbf4d;transform:translateY(-1px)}
+.z21-btn-status:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* PLAN CARD */
+.z21-plan-wrap{margin:32px auto 48px;max-width:620px}
+.z21-plan-card{
+  position:relative;
+  background:linear-gradient(160deg,#1a1a1e 0%,#0e0e10 100%);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-xl);
+  padding:clamp(28px,4vw,40px);
+  overflow:hidden;
+  box-shadow:0 40px 100px rgba(0,0,0,.6);
+}
+.z21-plan-card::before{
+  content:'';position:absolute;top:-50%;left:-50%;
+  width:200%;height:200%;
+  background:conic-gradient(from 0deg,transparent 0%,rgba(250,36,60,.15) 20%,transparent 40%);
+  animation:z21Rotate 12s linear infinite;
+  pointer-events:none;
+}
+@keyframes z21Rotate{to{transform:rotate(360deg)}}
+.z21-plan-inner{position:relative;z-index:1}
+.z21-plan-head{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:20px;
+}
+.z21-plan-crown{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:#fff;
+  box-shadow:0 8px 24px var(--accent-glow);
+}
+.z21-plan-label{
+  font-size:12px;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--accent);
+}
+.z21-plan-title{
+  font-size:clamp(26px,3.4vw,34px);font-weight:800;
+  letter-spacing:-.035em;line-height:1.1;margin-bottom:10px;
+}
+.z21-plan-desc{font-size:14.5px;color:var(--text-muted);line-height:1.55;margin-bottom:24px}
+
+.z21-price-block{
+  display:flex;align-items:baseline;gap:8px;
+  padding:20px 0 24px;border-bottom:1px solid var(--border);
+  margin-bottom:24px;
+}
+.z21-price-block .amount{
+  font-size:clamp(48px,7vw,64px);font-weight:800;
+  letter-spacing:-.05em;line-height:1;
+}
+.z21-price-block .per{
+  font-size:15px;color:var(--text-muted);font-weight:500;
+}
+.z21-price-block .save{
+  margin-left:auto;padding:5px 12px;
+  background:rgba(48,209,88,.14);color:#7ee89a;
+  border:1px solid rgba(48,209,88,.3);
+  border-radius:100px;font-size:11px;font-weight:800;
+  letter-spacing:.06em;
+}
+
+.z21-features{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:14px}
+.z21-features li{
+  display:flex;align-items:flex-start;gap:12px;
+  font-size:14.5px;color:var(--text-muted);line-height:1.45;
+}
+.z21-features li i{
+  color:var(--accent);font-size:13px;margin-top:4px;
+  flex-shrink:0;width:16px;
+}
+.z21-features li strong{color:var(--text);font-weight:700}
+
+.z21-plan-cta{
+  width:100%;padding:18px;border-radius:100px;
+  background:var(--accent);color:#fff;
+  font-size:16px;font-weight:800;letter-spacing:-.01em;
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:10px;transition:all .25s;
+  box-shadow:0 12px 32px var(--accent-glow);
+}
+.z21-plan-cta:hover:not(:disabled){
+  background:var(--accent-2);transform:translateY(-2px);
+  box-shadow:0 18px 44px var(--accent-glow);
+}
+.z21-plan-cta:disabled{
+  background:var(--surface-3);color:var(--text-dim);
+  box-shadow:none;cursor:not-allowed;transform:none;
+}
+.z21-plan-note{
+  text-align:center;font-size:12.5px;color:var(--text-dim);
+  margin-top:14px;line-height:1.5;
+}
+
+/* HOW IT WORKS */
+.z21-how{max-width:900px;margin:64px auto 40px}
+.z21-section-head{text-align:center;margin-bottom:40px}
+.z21-section-head h2{
+  font-size:clamp(24px,3vw,32px);font-weight:800;
+  letter-spacing:-.03em;margin-bottom:10px;
+}
+.z21-section-head p{color:var(--text-muted);font-size:15px}
+.z21-steps{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:20px;
+}
+.z21-step{
+  padding:26px 22px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  transition:all .25s;
+}
+.z21-step:hover{border-color:var(--border-2);transform:translateY(-3px)}
+.z21-step-num{
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(250,36,60,.14);
+  border:1px solid rgba(250,36,60,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;color:var(--accent);
+  margin-bottom:16px;
+}
+.z21-step h3{font-size:15px;font-weight:700;margin-bottom:8px;letter-spacing:-.02em}
+.z21-step p{font-size:13.5px;color:var(--text-muted);line-height:1.55}
+
+/* FAQ */
+.z21-faq{max-width:760px;margin:48px auto 80px}
+.z21-faq-item{
+  border-bottom:1px solid var(--border);
+  padding:20px 0;
+}
+.z21-faq-item:last-child{border-bottom:none}
+.z21-faq-q{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:16px;font-size:15px;font-weight:700;
+  cursor:pointer;user-select:none;letter-spacing:-.01em;
+  transition:color .2s;
+}
+.z21-faq-q:hover{color:var(--accent)}
+.z21-faq-q i{transition:transform .25s;color:var(--text-dim);font-size:12px}
+.z21-faq-item.open .z21-faq-q i{transform:rotate(45deg);color:var(--accent)}
+.z21-faq-a{
+  max-height:0;overflow:hidden;
+  transition:max-height .3s ease,padding .3s ease;
+  font-size:14px;color:var(--text-muted);line-height:1.65;
+}
+.z21-faq-item.open .z21-faq-a{
+  max-height:340px;padding-top:12px;
+}
+
+/* BOTTOM NAV */
+.z21-bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;
+  height:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  background:rgba(0,0,0,.85);
+  backdrop-filter:saturate(180%) blur(24px);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  border-top:1px solid var(--border);
+  display:none;z-index:99;
+}
+.z21-bottom-nav-inner{display:flex;height:var(--bottom-nav-h)}
+.z21-bottom-link{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;font-size:10px;font-weight:600;color:var(--text-dim);
+  transition:color .2s;position:relative;
+}
+.z21-bottom-link i{font-size:17px}
+.z21-bottom-link.active{color:var(--accent)}
+
+/* MODAL */
+.z21-modal{
+  position:fixed;inset:0;z-index:1000;display:none;
+  align-items:center;justify-content:center;padding:16px;
+  background:rgba(0,0,0,.75);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  animation:z21FadeIn .2s ease;
+}
+.z21-modal.open{display:flex}
+@keyframes z21FadeIn{from{opacity:0}to{opacity:1}}
+
+.z21-modal-panel{
+  background:var(--surface);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-xl);
+  width:100%;max-width:560px;max-height:92vh;
+  overflow-y:auto;
+  box-shadow:0 40px 120px rgba(0,0,0,.7);
+  animation:z21SlideUp .3s cubic-bezier(.25,1,.5,1);
+  position:relative;
+}
+@keyframes z21SlideUp{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.z21-modal-head{
+  padding:26px 26px 0;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+}
+.z21-modal-head h2{font-size:22px;font-weight:800;letter-spacing:-.025em;line-height:1.15}
+.z21-modal-head p{font-size:14px;color:var(--text-muted);margin-top:6px;line-height:1.5}
+.z21-modal-close{
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:14px;flex-shrink:0;
+  transition:all .2s;
+}
+.z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
+.z21-modal-body{padding:20px 26px 26px}
+
+/* Steps indicator */
+.z21-steps-ind{
+  display:flex;gap:8px;margin-bottom:22px;
+}
+.z21-step-pill{
+  flex:1;height:4px;border-radius:4px;
+  background:rgba(255,255,255,.08);
+  transition:background .3s;
+}
+.z21-step-pill.active{background:var(--accent)}
+.z21-step-pill.done{background:rgba(250,36,60,.5)}
+
+/* Form fields */
+.z21-field{margin-bottom:14px}
+.z21-field label{
+  display:block;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-muted);margin-bottom:7px;
+}
+.z21-field input,
+.z21-field select,
+.z21-field textarea{
+  width:100%;padding:13px 16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text);font-size:15px;font-weight:500;
+  outline:none;transition:all .2s;
+}
+.z21-field input:focus,
+.z21-field select:focus,
+.z21-field textarea:focus{
+  border-color:rgba(250,36,60,.6);
+  background:var(--surface-3);
+  box-shadow:0 0 0 4px rgba(250,36,60,.09);
+}
+.z21-field textarea{min-height:70px;resize:vertical;line-height:1.5}
+.z21-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.z21-field-optional{
+  font-size:11px;color:var(--text-dim);
+  text-transform:none;letter-spacing:0;font-weight:500;margin-left:4px;
+}
+
+.z21-form-msg{
+  padding:11px 14px;border-radius:10px;
+  font-size:13px;font-weight:500;
+  margin-bottom:14px;display:none;line-height:1.5;
+}
+.z21-form-msg.show{display:block}
+.z21-form-msg.error{background:rgba(250,36,60,.1);border:1px solid rgba(250,36,60,.3);color:#ff9aa5}
+.z21-form-msg.success{background:rgba(48,209,88,.1);border:1px solid rgba(48,209,88,.3);color:#7ee89a}
+
+.z21-btn-full{
+  width:100%;padding:15px;border-radius:100px;
+  font-size:15px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;margin-top:6px;transition:all .2s;
+}
+.z21-btn-full.primary{background:var(--accent);color:#fff}
+.z21-btn-full.primary:hover:not(:disabled){background:var(--accent-2);transform:translateY(-1px)}
+.z21-btn-full.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.z21-btn-full.secondary:hover{background:var(--surface-3)}
+.z21-btn-full:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+.z21-divider{
+  display:flex;align-items:center;gap:12px;
+  margin:18px 0;color:var(--text-dim);
+  font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.1em;
+}
+.z21-divider::before,
+.z21-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Order summary */
+.z21-order{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;margin-bottom:20px;
+}
+.z21-order-row{
+  display:flex;justify-content:space-between;gap:16px;
+  padding:9px 0;font-size:14px;
+}
+.z21-order-row:not(:last-child){border-bottom:1px solid var(--border)}
+.z21-order-row span:first-child{color:var(--text-muted)}
+.z21-order-row span:last-child{font-weight:700;text-align:right;max-width:60%}
+.z21-order-row.total span:last-child{font-size:22px;color:var(--accent);letter-spacing:-.02em}
+
+/* INVOICE VIEW */
+.z21-inv-wrap{max-width:820px;margin:0 auto}
+.z21-inv-card{
+  background:var(--surface);
+  border:1px solid var(--border-2);
+  border-radius:var(--radius-xl);
+  overflow:hidden;
+}
+.z21-inv-head{
+  background:linear-gradient(135deg,#1a1a1e 0%,#0e0e10 100%);
+  padding:24px 28px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;gap:14px;
+}
+.z21-inv-brand{display:flex;align-items:center;gap:12px}
+.z21-inv-brand .mark{
+  width:40px;height:40px;border-radius:11px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:900;color:#fff;
+}
+.z21-inv-brand .name{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.z21-inv-brand .name span{color:var(--accent)}
+.z21-inv-num{text-align:right}
+.z21-inv-num small{
+  display:block;font-size:10px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:4px;
+}
+.z21-inv-num strong{
+  font-size:16px;font-weight:800;letter-spacing:.02em;
+  font-family:'SF Mono',Menlo,monospace;
+}
+
+.z21-inv-body{padding:28px;position:relative}
+.z21-unpaid-stamp{
+  position:absolute;top:24px;right:32px;
+  padding:10px 20px;
+  border:3px solid var(--warn);color:var(--warn);
+  font-size:20px;font-weight:900;letter-spacing:.08em;
+  text-transform:uppercase;
+  transform:rotate(8deg);
+  opacity:.7;
+  background:rgba(255,159,10,.05);
+  border-radius:8px;
+  pointer-events:none;z-index:5;
+}
+.z21-unpaid-stamp small{
+  display:block;font-size:9px;font-weight:600;
+  letter-spacing:.1em;text-align:center;margin-top:2px;
+  opacity:.8;
+}
+
+.z21-inv-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;
+}
+.z21-inv-grid h4{
+  font-size:10.5px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:8px;
+}
+.z21-inv-grid .name{font-size:16px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
+.z21-inv-grid .email{font-size:13px;color:var(--text-muted);word-break:break-word}
+
+.z21-inv-meta .row{
+  display:flex;justify-content:space-between;
+  padding:6px 0;font-size:13px;
+  border-bottom:1px solid var(--border);
+}
+.z21-inv-meta .row:last-child{border-bottom:none}
+.z21-inv-meta .row span:first-child{color:var(--text-muted)}
+.z21-inv-meta .row span:last-child{font-weight:700}
+
+.z21-inv-items{
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  overflow:hidden;margin-bottom:20px;
+}
+.z21-inv-items .head{
+  background:var(--surface-2);
+  padding:12px 16px;
+  display:flex;justify-content:space-between;
+  font-size:10.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-dim);
+}
+.z21-inv-items .item{
+  padding:16px;
+  display:flex;justify-content:space-between;
+  align-items:center;gap:16px;
+}
+.z21-inv-items .item .desc{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.z21-inv-items .item .sub{font-size:12px;color:var(--text-muted);margin-top:3px}
+.z21-inv-items .item .amt{font-size:15px;font-weight:800}
+
+.z21-inv-total{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 20px;
+  background:rgba(250,36,60,.06);
+  border:1px solid rgba(250,36,60,.2);
+  border-radius:var(--radius);
+  margin-bottom:24px;
+}
+.z21-inv-total span:first-child{
+  font-size:12px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-muted);
+}
+.z21-inv-total span:last-child{
+  font-size:28px;font-weight:900;
+  color:var(--accent);letter-spacing:-.03em;
+}
+
+.z21-inv-note{
+  padding:16px 20px;
+  background:rgba(255,159,10,.06);
+  border-left:3px solid var(--warn);
+  border-radius:var(--radius-sm);
+  margin-bottom:24px;
+  font-size:13.5px;line-height:1.6;
+  color:var(--text-muted);
+}
+.z21-inv-note strong{color:#ffce8a}
+
+.z21-payment-methods{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;margin-bottom:24px;
+}
+.z21-pm{
+  padding:18px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius);
+  transition:all .25s;
+}
+.z21-pm:hover{border-color:var(--border-2);transform:translateY(-2px)}
+.z21-pm-icon{
+  width:44px;height:44px;border-radius:11px;
+  background:var(--surface-3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:var(--accent);margin-bottom:12px;
+}
+.z21-pm-name{font-size:13.5px;font-weight:700;margin-bottom:6px}
+.z21-pm-detail{
+  font-size:14px;font-weight:800;
+  font-family:'SF Mono',Menlo,monospace;
+  letter-spacing:-.01em;margin-bottom:3px;
+}
+.z21-pm-account{font-size:11.5px;color:var(--text-dim)}
+
+.z21-inv-actions{
+  display:flex;gap:10px;flex-wrap:wrap;
+  padding-top:22px;border-top:1px solid var(--border);
+}
+.z21-inv-actions .z21-btn-status{flex:1;justify-content:center;min-width:160px}
+
+/* TOAST */
+.z21-toast-wrap{
+  position:fixed;top:80px;left:50%;transform:translateX(-50%);
+  z-index:2000;display:flex;flex-direction:column;gap:8px;
+  max-width:90vw;pointer-events:none;
+}
+.z21-toast{
+  padding:13px 20px;background:var(--surface-2);
+  border:1px solid var(--border-2);border-radius:100px;
+  font-size:13.5px;font-weight:600;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 16px 48px rgba(0,0,0,.6);
+  pointer-events:auto;
+  animation:z21ToastIn .3s cubic-bezier(.25,1,.5,1);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+}
+@keyframes z21ToastIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+.z21-toast.success{border-color:rgba(48,209,88,.4);color:#7ee89a}
+.z21-toast.success i{color:var(--success)}
+.z21-toast.error{border-color:rgba(250,36,60,.4);color:#ff9aa5}
+.z21-toast.error i{color:var(--accent)}
+.z21-toast.info i{color:var(--text-muted)}
+
+/* SKELETON */
+.z21-skel-line{
+  height:14px;border-radius:6px;
+  background:linear-gradient(90deg,var(--surface-2) 0%,var(--surface-3) 50%,var(--surface-2) 100%);
+  background-size:200% 100%;animation:z21Shimmer 1.4s infinite;
+  margin-bottom:10px;
+}
+@keyframes z21Shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .z21-nav-links{display:none}
+  .z21-bottom-nav{display:block}
+  .z21-inv-grid{grid-template-columns:1fr;gap:16px}
+  .z21-unpaid-stamp{font-size:14px;padding:7px 12px;top:16px;right:16px}
+  .z21-unpaid-stamp small{font-size:7px}
+}
+@media(max-width:640px){
+  .z21-hero{padding-top:28px}
+  .z21-status-meta{grid-template-columns:1fr 1fr}
+  .z21-field-row{grid-template-columns:1fr;gap:0}
+  .z21-modal-panel{border-radius:22px}
+  .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
+  .z21-inv-body{padding:20px}
+  .z21-inv-head{padding:18px 20px}
+  .z21-payment-methods{grid-template-columns:1fr}
+  .z21-inv-actions .z21-btn-status{flex:1;min-width:auto;padding:12px 16px;font-size:13px}
+  .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="z21-nav">
+  <a href="Discover.html" class="z21-logo">
+    <div class="z21-logo-mark">Z</div>
+    Zone<span>21</span>
+  </a>
+  <div class="z21-nav-links">
+    <a href="Discover.html" class="z21-nav-link">Home</a>
+    <a href="bookingsub.html" class="z21-nav-link active">Subscription</a>
+    <a href="bookinginbox.html" class="z21-nav-link">Inbox</a>
+    <a href="support.html" class="z21-nav-link">Support</a>
+    <a href="account.html" class="z21-nav-link">My Account</a>
+  </div>
+  <div class="z21-nav-user" id="navUser">
+    <button class="z21-btn-nav" id="navSignInBtn">Sign In</button>
+  </div>
+</nav>
+
+<div class="z21-user-menu" id="userMenu">
+  <div class="z21-user-menu-head">
+    <strong id="menuName">—</strong>
+    <small id="menuEmail">—</small>
+  </div>
+  <a href="account.html" class="z21-menu-item"><i class="fas fa-user"></i> My Account</a>
+  <a href="bookingsub.html" class="z21-menu-item"><i class="fas fa-crown"></i> Subscription</a>
+  <a href="bookinginbox.html" class="z21-menu-item"><i class="fas fa-inbox"></i> Inbox</a>
+  <a href="support.html" class="z21-menu-item"><i class="fas fa-headset"></i> Support</a>
+  <button class="z21-menu-item danger" id="menuSignOut"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+</div>
+
+<!-- PAGE -->
+<div class="z21-page">
+
+  <!-- HERO -->
+  <section class="z21-hero">
+    <div class="z21-hero-tag"><i class="fas fa-crown"></i> Zone21 Membership</div>
+    <h1>One plan.<br><span class="grad">Full access.</span></h1>
+    <p>Unlock unlimited artist bookings, priority support, and every Zone21 tool — for a full year.</p>
+  </section>
+
+  <!-- STATUS -->
+  <div class="z21-status-wrap" id="statusWrap">
+    <div class="z21-status-card" id="statusCard">
+      <div class="z21-status-inner">
+        <div class="z21-skel-line" style="width:120px"></div>
+        <div class="z21-skel-line" style="width:60%;height:22px;margin-top:14px"></div>
+        <div class="z21-skel-line" style="width:80%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAN CARD -->
+  <section class="z21-plan-wrap" id="planSection">
+    <div class="z21-plan-card">
+      <div class="z21-plan-inner">
+        <div class="z21-plan-head">
+          <div class="z21-plan-crown"><i class="fas fa-crown"></i></div>
+          <div class="z21-plan-label" id="planLabel">Full Access — Annual</div>
+        </div>
+        <h2 class="z21-plan-title" id="planTitle">Everything. For a full year.</h2>
+        <p class="z21-plan-desc" id="planDesc">Unlimited artist booking requests, priority event support, and full access to the Zone21 platform.</p>
+
+        <div class="z21-price-block">
+          <span class="amount">$150</span>
+          <span class="per">/ year</span>
+          <span class="save">BEST VALUE</span>
+        </div>
+
+        <ul class="z21-features">
+          <li><i class="fas fa-circle-check"></i> <span><strong>Unlimited booking requests</strong> — book as many artists as you want</span></li>
+          <li><i class="fas fa-circle-check"></i> <span><strong>Full artist roster access</strong> — every performer on Zone21</span></li>
+          <li><i class="fas fa-circle-check"></i> <span><strong>Priority admin responses</strong> — your requests go to the top</span></li>
+          <li><i class="fas fa-circle-check"></i> <span><strong>Direct WhatsApp line</strong> to the Zone21 team</span></li>
+          <li><i class="fas fa-circle-check"></i> <span><strong>Booking history & inbox</strong> — manage every request in one place</span></li>
+          <li><i class="fas fa-circle-check"></i> <span><strong>Cancel anytime</strong> — no long-term contract</span></li>
+        </ul>
+
+        <button class="z21-plan-cta" id="planCta" disabled>
+          <i class="fas fa-crown"></i>
+          <span id="planCtaText">Subscribe — $150 / year</span>
+        </button>
+        <div class="z21-plan-note">
+          Secure manual payment · EcoCash, Innbucks, or bank transfer · Activated within 24 hours
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="z21-how">
+    <div class="z21-section-head">
+      <h2>How activation works</h2>
+      <p>Manual payments — verified by the Zone21 team within 24 hours.</p>
+    </div>
+    <div class="z21-steps">
+      <div class="z21-step">
+        <div class="z21-step-num">1</div>
+        <h3>Generate your invoice</h3>
+        <p>Click Subscribe and confirm your details. A unique invoice is created instantly.</p>
+      </div>
+      <div class="z21-step">
+        <div class="z21-step-num">2</div>
+        <h3>Pay & submit proof</h3>
+        <p>Transfer $150 via EcoCash, Innbucks or bank. Upload your proof of payment.</p>
+      </div>
+      <div class="z21-step">
+        <div class="z21-step-num">3</div>
+        <h3>Get activated</h3>
+        <p>Admin reviews and approves. Your subscription goes live — start booking instantly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="z21-faq">
+    <div class="z21-section-head">
+      <h2>Questions</h2>
+    </div>
+    <div class="z21-faq-item">
+      <div class="z21-faq-q">Is $150 a one-time payment or monthly? <i class="fas fa-plus"></i></div>
+      <div class="z21-faq-a">One payment of $150 covers a full year of unlimited access. No hidden fees, no automatic charges — you renew manually when you're ready.</div>
+    </div>
+    <div class="z21-faq-item">
+      <div class="z21-faq-q">What happens when my subscription expires? <i class="fas fa-plus"></i></div>
+      <div class="z21-faq-a">Your account stays active but booking is locked. You can still browse artists and manage existing requests — you just can't send new ones until you renew.</div>
+    </div>
+    <div class="z21-faq-item">
+      <div class="z21-faq-q">Can I renew early? <i class="fas fa-plus"></i></div>
+      <div class="z21-faq-a">Yes. If you renew while still active, the new 12 months are added on top of your existing expiry — you never lose days.</div>
+    </div>
+    <div class="z21-faq-item">
+      <div class="z21-faq-q">How long does approval take? <i class="fas fa-plus"></i></div>
+      <div class="z21-faq-a">Typically within 2 hours during the day, and always within 24 hours. You'll be notified in your inbox the moment it's approved.</div>
+    </div>
+    <div class="z21-faq-item">
+      <div class="z21-faq-q">What if my payment is rejected? <i class="fas fa-plus"></i></div>
+      <div class="z21-faq-a">You'll receive a notification with the reason. You can generate a new invoice and try again, or contact support via WhatsApp for help.</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="z21-bottom-nav">
+  <div class="z21-bottom-nav-inner">
+    <a href="Discover.html" class="z21-bottom-link"><i class="fas fa-compass"></i> Home</a>
+    <a href="bookingsub.html" class="z21-bottom-link active"><i class="fas fa-crown"></i> Plans</a>
+    <a href="bookinginbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i> Inbox</a>
+    <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i> Support</a>
+    <a href="account.html" class="z21-bottom-link"><i class="fas fa-user"></i> Account</a>
+  </div>
+</nav>
+
+<!-- CHECKOUT MODAL -->
+<div class="z21-modal" id="checkoutModal">
+  <div class="z21-modal-panel">
+    <div class="z21-modal-head">
+      <div>
+        <h2>Confirm your details</h2>
+        <p>We'll generate your invoice in the next step.</p>
+      </div>
+      <button class="z21-modal-close" data-close="checkoutModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-steps-ind">
+        <div class="z21-step-pill active"></div>
+        <div class="z21-step-pill"></div>
+      </div>
+      <div class="z21-form-msg" id="checkoutMsg"></div>
+      <form id="checkoutForm">
+        <div class="z21-field-row">
+          <div class="z21-field">
+            <label>First Name</label>
+            <input type="text" id="coFname" required placeholder="John">
+          </div>
+          <div class="z21-field">
+            <label>Last Name</label>
+            <input type="text" id="coLname" required placeholder="Doe">
+          </div>
+        </div>
+        <div class="z21-field">
+          <label>Email</label>
+          <input type="email" id="coEmail" required>
+        </div>
+        <div class="z21-field">
+          <label>Phone (WhatsApp)</label>
+          <input type="tel" id="coPhone" required placeholder="+263 78 000 0000">
+        </div>
+        <div class="z21-field">
+          <label>City / Location <span class="z21-field-optional">(optional)</span></label>
+          <input type="text" id="coCity" placeholder="e.g. Harare">
+        </div>
+        <button type="submit" class="z21-btn-full primary" id="checkoutSubmit">
+          <i class="fas fa-file-invoice"></i> Generate Invoice
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- INVOICE MODAL -->
+<div class="z21-modal" id="invoiceModal">
+  <div class="z21-modal-panel" style="max-width:820px">
+    <div class="z21-inv-wrap">
+      <div class="z21-inv-card">
+        <div class="z21-inv-head">
+          <div class="z21-inv-brand">
+            <div class="mark">Z</div>
+            <div class="name">Zone<span>21</span></div>
+          </div>
+          <div class="z21-inv-num">
+            <small>Invoice Number</small>
+            <strong id="invNumber">INV-000000</strong>
+          </div>
+          <button class="z21-modal-close" data-close="invoiceModal" style="position:absolute;top:14px;right:14px">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="z21-inv-body">
+          <div class="z21-unpaid-stamp">
+            Pending
+            <small>awaiting verification</small>
+          </div>
+
+          <div class="z21-inv-grid">
+            <div>
+              <h4>Billed To</h4>
+              <div class="name" id="invName">—</div>
+              <div class="email" id="invEmail">—</div>
+            </div>
+            <div class="z21-inv-meta">
+              <h4>Invoice Details</h4>
+              <div class="row"><span>Date</span><span id="invDate">—</span></div>
+              <div class="row"><span>Status</span><span style="color:var(--warn)">PENDING</span></div>
+              <div class="row"><span>Method</span><span>Manual Transfer</span></div>
+            </div>
+          </div>
+
+          <div class="z21-inv-items">
+            <div class="head">
+              <span>Description</span>
+              <span>Amount</span>
+            </div>
+            <div class="item">
+              <div>
+                <div class="desc">Full Access — Annual Subscription</div>
+                <div class="sub">12 months unlimited artist booking · <span id="invRenewalNote"></span></div>
+              </div>
+              <div class="amt">$150.00</div>
+            </div>
+          </div>
+
+          <div class="z21-inv-total">
+            <span>Total Payable</span>
+            <span>$150.00</span>
+          </div>
+
+          <div class="z21-inv-note">
+            <strong>📌 Manual Payment Required</strong><br>
+            Transfer exactly <strong>$150.00 USD</strong> to one of the accounts below.<br>
+            Use <strong id="invRefNote">INV-000000</strong> as your payment reference.
+          </div>
+
+          <div class="z21-payment-methods">
+            <div class="z21-pm">
+              <div class="z21-pm-icon"><i class="fas fa-mobile-alt"></i></div>
+              <div class="z21-pm-name">EcoCash</div>
+              <div class="z21-pm-detail">078 991 2268</div>
+              <div class="z21-pm-account">Tanatswa Dean Mwanza</div>
+            </div>
+            <div class="z21-pm">
+              <div class="z21-pm-icon"><i class="fas fa-wallet"></i></div>
+              <div class="z21-pm-name">Innbucks</div>
+              <div class="z21-pm-detail">078 991 2268</div>
+              <div class="z21-pm-account">Tanatswa Dean Mwanza</div>
+            </div>
+            <div class="z21-pm">
+              <div class="z21-pm-icon"><i class="fas fa-university"></i></div>
+              <div class="z21-pm-name">TN CyberTech Bank</div>
+              <div class="z21-pm-detail">4638 3300 1429 9948</div>
+              <div class="z21-pm-account">Corporate Account</div>
+            </div>
+          </div>
+
+          <div class="z21-inv-actions">
+            <button class="z21-btn-status ghost" id="invPrintBtn"><i class="fas fa-print"></i> Print</button>
+            <button class="z21-btn-status ghost" id="invWhatsBtn"><i class="fab fa-whatsapp"></i> Send Proof via WhatsApp</button>
+            <a href="support.html" class="z21-btn-status primary"><i class="fas fa-upload"></i> Upload Proof</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="z21-toast-wrap" id="toastWrap"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, addDoc, collection,
+  getDocs, query, where, serverTimestamp, updateDoc, deleteField
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+  authDomain: "zone21.firebaseapp.com",
+  projectId: "zone21",
+  storageBucket: "zone21.firebasestorage.app",
+  messagingSenderId: "405963057292",
+  appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+  measurementId: "G-KE007Y89F1"
+};
+
+const PLAN = {
+  id: 'annual',
+  name: 'Full Access — Annual',
+  price: 150,
+  months: 12
+};
+
+const ADMIN_WHATSAPP = '263789912268';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+let currentUser = null;
+let userProfile = null;
+let subscription = null;   // current sub doc data (with id)
+let currentInvoice = null; // invoice just generated (for modal)
+let isRenewalFlow = false;
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+
+function escapeHTML(s){
+  if(s == null) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function showToast(msg, type = 'info'){
+  const wrap = $('toastWrap');
+  const t = document.createElement('div');
+  t.className = `z21-toast ${type}`;
+  const icon = type === 'success' ? 'fa-circle-check'
+             : type === 'error' ? 'fa-circle-exclamation'
+             : 'fa-circle-info';
+  t.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHTML(msg)}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateY(-10px)';
+    t.style.transition = 'all .3s';
+    setTimeout(() => t.remove(), 300);
+  }, 3600);
+}
+
+function showFormMsg(elId, msg, type = 'error'){
+  const el = $(elId);
+  el.textContent = msg;
+  el.className = `z21-form-msg show ${type}`;
+}
+function clearFormMsg(elId){
+  const el = $(elId);
+  el.textContent = '';
+  el.className = 'z21-form-msg';
+}
+
+function openModal(id){
+  $(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id){
+  $(id).classList.remove('open');
+  if(!document.querySelector('.z21-modal.open')) document.body.style.overflow = '';
+}
+
+function genInvoiceNumber(){
+  return 'INV-' + Math.floor(100000 + Math.random() * 900000);
+}
+
+function fmtDate(d){
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function toDate(ts){
+  if(!ts) return null;
+  if(typeof ts.toDate === 'function') return ts.toDate();
+  if(typeof ts.toMillis === 'function') return new Date(ts.toMillis());
+  if(ts.seconds) return new Date(ts.seconds * 1000);
+  return new Date(ts);
+}
+
+function daysBetween(a, b){
+  return Math.ceil((b - a) / 86400000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH
+   ═══════════════════════════════════════════════════════════ */
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+
+  if(!user){
+    userProfile = null;
+    subscription = null;
+    renderNavUser();
+    renderStatus();
+    return;
+  }
+
+  try{
+    const uDoc = await getDoc(doc(db, 'users', user.uid));
+    userProfile = uDoc.exists() ? uDoc.data() : {};
+    if(!userProfile.email) userProfile.email = user.email || '';
+    if(!userProfile.name) userProfile.name = user.displayName || (user.email || '').split('@')[0];
+  }catch(e){
+    console.warn('Profile load error:', e);
+    userProfile = { name: user.displayName || 'Member', email: user.email };
+  }
+
+  await loadSubscription();
+  renderNavUser();
+  renderStatus();
+});
+
+async function loadSubscription(){
+  if(!currentUser) return;
+  try{
+    const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${PLAN.id}`);
+    const snap = await getDoc(subRef);
+    if(snap.exists()){
+      subscription = { id: snap.id, ...snap.data() };
+    } else {
+      subscription = null;
+    }
+  }catch(e){
+    console.warn('Subscription load error:', e);
+    subscription = null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAV USER
+   ═══════════════════════════════════════════════════════════ */
+function renderNavUser(){
+  const zone = $('navUser');
+  if(currentUser && userProfile){
+    const initial = (userProfile.name || 'U').charAt(0).toUpperCase();
+    const avatarHtml = userProfile.avatarUrl
+      ? `<img src="${escapeHTML(userProfile.avatarUrl)}" alt="">`
+      : initial;
+    zone.innerHTML = `<button class="z21-avatar" id="navAvatar" aria-label="Open account menu">${avatarHtml}</button>`;
+    $('navAvatar').addEventListener('click', (e) => {
+      e.stopPropagation();
+      $('menuName').textContent = userProfile.name || 'Member';
+      $('menuEmail').textContent = userProfile.email || currentUser.email || '';
+      $('userMenu').classList.toggle('open');
+    });
+  } else {
+    zone.innerHTML = `<a href="Discover.html" class="z21-btn-nav">Sign In</a>`;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const menu = $('userMenu');
+  if(menu.classList.contains('open') && !menu.contains(e.target) && !e.target.closest('#navAvatar')){
+    menu.classList.remove('open');
+  }
+});
+
+$('menuSignOut').addEventListener('click', async () => {
+  await signOut(auth);
+  $('userMenu').classList.remove('open');
+  showToast('Signed out.', 'info');
+  setTimeout(() => window.location.reload(), 400);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   STATUS RENDER
+   ═══════════════════════════════════════════════════════════ */
+function renderStatus(){
+  const card = $('statusCard');
+
+  /* ─── Not signed in ─── */
+  if(!currentUser){
+    card.className = 'z21-status-card';
+    card.innerHTML = `
+      <div class="z21-status-inner">
+        <div class="z21-status-top">
+          <span class="z21-status-badge none"><span class="dot"></span> Not subscribed</span>
+        </div>
+        <div class="z21-status-title">Sign in to subscribe</div>
+        <p class="z21-status-desc">Create a free Zone21 account or sign in to unlock your full-access subscription.</p>
+        <div class="z21-status-actions">
+          <a href="Discover.html" class="z21-btn-status primary"><i class="fas fa-arrow-right"></i> Go to Sign In</a>
+        </div>
+      </div>`;
+    setPlanCtaState('signin');
+    return;
+  }
+
+  /* ─── No sub yet ─── */
+  if(!subscription){
+    card.className = 'z21-status-card';
+    card.innerHTML = `
+      <div class="z21-status-inner">
+        <div class="z21-status-top">
+          <span class="z21-status-badge none"><span class="dot"></span> Not subscribed</span>
+        </div>
+        <div class="z21-status-title">You're not subscribed yet</div>
+        <p class="z21-status-desc">Subscribe below to unlock unlimited artist booking requests. You can browse artists freely until then.</p>
+      </div>`;
+    setPlanCtaState('subscribe');
+    return;
+  }
+
+  const status = subscription.status || 'pending_payment';
+  const renewalPending = !!subscription.renewalPending;
+  const approvedAt = toDate(subscription.approvedAt);
+  const expiresAt = toDate(subscription.expiresAt) 
+                 || (approvedAt ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000) : null);
+
+  /* ─── Pending payment (first-time) ─── */
+  if(status === 'pending_payment' && !renewalPending){
+    card.className = 'z21-status-card pending';
+    card.innerHTML = `
+      <div class="z21-status-inner">
+        <div class="z21-status-top">
+          <span class="z21-status-badge pending"><span class="dot"></span> Payment pending</span>
+          <span class="z21-status-ref">${escapeHTML(subscription.invoiceNumber || '')}</span>
+        </div>
+        <div class="z21-status-title">We're reviewing your payment</div>
+        <p class="z21-status-desc">Your invoice has been generated. Once you've paid and submitted proof, the admin will verify and activate your subscription within 24 hours.</p>
+        <div class="z21-status-meta">
+          <div class="z21-status-meta-item">
+            <small>Amount</small>
+            <strong>$${PLAN.price}.00</strong>
+          </div>
+          <div class="z21-status-meta-item">
+            <small>Invoice</small>
+            <strong style="font-family:'SF Mono',monospace;font-size:14px">${escapeHTML(subscription.invoiceNumber || '—')}</strong>
+          </div>
+        </div>
+        <div class="z21-status-actions">
+          <button class="z21-btn-status primary" id="viewInvoiceBtn"><i class="fas fa-file-invoice"></i> View Invoice</button>
+          <a href="support.html" class="z21-btn-status ghost"><i class="fas fa-upload"></i> Upload Proof</a>
+          <a href="https://wa.me/${ADMIN_WHATSAPP}?text=Hi%20Zone21%2C%20I%27ve%20paid%20${encodeURIComponent(subscription.invoiceNumber||'')}%20and%20would%20like%20to%20confirm." target="_blank" class="z21-btn-status ghost"><i class="fab fa-whatsapp"></i> Notify Admin</a>
+        </div>
+      </div>`;
+    $('viewInvoiceBtn').addEventListener('click', () => viewExistingInvoice(subscription.invoiceNumber));
+    setPlanCtaState('pending');
+    return;
+  }
+
+  /* ─── Rejected ─── */
+  if(status === 'rejected'){
+    card.className = 'z21-status-card';
+    card.innerHTML = `
+      <div class="z21-status-inner">
+        <div class="z21-status-top">
+          <span class="z21-status-badge none"><span class="dot"></span> Payment rejected</span>
+          <span class="z21-status-ref">${escapeHTML(subscription.invoiceNumber || '')}</span>
+        </div>
+        <div class="z21-status-title">Your last payment wasn't approved</div>
+        <p class="z21-status-desc">This can happen if the payment didn't arrive or the reference didn't match. You can try again below, or contact support if you believe this is a mistake.</p>
+        <div class="z21-status-actions">
+          <button class="z21-btn-status primary" id="retryBtn"><i class="fas fa-rotate-right"></i> Try Again</button>
+          <a href="https://wa.me/${ADMIN_WHATSAPP}" target="_blank" class="z21-btn-status ghost"><i class="fab fa-whatsapp"></i> Contact Support</a>
+        </div>
+      </div>`;
+    $('retryBtn').addEventListener('click', () => startCheckout(false));
+    setPlanCtaState('retry');
+    return;
+  }
+
+  /* ─── Active ─── */
+  if(status === 'active' || status === 'approved'){
+    const now = new Date();
+    const daysLeft = expiresAt ? Math.max(0, daysBetween(now, expiresAt)) : 0;
+    const totalDays = PLAN.months * 30;
+    const pct = Math.max(0, Math.min(100, (daysLeft / totalDays) * 100));
+    const pctClass = daysLeft <= 14 ? 'danger' : daysLeft <= 45 ? 'warn' : '';
+
+    let renewBlock = '';
+    if(renewalPending){
+      renewBlock = `
+        <div style="margin-top:22px;padding:16px 18px;background:rgba(255,159,10,.08);border:1px solid rgba(255,159,10,.28);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <i class="fas fa-hourglass-half" style="color:var(--warn)"></i>
+          <div style="flex:1;min-width:200px;font-size:13.5px;line-height:1.5;color:var(--text-muted)">
+            <strong style="color:#ffce8a;display:block;margin-bottom:2px">Renewal pending</strong>
+            Invoice ${escapeHTML(subscription.renewalInvoiceNumber || '')} · 12 months will be added on approval
+          </div>
+          <button class="z21-btn-status ghost" id="viewRenewalInvBtn" style="padding:9px 18px;font-size:13px">View Invoice</button>
+        </div>`;
+    }
+
+    card.className = 'z21-status-card active';
+    card.innerHTML = `
+      <div class="z21-status-inner">
+        <div class="z21-status-top">
+          <span class="z21-status-badge active"><span class="dot"></span> Subscription active</span>
+          <span class="z21-status-ref">${escapeHTML(subscription.invoiceNumber || '')}</span>
+        </div>
+        <div class="z21-status-title">Full access unlocked 🎉</div>
+        <p class="z21-status-desc">You can book unlimited artists. Renew below anytime — 12 months are added on top of your current expiry.</p>
+
+        <div class="z21-status-meta">
+          <div class="z21-status-meta-item">
+            <small>Days remaining</small>
+            <strong style="font-size:24px;color:${daysLeft<=14?'var(--accent)':'var(--text)'}">${daysLeft}</strong>
+          </div>
+          <div class="z21-status-meta-item">
+            <small>Expires on</small>
+            <strong style="font-size:15px">${expiresAt ? fmtDate(expiresAt) : '—'}</strong>
+          </div>
+          <div class="z21-status-meta-item">
+            <small>Plan</small>
+            <strong style="font-size:15px">$150 / year</strong>
+          </div>
+        </div>
+
+        <div class="z21-progress">
+          <div class="z21-progress-fill ${pctClass}" style="width:${pct}%"></div>
+        </div>
+
+        ${renewBlock}
+
+        <div class="z21-status-actions">
+          <button class="z21-btn-status success" id="renewBtn" ${renewalPending ? 'disabled' : ''}>
+            <i class="fas fa-rotate-right"></i> ${renewalPending ? 'Renewal pending' : 'Renew for 12 months'}
+          </button>
+          <a href="Discover.html" class="z21-btn-status ghost"><i class="fas fa-compass"></i> Book an Artist</a>
+        </div>
+      </div>`;
+
+    if(!renewalPending){
+      $('renewBtn').addEventListener('click', () => startCheckout(true));
+    }
+    if(renewalPending && $('viewRenewalInvBtn')){
+      $('viewRenewalInvBtn').addEventListener('click', () => viewExistingInvoice(subscription.renewalInvoiceNumber));
+    }
+    setPlanCtaState('active');
+    return;
+  }
+
+  /* Fallback */
+  card.className = 'z21-status-card';
+  card.innerHTML = `
+    <div class="z21-status-inner">
+      <div class="z21-status-title">Subscription status: ${escapeHTML(status)}</div>
+      <p class="z21-status-desc">If this looks wrong, please contact support.</p>
+      <div class="z21-status-actions">
+        <a href="support.html" class="z21-btn-status ghost"><i class="fas fa-headset"></i> Contact Support</a>
+      </div>
+    </div>`;
+  setPlanCtaState('subscribe');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PLAN CTA STATE
+   ═══════════════════════════════════════════════════════════ */
+function setPlanCtaState(state){
+  const cta = $('planCta');
+  const txt = $('planCtaText');
+  cta.disabled = false;
+  cta.onclick = null;
+  cta.style.display = '';
+
+  switch(state){
+    case 'signin':
+      txt.textContent = 'Sign in to subscribe';
+      cta.onclick = () => { window.location.href = 'Discover.html'; };
+      break;
+    case 'subscribe':
+    case 'retry':
+      txt.textContent = 'Subscribe — $150 / year';
+      cta.onclick = () => startCheckout(false);
+      break;
+    case 'pending':
+      cta.disabled = true;
+      txt.textContent = 'Awaiting admin approval';
+      break;
+    case 'active':
+      txt.textContent = 'Renew — $150 / year';
+      cta.classList.add('secondary-cta');
+      cta.onclick = () => startCheckout(true);
+      break;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHECKOUT
+   ═══════════════════════════════════════════════════════════ */
+function startCheckout(isRenewal){
+  if(!currentUser){
+    showToast('Please sign in first.', 'error');
+    setTimeout(() => { window.location.href = 'Discover.html'; }, 900);
+    return;
+  }
+  isRenewalFlow = !!isRenewal;
+  clearFormMsg('checkoutMsg');
+
+  // Prefill
+  const cust = subscription?.customerInfo || {};
+  $('coFname').value = cust.firstName || (userProfile.name || '').split(' ')[0] || '';
+  $('coLname').value = cust.lastName  || (userProfile.name || '').split(' ').slice(1).join(' ') || '';
+  $('coEmail').value = cust.email || userProfile.email || currentUser.email || '';
+  $('coPhone').value = cust.phone || userProfile.phone || '';
+  $('coCity').value  = cust.address?.city || '';
+
+  openModal('checkoutModal');
+}
+
+$('checkoutForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('checkoutMsg');
+
+  const fname = $('coFname').value.trim();
+  const lname = $('coLname').value.trim();
+  const email = $('coEmail').value.trim();
+  const phone = $('coPhone').value.trim();
+  const city  = $('coCity').value.trim();
+
+  if(!fname || !lname || !email || !phone){
+    showFormMsg('checkoutMsg', 'Please fill in all required fields.', 'error');
+    return;
+  }
+
+  const btn = $('checkoutSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…';
+
+  try{
+    await generateInvoice({ fname, lname, email, phone, city }, isRenewalFlow);
+    closeModal('checkoutModal');
+    // Invoice modal opens inside generateInvoice
+  }catch(err){
+    console.error(err);
+    showFormMsg('checkoutMsg', 'Could not generate invoice: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   GENERATE INVOICE
+   ═══════════════════════════════════════════════════════════ */
+async function generateInvoice(cust, isRenewal){
+  const invNumber = genInvoiceNumber();
+  const uid = currentUser.uid;
+  const subId = `${uid}_${PLAN.id}`;
+  const subRef = doc(db, 'subscriptions', subId);
+
+  // 1. Create invoice
+  await setDoc(doc(db, 'invoices', invNumber), {
+    userId: uid,
+    invoiceNumber: invNumber,
+    packageDetails: {
+      name: PLAN.name,
+      price: PLAN.price,
+      months: PLAN.months,
+      isRenewal: !!isRenewal
+    },
+    customerInfo: {
+      firstName: cust.fname,
+      lastName: cust.lname,
+      email: cust.email,
+      phone: cust.phone,
+      address: { city: cust.city, country: 'Zimbabwe' }
+    },
+    paymentStatus: 'pending_manual_transfer',
+    status: 'pending',
+    createdAt: serverTimestamp()
+  });
+
+  // 2. Update or create subscription
+  const existingSnap = await getDoc(subRef);
+  const existing = existingSnap.exists() ? existingSnap.data() : null;
+
+  if(existing && (existing.status === 'active' || existing.status === 'approved') && isRenewal){
+    // Active sub + renewal → don't disrupt active status, just flag renewal
+    await updateDoc(subRef, {
+      renewalPending: true,
+      renewalInvoiceNumber: invNumber,
+      renewalRequestedAt: serverTimestamp(),
+      customerInfo: {
+        firstName: cust.fname,
+        lastName: cust.lname,
+        email: cust.email,
+        phone: cust.phone,
+        address: { city: cust.city, country: 'Zimbabwe' }
+      },
+      updatedAt: serverTimestamp()
+    });
+  } else {
+    // First-time sub OR retry after rejection → full reset
+    await setDoc(subRef, {
+      userId: uid,
+      planId: PLAN.id,
+      planName: PLAN.name,
+      price: PLAN.price,
+      months: PLAN.months,
+      invoiceNumber: invNumber,
+      status: 'pending_payment',
+      customerInfo: {
+        firstName: cust.fname,
+        lastName: cust.lname,
+        email: cust.email,
+        phone: cust.phone,
+        address: { city: cust.city, country: 'Zimbabwe' }
+      },
+      deletedAt: deleteField(),
+      deletedBy: deleteField(),
+      deletedByEmail: deleteField(),
+      renewalPending: false,
+      createdAt: existing?.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+
+  // 3. Update user doc
+  await setDoc(doc(db, 'users', uid), {
+    activePlan: PLAN.name,
+    subscriptionStatus: isRenewal ? (existing?.status || 'active') : 'pending_payment',
+    latestInvoiceId: invNumber
+  }, { merge: true });
+
+  // 4. Drop a message in the inbox thread
+  try{
+    await addDoc(collection(db, 'messages'), {
+      sender: 'user',
+      senderId: uid,
+      senderType: 'organizer',
+      senderName: `${cust.fname} ${cust.lname}`,
+      recipientId: 'admin',
+      type: 'subscription_invoice',
+      subject: isRenewal ? `Subscription renewal · ${invNumber}` : `New subscription · ${invNumber}`,
+      message: [
+        isRenewal ? 'Subscription renewal requested.' : 'New subscription requested.',
+        '',
+        `Amount: $${PLAN.price}.00`,
+        `Plan: ${PLAN.name} · 12 months`,
+        `Invoice: ${invNumber}`,
+        '',
+        'Payment pending manual transfer. Proof will be submitted via support.'
+      ].join('\n'),
+      invoiceNumber: invNumber,
+      amount: PLAN.price,
+      status: 'unread',
+      createdAt: serverTimestamp()
+    });
+  }catch(e){
+    console.warn('Inbox write failed:', e);
+  }
+
+  showToast(`Invoice ${invNumber} generated.`, 'success');
+
+  // Refresh local state
+  await loadSubscription();
+  renderStatus();
+
+  // Show invoice modal
+  openInvoiceModal({
+    invNumber,
+    fname: cust.fname,
+    lname: cust.lname,
+    email: cust.email,
+    isRenewal
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INVOICE MODAL
+   ═══════════════════════════════════════════════════════════ */
+function openInvoiceModal(data){
+  currentInvoice = data;
+  $('invNumber').textContent = data.invNumber;
+  $('invRefNote').textContent = data.invNumber;
+  $('invName').textContent = `${data.fname} ${data.lname}`;
+  $('invEmail').textContent = data.email;
+  $('invDate').textContent = fmtDate(new Date());
+  $('invRenewalNote').textContent = data.isRenewal
+    ? 'Renewal — 12 months added on approval'
+    : 'First year';
+
+  openModal('invoiceModal');
+}
+
+async function viewExistingInvoice(invNumber){
+  if(!invNumber) return;
+  try{
+    const snap = await getDoc(doc(db, 'invoices', invNumber));
+    if(!snap.exists()){
+      showToast('Invoice not found.', 'error');
+      return;
+    }
+    const d = snap.data();
+    const c = d.customerInfo || {};
+    openInvoiceModal({
+      invNumber,
+      fname: c.firstName || '',
+      lname: c.lastName || '',
+      email: c.email || '',
+      isRenewal: !!d.packageDetails?.isRenewal
+    });
+  }catch(e){
+    console.error(e);
+    showToast('Could not load invoice.', 'error');
+  }
+}
+
+$('invPrintBtn').addEventListener('click', () => window.print());
+
+$('invWhatsBtn').addEventListener('click', () => {
+  if(!currentInvoice) return;
+  const msg = [
+    `Hi Zone21, I've paid my subscription.`,
+    ``,
+    `Invoice: ${currentInvoice.invNumber}`,
+    `Amount: $${PLAN.price}.00`,
+    `Plan: ${PLAN.name} (12 months)`,
+    ``,
+    `Name: ${currentInvoice.fname} ${currentInvoice.lname}`,
+    `Email: ${currentInvoice.email}`,
+    ``,
+    `I'll send proof of payment in the next message.`
+  ].join('\n');
+  window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+});
+
+/* ═══════════════════════════════════════════════════════════
+   FAQ
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.z21-faq-item').forEach(item => {
+  item.querySelector('.z21-faq-q').addEventListener('click', () => {
+    item.classList.toggle('open');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL CLOSE HANDLERS
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.z21-modal').forEach(m => {
+  m.addEventListener('click', (e) => {
+    if(e.target === m) closeModal(m.id);
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.z21-modal.open').forEach(m => closeModal(m.id));
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════════ */
+renderStatus();
+</script>
+</body>
+</html>

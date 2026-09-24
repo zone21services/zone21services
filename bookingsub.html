@@ -16,6 +16,10 @@
   AUTH: In-page modal (sign in / sign up). No redirect.
   After auth, if user was trying to subscribe → checkout auto-resumes.
 
+  LOADING: Full-screen flickering Zone21 logo shows until Firebase
+  Auth resolves (signed in OR signed out). Prevents flash-of-empty
+  content and reflow jumps on first paint.
+
   Firestore writes:
     invoices/{INV-XXXXXX}
     subscriptions/{uid}_annual
@@ -65,6 +69,106 @@ img{display:block;max-width:100%}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+/* ═══════════════════════════════════════════════════════════
+   LOADING SPLASH
+   Full-screen flickering Zone21 logo shown until Firebase Auth
+   resolves (signed in OR signed out).
+   ═══════════════════════════════════════════════════════════ */
+body.z21-loading > *:not(#z21Loader){
+  visibility:hidden;
+}
+body.z21-loading{
+  overflow:hidden;
+}
+
+.z21-loader{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  background:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:opacity .6s ease,visibility .6s ease;
+}
+.z21-loader.hidden{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+
+/* Soft red ambient glow behind the logo */
+.z21-loader::before{
+  content:'';
+  position:absolute;
+  width:520px;
+  height:520px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(250,36,60,.22) 0%,transparent 65%);
+  pointer-events:none;
+  animation:z21Glow 4s ease-in-out infinite;
+}
+
+.z21-loader-logo{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  position:relative;
+  z-index:1;
+  animation:z21Flicker 3.6s ease-in-out infinite;
+}
+
+.z21-loader-mark{
+  width:64px;
+  height:64px;
+  border-radius:16px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:30px;
+  font-weight:900;
+  color:#fff;
+  box-shadow:0 16px 48px var(--accent-glow);
+  flex-shrink:0;
+}
+
+.z21-loader-name{
+  font-size:clamp(28px,6vw,36px);
+  font-weight:800;
+  letter-spacing:-.035em;
+  color:var(--text);
+}
+.z21-loader-name span{color:var(--accent)}
+
+/* Slow organic neon-sign flicker */
+@keyframes z21Flicker{
+  0%   {opacity:1;   filter:brightness(1);  }
+  6%   {opacity:1;   filter:brightness(1);  }
+  7%   {opacity:.5;  filter:brightness(.7); }
+  9%   {opacity:1;   filter:brightness(1);  }
+  22%  {opacity:1;   filter:brightness(1);  }
+  23%  {opacity:.82; filter:brightness(.9); }
+  24%  {opacity:1;   filter:brightness(1);  }
+  50%  {opacity:1;   filter:brightness(1);  }
+  51%  {opacity:.68; filter:brightness(.85);}
+  53%  {opacity:1;   filter:brightness(1);  }
+  71%  {opacity:1;   filter:brightness(1);  }
+  72%  {opacity:.55; filter:brightness(.75);}
+  74%  {opacity:1;   filter:brightness(1);  }
+  100% {opacity:1;   filter:brightness(1);  }
+}
+
+@keyframes z21Glow{
+  0%,100%{opacity:.8;transform:scale(1)}
+  50%    {opacity:1; transform:scale(1.08)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .z21-loader-logo,
+  .z21-loader::before{animation:none}
+}
 
 /* NAV */
 .z21-nav{
@@ -778,7 +882,18 @@ img{display:block;max-width:100%}
 }
 </style>
 </head>
-<body>
+<body class="z21-loading">
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOADING SPLASH
+     Removed by JS once Firebase Auth resolves.
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-loader" id="z21Loader" aria-hidden="true">
+  <div class="z21-loader-logo">
+    <div class="z21-loader-mark">Z</div>
+    <div class="z21-loader-name">Zone<span>21</span></div>
+  </div>
+</div>
 
 <!-- NAV -->
 <nav class="z21-nav">
@@ -1182,6 +1297,38 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
+   LOADER
+   Hides the page until Firebase Auth resolves.
+   · Minimum display time: 900ms (prevents a jarring flash)
+   · Failsafe: force-hides after 8s if Auth never resolves
+   ═══════════════════════════════════════════════════════════ */
+const PAGE_START = Date.now();
+const MIN_LOADER_MS = 900;
+const FAILSAFE_MS = 8000;
+let loaderHidden = false;
+
+function hideLoader(){
+  if(loaderHidden) return;
+  loaderHidden = true;
+
+  const elapsed = Date.now() - PAGE_START;
+  const wait = Math.max(0, MIN_LOADER_MS - elapsed);
+
+  setTimeout(() => {
+    document.body.classList.remove('z21-loading');
+    const el = document.getElementById('z21Loader');
+    if(el){
+      el.classList.add('hidden');
+      // Remove from DOM after the fade-out transition
+      setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 700);
+    }
+  }, wait);
+}
+
+/* Failsafe: if for any reason Auth never fires (offline, blocked, etc.) */
+setTimeout(hideLoader, FAILSAFE_MS);
+
+/* ═══════════════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════════════ */
 let currentUser = null;
@@ -1377,6 +1524,7 @@ onAuthStateChanged(auth, async (user) => {
     subscription = null;
     renderNavUser();
     renderStatus();
+    hideLoader();
     return;
   }
 
@@ -1393,6 +1541,7 @@ onAuthStateChanged(auth, async (user) => {
   await loadSubscription();
   renderNavUser();
   renderStatus();
+  hideLoader();
 
   /* ── Resume pending checkout if user was trying to subscribe ── */
   if(pendingCheckout){

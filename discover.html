@@ -15,17 +15,16 @@
 
   LOADING: Full-screen flickering logo until Firebase Auth resolves.
 
-  SUBSCRIPTION GATING (hardened):
+  SUBSCRIPTION GATING (hardened + fixed):
+    · Source of truth = subscriptions/{uid}_annual ONLY
+    · users/{uid}.subscriptionStatus is treated as a CACHE, never trusted
+      alone — it can go stale when a sub is deleted or expires
+    · checkSubscription() returns false if no active sub doc exists
     · handleBookClick()   → fresh Firestore check before opening modal
     · saveBooking()       → fresh Firestore check before writing to DB
-    · checkSubscription() → only status:'active' counts, expiry verified
     · Signup does NOT overwrite an existing subscriptionStatus
 
   File is named discover.html (lowercase) — all internal links match.
-
-  Firestore writes:
-    bookings/{id}   (from this page)
-    messages/{id}   (booking notification to admin)
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -1039,7 +1038,7 @@ setTimeout(hideLoader, FAILSAFE_MS);
 let currentUser = null;
 let userProfile = null;
 let isSubscribed = false;
-let isSubscribedResolved = false;   // ← true after checkSubscription resolves
+let isSubscribedResolved = false;
 let allArtists = [];
 let filteredArtists = [];
 let currentPage = 1;
@@ -1119,36 +1118,23 @@ function friendlyAuthError(err){
 /* ═══════════════════════════════════════════════════════════
    SUBSCRIPTION CHECK — STRICT
 
-   Only returns true if:
-     · users/{uid}.subscriptionStatus === 'active'      (fast path)
-     · OR an active subscriptions/{uid}_annual doc       (primary)
-     · OR an active sub doc under userId query           (fallback)
-   AND the subscription is not expired and not soft-deleted.
+   Source of truth: subscriptions/{uid}_annual
+   The users/{uid}.subscriptionStatus field is treated as a CACHE
+   and NEVER trusted alone, because it can go stale when a sub is
+   deleted or expires.
 
-   Does NOT trust cached state — always reads from Firestore.
+   Returns true only if:
+     · subscriptions/{uid}_annual exists, status==='active',
+       not deleted, and not expired, OR
+     · an active sub doc with matching userId exists (fallback)
+
+   If neither condition is met → returns false. No exceptions.
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid){
   if(!uid) return false;
 
   try{
-    /* Fast path: user doc says active */
-    const uSnap = await getDoc(doc(db, 'users', uid));
-    if(uSnap.exists() && uSnap.data().subscriptionStatus === 'active'){
-      // Still verify the sub doc is truly active (prevents stale user flag)
-      const subSnap = await getDoc(doc(db, 'subscriptions', `${uid}_${PLAN.id}`));
-      if(subSnap.exists()){
-        const s = subSnap.data();
-        if(s.deletedAt) return false;
-        if(s.status !== 'active') return false;
-        const exp = toDate(s.expiresAt);
-        if(exp && exp.getTime() <= Date.now()) return false;
-        return true;
-      }
-      // No sub doc but user flag says active → trust it only if no expiry in user doc
-      return true;
-    }
-
-    /* Primary path: direct sub doc by compound id */
+    /* Primary: direct sub doc — the real source of truth */
     const subSnap = await getDoc(doc(db, 'subscriptions', `${uid}_${PLAN.id}`));
     if(subSnap.exists()){
       const s = subSnap.data();
@@ -1159,7 +1145,7 @@ async function checkSubscription(uid){
       return true;
     }
 
-    /* Fallback: query by userId in case the doc id differs */
+    /* Fallback: query by userId (in case the doc id differs from convention) */
     const snap = await getDocs(query(
       collection(db, 'subscriptions'),
       where('userId', '==', uid)
@@ -1254,7 +1240,6 @@ $('menuSignOut').addEventListener('click', async () => {
   await signOut(auth);
   $('userMenu').classList.remove('open');
   showToast('Signed out.', 'info');
-  // onAuthStateChanged re-renders
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -1593,20 +1578,17 @@ function renderPagination(){
 
 /* ═══════════════════════════════════════════════════════════
    BOOK FLOW — HARDENED
-   Every path re-verifies subscription from Firestore.
    ═══════════════════════════════════════════════════════════ */
 async function handleBookClick(artistId){
   const artist = allArtists.find(a => a.id === artistId);
   if(!artist) return;
 
-  /* Case 1: not logged in → auth modal, remember artist */
   if(!currentUser){
     pendingArtistAfterAuth = artist;
     openAuthModal('signup');
     return;
   }
 
-  /* Case 2: logged in → FRESH verify against Firestore */
   showToast('Checking subscription…', 'info', 1800);
   const verified = await checkSubscription(currentUser.uid);
   isSubscribed = verified;
@@ -1619,7 +1601,6 @@ async function handleBookClick(artistId){
     return;
   }
 
-  /* Case 3: subscribed → open booking modal */
   openBookingModal(artist);
 }
 
@@ -1642,7 +1623,6 @@ function openBookingModal(artist){
   openModal('bookingModal');
 }
 
-/* ── AUTO RESUME AFTER AUTH ── */
 function afterAuthResume(){
   if(!pendingArtistAfterAuth) return;
   const artist = pendingArtistAfterAuth;
@@ -1655,7 +1635,6 @@ function afterAuthResume(){
     if(currentUser && userProfile && isSubscribedResolved){
       clearInterval(interval);
 
-      /* Re-verify before proceeding (belt-and-braces) */
       const verified = await checkSubscription(currentUser.uid);
       isSubscribed = verified;
       isSubscribedResolved = true;
@@ -1670,16 +1649,14 @@ function afterAuthResume(){
       return;
     }
 
-    if(attempts > 50){  // ~5s
+    if(attempts > 50){
       clearInterval(interval);
-      // Safe fallback: send to gate
       showToast('Please subscribe first to book artists.', 'error');
       openModal('gateModal');
     }
   }, 100);
 }
 
-/* ── BOOKING SUBMIT ── */
 function collectBookingForm(){
   const date = $('bookDate').value;
   const time = $('bookTime').value;
@@ -1696,10 +1673,7 @@ function collectBookingForm(){
 }
 
 async function saveBooking(formData, source){
-  /* ── FINAL SUBSCRIPTION RE-CHECK before writing to DB ──
-     This is the last line of defense. Even if someone
-     manipulates the UI to open the booking modal directly,
-     the write will fail here without an active sub. */
+  /* ── FINAL SUBSCRIPTION RE-CHECK before writing to DB ── */
   const stillSubbed = await checkSubscription(currentUser.uid);
   if(!stillSubbed){
     isSubscribed = false;
@@ -1877,7 +1851,6 @@ $('signinForm').addEventListener('submit', async (e) => {
     showToast('Welcome back!', 'success');
     closeModal('authModal');
     $('signinForm').reset();
-    // onAuthStateChanged handles the resume
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1906,9 +1879,8 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    /* Don't overwrite existing subscriptionStatus if the user doc
-       already exists (e.g. they previously subscribed). Only set
-       defaults on first creation. */
+    /* Don't overwrite existing subscriptionStatus. Only set defaults
+       on first creation — same fix as everywhere else. */
     const uRef = doc(db, 'users', uid);
     const uSnap = await getDoc(uRef);
     if(!uSnap.exists()){
@@ -1919,7 +1891,6 @@ $('signupForm').addEventListener('submit', async (e) => {
         createdAt: serverTimestamp()
       });
     } else {
-      // Existing doc — update profile fields only, leave sub status alone
       await setDoc(uRef, {
         name, email, phone, university
       }, { merge: true });

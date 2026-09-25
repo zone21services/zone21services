@@ -20,6 +20,9 @@
   Auth resolves (signed in OR signed out). Prevents flash-of-empty
   content and reflow jumps on first paint.
 
+  NAVIGATION: Top nav + user menu + bottom nav include "My Events"
+              linking to zone21tools.html (icon: fa-calendar-days).
+
   Firestore writes:
     invoices/{INV-XXXXXX}
     subscriptions/{uid}_annual
@@ -72,8 +75,6 @@ img{display:block;max-width:100%}
 
 /* ═══════════════════════════════════════════════════════════
    LOADING SPLASH
-   Full-screen flickering Zone21 logo shown until Firebase Auth
-   resolves (signed in OR signed out).
    ═══════════════════════════════════════════════════════════ */
 body.z21-loading > *:not(#z21Loader){
   visibility:hidden;
@@ -98,7 +99,6 @@ body.z21-loading{
   pointer-events:none;
 }
 
-/* Soft red ambient glow behind the logo */
 .z21-loader::before{
   content:'';
   position:absolute;
@@ -142,7 +142,6 @@ body.z21-loading{
 }
 .z21-loader-name span{color:var(--accent)}
 
-/* Slow organic neon-sign flicker */
 @keyframes z21Flicker{
   0%   {opacity:1;   filter:brightness(1);  }
   6%   {opacity:1;   filter:brightness(1);  }
@@ -521,9 +520,10 @@ body.z21-loading{
 .z21-bottom-link{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;font-size:10px;font-weight:600;color:var(--text-dim);
-  transition:color .2s;position:relative;
+  transition:color .2s;position:relative;min-width:0;
 }
-.z21-bottom-link i{font-size:17px}
+.z21-bottom-link i{font-size:16px}
+.z21-bottom-link span{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .z21-bottom-link.active{color:var(--accent)}
 
 /* MODAL */
@@ -876,6 +876,8 @@ body.z21-loading{
   .z21-payment-methods{grid-template-columns:1fr}
   .z21-inv-actions .z21-btn-status{flex:1;min-width:auto;padding:12px 16px;font-size:13px}
   .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
+  .z21-bottom-link i{font-size:15px}
+  .z21-bottom-link span{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
@@ -886,7 +888,6 @@ body.z21-loading{
 
 <!-- ═══════════════════════════════════════════════════════════
      LOADING SPLASH
-     Removed by JS once Firebase Auth resolves.
      ═══════════════════════════════════════════════════════════ -->
 <div class="z21-loader" id="z21Loader" aria-hidden="true">
   <div class="z21-loader-logo">
@@ -904,6 +905,7 @@ body.z21-loading{
   <div class="z21-nav-links">
     <a href="discover.html" class="z21-nav-link">Home</a>
     <a href="bookingsub.html" class="z21-nav-link active">Subscription</a>
+    <a href="zone21tools.html" class="z21-nav-link">My Events</a>
     <a href="bookinginbox.html" class="z21-nav-link">Inbox</a>
     <a href="support.html" class="z21-nav-link">Support</a>
     <a href="account.html" class="z21-nav-link">My Account</a>
@@ -919,6 +921,7 @@ body.z21-loading{
     <small id="menuEmail">—</small>
   </div>
   <a href="account.html" class="z21-menu-item"><i class="fas fa-user"></i> My Account</a>
+  <a href="zone21tools.html" class="z21-menu-item"><i class="fas fa-calendar-days"></i> My Events</a>
   <a href="bookingsub.html" class="z21-menu-item"><i class="fas fa-crown"></i> Subscription</a>
   <a href="bookinginbox.html" class="z21-menu-item"><i class="fas fa-inbox"></i> Inbox</a>
   <a href="support.html" class="z21-menu-item"><i class="fas fa-headset"></i> Support</a>
@@ -1040,11 +1043,12 @@ body.z21-loading{
 <!-- BOTTOM NAV -->
 <nav class="z21-bottom-nav">
   <div class="z21-bottom-nav-inner">
-    <a href="discover.html" class="z21-bottom-link"><i class="fas fa-compass"></i> Home</a>
-    <a href="bookingsub.html" class="z21-bottom-link active"><i class="fas fa-crown"></i> Plans</a>
-    <a href="bookinginbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i> Inbox</a>
-    <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i> Support</a>
-    <a href="account.html" class="z21-bottom-link"><i class="fas fa-user"></i> Account</a>
+    <a href="discover.html" class="z21-bottom-link"><i class="fas fa-compass"></i><span>Home</span></a>
+    <a href="zone21tools.html" class="z21-bottom-link"><i class="fas fa-calendar-days"></i><span>Events</span></a>
+    <a href="bookingsub.html" class="z21-bottom-link active"><i class="fas fa-crown"></i><span>Plans</span></a>
+    <a href="bookinginbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i><span>Inbox</span></a>
+    <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i><span>Support</span></a>
+    <a href="account.html" class="z21-bottom-link"><i class="fas fa-user"></i><span>Account</span></a>
   </div>
 </nav>
 
@@ -1298,9 +1302,6 @@ const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
    LOADER
-   Hides the page until Firebase Auth resolves.
-   · Minimum display time: 900ms (prevents a jarring flash)
-   · Failsafe: force-hides after 8s if Auth never resolves
    ═══════════════════════════════════════════════════════════ */
 const PAGE_START = Date.now();
 const MIN_LOADER_MS = 900;
@@ -1319,13 +1320,11 @@ function hideLoader(){
     const el = document.getElementById('z21Loader');
     if(el){
       el.classList.add('hidden');
-      // Remove from DOM after the fade-out transition
       setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 700);
     }
   }, wait);
 }
 
-/* Failsafe: if for any reason Auth never fires (offline, blocked, etc.) */
 setTimeout(hideLoader, FAILSAFE_MS);
 
 /* ═══════════════════════════════════════════════════════════
@@ -1333,14 +1332,10 @@ setTimeout(hideLoader, FAILSAFE_MS);
    ═══════════════════════════════════════════════════════════ */
 let currentUser = null;
 let userProfile = null;
-let subscription = null;   // current sub doc data (with id)
-let currentInvoice = null; // invoice just generated (for modal)
+let subscription = null;
+let currentInvoice = null;
 let isRenewalFlow = false;
-
-/* ═══════════════════════════════════════════════════════════
-   PENDING CHECKOUT (resumes after sign-in)
-   ═══════════════════════════════════════════════════════════ */
-let pendingCheckout = null; // null | { isRenewal: bool }
+let pendingCheckout = null;
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -1449,7 +1444,6 @@ document.querySelectorAll('.z21-auth-tab').forEach(t => {
   t.addEventListener('click', () => switchAuthTab(t.dataset.authTab));
 });
 
-/* Sign In form */
 $('signinForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1463,7 +1457,6 @@ $('signinForm').addEventListener('submit', async (e) => {
     showToast('Welcome back!', 'success');
     closeModal('authModal');
     $('signinForm').reset();
-    // onAuthStateChanged will handle resume below
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1472,7 +1465,6 @@ $('signinForm').addEventListener('submit', async (e) => {
   }
 });
 
-/* Sign Up form */
 $('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1493,7 +1485,6 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    // Create user profile — same schema as Discover.html
     await setDoc(doc(db, 'users', uid), {
       name, email, phone, university,
       role: 'student',
@@ -1504,7 +1495,6 @@ $('signupForm').addEventListener('submit', async (e) => {
     showToast('Account created — welcome to Zone21!', 'success');
     closeModal('authModal');
     $('signupForm').reset();
-    // onAuthStateChanged will handle resume below
   }catch(err){
     showFormMsg('authMsg', friendlyAuthError(err), 'error');
   }finally{
@@ -1543,7 +1533,6 @@ onAuthStateChanged(auth, async (user) => {
   renderStatus();
   hideLoader();
 
-  /* ── Resume pending checkout if user was trying to subscribe ── */
   if(pendingCheckout){
     const { isRenewal } = pendingCheckout;
     pendingCheckout = null;
@@ -1603,7 +1592,6 @@ $('menuSignOut').addEventListener('click', async () => {
   await signOut(auth);
   $('userMenu').classList.remove('open');
   showToast('Signed out.', 'info');
-  // No redirect — the page re-renders automatically
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -1612,7 +1600,6 @@ $('menuSignOut').addEventListener('click', async () => {
 function renderStatus(){
   const card = $('statusCard');
 
-  /* ─── Not signed in ─── */
   if(!currentUser){
     card.className = 'z21-status-card';
     card.innerHTML = `
@@ -1633,7 +1620,6 @@ function renderStatus(){
     return;
   }
 
-  /* ─── No sub yet ─── */
   if(!subscription){
     card.className = 'z21-status-card';
     card.innerHTML = `
@@ -1651,10 +1637,9 @@ function renderStatus(){
   const status = subscription.status || 'pending_payment';
   const renewalPending = !!subscription.renewalPending;
   const approvedAt = toDate(subscription.approvedAt);
-  const expiresAt = toDate(subscription.expiresAt) 
+  const expiresAt = toDate(subscription.expiresAt)
                  || (approvedAt ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000) : null);
 
-  /* ─── Pending payment (first-time) ─── */
   if(status === 'pending_payment' && !renewalPending){
     card.className = 'z21-status-card pending';
     card.innerHTML = `
@@ -1686,7 +1671,6 @@ function renderStatus(){
     return;
   }
 
-  /* ─── Rejected ─── */
   if(status === 'rejected'){
     card.className = 'z21-status-card';
     card.innerHTML = `
@@ -1707,7 +1691,6 @@ function renderStatus(){
     return;
   }
 
-  /* ─── Active ─── */
   if(status === 'active' || status === 'approved'){
     const now = new Date();
     const daysLeft = expiresAt ? Math.max(0, daysBetween(now, expiresAt)) : 0;
@@ -1777,7 +1760,6 @@ function renderStatus(){
     return;
   }
 
-  /* Fallback */
   card.className = 'z21-status-card';
   card.innerHTML = `
     <div class="z21-status-inner">
@@ -1826,7 +1808,6 @@ function setPlanCtaState(state){
    CHECKOUT
    ═══════════════════════════════════════════════════════════ */
 function startCheckout(isRenewal){
-  /* Not signed in → open auth modal, remember intent */
   if(!currentUser){
     pendingCheckout = { isRenewal: !!isRenewal };
     openAuthModal('signin');
@@ -1836,7 +1817,6 @@ function startCheckout(isRenewal){
   isRenewalFlow = !!isRenewal;
   clearFormMsg('checkoutMsg');
 
-  // Prefill
   const cust = subscription?.customerInfo || {};
   $('coFname').value = cust.firstName || (userProfile.name || '').split(' ')[0] || '';
   $('coLname').value = cust.lastName  || (userProfile.name || '').split(' ').slice(1).join(' ') || '';
@@ -1870,7 +1850,6 @@ $('checkoutForm').addEventListener('submit', async (e) => {
   try{
     await generateInvoice({ fname, lname, email, phone, city }, isRenewalFlow);
     closeModal('checkoutModal');
-    // Invoice modal opens inside generateInvoice
   }catch(err){
     console.error(err);
     showFormMsg('checkoutMsg', 'Could not generate invoice: ' + err.message, 'error');
@@ -1889,7 +1868,6 @@ async function generateInvoice(cust, isRenewal){
   const subId = `${uid}_${PLAN.id}`;
   const subRef = doc(db, 'subscriptions', subId);
 
-  // 1. Create invoice
   await setDoc(doc(db, 'invoices', invNumber), {
     userId: uid,
     invoiceNumber: invNumber,
@@ -1911,12 +1889,10 @@ async function generateInvoice(cust, isRenewal){
     createdAt: serverTimestamp()
   });
 
-  // 2. Update or create subscription
   const existingSnap = await getDoc(subRef);
   const existing = existingSnap.exists() ? existingSnap.data() : null;
 
   if(existing && (existing.status === 'active' || existing.status === 'approved') && isRenewal){
-    // Active sub + renewal → don't disrupt active status, just flag renewal
     await updateDoc(subRef, {
       renewalPending: true,
       renewalInvoiceNumber: invNumber,
@@ -1931,7 +1907,6 @@ async function generateInvoice(cust, isRenewal){
       updatedAt: serverTimestamp()
     });
   } else {
-    // First-time sub OR retry after rejection → full reset
     await setDoc(subRef, {
       userId: uid,
       planId: PLAN.id,
@@ -1956,14 +1931,12 @@ async function generateInvoice(cust, isRenewal){
     }, { merge: true });
   }
 
-  // 3. Update user doc
   await setDoc(doc(db, 'users', uid), {
     activePlan: PLAN.name,
     subscriptionStatus: isRenewal ? (existing?.status || 'active') : 'pending_payment',
     latestInvoiceId: invNumber
   }, { merge: true });
 
-  // 4. Drop a message in the inbox thread
   try{
     await addDoc(collection(db, 'messages'), {
       sender: 'user',
@@ -1993,11 +1966,9 @@ async function generateInvoice(cust, isRenewal){
 
   showToast(`Invoice ${invNumber} generated.`, 'success');
 
-  // Refresh local state
   await loadSubscription();
   renderStatus();
 
-  // Show invoice modal
   openInvoiceModal({
     invNumber,
     fname: cust.fname,

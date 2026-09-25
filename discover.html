@@ -15,14 +15,20 @@
 
   LOADING: Full-screen flickering logo until Firebase Auth resolves.
 
-  SUBSCRIPTION GATING (hardened + fixed):
+  SUBSCRIPTION GATING (single-plan, strict):
     · Source of truth = subscriptions/{uid}_annual ONLY
-    · users/{uid}.subscriptionStatus is treated as a CACHE, never trusted
-      alone — it can go stale when a sub is deleted or expires
-    · checkSubscription() returns false if no active sub doc exists
+    · No fallback query — the site handles many subscription docs,
+      so we only recognise the ONE annual plan written by the
+      subscription page. Any other sub doc is ignored.
+    · checkSubscription() returns false if that doc is missing,
+      deleted, not 'active', or expired.
     · handleBookClick()   → fresh Firestore check before opening modal
     · saveBooking()       → fresh Firestore check before writing to DB
     · Signup does NOT overwrite an existing subscriptionStatus
+
+  AUTH: In-page modal (sign in / sign up / reset password).
+    · Reset password sends a secure link via email and always tells
+      the user to check their inbox AND spam folder.
 
   NAVIGATION: Top nav + user menu + bottom nav include "My Events"
               linking to zone21tools.html
@@ -567,6 +573,35 @@ body.z21-loading{ overflow:hidden; }
   box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
 
+/* Forgot password link */
+.z21-forgot-row{
+  display:flex;justify-content:flex-end;
+  margin:-4px 0 14px;
+}
+.z21-link-btn{
+  font-size:13px;font-weight:600;
+  color:var(--accent);
+  padding:2px 0;
+  transition:opacity .2s;
+}
+.z21-link-btn:hover{opacity:.78;text-decoration:underline}
+
+/* Reset panel */
+.z21-reset-icon{
+  width:54px;height:54px;border-radius:15px;
+  background:rgba(250,36,60,.12);
+  border:1px solid rgba(250,36,60,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;color:var(--accent);
+  margin:0 auto 18px;
+}
+.z21-reset-hint{
+  font-size:12.5px;color:var(--text-dim);
+  line-height:1.6;text-align:center;
+  margin-top:16px;
+}
+.z21-reset-hint strong{color:var(--text-muted);font-weight:700}
+
 .z21-field{margin-bottom:14px}
 .z21-field label{
   display:block;font-size:12px;font-weight:700;
@@ -833,7 +868,7 @@ body.z21-loading{ overflow:hidden; }
       <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
     </div>
     <div class="z21-modal-body">
-      <div class="z21-auth-tabs">
+      <div class="z21-auth-tabs" id="authTabs">
         <button class="z21-auth-tab active" data-auth-tab="signin">Sign In</button>
         <button class="z21-auth-tab" data-auth-tab="signup">Sign Up</button>
       </div>
@@ -848,6 +883,11 @@ body.z21-loading{ overflow:hidden; }
         <div class="z21-field">
           <label>Password</label>
           <input type="password" id="signinPassword" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="z21-forgot-row">
+          <button type="button" class="z21-link-btn" id="forgotPasswordBtn">
+            Forgot password?
+          </button>
         </div>
         <button type="submit" class="z21-btn-full primary" id="signinSubmit">
           <i class="fas fa-arrow-right"></i> Sign In
@@ -879,6 +919,32 @@ body.z21-loading{ overflow:hidden; }
           <i class="fas fa-user-plus"></i> Create Account
         </button>
       </form>
+
+      <!-- RESET PASSWORD -->
+      <div id="resetPanel" style="display:none">
+        <div class="z21-reset-icon"><i class="fas fa-key"></i></div>
+
+        <div class="z21-form-msg" id="resetMsg"></div>
+
+        <form id="resetForm" autocomplete="on">
+          <div class="z21-field">
+            <label>Account Email</label>
+            <input type="email" id="resetEmail" required placeholder="you@example.com" autocomplete="email">
+          </div>
+          <button type="submit" class="z21-btn-full primary" id="resetSubmit">
+            <i class="fas fa-paper-plane"></i> Send Reset Link
+          </button>
+          <button type="button" class="z21-btn-full secondary" id="resetBackBtn">
+            <i class="fas fa-arrow-left"></i> Back to Sign In
+          </button>
+        </form>
+
+        <p class="z21-reset-hint">
+          Enter the email linked to your Zone21 account and we'll send you a
+          secure link to create a new password. <strong>Remember to check your
+          inbox and your spam / junk folder.</strong>
+        </p>
+      </div>
     </div>
   </div>
 </div>
@@ -990,7 +1056,8 @@ body.z21-loading{ overflow:hidden; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signOut,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, addDoc, collection,
@@ -1126,50 +1193,45 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION CHECK — STRICT
+   SUBSCRIPTION CHECK — STRICT, SINGLE PLAN
 
-   Source of truth: subscriptions/{uid}_annual
-   The users/{uid}.subscriptionStatus field is treated as a CACHE
-   and NEVER trusted alone, because it can go stale when a sub is
-   deleted or expires.
+   This site handles many subscriptions (different plans / docs).
+   The booking flow must only recognise the ONE annual plan
+   written by bookingsub.html, whose doc id is:
 
-   Returns true only if:
-     · subscriptions/{uid}_annual exists, status==='active',
-       not deleted, and not expired, OR
-     · an active sub doc with matching userId exists (fallback)
+       subscriptions/{uid}_annual
 
-   If neither condition is met → returns false. No exceptions.
+   We intentionally do NOT fall back to a query that would match
+   any other 'active' subscription the user might hold. If that
+   doc doesn't exist, isn't active, is deleted, or is expired
+   → return false. No exceptions, no guesses.
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid){
   if(!uid) return false;
 
   try{
-    /* Primary: direct sub doc — the real source of truth */
     const subSnap = await getDoc(doc(db, 'subscriptions', `${uid}_${PLAN.id}`));
-    if(subSnap.exists()){
-      const s = subSnap.data();
-      if(s.deletedAt) return false;
-      if(s.status !== 'active') return false;
-      const exp = toDate(s.expiresAt);
-      if(exp && exp.getTime() <= Date.now()) return false;
-      return true;
-    }
+    if(!subSnap.exists()) return false;
 
-    /* Fallback: query by userId (in case the doc id differs from convention) */
-    const snap = await getDocs(query(
-      collection(db, 'subscriptions'),
-      where('userId', '==', uid)
-    ));
-    let active = false;
-    snap.forEach(d => {
-      const s = d.data();
-      if(s.deletedAt) return;
-      if(s.status !== 'active') return;
-      const exp = toDate(s.expiresAt);
-      if(exp && exp.getTime() <= Date.now()) return;
-      active = true;
-    });
-    return active;
+    const s = subSnap.data();
+
+    // Ignore soft-deleted subs
+    if(s.deletedAt) return false;
+
+    // Must be exactly 'active' — 'pending_payment', 'rejected',
+    // 'approved-but-stale', etc. do NOT count.
+    if(s.status !== 'active') return false;
+
+    // Ignore expired subs
+    const exp = toDate(s.expiresAt);
+    if(exp && exp.getTime() <= Date.now()) return false;
+
+    // Belt-and-braces: if the doc carries a planId, make sure it
+    // matches the annual plan we expect. Guards against doc id
+    // collisions or accidental plan swaps in the admin.
+    if(s.planId && s.planId !== PLAN.id) return false;
+
+    return true;
   }catch(e){
     console.warn('Subscription check failed:', e);
     return false;
@@ -1831,7 +1893,33 @@ function openAuthModal(mode = 'signin'){
   openModal('authModal');
 }
 
+function hideResetPanel(){
+  const panel = $('resetPanel');
+  if(panel) panel.style.display = 'none';
+  const tabs = $('authTabs');
+  if(tabs) tabs.style.display = '';
+}
+
+function showResetPanel(){
+  clearFormMsg('resetMsg');
+  // Pre-fill from whatever the user already typed on the sign-in form
+  const typed = ($('signinEmail')?.value || '').trim();
+  if(typed) $('resetEmail').value = typed;
+
+  $('signinForm').style.display = 'none';
+  $('signupForm').style.display = 'none';
+  $('authTabs').style.display = 'none';
+  $('resetPanel').style.display = '';
+
+  $('authTitle').textContent = 'Reset your password';
+  $('authSub').textContent = 'We\'ll email you a secure link to set a new password.';
+
+  setTimeout(() => { try{ $('resetEmail').focus(); }catch(_){} }, 60);
+}
+
 function switchAuthTab(mode){
+  hideResetPanel();
+
   document.querySelectorAll('.z21-auth-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.authTab === mode);
   });
@@ -1842,6 +1930,7 @@ function switchAuthTab(mode){
     ? 'Welcome back. Sign in to continue.'
     : 'Free to create. Subscribe when you\'re ready to book.';
   clearFormMsg('authMsg');
+  clearFormMsg('resetMsg');
 }
 
 document.querySelectorAll('.z21-auth-tab').forEach(t => {
@@ -1914,6 +2003,77 @@ $('signupForm').addEventListener('submit', async (e) => {
   }finally{
     btn.disabled = false;
     btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RESET PASSWORD
+   ═══════════════════════════════════════════════════════════ */
+$('forgotPasswordBtn').addEventListener('click', showResetPanel);
+
+$('resetBackBtn').addEventListener('click', () => {
+  switchAuthTab('signin');
+  $('authTitle').textContent = 'Sign in to book';
+});
+
+$('resetForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('resetMsg');
+
+  const email = $('resetEmail').value.trim();
+  if(!email){
+    showFormMsg('resetMsg', 'Please enter the email address on your account.', 'error');
+    return;
+  }
+
+  const btn = $('resetSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending link…';
+
+  let sent = false;
+  try{
+    await sendPasswordResetEmail(auth, email);
+    sent = true;
+  }catch(err){
+    const code = err?.code || '';
+    if(code.includes('network-request-failed')){
+      showFormMsg('resetMsg', 'Network error. Please check your connection and try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    if(code.includes('too-many-requests')){
+      showFormMsg('resetMsg', 'Too many attempts. Please wait a few minutes and try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    if(code.includes('invalid-email')){
+      showFormMsg('resetMsg', 'That email address doesn\'t look valid. Please check and try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    // Everything else (including user-not-found) falls through silently
+    // so we never reveal whether an address is registered.
+    console.warn('Password reset request handled privately:', code || err?.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = orig;
+  $('resetForm').reset();
+
+  showFormMsg(
+    'resetMsg',
+    'If an account exists for that email, a password reset link is on its way. ' +
+    'Please check your inbox — and be sure to check your spam / junk folder too. ' +
+    'The link expires in 1 hour.',
+    'success'
+  );
+
+  if(sent){
+    showToast('Reset link sent — check your inbox and spam folder.', 'success');
   }
 });
 

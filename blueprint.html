@@ -637,8 +637,7 @@ const granularServices = [
    LOADER
    ═══════════════════════════════════════════════════════════ */
 const PAGE_START = Date.now();
-const MIN_LOADER_MS = 900;
-const FAILSAFE_MS = 6000;
+const MIN_LOADER_MS = 600; 
 let loaderHidden = false;
 
 function hideLoader(){
@@ -654,13 +653,6 @@ function hideLoader(){
     }
   }, wait);
 }
-setTimeout(() => {
-  if(!loaderHidden){
-    console.warn('[Zone21] Loader failsafe fired — setting fallback UI');
-    setAccessBannerError('Could not verify subscription', 'Check your connection and refresh');
-    hideLoader();
-  }
-}, FAILSAFE_MS);
 
 /* ═══════════════════════════════════════════════════════════
    STATE
@@ -795,46 +787,22 @@ function closeSidebar() {
 
 /* ═══════════════════════════════════════════════════════════
    SUBSCRIPTION CHECK — STRICT
-   Source of truth: subscriptions/{uid}_annual ONLY.
-   Matches bookingsub.html exactly. No fallback queries,
-   no stale user flags, no surprise full-access grants.
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid) {
   if (!uid) return false;
-
   try {
     const subRef = db.collection('subscriptions').doc(`${uid}_${PLAN_ID}`);
     const snap = await subRef.get();
-
-    /* No doc = not subscribed */
-    if (!snap.exists) {
-      console.log('[Zone21 Sub] No doc at subscriptions/' + uid + '_' + PLAN_ID + ' → NOT subscribed');
-      return false;
-    }
-
+    
+    if (!snap.exists) return false;
     const s = snap.data();
-    console.log('[Zone21 Sub] Doc found:', s);
+    
+    if (s.deletedAt) return false;
+    if (s.status !== 'active') return false;
 
-    /* Soft-deleted = not subscribed */
-    if (s.deletedAt) {
-      console.log('[Zone21 Sub] Soft-deleted → NOT subscribed');
-      return false;
-    }
-
-    /* Must be exactly 'active' */
-    if (s.status !== 'active') {
-      console.log('[Zone21 Sub] Status is "' + s.status + '" (needs "active") → NOT subscribed');
-      return false;
-    }
-
-    /* Expiry check */
     const exp = s.expiresAt?.toDate ? s.expiresAt.toDate() : (s.expiresAt ? new Date(s.expiresAt) : null);
-    if (exp && exp.getTime() <= Date.now()) {
-      console.log('[Zone21 Sub] Expired on', exp, '→ NOT subscribed');
-      return false;
-    }
+    if (exp && exp.getTime() <= Date.now()) return false;
 
-    console.log('[Zone21 Sub] ✓ Subscribed. Expires:', exp || 'no expiry set');
     return true;
   } catch (e) {
     console.warn('[Zone21 Sub] Check failed:', e);
@@ -854,6 +822,7 @@ function setAccessBannerLoading() {
   $('access-subtitle').textContent = 'This takes only a moment';
   $('access-cta').style.display = 'none';
 }
+
 function setAccessBannerActive() {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'locked', 'error');
@@ -871,6 +840,7 @@ function setAccessBannerActive() {
   attendeeHint.textContent = 'Unlimited attendees with Full Access.';
   budgetHint.textContent = 'Set your total budget.';
 }
+
 function setAccessBannerLocked() {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'active', 'error');
@@ -879,6 +849,8 @@ function setAccessBannerLocked() {
   $('access-title').textContent = 'Subscribe to unlock blueprints';
   $('access-subtitle').textContent = 'Full Access — $150 / year · Unlimited everything';
   $('access-cta').style.display = 'inline-flex';
+  $('access-cta').innerHTML = '<i class="fas fa-crown"></i> Subscribe now';
+  $('access-cta').href = 'bookingsub.html';
   $('sidebar-package-badge').textContent = 'Locked';
   $('sidebar-package-label').textContent = 'Package: Not subscribed';
   generateBtn.disabled = true;
@@ -887,20 +859,26 @@ function setAccessBannerLocked() {
   attendeeLimitBadge.textContent = '🔒';
   attendeeHint.textContent = 'Subscribe to unlock.';
 }
+
 function setAccessBannerError(title, subtitle) {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'active', 'locked');
   banner.classList.add('error');
   $('access-icon').innerHTML = '<i class="fas fa-triangle-exclamation"></i>';
-  $('access-title').textContent = title || 'Something went wrong';
-  $('access-subtitle').textContent = subtitle || 'Please refresh the page';
+  $('access-title').textContent = title || 'Could not verify subscription';
+  $('access-subtitle').textContent = subtitle || 'Please check your connection and try again';
+  
+  // Changed from Refresh to Subscribe
   $('access-cta').style.display = 'inline-flex';
-  $('access-cta').textContent = 'Refresh';
-  $('access-cta').href = 'javascript:location.reload()';
+  $('access-cta').innerHTML = '<i class="fas fa-crown"></i> Subscribe now';
+  $('access-cta').href = 'bookingsub.html';
+  
   $('sidebar-package-badge').textContent = '—';
   $('sidebar-package-label').textContent = 'Package: —';
   generateBtn.disabled = true;
-  generateBtn.innerHTML = '<i class="fas fa-rotate"></i> Refresh to retry';
+  generateBtn.innerHTML = '<i class="fas fa-crown"></i> Subscribe — $150 / year';
+  eventAttendees.disabled = true;
+  attendeeLimitBadge.textContent = '🔒';
 }
 
 function updateAccessUI() {
@@ -910,7 +888,7 @@ function updateAccessUI() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FETCHERS (each safe — never throw)
+   FETCHERS
    ═══════════════════════════════════════════════════════════ */
 async function fetchVenues() {
   try {
@@ -930,7 +908,7 @@ async function fetchServiceProviders() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INIT — BULLETPROOF
+   INIT — BACKGROUND CHECK
    ═══════════════════════════════════════════════════════════ */
 async function initializeUser() {
   const user = auth.currentUser;
@@ -939,9 +917,11 @@ async function initializeUser() {
     return false;
   }
   currentUser = user;
-
   setAccessBannerLoading();
   renderNavUser();
+
+  // Load app data immediately, don't block the UI
+  hideLoader(); 
 
   try {
     await Promise.allSettled([
@@ -959,14 +939,9 @@ async function initializeUser() {
       })()
     ]);
 
+    // Check subscription in the background
     try {
-      isSubscribed = await Promise.race([
-        checkSubscription(user.uid),
-        new Promise(resolve => setTimeout(() => {
-          console.warn('[Zone21] Sub check timed out');
-          resolve(false);
-        }, 5000))
-      ]);
+      isSubscribed = await checkSubscription(user.uid);
     } catch (e) {
       console.warn('Sub check threw:', e);
       isSubscribed = false;
@@ -977,7 +952,6 @@ async function initializeUser() {
   } finally {
     updateAccessUI();
     renderHistorySidebar();
-    hideLoader();
   }
   return true;
 }
@@ -2021,7 +1995,10 @@ setAccessBannerLoading();
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
-    await initializeUser();
+    // Load the app immediately, check subscription in the background
+    renderNavUser();
+    hideLoader();
+    initializeUser(); 
   } else {
     currentUser = null;
     renderNavUser();

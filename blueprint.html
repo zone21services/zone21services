@@ -228,12 +228,14 @@ body.z21-loading{ overflow:hidden; }
 .vendor-card .vendor-name{font-weight:800;color:var(--text);font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;letter-spacing:-.01em;}
 .vendor-card .vendor-name .type-badge{font-size:9.5px;font-weight:800;padding:3px 9px;border-radius:100px;background:rgba(250,36,60,.14);color:var(--accent);letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(250,36,60,.3);flex-shrink:0;}
 .vendor-card .vendor-name .type-badge.venue{background:rgba(255,159,10,.14);color:var(--warn);border-color:rgba(255,159,10,.3);}
+.vendor-card .vendor-name .type-badge.zone21{background:linear-gradient(135deg,var(--accent),#c0132b);color:#fff;border-color:rgba(250,36,60,.6);}
 .vendor-card .vendor-detail{font-size:13px;color:var(--text-muted);margin:5px 0;display:flex;align-items:flex-start;gap:8px;}
 .vendor-card .vendor-detail i{color:var(--text-dim);flex-shrink:0;font-size:11.5px;margin-top:3px;width:14px;}
 .vendor-card .reasoning-badge{display:inline-block;background:rgba(48,209,88,.1);color:#7ee89a;padding:4px 10px;border-radius:100px;font-size:10.5px;font-weight:700;margin:3px 4px 3px 0;border:1px solid rgba(48,209,88,.25);letter-spacing:.02em;}
 .vendor-card .reasoning-badge.warning{background:rgba(255,159,10,.1);color:#ffce8a;border-color:rgba(255,159,10,.3);}
 .vendor-card .reasoning-badge.info{background:rgba(255,255,255,.06);color:var(--text-muted);border-color:var(--border-2);}
 .vendor-card .reasoning-badge.success{background:rgba(48,209,88,.1);color:#7ee89a;border-color:rgba(48,209,88,.25);}
+.vendor-card .reasoning-badge.exclusive{background:linear-gradient(135deg,rgba(250,36,60,.18),rgba(250,36,60,.08));color:#ff8b98;border-color:rgba(250,36,60,.45);font-weight:800;}
 .vendor-card .vendor-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;}
 .vendor-card .contact-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:100px;font-weight:700;font-size:12px;transition:all .2s;border:1.5px solid var(--border-2);cursor:pointer;color:var(--text);background:transparent;flex-shrink:0;}
 .vendor-card .contact-btn:hover{transform:translateY(-1px);color:#fff}
@@ -270,8 +272,9 @@ body.z21-loading{ overflow:hidden; }
 
 /* SERVICE SLOTS */
 .service-slot{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:16px 0;box-shadow:0 4px 16px rgba(0,0,0,.15);}
+.service-slot.zone21-exclusive{border-color:rgba(250,36,60,.35);box-shadow:0 4px 20px rgba(250,36,60,.12);}
 .service-slot-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:14px;}
-.service-slot-header h3{margin:0;color:var(--text);font-size:15px;font-weight:800;letter-spacing:-.01em;}
+.service-slot-header h3{margin:0;color:var(--text);font-size:15px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
 .slot-status{font-size:10px;font-weight:800;text-transform:uppercase;padding:5px 12px;border-radius:100px;letter-spacing:.08em;}
 .slot-status.not_sent{background:rgba(255,255,255,.06);color:var(--text-muted);border:1px solid var(--border);}
 .slot-status.invited{background:rgba(255,159,10,.12);color:#ffce8a;border:1px solid rgba(255,159,10,.3);}
@@ -616,9 +619,6 @@ const granularServices = [
 
 /* ═══════════════════════════════════════════════════════════
    INTELLIGENT SERVICE MATCHING
-   Digs through every profile field (name, bio, category,
-   services, amenities, secondaryServices, tags …) and scores
-   providers against a rich synonym keyword map.
    ═══════════════════════════════════════════════════════════ */
 const SERVICE_KEYWORDS = {
   "Event Planner / Coordinator": ["event planner","event planning","planner","coordinator","coordination","event management","event manager","organiser","organizer","planning"],
@@ -631,16 +631,79 @@ const SERVICE_KEYWORDS = {
   "Catering (Food & Buffet)": ["catering","caterer","food","buffet","meals","chef","cook","cooking","cuisine","dishes","menu","kitchen","caterers"],
   "Beverages & Mobile Bar": ["beverages","drinks","bar","mobile bar","bartender","cocktail","cocktails","wine","beer","juice","drink","mixologist"],
   "Cake Designer / Baker": ["cake","cakes","baker","bakery","baking","dessert","pastry","cupcakes","wedding cake","cake designer"],
-  "Photographer": ["photographer","photography","photo","photos","camera","cameraman","cameramen","pictures","photoshoot","shoot","photo shoot","photo shoots","camera man","videography photo"],
+  "Photographer": ["photographer","photography","photo","photos","camera","cameraman","cameramen","pictures","photoshoot","shoot","photo shoot","photo shoots","camera man"],
   "Videographer": ["videographer","videography","video","videos","film","filming","cinematography","cinematographer","documentary","video coverage"],
   "MC (Master of Ceremonies)": ["mc","master of ceremonies","emcee","host","hosting","presenter","announcer","compere","master ceremony"],
   "Makeup Artist": ["makeup","make up","make-up","mua","cosmetics","cosmetologist","beauty","glam","eyelash","lashes","nail","nails","nail technician","manicure","pedicure","spa","facial","skincare","beautician","beauty therapist","makeup artist"],
   "Hairstylist": ["hair","hairstylist","hair stylist","hairdresser","stylist","hair styling","braids","weave","barber","salon","hairdo"],
-  "Zone21 Security - EXCLUSIVE": ["security","guard","guards","bouncer","bouncers","zone21 security","zone 21 security","protection","bodyguard","crowd control","security service","security services","security personnel","security company"],
+  "Zone21 Security - EXCLUSIVE": [
+    "security","securities","securing","guard","guards","guarding","bouncer","bouncers",
+    "zone21 security","zone 21 security","zone21 sec","z21 security","z21 sec",
+    "protection","protective","bodyguard","body guard","crowd control","crowd management",
+    "security service","security services","security personnel","security company",
+    "security agency","security firm","security team","security officer","security officers",
+    "event security","event guard","marshals","marshalling","safety officer","doorman",
+    "access control","surveillance","patrol"
+  ],
   "Transport / Car Hire": ["transport","transportation","car hire","car rental","vehicle","vehicles","cars","bus","buses","shuttle","chauffeur","limousine","limo","taxi","logistics"],
   "Cleaning Services": ["cleaning","cleaner","cleaners","janitorial","sanitation","housekeeping","waste","trash","mopping","deep clean"],
   "Ushers & Hostesses": ["usher","ushers","hostess","hostesses","waiters","waitresses","attendants","staffing","serving staff","service staff","protocol","waitress","waiter"]
 };
+
+/* ═══════════════════════════════════════════════════════════
+   ZONE21-EXCLUSIVE SERVICE RULES
+   Only Zone21's own accounts may appear in these slots.
+   Other providers are filtered out of ALL slots.
+   ═══════════════════════════════════════════════════════════ */
+const ZONE21_EXCLUSIVE_SERVICES = {
+  "Zone21 Security - EXCLUSIVE": {
+    matchNames: ["zone21 security","zone 21 security","zone21 sec","z21 security","z21 sec","zone21security"],
+    reasonTag: "🛡️ Zone21 Official Security",
+    emptyTitle: "Zone21 Security not found in directory",
+    emptyBody: "Contact Zone21 directly to book security for your event."
+  },
+  "Event Planner / Coordinator": {
+    matchNames: ["zone21 event","zone 21 event","zone21 planning","zone 21 planning","zone21 planner","zone 21 planner","zone21 events","zone21 coordinator","zone 21 coordinator","zone21 management","zone 21 management"],
+    reasonTag: "🎯 Zone21 Official Event Planning",
+    emptyTitle: "Zone21 Event Planning not found in directory",
+    emptyBody: "Contact Zone21 directly to book your event planner."
+  }
+};
+
+function isExclusiveService(service) {
+  return !!ZONE21_EXCLUSIVE_SERVICES[service];
+}
+
+function isZone21OwnedProvider(p, service) {
+  const rule = ZONE21_EXCLUSIVE_SERVICES[service];
+  if (!rule) return false;
+  const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+  return rule.matchNames.some(n => name.includes(n));
+}
+
+/* Broader helper: is this provider a Zone21 security or planning account
+   (regardless of which service slot we're scoring)? */
+function isAnyZone21OwnedAccount(p) {
+  const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+  return [
+    "zone21 security","zone 21 security","zone21 sec","z21 security",
+    "zone21 event","zone 21 event","zone21 planning","zone 21 planning",
+    "zone21 planner","zone 21 planner","zone21 events","zone 21 events"
+  ].some(n => name.includes(n));
+}
+
+/* Third-party security or planner — must NOT leak into other slots */
+function isThirdPartySecurity(p) {
+  if (isAnyZone21OwnedAccount(p)) return false;
+  const text = buildProviderSearchText(p);
+  return /\bsecurity\b|\bguard\b|\bbouncer\b|\bprotection\b|\bmarshal\b/.test(text);
+}
+
+function isThirdPartyPlanner(p) {
+  if (isAnyZone21OwnedAccount(p)) return false;
+  const text = buildProviderSearchText(p);
+  return /\bevent planner\b|\bevent planning\b|\bplanner\b|\bcoordinator\b|\bevent management\b|\bevent manager\b/.test(text);
+}
 
 function toArray(v) {
   if (!v) return [];
@@ -651,10 +714,11 @@ function toArray(v) {
 
 function buildProviderSearchText(p) {
   const parts = [
-    p.name, p.businessName, p.companyName, p.brandName, p.displayName, p.username, p.ownerName,
+    p.name, p.businessName, p.companyName, p.brandName, p.displayName,
+    p.username, p.ownerName, p.fullName, p.email, p.phone, p.whatsapp,
     p.category, p.serviceType, p.primaryService, p.primaryCategory, p.subCategory,
     p.description, p.bio, p.about, p.tagline, p.summary, p.aboutMe,
-    p.location, p.serviceAreas, p.areas
+    p.location, p.serviceAreas, p.areas, p.role
   ].filter(Boolean).map(x => String(x));
 
   parts.push(...toArray(p.services));
@@ -663,6 +727,13 @@ function buildProviderSearchText(p) {
   parts.push(...toArray(p.otherServices));
   parts.push(...toArray(p.specialties));
   parts.push(...toArray(p.tags));
+  parts.push(...toArray(p.keywords));
+
+  try {
+    Object.values(p).forEach(v => {
+      if (typeof v === 'string' && v.length < 400) parts.push(v);
+    });
+  } catch (_) {}
 
   return parts.join('  ').toLowerCase();
 }
@@ -860,23 +931,19 @@ function closeSidebar() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION CHECK — STRICT
+   SUBSCRIPTION CHECK
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid) {
   if (!uid) return false;
   try {
     const subRef = db.collection('subscriptions').doc(`${uid}_${PLAN_ID}`);
     const snap = await subRef.get();
-    
     if (!snap.exists) return false;
     const s = snap.data();
-    
     if (s.deletedAt) return false;
     if (s.status !== 'active') return false;
-
     const exp = s.expiresAt?.toDate ? s.expiresAt.toDate() : (s.expiresAt ? new Date(s.expiresAt) : null);
     if (exp && exp.getTime() <= Date.now()) return false;
-
     return true;
   } catch (e) {
     console.warn('[Zone21 Sub] Check failed:', e);
@@ -896,7 +963,6 @@ function setAccessBannerLoading() {
   $('access-subtitle').textContent = 'This takes only a moment';
   $('access-cta').style.display = 'none';
 }
-
 function setAccessBannerActive() {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'locked', 'error');
@@ -914,7 +980,6 @@ function setAccessBannerActive() {
   attendeeHint.textContent = 'Unlimited attendees with Full Access.';
   budgetHint.textContent = 'Set your total budget.';
 }
-
 function setAccessBannerLocked() {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'active', 'error');
@@ -933,7 +998,6 @@ function setAccessBannerLocked() {
   attendeeLimitBadge.textContent = '🔒';
   attendeeHint.textContent = 'Subscribe to unlock.';
 }
-
 function setAccessBannerError(title, subtitle) {
   const banner = $('access-banner');
   banner.classList.remove('loading', 'active', 'locked');
@@ -941,11 +1005,9 @@ function setAccessBannerError(title, subtitle) {
   $('access-icon').innerHTML = '<i class="fas fa-triangle-exclamation"></i>';
   $('access-title').textContent = title || 'Could not verify subscription';
   $('access-subtitle').textContent = subtitle || 'Please check your connection and try again';
-  
   $('access-cta').style.display = 'inline-flex';
   $('access-cta').innerHTML = '<i class="fas fa-crown"></i> Subscribe now';
   $('access-cta').href = 'bookingsub.html';
-  
   $('sidebar-package-badge').textContent = '—';
   $('sidebar-package-label').textContent = 'Package: —';
   generateBtn.disabled = true;
@@ -953,7 +1015,6 @@ function setAccessBannerError(title, subtitle) {
   eventAttendees.disabled = true;
   attendeeLimitBadge.textContent = '🔒';
 }
-
 function updateAccessUI() {
   if (!currentUser) { setAccessBannerLocked(); return; }
   if (isSubscribed) setAccessBannerActive();
@@ -965,7 +1026,7 @@ function updateAccessUI() {
    ═══════════════════════════════════════════════════════════ */
 async function fetchVenues() {
   try {
-    const snapshot = await db.collection('venues').limit(200).get();
+    const snapshot = await db.collection('venues').limit(300).get();
     cachedVenues = [];
     snapshot.forEach(doc => cachedVenues.push({ id: doc.id, ...doc.data() }));
     return cachedVenues;
@@ -973,7 +1034,7 @@ async function fetchVenues() {
 }
 async function fetchServiceProviders() {
   try {
-    const snapshot = await db.collection('serviceProviders').limit(200).get();
+    const snapshot = await db.collection('serviceProviders').limit(300).get();
     cachedProviders = [];
     snapshot.forEach(doc => cachedProviders.push({ id: doc.id, ...doc.data() }));
     return cachedProviders;
@@ -981,19 +1042,15 @@ async function fetchServiceProviders() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INIT — BACKGROUND CHECK
+   INIT
    ═══════════════════════════════════════════════════════════ */
 async function initializeUser() {
   const user = auth.currentUser;
-  if (!user) {
-    hideLoader();
-    return false;
-  }
+  if (!user) { hideLoader(); return false; }
   currentUser = user;
   setAccessBannerLoading();
   renderNavUser();
-
-  hideLoader(); 
+  hideLoader();
 
   try {
     await Promise.allSettled([
@@ -1010,13 +1067,8 @@ async function initializeUser() {
         } catch (e) { console.warn('profile fetch:', e); }
       })()
     ]);
-
-    try {
-      isSubscribed = await checkSubscription(user.uid);
-    } catch (e) {
-      console.warn('Sub check threw:', e);
-      isSubscribed = false;
-    }
+    try { isSubscribed = await checkSubscription(user.uid); }
+    catch (e) { console.warn('Sub check threw:', e); isSubscribed = false; }
   } catch (e) {
     console.error('Init error:', e);
     isSubscribed = false;
@@ -1051,7 +1103,7 @@ function isProviderAvailable(provider, dateStr) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MATCHING — VENUES (rewritten, never returns empty)
+   MATCHING — VENUES (strict, only real venues)
    ═══════════════════════════════════════════════════════════ */
 function matchVenues(location, attendees, budget, requiredServices) {
   if (!cachedVenues.length) return [];
@@ -1068,24 +1120,18 @@ function matchVenues(location, attendees, budget, requiredServices) {
       areas.includes(locationLower) || locationLower.includes(areas)
     );
 
-    let venueFit = 0;
-    const vText = buildVenueSearchText(v);
-    if (vText.includes('venue') || vText.includes('hall') || vText.includes('space') ||
-        vText.includes('banquet') || vText.includes('premises')) venueFit += 3;
-
-    let serviceHits = 0;
-    requiredServices.forEach(svc => {
-      const kws = SERVICE_KEYWORDS[svc] || [];
-      kws.forEach(kw => { if (vText.includes(String(kw).toLowerCase())) serviceHits++; });
-    });
-    venueFit += Math.min(serviceHits, 3);
-
     const reasoning = [];
-    let fitScore = venueFit;
+    let fitScore = 0;
+
+    const vText = buildVenueSearchText(v);
+    const venueSignals = ['venue','hall','space','banquet','premises','function room','garden','marquee','conference','event space'];
+    const venueHits = venueSignals.filter(s => vText.includes(s)).length;
+    if (venueHits > 0) { fitScore += 4 + venueHits; reasoning.push('🏛️ Confirmed venue'); }
+    else return null;
 
     if (capacity > 0) {
       if (capacity >= attendees) { reasoning.push('✅ Capacity fits'); fitScore += 3; }
-      else { reasoning.push('⚠️ Capacity may be limited'); fitScore -= 1; }
+      else { reasoning.push('⚠️ Capacity may be limited'); fitScore -= 2; }
     } else reasoning.push('ℹ️ Capacity TBD');
 
     if (price > 0 && budget > 0) {
@@ -1097,24 +1143,64 @@ function matchVenues(location, attendees, budget, requiredServices) {
     } else reasoning.push('ℹ️ Price TBD');
 
     if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
-    else if (locationLower && vLoc) reasoning.push('📍 Outside area');
 
-    return { ...v, fitScore, reasoning: reasoning.length ? reasoning : ['ℹ️ Basic match'] };
-  });
+    return { ...v, fitScore, reasoning };
+  }).filter(Boolean);
 
   scored.sort((a, b) => b.fitScore - a.fitScore);
   return scored.slice(0, 3);
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MATCHING — SERVICE PROVIDERS (rewritten, deep keyword search)
+   MATCHING — PROVIDERS (strict, Zone21-exclusive lock)
    ═══════════════════════════════════════════════════════════ */
 function matchProvidersByService(location, services, budget, dateStr) {
   const locationLower = (location || '').toLowerCase().trim();
   const out = {};
 
   services.forEach(service => {
+    // Venue slot is handled separately by matchVenues()
+    if (service === 'Venue / Space Rental') { out[service] = []; return; }
+
+    // ───── ZONE21-EXCLUSIVE SLOTS ─────
+    if (isExclusiveService(service)) {
+      const rule = ZONE21_EXCLUSIVE_SERVICES[service];
+      const matches = cachedProviders.filter(p => isZone21OwnedProvider(p, service));
+
+      const scored = matches.map(p => {
+        const price = Number(p.basePrice) || 0;
+        const rating = Number(p.rating) || 0;
+        const available = isProviderAvailable(p, dateStr);
+        const reasoning = [rule.reasonTag];
+        let fitScore = 20; // zone21 gets priority
+
+        if (price > 0 && budget > 0) {
+          const pct = (price / budget) * 100;
+          if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 3; }
+          else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+          else if (pct <= 70) { reasoning.push('💰 Within budget'); fitScore += 1; }
+          else reasoning.push('⚠️ Above budget');
+        } else reasoning.push('ℹ️ Price TBD');
+
+        if (rating >= 4.5) { reasoning.push('⭐ Top rated'); fitScore += 3; }
+        else if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
+
+        if (available) { reasoning.push('📅 Available'); fitScore += 2; }
+        else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
+
+        return { ...p, fitScore, reasoning };
+      });
+
+      scored.sort((a, b) => b.fitScore - a.fitScore);
+      out[service] = scored.slice(0, 3); // may be empty — no fallback
+      return;
+    }
+
+    // ───── STANDARD SLOTS ─────
     const scored = cachedProviders.map(p => {
+      // Hard filter: never let third-party security or planners leak into standard slots
+      if (isThirdPartySecurity(p) || isThirdPartyPlanner(p)) return null;
+
       const { score, matches } = scoreProviderForService(p, service);
       if (score <= 0) return null;
 
@@ -1152,31 +1238,15 @@ function matchProvidersByService(location, services, budget, dateStr) {
       else if (rating >= 3) { reasoning.push('⭐ Good rating'); fitScore += 1; }
 
       if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
-      else if (locationLower && pLoc) reasoning.push('📍 Outside area');
 
       if (available) { reasoning.push('📅 Available'); fitScore += 2; }
       else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
 
-      return { ...p, fitScore, reasoning, _matchedKeywords: matches };
+      return { ...p, fitScore, reasoning };
     }).filter(Boolean);
 
-    // Fallback: nothing matched — surface top 3 highest-rated providers
-    if (scored.length === 0) {
-      const fallback = cachedProviders
-        .slice()
-        .sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0))
-        .slice(0, 3)
-        .map(p => ({
-          ...p,
-          fitScore: 0,
-          reasoning: ['ℹ️ Closest available provider', '📩 Message to confirm service']
-        }));
-      out[service] = fallback;
-      return;
-    }
-
     scored.sort((a, b) => b.fitScore - a.fitScore);
-    out[service] = scored.slice(0, 3);
+    out[service] = scored.slice(0, 3); // no random fallback
   });
 
   return out;
@@ -1207,12 +1277,12 @@ function generateVenueHTML(vendors, venueTargetService) {
   }
   vendors.forEach((v, index) => {
     const providerUid = getProviderUid(v);
-    const name = v.name || 'Unnamed';
+    const name = v.name || v.businessName || 'Unnamed';
     const location = v.location || 'Location TBD';
     const price = v.basePrice > 0 ? `$${v.basePrice}` : 'Pricing TBD';
     const capacity = v.capacity ? `${v.capacity} guests` : 'Capacity TBD';
-    const rating = v.rating ? v.rating.toFixed(1) : 'N/A';
-    const services = v.services || v.amenities || [];
+    const rating = v.rating ? Number(v.rating).toFixed(1) : 'N/A';
+    const vServices = v.services || v.amenities || [];
     const reasoning = v.reasoning || ['Available for your event'];
     const borderColor = v.fitScore >= 4 ? 'var(--success)' : v.fitScore >= 2 ? 'var(--warn)' : 'var(--accent)';
     const canInclude = !!venueTargetService && !!providerUid;
@@ -1232,7 +1302,7 @@ function generateVenueHTML(vendors, venueTargetService) {
         <div class="vendor-detail"><i class="fas fa-users"></i> ${escapeHtml(capacity)}</div>
         <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
         ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
-        ${services.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(services.slice(0, 4).join(', '))}${services.length > 4 ? ' +' + (services.length - 4) : ''}</div>` : ''}
+        ${vServices.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(vServices.slice(0, 4).join(', '))}${vServices.length > 4 ? ' +' + (vServices.length - 4) : ''}</div>` : ''}
         <div style="margin:6px 0;">
           ${reasoning.map(r => {
             let cls = 'reasoning-badge';
@@ -1262,7 +1332,9 @@ function statusLabel(status) {
 }
 
 function generateServiceSlotsHTML(services, matches) {
-  if (!services.length) return '';
+  const providerServices = services.filter(s => s !== 'Venue / Space Rental');
+  if (!providerServices.length) return '';
+
   let html = `<h2>Service Providers by Requirement</h2>`;
   html += `
     <div class="invite-info-banner">
@@ -1275,61 +1347,117 @@ function generateServiceSlotsHTML(services, matches) {
       </div>
     </div>`;
 
-  services.forEach(service => {
+  providerServices.forEach(service => {
     const providers = matches[service] || [];
-    html += `<div class="service-slot" data-service="${escapeAttr(service)}">`;
+    const isExclusive = isExclusiveService(service);
+    const rule = ZONE21_EXCLUSIVE_SERVICES[service];
+
+    html += `<div class="service-slot ${isExclusive ? 'zone21-exclusive' : ''}" data-service="${escapeAttr(service)}">`;
     html += `<div class="service-slot-header">
-      <h3>${escapeHtml(service)}</h3>
+      <h3>${isExclusive ? '<i class="fas fa-shield-halved" style="color:var(--accent);"></i>' : ''}${escapeHtml(service)}</h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="slot-status not_sent" data-slot-status="${escapeAttr(service)}">Not yet invited</span>
       </div>
     </div>`;
 
     if (providers.length === 0) {
-      html += `<p style="font-size:13px;color:var(--text-dim);margin:8px 0;">No providers found for this service in our database.</p>`;
-    } else {
-      providers.forEach((p, index) => {
-        const providerUid = getProviderUid(p);
-        const name = p.name || 'Unnamed Provider';
-        const location = p.location || 'Location TBD';
-        const price = p.basePrice > 0 ? `$${p.basePrice}` : 'Pricing TBD';
-        const rating = p.rating ? p.rating.toFixed(1) : 'N/A';
-        const services = p.services || p.amenities || [];
-        const reasoning = p.reasoning || ['Available'];
-        const borderColor = p.fitScore >= 5 ? 'var(--success)' : p.fitScore >= 3 ? 'var(--warn)' : 'var(--accent)';
-
+      // Exclusive services get a stronger "contact Zone21" card
+      if (isExclusive && rule) {
         html += `
-          <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(service)}" data-rank="${index}" style="border-left-color:${borderColor};">
-            <div class="vendor-name" style="justify-content:space-between;">
-              <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge">Provider</span></span>
-              <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
-                <input type="checkbox" data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
-                <span class="cb-label">Include</span>
-              </label>
-            </div>
-            <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
-            <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
-            ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
-            ${services.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(services.slice(0, 4).join(', '))}${services.length > 4 ? ' +' + (services.length - 4) : ''}</div>` : ''}
-            <div style="margin:6px 0;">
-              ${reasoning.map(r => {
-                let cls = 'reasoning-badge';
-                if (r.includes('⚠️')) cls += ' warning';
-                else if (r.includes('✅') || r.includes('📅')) cls += ' success';
-                else if (r.includes('ℹ️')) cls += ' info';
-                return `<span class="${cls}">${escapeHtml(r)}</span>`;
-              }).join(' ')}
-            </div>
-            <div class="vendor-status-line">
-              <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
-            </div>
-            <div class="vendor-actions">
-              ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-comment"></i> Message</button>` : ''}
-              <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <div style="background:linear-gradient(135deg,rgba(250,36,60,.08),rgba(250,36,60,.02));border:1px dashed rgba(250,36,60,.4);border-radius:var(--radius);padding:16px 18px;margin:6px 0;">
+            <p style="margin:0;color:#ff8b98;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;">
+              <i class="fas fa-shield-halved"></i>
+              ${escapeHtml(rule.emptyTitle)}
+            </p>
+            <p style="margin:8px 0 0;color:var(--text-muted);font-size:12.5px;line-height:1.55;">
+              ${escapeHtml(rule.emptyBody)}
+            </p>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <a href="https://wa.me/${ZONE21.whatsapp.replace('+','')}?text=${encodeURIComponent('Hi Zone21, I need ' + service + ' for my event on ' + (currentEventData?.date || ''))}"
+                 target="_blank" class="contact-btn whatsapp" style="text-decoration:none;">
+                <i class="fab fa-whatsapp"></i> Book via WhatsApp
+              </a>
+              <a href="mailto:${ZONE21.email}?subject=${encodeURIComponent('Booking request: ' + service)}"
+                 class="contact-btn primary" style="text-decoration:none;">
+                <i class="fas fa-envelope"></i> Email Zone21
+              </a>
+              <a href="tel:${ZONE21.phone}" class="contact-btn primary" style="text-decoration:none;">
+                <i class="fas fa-phone"></i> Call Now
+              </a>
             </div>
           </div>`;
-      });
+        html += `</div>`;
+        return;
+      }
+
+      // Standard services get a lighter empty card
+      html += `
+        <div style="background:rgba(255,159,10,.06);border:1px dashed rgba(255,159,10,.35);border-radius:var(--radius);padding:16px 18px;margin:6px 0;">
+          <p style="margin:0;color:#ffce8a;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-circle-info"></i>
+            No matching ${escapeHtml(service)} providers found in our directory.
+          </p>
+          <p style="margin:8px 0 0;color:var(--text-muted);font-size:12.5px;line-height:1.55;">
+            Contact Zone21 and we'll source a vetted ${escapeHtml(service)} for your event.
+          </p>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="https://wa.me/${ZONE21.whatsapp.replace('+','')}?text=${encodeURIComponent('Hi Zone21, I need a ' + service + ' for my event on ' + (currentEventData?.date || ''))}"
+               target="_blank" class="contact-btn whatsapp" style="text-decoration:none;">
+              <i class="fab fa-whatsapp"></i> Ask Zone21
+            </a>
+            <a href="mailto:${ZONE21.email}?subject=${encodeURIComponent('Provider request: ' + service)}"
+               class="contact-btn primary" style="text-decoration:none;">
+              <i class="fas fa-envelope"></i> Email us
+            </a>
+          </div>
+        </div>`;
+      html += `</div>`;
+      return;
     }
+
+    providers.forEach((p, index) => {
+      const providerUid = getProviderUid(p);
+      const name = p.name || p.businessName || 'Unnamed Provider';
+      const location = p.location || 'Location TBD';
+      const price = p.basePrice > 0 ? `$${p.basePrice}` : 'Pricing TBD';
+      const rating = p.rating ? Number(p.rating).toFixed(1) : 'N/A';
+      const psvcs = p.services || p.amenities || [];
+      const reasoning = p.reasoning || ['Available'];
+      const borderColor = isExclusive ? 'var(--accent)'
+        : (p.fitScore >= 5 ? 'var(--success)' : p.fitScore >= 3 ? 'var(--warn)' : 'var(--accent)');
+
+      html += `
+        <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(service)}" data-rank="${index}" style="border-left-color:${borderColor};">
+          <div class="vendor-name" style="justify-content:space-between;">
+            <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge ${isExclusive ? 'zone21' : ''}">${isExclusive ? 'Zone21 Exclusive' : 'Provider'}</span></span>
+            <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
+              <input type="checkbox" data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
+              <span class="cb-label">Include</span>
+            </label>
+          </div>
+          <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
+          <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
+          ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
+          ${psvcs.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(psvcs.slice(0, 4).join(', '))}${psvcs.length > 4 ? ' +' + (psvcs.length - 4) : ''}</div>` : ''}
+          <div style="margin:6px 0;">
+            ${reasoning.map(r => {
+              let cls = 'reasoning-badge';
+              if (r.includes('🛡️') || r.includes('🎯 Zone21')) cls += ' exclusive';
+              else if (r.includes('⚠️')) cls += ' warning';
+              else if (r.includes('✅') || r.includes('📅')) cls += ' success';
+              else if (r.includes('ℹ️')) cls += ' info';
+              return `<span class="${cls}">${escapeHtml(r)}</span>`;
+            }).join(' ')}
+          </div>
+          <div class="vendor-status-line">
+            <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
+          </div>
+          <div class="vendor-actions">
+            ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-comment"></i> Message</button>` : ''}
+            <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          </div>
+        </div>`;
+    });
     html += `</div>`;
   });
 
@@ -1388,7 +1516,6 @@ async function openChatForVendor(vendorId) {
       jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-
     subscribeToChatMessages(chatThreadId);
   } catch (err) {
     console.error('Chat setup failed:', err);
@@ -1589,6 +1716,7 @@ EVENT DETAILS:
 - Required Services: ${eventData.services.join(', ')}
 
 For ANY planning/coordination service, ALWAYS recommend Zone21 Event Planners.
+For ANY security service, ALWAYS recommend Zone21 Security.
 Zone21 contact: Call +263789912268, WhatsApp +263789912268, Email zone21services@gmail.com`;
 }
 
@@ -2114,7 +2242,7 @@ auth.onAuthStateChanged(async (user) => {
     currentUser = user;
     renderNavUser();
     hideLoader();
-    initializeUser(); 
+    initializeUser();
   } else {
     currentUser = null;
     renderNavUser();
@@ -2127,4 +2255,4 @@ auth.onAuthStateChanged(async (user) => {
 });
 </script>
 </body>
-</html>
+  </html>

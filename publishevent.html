@@ -100,6 +100,7 @@ body.z21-loading{ overflow:hidden; }
 .z21-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:clamp(18px,3vw,26px);margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
 .z21-card h2{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-bottom:18px;display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border);}
 .z21-card h2 i{color:var(--accent);font-size:15px}
+.z21-card h2 .count-badge{margin-left:auto;background:rgba(250,36,60,.14);color:var(--accent);border:1px solid rgba(250,36,60,.3);padding:3px 12px;border-radius:100px;font-size:11px;font-weight:800;letter-spacing:.06em;}
 
 /* FORM */
 .z21-form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -122,6 +123,11 @@ body.z21-loading{ overflow:hidden; }
 
 .z21-poster-preview{width:100%;max-width:280px;height:auto;border-radius:var(--radius);margin-top:10px;border:1px solid var(--border);}
 .z21-ticket-preview{max-width:120px;height:auto;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
+
+/* MODE BADGE */
+.z21-mode-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(10,132,255,.08);border:1px solid rgba(10,132,255,.25);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12.5px;color:#7ab8ff;font-weight:600;}
+.z21-mode-banner i{font-size:14px}
+.z21-mode-banner.new{background:rgba(48,209,88,.08);border-color:rgba(48,209,88,.28);color:#7ee89a}
 
 /* TICKET ROWS */
 .z21-ticket-row{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;position:relative;transition:all .2s;}
@@ -174,6 +180,8 @@ body.z21-loading{ overflow:hidden; }
 .z21-icon-btn.z21-cancel{color:var(--warn);border-color:rgba(255,159,10,.3);background:rgba(255,159,10,.1);}
 .z21-icon-btn.z21-cancel:hover{background:var(--warn);color:#fff;border-color:var(--warn);}
 .z21-icon-btn.z21-cancel.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.z21-icon-btn.z21-delete{color:var(--accent);border-color:rgba(250,36,60,.3);background:rgba(250,36,60,.1);}
+.z21-icon-btn.z21-delete:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
 
 /* STATUS PILLS */
 .z21-status{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
@@ -182,6 +190,7 @@ body.z21-loading{ overflow:hidden; }
 .z21-status-rejected{background:rgba(250,36,60,.14);color:#ff9aa5;border:1px solid rgba(250,36,60,.3);}
 .z21-status-cancelled{background:rgba(255,255,255,.08);color:var(--text-muted);border:1px solid var(--border-2);}
 .z21-status-cancellation_requested{background:rgba(255,159,10,.14);color:#ffce8a;border:1px solid rgba(255,159,10,.3);}
+.z21-status-draft{background:rgba(10,132,255,.14);color:#7ab8ff;border:1px solid rgba(10,132,255,.3);}
 .z21-status-click-to-add{background:rgba(10,132,255,.14);color:#7ab8ff;border:1px dashed rgba(10,132,255,.5);cursor:pointer;font-weight:800;transition:all .2s;}
 .z21-status-click-to-add:hover{background:rgba(10,132,255,.25);transform:scale(1.03);}
 
@@ -193,6 +202,8 @@ body.z21-loading{ overflow:hidden; }
 .z21-toast.z21-success i{color:var(--success)}
 .z21-toast.z21-error{border-color:rgba(250,36,60,.4);color:#ff9aa5;}
 .z21-toast.z21-error i{color:var(--accent)}
+.z21-toast.z21-info{border-color:rgba(10,132,255,.4);color:#7ab8ff;}
+.z21-toast.z21-info i{color:var(--info)}
 
 /* MODAL */
 .z21-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:z21FadeIn .2s ease;}
@@ -286,15 +297,20 @@ body.z21-loading{ overflow:hidden; }
   <section class="z21-hero">
     <div class="z21-hero-tag"><i class="fas fa-calendar-check"></i> Organizer</div>
     <h1>Your <span class="grad">event dashboard</span>.</h1>
-    <p>Manage your events, tickets, and cancellation requests — all in one place.</p>
+    <p>Create unlimited events, manage tickets, and track cancellation requests — all in one place.</p>
     <div class="z21-hero-actions">
-      <button class="z21-btn z21-btn-primary" id="refreshBtn"><i class="fas fa-sync"></i> Refresh events</button>
+      <button class="z21-btn z21-btn-primary" id="createEventBtn"><i class="fas fa-plus-circle"></i> Create New Event</button>
+      <button class="z21-btn z21-btn-ghost" id="refreshBtn"><i class="fas fa-sync"></i> Refresh</button>
     </div>
   </section>
 
-  <!-- EVENT FORM (hidden until edit) -->
+  <!-- EVENT FORM (create or edit) -->
   <div class="z21-card z21-hidden" id="event-form-card">
-    <h2><i class="fas fa-pen"></i> Edit Event</h2>
+    <h2 id="form-heading"><i class="fas fa-pen"></i> Edit Event</h2>
+    <div class="z21-mode-banner" id="form-mode-banner">
+      <i class="fas fa-circle-info"></i>
+      <span id="form-mode-text">You are editing an existing event.</span>
+    </div>
     <form id="event-form">
       <div class="z21-form-row">
         <div class="z21-field">
@@ -420,16 +436,21 @@ body.z21-loading{ overflow:hidden; }
     <button type="button" class="z21-btn-submit z21-success" id="submit-review-event" style="margin-top:10px;">
       <i class="fas fa-paper-plane"></i> <span>Submit for Review</span>
     </button>
-    <button type="button" class="z21-btn-cancel-form" id="cancel-edit">Cancel Edit</button>
+    <button type="button" class="z21-btn-cancel-form" id="cancel-edit">Cancel</button>
   </div>
 
   <!-- MY EVENTS LIST -->
   <div class="z21-card">
-    <h2><i class="fas fa-list"></i> My Events</h2>
+    <h2>
+      <i class="fas fa-list"></i> My Events
+      <span class="count-badge" id="eventsCount">0</span>
+    </h2>
     <div class="z21-event-list" id="my-events-list">
       <div class="z21-loading-msg">Loading your events…</div>
     </div>
-    <p id="no-events-msg" class="z21-loading-msg" style="display:none;">No events created yet. You can purchase a package to create your first event.</p>
+    <p id="no-events-msg" class="z21-loading-msg" style="display:none;">
+      No events created yet. Click <strong style="color:var(--accent)">Create New Event</strong> above to publish your first event.
+    </p>
   </div>
 
 </div>
@@ -525,9 +546,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
 let currentOrganizerId = null;
 let editingEventId = null;
 let cancelRequestEventId = null;
+let formMode = 'edit'; // 'edit' | 'new'
+let allEventCount = 0;
 
 /* ═══════════════════════════════════════════════════════════
    LOADER
@@ -603,28 +629,82 @@ document.getElementById('menuSignOut').addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   UI HELPERS
+   UI HELPERS — FORM MODE
    ═══════════════════════════════════════════════════════════ */
 const eventFormCard = document.getElementById('event-form-card');
 const ticketTypesCard = document.getElementById('ticket-types-card');
 const termsSubmitCard = document.getElementById('terms-submit-card');
 const cancelEditBtn = document.getElementById('cancel-edit');
+const formHeading = document.getElementById('form-heading');
+const formModeBanner = document.getElementById('form-mode-banner');
+const formModeText = document.getElementById('form-mode-text');
+const submitEventBtn = document.getElementById('submit-event');
+const submitReviewBtn = document.getElementById('submit-review-event');
 
-function showEditForm() {
+function showForm(mode){
+  formMode = mode;
   eventFormCard.classList.remove('z21-hidden');
   ticketTypesCard.classList.remove('z21-hidden');
   termsSubmitCard.classList.remove('z21-hidden');
+
+  if(mode === 'new'){
+    formHeading.innerHTML = '<i class="fas fa-plus-circle"></i> Create New Event';
+    formModeBanner.classList.add('new');
+    formModeBanner.querySelector('i').className = 'fas fa-sparkles';
+    formModeText.textContent = 'You are creating a new event. Fill in the details below.';
+    submitEventBtn.querySelector('span').textContent = 'Save as Draft';
+    submitReviewBtn.querySelector('span').textContent = 'Create & Submit for Review';
+    cancelEditBtn.textContent = 'Cancel';
+  } else {
+    formHeading.innerHTML = '<i class="fas fa-pen"></i> Edit Event';
+    formModeBanner.classList.remove('new');
+    formModeBanner.querySelector('i').className = 'fas fa-circle-info';
+    formModeText.textContent = 'You are editing an existing event. Saving will send it back for review.';
+    submitEventBtn.querySelector('span').textContent = 'Update Event';
+    submitReviewBtn.querySelector('span').textContent = 'Submit for Review';
+    cancelEditBtn.textContent = 'Cancel Edit';
+  }
 }
 
-function hideEditForm() {
+function hideForm() {
   eventFormCard.classList.add('z21-hidden');
   ticketTypesCard.classList.add('z21-hidden');
   termsSubmitCard.classList.add('z21-hidden');
   editingEventId = null;
-  document.getElementById('submit-event').dataset.editId = '';
-  document.getElementById('submit-review-event').dataset.editId = '';
+  formMode = 'edit';
+  submitEventBtn.dataset.editId = '';
+  submitReviewBtn.dataset.editId = '';
 }
-cancelEditBtn.addEventListener('click', hideEditForm);
+cancelEditBtn.addEventListener('click', hideForm);
+
+/* ═══════════════════════════════════════════════════════════
+   CREATE NEW EVENT
+   ═══════════════════════════════════════════════════════════ */
+function createNewEvent() {
+  // Reset the form
+  document.getElementById('event-form').reset();
+  document.getElementById('posterPreview').style.display = 'none';
+  document.getElementById('posterPreview').src = '';
+  document.getElementById('ticket-types-container').innerHTML = '';
+  ticketCount = 0;
+  addTicketType();
+
+  // Pre-fill organizer details from signed-in user
+  const user = auth.currentUser;
+  if (user) {
+    document.getElementById('organizerEmail').value = user.email || '';
+    document.getElementById('organizerName').value = user.displayName || '';
+  }
+
+  editingEventId = null;
+  submitEventBtn.dataset.editId = '';
+  submitReviewBtn.dataset.editId = '';
+
+  showForm('new');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('createEventBtn').addEventListener('click', createNewEvent);
 document.getElementById('refreshBtn').addEventListener('click', () => loadMyEvents());
 
 /* ═══════════════════════════════════════════════════════════
@@ -807,55 +887,82 @@ function validateEventFields() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   UPDATE EVENT
+   SHARED SAVE (create or update)
+   status: 'draft' | 'pending'
    ═══════════════════════════════════════════════════════════ */
-document.getElementById('submit-event').addEventListener('click', async function() {
-  const editId = this.dataset.editId;
-  if (!editId) { showToast('No event selected for editing.', 'error'); return; }
+async function saveEventData(status) {
   if (!document.getElementById('agreeTerms').checked) {
     showToast('You must agree to the Terms & Conditions.', 'error');
-    return;
+    return null;
   }
-  if (!validateEventFields()) return;
+  if (!validateEventFields()) return null;
 
+  const posterInput = document.getElementById('posterUpload');
+  let posterBase64 = document.getElementById('posterPreview').src || null;
+  if (posterInput.files && posterInput.files[0]) {
+    posterBase64 = await handlePosterUpload(posterInput.files[0]);
+  } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
+    posterBase64 = null;
+  }
+
+  const ticketTypes = await collectTicketTypes();
+  if (!ticketTypes) return null;
+
+  const eventData = {
+    eventName: document.getElementById('eventName').value.trim(),
+    type: document.getElementById('eventType').value,
+    description: document.getElementById('eventDescription').value.trim(),
+    startDate: document.getElementById('startDate').value,
+    endDate: document.getElementById('endDate').value,
+    location: document.getElementById('location').value.trim(),
+    capacity: parseInt(document.getElementById('capacity').value),
+    organizerName: document.getElementById('organizerName').value.trim(),
+    organizerEmail: document.getElementById('organizerEmail').value.trim(),
+    organizerPhone: document.getElementById('organizerPhone').value.trim(),
+    ageRestriction: document.getElementById('ageRestriction').value.trim(),
+    dressCode: document.getElementById('dressCode').value.trim(),
+    posterImage: posterBase64,
+    ticketTypes: ticketTypes,
+    status: status,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (formMode === 'new') {
+    // CREATE a brand-new event document
+    eventData.organizerId = currentOrganizerId;
+    eventData.createdAt = new Date().toISOString();
+    const ref = await db.collection('events').add(eventData);
+    return ref.id;
+  } else {
+    // UPDATE existing event
+    if (!editingEventId) throw new Error('No event selected for editing.');
+    await db.collection('events').doc(editingEventId).update(eventData);
+    return editingEventId;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SAVE AS DRAFT
+   ═══════════════════════════════════════════════════════════ */
+submitEventBtn.addEventListener('click', async function() {
+  const targetStatus = (formMode === 'new') ? 'draft' : 'pending';
   const submitBtn = this;
   const originalHtml = submitBtn.innerHTML;
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Saving…</span>';
 
   try {
-    const posterInput = document.getElementById('posterUpload');
-    let posterBase64 = document.getElementById('posterPreview').src || null;
-    if (posterInput.files && posterInput.files[0]) {
-      posterBase64 = await handlePosterUpload(posterInput.files[0]);
-    } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
-      posterBase64 = null;
+    const id = await saveEventData(targetStatus);
+    if (id) {
+      showToast(
+        formMode === 'new'
+          ? 'Event created as draft. You can submit it for review anytime.'
+          : 'Event updated and sent back for review!',
+        'success'
+      );
+      hideForm();
+      loadMyEvents();
     }
-    const ticketTypes = await collectTicketTypes();
-    if (!ticketTypes) throw new Error('Ticket validation failed');
-
-    await db.collection('events').doc(editId).update({
-      eventName: document.getElementById('eventName').value.trim(),
-      type: document.getElementById('eventType').value,
-      description: document.getElementById('eventDescription').value.trim(),
-      startDate: document.getElementById('startDate').value,
-      endDate: document.getElementById('endDate').value,
-      location: document.getElementById('location').value.trim(),
-      capacity: parseInt(document.getElementById('capacity').value),
-      organizerName: document.getElementById('organizerName').value.trim(),
-      organizerEmail: document.getElementById('organizerEmail').value.trim(),
-      organizerPhone: document.getElementById('organizerPhone').value.trim(),
-      ageRestriction: document.getElementById('ageRestriction').value.trim(),
-      dressCode: document.getElementById('dressCode').value.trim(),
-      posterImage: posterBase64,
-      ticketTypes: ticketTypes,
-      status: 'pending',
-      updatedAt: new Date().toISOString()
-    });
-
-    showToast('Event saved and sent back for review!', 'success');
-    hideEditForm();
-    loadMyEvents();
   } catch (err) {
     console.error(err);
     showToast('Failed to save: ' + err.message, 'error');
@@ -868,53 +975,24 @@ document.getElementById('submit-event').addEventListener('click', async function
 /* ═══════════════════════════════════════════════════════════
    SUBMIT FOR REVIEW
    ═══════════════════════════════════════════════════════════ */
-document.getElementById('submit-review-event').addEventListener('click', async function() {
-  const editId = this.dataset.editId;
-  if (!editId) { showToast('No event selected.', 'error'); return; }
-  if (!document.getElementById('agreeTerms').checked) {
-    showToast('You must agree to the Terms & Conditions.', 'error');
-    return;
-  }
-  if (!validateEventFields()) return;
-
+submitReviewBtn.addEventListener('click', async function() {
   const submitBtn = this;
   const originalHtml = submitBtn.innerHTML;
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Submitting…</span>';
 
   try {
-    const posterInput = document.getElementById('posterUpload');
-    let posterBase64 = document.getElementById('posterPreview').src || null;
-    if (posterInput.files && posterInput.files[0]) {
-      posterBase64 = await handlePosterUpload(posterInput.files[0]);
-    } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
-      posterBase64 = null;
+    const id = await saveEventData('pending');
+    if (id) {
+      showToast(
+        formMode === 'new'
+          ? 'Event created and submitted for admin review!'
+          : 'Event submitted for admin review!',
+        'success'
+      );
+      hideForm();
+      loadMyEvents();
     }
-    const ticketTypes = await collectTicketTypes();
-    if (!ticketTypes) throw new Error('Ticket validation failed');
-
-    await db.collection('events').doc(editId).update({
-      eventName: document.getElementById('eventName').value.trim(),
-      type: document.getElementById('eventType').value,
-      description: document.getElementById('eventDescription').value.trim(),
-      startDate: document.getElementById('startDate').value,
-      endDate: document.getElementById('endDate').value,
-      location: document.getElementById('location').value.trim(),
-      capacity: parseInt(document.getElementById('capacity').value),
-      organizerName: document.getElementById('organizerName').value.trim(),
-      organizerEmail: document.getElementById('organizerEmail').value.trim(),
-      organizerPhone: document.getElementById('organizerPhone').value.trim(),
-      ageRestriction: document.getElementById('ageRestriction').value.trim(),
-      dressCode: document.getElementById('dressCode').value.trim(),
-      posterImage: posterBase64,
-      ticketTypes: ticketTypes,
-      status: 'pending',
-      updatedAt: new Date().toISOString()
-    });
-
-    showToast('Event submitted for admin review!', 'success');
-    hideEditForm();
-    loadMyEvents();
   } catch (err) {
     console.error(err);
     showToast('Failed to submit: ' + err.message, 'error');
@@ -997,7 +1075,23 @@ document.getElementById('cancellation-form').addEventListener('submit', async fu
 });
 
 /* ═══════════════════════════════════════════════════════════
-   LOAD MY EVENTS
+   DELETE EVENT (drafts only)
+   ═══════════════════════════════════════════════════════════ */
+async function deleteEvent(eventId) {
+  if (!eventId) return;
+  if (!confirm('Delete this draft event permanently? This cannot be undone.')) return;
+  try {
+    await db.collection('events').doc(eventId).delete();
+    showToast('Event deleted.', 'success');
+    loadMyEvents();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to delete: ' + err.message, 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD MY EVENTS (unlimited)
    ═══════════════════════════════════════════════════════════ */
 function loadMyEvents() {
   if (!currentOrganizerId) return;
@@ -1020,10 +1114,13 @@ function loadMyEvents() {
         const db2 = b.createdAt ? new Date(b.createdAt) : new Date(0);
         return db2 - da;
       });
+
+      allEventCount = events.length;
+      document.getElementById('eventsCount').textContent = allEventCount;
+
       if (events.length === 0) {
         listDiv.innerHTML = '';
         noMsg.style.display = 'block';
-        noMsg.textContent = 'No events created yet. You can purchase a package to create your first event.';
         return;
       }
       displayEvents(events);
@@ -1059,18 +1156,26 @@ function displayEvents(events) {
 
     let actionsHtml = '';
 
+    // Edit — always available
     actionsHtml += `<button class="z21-icon-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-pen"></i></button>`;
 
+    // Submit for review — only when not pending / approved / cancellation requested
     if (hasRequiredFields && ev.status !== 'pending' && ev.status !== 'approved' && ev.status !== 'cancellation_requested') {
       actionsHtml += `<button class="z21-icon-btn z21-submit" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
     }
 
-    if (hasRequiredFields) {
-      if (ev.status === 'approved' || ev.status === 'pending' || ev.status === 'draft') {
-        actionsHtml += `<button class="z21-icon-btn z21-cancel" title="Request Cancellation" onclick="openCancelModal('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
-      } else if (ev.status === 'cancellation_requested') {
-        actionsHtml += `<span style="color:var(--warn);font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><i class="fas fa-clock"></i> Pending</span>`;
-      }
+    // Delete — only drafts
+    if (ev.status === 'draft') {
+      actionsHtml += `<button class="z21-icon-btn z21-delete" title="Delete Draft" onclick="deleteEvent('${eventId}')"><i class="fas fa-trash"></i></button>`;
+    }
+
+    // Cancel — only live (pending / approved)
+    if (hasRequiredFields && (ev.status === 'approved' || ev.status === 'pending')) {
+      actionsHtml += `<button class="z21-icon-btn z21-cancel" title="Request Cancellation" onclick="openCancelModal('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
+    }
+
+    if (ev.status === 'cancellation_requested') {
+      actionsHtml += `<span style="color:var(--warn);font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;"><i class="fas fa-clock"></i> Pending</span>`;
     }
 
     if (!actionsHtml) {
@@ -1083,6 +1188,7 @@ function displayEvents(events) {
       statusClass = 'z21-status-click-to-add';
     } else {
       const statusMap = {
+        'draft': 'Draft',
         'pending': 'In Review',
         'approved': 'Published',
         'rejected': 'Rejected',
@@ -1090,10 +1196,10 @@ function displayEvents(events) {
         'cancellation_requested': 'Cancellation Pending'
       };
       statusLabel = statusMap[ev.status] || (ev.status ? ev.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN');
-      statusClass = `z21-status-${ev.status || 'pending'}`;
+      statusClass = `z21-status-${ev.status || 'draft'}`;
     }
 
-    const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'New Event';
+    const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'Untitled Event';
     const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : 'No date';
     const locStr = ev.location || 'No location';
 
@@ -1132,7 +1238,7 @@ function escapeHtml(s) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EVENT ACTIONS
+   EDIT EVENT
    ═══════════════════════════════════════════════════════════ */
 window.editEvent = function(eventId) {
   if (!eventId) { showToast('Invalid event ID.', 'error'); return; }
@@ -1181,10 +1287,11 @@ window.editEvent = function(eventId) {
       addTicketType();
     }
 
-    document.getElementById('submit-event').dataset.editId = eventId;
-    document.getElementById('submit-review-event').dataset.editId = eventId;
     editingEventId = eventId;
-    showEditForm();
+    submitEventBtn.dataset.editId = eventId;
+    submitReviewBtn.dataset.editId = eventId;
+
+    showForm('edit');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }).catch(err => {
     console.error(err);
@@ -1192,15 +1299,18 @@ window.editEvent = function(eventId) {
   });
 };
 
+/* ═══════════════════════════════════════════════════════════
+   SUBMIT EXISTING EVENT FOR REVIEW (from list)
+   ═══════════════════════════════════════════════════════════ */
 window.submitForReview = async function(eventId) {
   if (!eventId) return;
-  if (!confirm('Submit this event for admin review? You must have filled in all required fields.')) return;
+  if (!confirm('Submit this event for admin review?')) return;
   try {
     const snap = await db.collection('events').doc(eventId).get();
     if (!snap.exists) { showToast('Event not found.', 'error'); return; }
     const ev = snap.data();
     if (!ev.eventName || !ev.location || !ev.startDate || !ev.endDate || !ev.capacity) {
-      showToast('Please fill in all required fields before submitting.', 'error');
+      showToast('Please complete all required fields before submitting.', 'error');
       return;
     }
     if (!ev.ticketTypes || ev.ticketTypes.length === 0) {
@@ -1217,6 +1327,11 @@ window.submitForReview = async function(eventId) {
     showToast('Failed to submit: ' + err.message, 'error');
   }
 };
+
+/* ═══════════════════════════════════════════════════════════
+   EXPOSE
+   ═══════════════════════════════════════════════════════════ */
+window.deleteEvent = deleteEvent;
 
 /* ═══════════════════════════════════════════════════════════
    TERMS MODAL
@@ -1255,6 +1370,7 @@ auth.onAuthStateChanged(async (user) => {
     currentOrganizerId = user.uid;
     renderNavUser();
     loadMyEvents();
+    // Pre-seed one blank ticket row so the form isn't empty when opened
     if (document.querySelectorAll('.z21-ticket-row').length === 0) {
       addTicketType();
     }
@@ -1303,10 +1419,6 @@ auth.onAuthStateChanged(async (user) => {
     }
   }
 });
-
-if (document.querySelectorAll('.z21-ticket-row').length === 0) {
-  addTicketType();
-}
 </script>
 </body>
-</html>
+                                                                        </html>

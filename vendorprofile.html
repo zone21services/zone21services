@@ -630,6 +630,74 @@
             "Transport / Car Hire", "Cleaning Services", "Ushers & Hostesses"
         ];
 
+        // ============================================================
+        //  🔗 SOCIAL / WEBSITE LINK HELPERS  (fixes wrong-link bug)
+        // ============================================================
+
+        // Where a bare handle like "@mybrand" should point to
+        const SOCIAL_BASES = {
+            facebook:  'https://www.facebook.com/',
+            instagram: 'https://www.instagram.com/',
+            tiktok:    'https://www.tiktok.com/@',
+            youtube:   'https://www.youtube.com/@',
+            website:   'https://'
+        };
+
+        /**
+         * Turns whatever the vendor typed into a real, clickable absolute URL.
+         *  "@mybrand"            -> https://www.instagram.com/mybrand
+         *  "mybrand"             -> https://www.instagram.com/mybrand
+         *  "instagram.com/x"     -> https://instagram.com/x
+         *  "http://x.com"        -> http://x.com  (left alone)
+         *  "javascript:alert(1)" -> "" (blocked)
+         */
+        function normalizeUrl(raw, platform) {
+            if (raw === null || raw === undefined) return '';
+            let url = String(raw).trim();
+            if (!url) return '';
+
+            // 1. Block dangerous schemes
+            if (/^(javascript|data|vbscript|file|blob):/i.test(url)) return '';
+
+            // 2. Protocol-relative "//example.com" -> "https://example.com"
+            if (/^\/\//.test(url)) return 'https:' + url;
+
+            // 3. Already has a proper scheme? Leave it.
+            if (/^https?:\/\//i.test(url)) return url;
+
+            // 4. Bare handle / username (no dot, no slash) -> build full URL
+            const looksLikeHandle =
+                /^@[^\s\/]+$/.test(url) ||                 // "@mybrand"
+                (platform !== 'website' && /^[^\s\/.]+$/.test(url)); // "mybrand"
+
+            if (looksLikeHandle && platform !== 'website') {
+                const handle = url.replace(/^@/, '');
+                return SOCIAL_BASES[platform] + encodeURIComponent(handle);
+            }
+
+            // 5. Everything else (e.g. "facebook.com/page") -> add https://
+            return 'https://' + url.replace(/^\/+/, '');
+        }
+
+        // Escape anything that goes inside an HTML attribute
+        function escapeHtml(str) {
+            return String(str === null || str === undefined ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Single source of truth for the social buttons
+        const SOCIAL_DEFS = [
+            { key: 'facebook',  cssClass: 'social-facebook',  icon: 'fab fa-facebook-f', label: 'Facebook'  },
+            { key: 'instagram', cssClass: 'social-instagram', icon: 'fab fa-instagram',  label: 'Instagram' },
+            { key: 'tiktok',    cssClass: 'social-tiktok',    icon: 'fab fa-tiktok',     label: 'TikTok'    },
+            { key: 'youtube',   cssClass: 'social-youtube',   icon: 'fab fa-youtube',    label: 'YouTube'   },
+            { key: 'website',   cssClass: 'social-website',   icon: 'fas fa-globe',      label: 'Website'   }
+        ];
+
         let currentProviderId = null;
         let providerData = null;
         let isOwner = false;
@@ -773,17 +841,13 @@
                 `<img src="${providerData.avatar}" alt="Avatar">` :
                 initials;
 
-            const socialLinks = [];
-            if (providerData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f',
-                url: providerData.facebook, label: 'Facebook' });
-            if (providerData.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram',
-                url: providerData.instagram, label: 'Instagram' });
-            if (providerData.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: providerData
-                    .tiktok, label: 'TikTok' });
-            if (providerData.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: providerData
-                    .youtube, label: 'YouTube' });
-            if (providerData.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: providerData
-                    .website, label: 'Website' });
+            // ---- ✅ FIXED: normalise + validate every link before rendering ----
+            const socialLinks = SOCIAL_DEFS
+                .map(def => {
+                    const url = normalizeUrl(providerData[def.key], def.key);
+                    return url ? { ...def, url } : null;
+                })
+                .filter(Boolean);
 
             const servicesHtml = (providerData.services || []).map(s => `<span class="service-tag">${s}</span>`).join('');
 
@@ -897,6 +961,15 @@
                 reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">Please <a href="login.html" style="color:var(--pink);">sign in</a> to leave a review.</p>`;
             }
 
+            // ---- ✅ FIXED: escaped href + noopener ----
+            const socialHtml = socialLinks.length
+                ? `<div class="social-links">${socialLinks.map(link =>
+                    `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer"
+                        class="social-link ${link.cssClass}" title="${link.label}"
+                        aria-label="${link.label}"><i class="${link.icon}"></i></a>`
+                  ).join('')}</div>`
+                : '';
+
             const html = `
                 <div class="profile-card">
                     <div class="profile-cover"></div>
@@ -918,7 +991,7 @@
 
                         <div class="detail-grid">${detailHtml}</div>
 
-                        ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
+                        ${socialHtml}
 
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                             <button class="share-btn" onclick="copyProfileLink('${currentProviderId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
@@ -1036,14 +1109,19 @@
                         </div>
                     </div>
 
-                    <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media (no phone/email)</h3>
+                    <h3 style="color:var(--navy); margin:25px 0 5px; font-size:1.1rem;">Social Media (no phone/email)</h3>
+                    <p style="color:var(--muted); font-size:0.8rem; margin-bottom:15px;">
+                        Paste a full link (<em>https://tiktok.com/@yourname</em>) or just your handle (<em>@yourname</em>).
+                        “https://” is added automatically — so links always open on the right site.
+                    </p>
                     <div class="form-grid">
-                        <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}"></div>
-                        <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${providerData.instagram || ''}"></div>
-                        <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${providerData.facebook || ''}"></div>
-                        <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${providerData.youtube || ''}"></div>
-                        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}"></div>
+                        <div class="input-group"><label>TikTok</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}" placeholder="@yourname or full link"></div>
+                        <div class="input-group"><label>Instagram</label><input type="text" id="e-ig" value="${providerData.instagram || ''}" placeholder="@yourname or full link"></div>
+                        <div class="input-group"><label>Facebook</label><input type="text" id="e-fb" value="${providerData.facebook || ''}" placeholder="yourpage or full link"></div>
+                        <div class="input-group"><label>YouTube</label><input type="text" id="e-yt" value="${providerData.youtube || ''}" placeholder="@yourchannel or full link"></div>
+                        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}" placeholder="yourbusiness.com or https://yourbusiness.com"></div>
                     </div>
+                    <div id="link-preview" style="display:none; margin-top:10px; padding:12px 15px; background:#f0f4f8; border-radius:10px; font-size:0.8rem; color:var(--navy); word-break:break-all;"></div>
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
                     <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
@@ -1057,6 +1135,35 @@
                 </div>
             `;
             document.getElementById('profile-content').innerHTML = html;
+            setupLinkPreview();
+        }
+
+        // Live preview of what the saved link will be
+        function setupLinkPreview() {
+            const map = { 'e-tt': 'tiktok', 'e-ig': 'instagram', 'e-fb': 'facebook', 'e-yt': 'youtube', 'e-web': 'website' };
+            const box = document.getElementById('link-preview');
+
+            const refresh = () => {
+                const lines = [];
+                Object.keys(map).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const raw = el.value.trim();
+                    if (!raw) return;
+                    const url = normalizeUrl(raw, map[id]);
+                    lines.push(url
+                        ? `<div><strong>${map[id]}:</strong> <span style="color:#0a7c2f;">${escapeHtml(url)}</span></div>`
+                        : `<div><strong>${map[id]}:</strong> <span style="color:var(--pink);">Invalid link — ignored</span></div>`);
+                });
+                if (lines.length) { box.style.display = 'block'; box.innerHTML = '<div style="font-weight:700; margin-bottom:6px;">Saved as:</div>' + lines.join(''); }
+                else { box.style.display = 'none'; }
+            };
+
+            Object.keys(map).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', refresh);
+            });
+            refresh();
         }
 
         // ===== EDIT HANDLERS =====
@@ -1099,6 +1206,7 @@
 
             const selectedSvc = Array.from(document.querySelectorAll('.edit-svc-chk:checked')).map(cb => cb.value);
 
+            // ✅ Normalise links BEFORE saving so Firestore always holds full URLs
             const updates = {
                 name: document.getElementById('e-name').value.trim(),
                 location: document.getElementById('e-loc').value.trim(),
@@ -1113,11 +1221,13 @@
                 languages: document.getElementById('e-languages').value.trim(),
                 paymentMethods: document.getElementById('e-payment').value.trim(),
                 cancellationPolicy: document.getElementById('e-cancellation').value.trim(),
-                tiktok: document.getElementById('e-tt').value.trim(),
-                instagram: document.getElementById('e-ig').value.trim(),
-                facebook: document.getElementById('e-fb').value.trim(),
-                youtube: document.getElementById('e-yt').value.trim(),
-                website: document.getElementById('e-web').value.trim(),
+
+                tiktok:    normalizeUrl(document.getElementById('e-tt').value, 'tiktok'),
+                instagram: normalizeUrl(document.getElementById('e-ig').value, 'instagram'),
+                facebook:  normalizeUrl(document.getElementById('e-fb').value, 'facebook'),
+                youtube:   normalizeUrl(document.getElementById('e-yt').value, 'youtube'),
+                website:   normalizeUrl(document.getElementById('e-web').value, 'website'),
+
                 avatar: providerData.avatar || null,
                 images: uploadedImages,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()

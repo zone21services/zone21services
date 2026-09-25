@@ -638,7 +638,7 @@ const granularServices = [
    ═══════════════════════════════════════════════════════════ */
 const PAGE_START = Date.now();
 const MIN_LOADER_MS = 900;
-const FAILSAFE_MS = 6000; // reduced from 8s
+const FAILSAFE_MS = 6000;
 let loaderHidden = false;
 
 function hideLoader(){
@@ -654,7 +654,6 @@ function hideLoader(){
     }
   }, wait);
 }
-// Failsafe — if auth never resolves, hide loader AND set a fallback UI state
 setTimeout(() => {
   if(!loaderHidden){
     console.warn('[Zone21] Loader failsafe fired — setting fallback UI');
@@ -795,33 +794,50 @@ function closeSidebar() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION CHECK
+   SUBSCRIPTION CHECK — STRICT
+   Source of truth: subscriptions/{uid}_annual ONLY.
+   Matches bookingsub.html exactly. No fallback queries,
+   no stale user flags, no surprise full-access grants.
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid) {
   if (!uid) return false;
+
   try {
-    const subSnap = await db.collection('subscriptions').doc(`${uid}_${PLAN_ID}`).get();
-    if (subSnap.exists) {
-      const s = subSnap.data();
-      if (s.deletedAt) return false;
-      if (s.status !== 'active') return false;
-      const exp = s.expiresAt?.toDate ? s.expiresAt.toDate() : (s.expiresAt ? new Date(s.expiresAt) : null);
-      if (exp && exp.getTime() <= Date.now()) return false;
-      return true;
+    const subRef = db.collection('subscriptions').doc(`${uid}_${PLAN_ID}`);
+    const snap = await subRef.get();
+
+    /* No doc = not subscribed */
+    if (!snap.exists) {
+      console.log('[Zone21 Sub] No doc at subscriptions/' + uid + '_' + PLAN_ID + ' → NOT subscribed');
+      return false;
     }
-    const snap = await db.collection('subscriptions').where('userId', '==', uid).get();
-    let active = false;
-    snap.forEach(d => {
-      const s = d.data();
-      if (s.deletedAt) return;
-      if (s.status !== 'active') return;
-      const exp = s.expiresAt?.toDate ? s.expiresAt.toDate() : (s.expiresAt ? new Date(s.expiresAt) : null);
-      if (exp && exp.getTime() <= Date.now()) return;
-      active = true;
-    });
-    return active;
+
+    const s = snap.data();
+    console.log('[Zone21 Sub] Doc found:', s);
+
+    /* Soft-deleted = not subscribed */
+    if (s.deletedAt) {
+      console.log('[Zone21 Sub] Soft-deleted → NOT subscribed');
+      return false;
+    }
+
+    /* Must be exactly 'active' */
+    if (s.status !== 'active') {
+      console.log('[Zone21 Sub] Status is "' + s.status + '" (needs "active") → NOT subscribed');
+      return false;
+    }
+
+    /* Expiry check */
+    const exp = s.expiresAt?.toDate ? s.expiresAt.toDate() : (s.expiresAt ? new Date(s.expiresAt) : null);
+    if (exp && exp.getTime() <= Date.now()) {
+      console.log('[Zone21 Sub] Expired on', exp, '→ NOT subscribed');
+      return false;
+    }
+
+    console.log('[Zone21 Sub] ✓ Subscribed. Expires:', exp || 'no expiry set');
+    return true;
   } catch (e) {
-    console.warn('Sub check failed:', e);
+    console.warn('[Zone21 Sub] Check failed:', e);
     return false;
   }
 }
@@ -915,9 +931,6 @@ async function fetchServiceProviders() {
 
 /* ═══════════════════════════════════════════════════════════
    INIT — BULLETPROOF
-   Any failure still lands in `finally` so the banner updates
-   and the loader hides. The subscription check has a 5-second
-   race timeout so it can never hang forever.
    ═══════════════════════════════════════════════════════════ */
 async function initializeUser() {
   const user = auth.currentUser;
@@ -927,12 +940,10 @@ async function initializeUser() {
   }
   currentUser = user;
 
-  // Show "checking" state immediately while we work
   setAccessBannerLoading();
   renderNavUser();
 
   try {
-    // 1. Load profile + collections in parallel — each is safe
     await Promise.allSettled([
       fetchVenues(),
       fetchServiceProviders(),
@@ -948,7 +959,6 @@ async function initializeUser() {
       })()
     ]);
 
-    // 2. Subscription check — race against a 5s timeout
     try {
       isSubscribed = await Promise.race([
         checkSubscription(user.uid),
@@ -965,7 +975,6 @@ async function initializeUser() {
     console.error('Init error:', e);
     isSubscribed = false;
   } finally {
-    // 3. ALWAYS update UI + render + hide loader
     updateAccessUI();
     renderHistorySidebar();
     hideLoader();
@@ -2007,7 +2016,7 @@ window.updateInviteButtonState = updateInviteButtonState;
 /* ═══════════════════════════════════════════════════════════
    BOOT
    ═══════════════════════════════════════════════════════════ */
-setAccessBannerLoading(); // show checking state immediately on page load
+setAccessBannerLoading();
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {

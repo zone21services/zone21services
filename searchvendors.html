@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Discover · Zone21</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --bg:#000;--surface:#101012;--surface-2:#18181b;--surface-3:#222226;--surface-4:#2a2a2e;
+  --border:rgba(255,255,255,.08);--border-2:rgba(255,255,255,.14);
+  --text:#fff;--text-muted:rgba(255,255,255,.62);--text-dim:rgba(255,255,255,.38);
+  --accent:#fa243c;--accent-2:#ff3b52;--accent-glow:rgba(250,36,60,.35);
+  --success:#30d158;--warn:#ff9f0a;--info:#0a84ff;
+  --radius-sm:10px;--radius:14px;--radius-lg:20px;--radius-xl:28px;
+  --nav-h:64px;--bottom-nav-h:68px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Plus Jakarta Sans","Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;
+}
+body{padding-bottom:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px))}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+img{display:block;max-width:100%}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fadeInOverlay{from{opacity:0}to{opacity:1}}
+.animate-in{animation:fadeUp .35s ease forwards}
+
+/* NAV */
+.z21-nav{position:sticky;top:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;padding:0 clamp(16px,4vw,48px);gap:32px;background:rgba(0,0,0,.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--border);}
+.z21-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.02em;flex-shrink:0}
+.z21-logo-mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#c0132b);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 12px var(--accent-glow);}
+.z21-logo span{color:var(--accent)}
+.z21-nav-links{display:flex;gap:4px;flex:1}
+.z21-nav-link{padding:8px 14px;border-radius:100px;font-size:14px;font-weight:600;color:var(--text-muted);transition:all .2s;}
+.z21-nav-link:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.z21-nav-link.active{color:var(--text);background:rgba(255,255,255,.09)}
+.z21-nav-user{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.z21-avatar{width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--surface-3);border:2px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--accent);cursor:pointer;transition:border-color .2s;}
+.z21-avatar:hover{border-color:var(--accent)}
+.z21-avatar img{width:100%;height:100%;object-fit:cover}
+.z21-btn-nav{padding:8px 18px;border-radius:100px;background:var(--accent);color:#fff;font-size:13px;font-weight:700;transition:all .2s;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px var(--accent-glow);}
+.z21-btn-nav:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-btn-nav.ghost{background:rgba(255,255,255,.06);border:1px solid var(--border);box-shadow:none;}
+.z21-btn-nav.ghost:hover{background:rgba(255,255,255,.12);border-color:var(--border-2)}
+.z21-menu-toggle{display:none;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);font-size:14px;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* SEARCH */
+.z21-search-wrap{padding:16px clamp(16px,4vw,48px) 0;max-width:1400px;margin:0 auto;width:100%;}
+.z21-search{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:10px 20px;transition:all .2s;}
+.z21-search:focus-within{border-color:rgba(250,36,60,.5);background:var(--surface-3);box-shadow:0 0 0 4px rgba(250,36,60,.08);}
+.z21-search i{color:var(--text-dim);font-size:14px}
+.z21-search input{flex:1;border:none;background:transparent;outline:none;font-size:14px;color:var(--text);font-weight:500;}
+.z21-search input::placeholder{color:var(--text-dim);font-weight:400;}
+
+/* CONTENT */
+.content{max-width:1400px;margin:0 auto;padding:20px clamp(16px,4vw,48px) 40px;width:100%;}
+
+/* HERO */
+.hero-banner{
+  background:linear-gradient(135deg,rgba(250,36,60,.15) 0%,rgba(250,36,60,.04) 60%,rgba(255,255,255,.02) 100%);
+  border:1px solid rgba(250,36,60,.22);
+  border-radius:var(--radius-lg);
+  padding:clamp(20px,3vw,28px);
+  margin-bottom:24px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:20px;
+  position:relative;overflow:hidden;
+}
+.hero-banner::before{content:'';position:absolute;top:-50%;right:-10%;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(250,36,60,.20) 0%,transparent 70%);pointer-events:none;}
+.hero-banner .hero-icon{
+  width:60px;height:60px;border-radius:16px;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;color:#fff;flex-shrink:0;
+  box-shadow:0 12px 32px var(--accent-glow);
+  position:relative;z-index:1;
+}
+.hero-banner .hero-body{flex:1;min-width:200px;position:relative;z-index:1;}
+.hero-banner h2{font-size:clamp(18px,2.4vw,22px);font-weight:800;letter-spacing:-.02em;color:var(--text);margin-bottom:6px;}
+.hero-banner p{font-size:13.5px;color:var(--text-muted);line-height:1.6;max-width:640px;}
+.hero-banner .badge-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+.hero-banner .badge-list span{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:.02em;display:inline-flex;align-items:center;gap:6px;}
+.hero-banner .badge-list span.accent{background:rgba(250,36,60,.14);border-color:rgba(250,36,60,.3);color:#ff8b98;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);padding:4px;border-radius:100px;margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{padding:8px 20px;border:none;background:transparent;border-radius:100px;font-weight:700;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+.tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px var(--accent-glow);}
+.tab-btn:hover:not(.active){color:var(--text);background:rgba(255,255,255,.05);}
+
+/* SECTION HEADER */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
+.section-header h3{font-size:16px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+.section-header h3 i{color:var(--accent);font-size:15px;}
+.section-header .filter-stats{font-size:12.5px;color:var(--text-muted);font-weight:500;}
+.section-header .filter-stats strong{color:var(--text);font-weight:800;}
+.btn-refresh{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:100px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-muted);font-size:12px;font-weight:700;transition:all .2s;}
+.btn-refresh:hover{background:rgba(255,255,255,.12);color:var(--text);border-color:var(--border-2);}
+
+/* GRID */
+.vendors-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+
+/* VENDOR CARD */
+.vendor-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:18px;
+  transition:all .25s ease;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+}
+.vendor-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),#c0132b);opacity:0;transition:opacity .25s;}
+.vendor-card:hover{transform:translateY(-3px);border-color:var(--border-2);box-shadow:0 16px 40px rgba(0,0,0,.5);}
+.vendor-card:hover::before{opacity:1;}
+.vendor-card .card-top{display:flex;align-items:flex-start;gap:14px;margin-bottom:12px;}
+.vendor-card .avatar{
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),#c0132b);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;flex-shrink:0;overflow:hidden;
+  box-shadow:0 8px 24px var(--accent-glow);position:relative;
+}
+.vendor-card .avatar img{width:100%;height:100%;object-fit:cover;}
+.vendor-card .card-info{flex:1;min-width:0;}
+.vendor-card .name{font-weight:800;font-size:15px;color:var(--text);line-height:1.25;display:flex;align-items:center;gap:6px;flex-wrap:wrap;letter-spacing:-.01em;}
+.vendor-card .name .type-badge{font-size:9px;font-weight:800;padding:3px 9px;border-radius:100px;background:rgba(250,36,60,.14);color:#ff8b98;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(250,36,60,.3);}
+.vendor-card .name .type-badge.venue{background:rgba(255,159,10,.14);color:#ffce8a;border-color:rgba(255,159,10,.3);}
+.vendor-card .service-type{font-size:12.5px;color:var(--text-muted);font-weight:500;margin-top:3px;display:flex;align-items:center;gap:6px;}
+.vendor-card .service-type i{color:var(--accent);font-size:10px;}
+.vendor-card .rating-row{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;}
+.vendor-card .rating-row .stars{color:#FBBF24;font-size:11px;letter-spacing:1px;}
+.vendor-card .rating-row .stars .empty{color:rgba(255,255,255,.15);}
+.vendor-card .rating-row .rating-num{font-weight:800;font-size:12px;color:var(--text);}
+.vendor-card .rating-row .review-count{font-size:10.5px;color:var(--text-dim);font-weight:500;}
+.vendor-card .service-tags{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 8px;}
+.vendor-card .service-tags span{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text-muted);padding:3px 10px;border-radius:100px;font-size:10.5px;font-weight:600;}
+.vendor-card .service-tags span.more{background:transparent;border:none;color:var(--text-dim);font-weight:500;padding-left:2px;}
+.vendor-card .description{font-size:12.5px;color:var(--text-muted);margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.55;}
+.vendor-card .details-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-muted);}
+.vendor-card .details-row span{display:flex;align-items:center;gap:5px;}
+.vendor-card .details-row i{color:var(--text-dim);font-size:11px;}
+.vendor-card .details-row .price{color:#ff8b98;font-weight:800;}
+.vendor-card .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto;}
+.vendor-card .card-actions button{justify-content:center;padding:10px 12px;font-size:12.5px;font-weight:700;border-radius:100px;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
+.vendor-card .card-actions .btn-message{background:var(--accent);color:#fff;box-shadow:0 4px 12px var(--accent-glow);}
+.vendor-card .card-actions .btn-message:hover{background:var(--accent-2);transform:translateY(-1px);}
+.vendor-card .card-actions .btn-profile{background:rgba(255,255,255,.06);border:1px solid var(--border-2);color:var(--text);}
+.vendor-card .card-actions .btn-profile:hover{background:rgba(255,255,255,.12);border-color:var(--border-2);transform:translateY(-1px);}
+
+/* EMPTY / LOADING */
+.empty-state,.loading-state{text-align:center;padding:60px 20px;grid-column:1/-1;background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);}
+.empty-state i{font-size:2.6rem;color:var(--text-dim);margin-bottom:14px;}
+.empty-state h3{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.empty-state p{color:var(--text-muted);font-size:13.5px;}
+.loading-state .spinner{width:42px;height:42px;border:3px solid rgba(255,255,255,.08);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px;}
+.loading-state p{color:var(--text-muted);font-weight:500;font-size:13px;}
+
+/* =====================================================
+   CHAT MODAL — matched to blueprint page
+   ===================================================== */
+.chat-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;animation:fadeInOverlay .25s ease;}
+.chat-modal-overlay.active{display:flex}
+.chat-modal{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 40px 120px rgba(0,0,0,.75);animation:slideUp .3s cubic-bezier(.25,1,.5,1);overflow:hidden;}
+.chat-modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.chat-modal-header .chat-recipient{display:flex;align-items:center;gap:12px;}
+.chat-modal-header .chat-recipient .avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c0132b);color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;overflow:hidden;}
+.chat-modal-header .chat-recipient .avatar img{width:100%;height:100%;object-fit:cover}
+.chat-modal-header .chat-recipient .info h4{font-size:14.5px;font-weight:800;color:var(--text);letter-spacing:-.01em;}
+.chat-modal-header .chat-recipient .info span{font-size:12px;color:var(--text-muted)}
+.chat-modal-header .close-btn{width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.08);color:var(--text-muted);font-size:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.chat-modal-header .close-btn:hover{background:rgba(250,36,60,.15);color:var(--accent)}
+.chat-modal-body{flex:1;overflow-y:auto;padding:18px 22px;background:var(--surface-2);display:flex;flex-direction:column;gap:10px;min-height:180px;max-height:360px;}
+.chat-modal-body .empty-chat{text-align:center;color:var(--text-dim);padding:40px 0;font-size:13px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.chat-modal-body .empty-chat i{font-size:32px;color:var(--border-2);margin-bottom:10px}
+.chat-message{max-width:82%;padding:11px 16px;border-radius:18px;font-size:13.5px;line-height:1.5;word-wrap:break-word;animation:fadeUp .25s ease;}
+.chat-message.in{background:var(--surface-3);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:5px;color:var(--text);}
+.chat-message.out{background:var(--accent);color:white;align-self:flex-end;border-bottom-right-radius:5px;box-shadow:0 4px 12px var(--accent-glow);}
+.chat-message.system{background:rgba(255,159,10,.08);border:1px dashed rgba(255,159,10,.4);align-self:stretch;max-width:100%;border-radius:12px;color:var(--text);font-size:12.5px;white-space:pre-wrap;}
+.chat-message .time{font-size:9.5px;opacity:.6;margin-top:4px;text-align:right;font-weight:500;}
+.chat-message.in .time{color:var(--text-dim)}
+.chat-message.out .time{color:rgba(255,255,255,.7)}
+.chat-modal-footer{padding:14px 18px 16px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px;align-items:center;flex-shrink:0;}
+.chat-modal-footer input{flex:1;padding:12px 18px;border:1px solid var(--border);border-radius:100px;font-size:13.5px;outline:none;background:var(--surface-2);color:var(--text);transition:all .2s;min-width:0;}
+.chat-modal-footer input:focus{border-color:rgba(250,36,60,.6);background:var(--surface-3);box-shadow:0 0 0 4px rgba(250,36,60,.09);}
+.chat-modal-footer input::placeholder{color:var(--text-dim)}
+.chat-modal-footer .btn-send{background:var(--accent);color:white;border:none;padding:12px 20px;border-radius:100px;font-weight:800;font-size:13px;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 12px var(--accent-glow);}
+.chat-modal-footer .btn-send:hover{background:var(--accent-2);transform:translateY(-1px)}
+
+/* =====================================================
+   PROFILE MODAL — dark restyled
+   ===================================================== */
+.profile-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:1002;display:none;align-items:center;justify-content:center;padding:16px;animation:fadeInOverlay .25s ease;}
+.profile-modal-overlay.active{display:flex}
+.profile-modal{background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-xl);max-width:760px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 40px 120px rgba(0,0,0,.75);animation:slideUp .3s cubic-bezier(.25,1,.5,1);overflow:hidden;position:relative;}
+.profile-modal .close-modal-btn{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);color:#fff;font-size:16px;cursor:pointer;transition:all .2s;z-index:10;display:flex;align-items:center;justify-content:center;}
+.profile-modal .close-modal-btn:hover{background:var(--accent);transform:rotate(90deg)}
+.profile-modal-body{flex:1;overflow-y:auto;padding:0;}
+.profile-modal-body .profile-cover{height:140px;background:linear-gradient(135deg,var(--accent) 0%,#8c0a1e 100%);position:relative;flex-shrink:0;}
+.profile-modal-body .profile-cover::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 30%,rgba(255,255,255,.12) 0%,transparent 60%);}
+.profile-modal-body .profile-avatar{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c0132b);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#fff;border:4px solid var(--surface);margin-top:-50px;margin-left:30px;position:relative;z-index:2;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden;}
+.profile-modal-body .profile-avatar img{width:100%;height:100%;object-fit:cover;}
+.profile-modal-body .profile-info{padding:16px 30px 30px;}
+.profile-modal-body .name{font-size:24px;font-weight:800;color:var(--text);margin-bottom:4px;letter-spacing:-.02em;}
+.profile-modal-body .category{color:var(--text-muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:12px;}
+.profile-modal-body .rating-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+.profile-modal-body .stars{color:#FBBF24;font-size:14px;letter-spacing:2px;}
+.profile-modal-body .rating-number{font-weight:800;font-size:15px;color:var(--text);}
+.profile-modal-body .reviews-count{color:var(--text-dim);font-size:12.5px;}
+.profile-modal-body .services-tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;}
+.profile-modal-body .service-tag{background:rgba(255,255,255,.05);border:1px solid var(--border);padding:4px 12px;border-radius:100px;font-size:11.5px;font-weight:600;color:var(--text-muted);}
+.profile-modal-body .description{margin:12px 0 16px;line-height:1.65;color:var(--text-muted);font-size:13.5px;}
+.profile-modal-body .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:16px 0;}
+.profile-modal-body .detail-item{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:13px;border:1px solid var(--border);transition:all .2s;}
+.profile-modal-body .detail-item:hover{background:var(--surface-3);border-color:var(--border-2);}
+.profile-modal-body .detail-item i{width:18px;text-align:center;font-size:13px;margin-top:2px;color:var(--accent);flex-shrink:0;}
+.profile-modal-body .detail-item .label{font-weight:800;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px;}
+.profile-modal-body .detail-item .value{color:var(--text);word-break:break-word;font-weight:500;}
+.profile-modal-body .social-links{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap;}
+.profile-modal-body .social-link{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;text-decoration:none;transition:all .2s;border:1px solid var(--border);}
+.profile-modal-body .social-link:hover{transform:scale(1.1);}
+.social-facebook{background:#1877F2;}
+.social-instagram{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);}
+.social-tiktok{background:#000;}
+.social-youtube{background:#FF0000;}
+.social-website{background:var(--accent);}
+.profile-modal-body .gallery-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.profile-modal-body .gallery-section h4{font-size:14px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:800;}
+.profile-modal-body .gallery-section h4 i{color:var(--accent);}
+.profile-modal-body .gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;}
+.profile-modal-body .gallery-grid .gallery-item{border-radius:var(--radius-sm);overflow:hidden;aspect-ratio:1/1;background:var(--surface-3);border:1px solid var(--border);}
+.profile-modal-body .gallery-grid .gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .3s;}
+.profile-modal-body .gallery-grid .gallery-item:hover img{transform:scale(1.06);}
+.profile-modal-body .modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 6px;padding-top:18px;border-top:1px solid var(--border);}
+.profile-modal-body .modal-actions .btn{flex:1;justify-content:center;min-width:120px;padding:12px 20px;border-radius:100px;font-weight:800;font-size:13px;display:inline-flex;align-items:center;gap:8px;transition:all .2s;}
+.profile-modal-body .modal-actions .btn-message{background:var(--accent);color:#fff;box-shadow:0 4px 12px var(--accent-glow);}
+.profile-modal-body .modal-actions .btn-message:hover{background:var(--accent-2);transform:translateY(-1px);}
+.profile-modal-body .modal-actions .btn-outline{background:rgba(255,255,255,.06);border:1px solid var(--border-2);color:var(--text);}
+.profile-modal-body .modal-actions .btn-outline:hover{background:rgba(255,255,255,.12);transform:translateY(-1px);}
+
+/* Review star input */
+.star-rating-input{display:flex;gap:5px;font-size:22px;margin-bottom:8px;cursor:pointer;}
+.star-rating-input i{color:rgba(255,255,255,.15);transition:color .15s;cursor:pointer;}
+.star-rating-input i:hover{transform:scale(1.15);}
+
+/* Review form inputs */
+.review-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px;}
+.review-box p{margin-bottom:8px;}
+.review-box input,.review-box textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-3);color:var(--text);font-size:13px;outline:none;transition:all .2s;margin-bottom:8px;}
+.review-box input:focus,.review-box textarea:focus{border-color:rgba(250,36,60,.6);background:var(--surface-4);box-shadow:0 0 0 4px rgba(250,36,60,.09);}
+.review-box textarea{resize:vertical;min-height:60px;line-height:1.5;}
+
+/* TOAST */
+.z21-toast-wrap{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:8px;max-width:90vw;pointer-events:none;}
+.z21-toast{padding:13px 20px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:100px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.6);pointer-events:auto;animation:fadeUp .3s cubic-bezier(.25,1,.5,1);max-width:100%;}
+.z21-toast.success{border-color:rgba(48,209,88,.4);color:#7ee89a}
+.z21-toast.success i{color:var(--success)}
+.z21-toast.error{border-color:rgba(250,36,60,.4);color:#ff9aa5}
+.z21-toast.error i{color:var(--accent)}
+.z21-toast.info i{color:var(--text-muted)}
+
+/* BOTTOM NAV */
+.z21-bottom-nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:rgba(0,0,0,.9);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:1px solid var(--border);display:none;z-index:99;}
+.z21-bottom-nav-inner{display:flex;height:var(--bottom-nav-h)}
+.z21-bottom-link{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;font-weight:600;color:var(--text-dim);transition:color .2s;}
+.z21-bottom-link i{font-size:17px}
+.z21-bottom-link.active{color:var(--accent)}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .z21-nav-links{display:none}
+  .z21-menu-toggle{display:flex}
+  .z21-bottom-nav{display:block}
+}
+@media(max-width:640px){
+  .z21-nav{padding:0 16px;gap:14px}
+  .z21-search-wrap{padding:12px 16px 0}
+  .content{padding:16px 14px 100px}
+  .vendors-grid{grid-template-columns:1fr;gap:12px}
+  .vendor-card{padding:16px}
+  .profile-modal-body .profile-info{padding:12px 18px 22px}
+  .profile-modal-body .profile-avatar{width:80px;height:80px;font-size:26px;margin-left:16px;margin-top:-40px;}
+  .profile-modal-body .profile-cover{height:110px;}
+  .profile-modal-body .name{font-size:20px;}
+  .profile-modal-body .gallery-grid{grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;}
+  .profile-modal-body .detail-grid{grid-template-columns:1fr;}
+  .chat-modal-body{max-height:300px;padding:14px 16px;}
+  .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
+  .hero-banner{flex-direction:column;text-align:center;}
+  .hero-banner .badge-list{justify-content:center;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="z21-nav">
+  <a href="discover.html" class="z21-logo">
+    <div class="z21-logo-mark">Z</div>
+    Zone<span>21</span>
+  </a>
+  <div class="z21-nav-links">
+    <a href="discover.html" class="z21-nav-link active">Discover</a>
+    <a href="organiserblueprint.html" class="z21-nav-link">Blueprint</a>
+    <a href="organiserinbox.html" class="z21-nav-link">Inbox</a>
+    <a href="support.html" class="z21-nav-link">Support</a>
+    <a href="account.html" class="z21-nav-link">My Account</a>
+  </div>
+  <div class="z21-nav-user" id="navUser">
+    <a href="organiserinbox.html" class="z21-btn-nav ghost"><i class="fas fa-inbox"></i> Inbox</a>
+    <div class="z21-avatar" id="topbar-avatar" title="Profile"><span>O</span></div>
+    <button class="z21-btn-nav" id="logout-btn" style="padding:8px 14px;"><i class="fas fa-sign-out-alt"></i></button>
+  </div>
+</nav>
+
+<!-- SEARCH -->
+<div class="z21-search-wrap">
+  <div class="z21-search">
+    <i class="fas fa-search"></i>
+    <input type="text" id="searchInput" placeholder="Search vendors, venues, services..." />
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <div class="hero-banner">
+    <div class="hero-icon"><i class="fas fa-handshake"></i></div>
+    <div class="hero-body">
+      <h2>Find Trusted Vendors & Venues</h2>
+      <p>Discover and connect with professional service providers and venues for your events — from photographers and DJs to marquee tents and banquet halls.</p>
+      <div class="badge-list">
+        <span class="accent"><i class="fas fa-star" style="font-size:9px;"></i> Verified</span>
+        <span><i class="fas fa-camera"></i> Photography & Video</span>
+        <span><i class="fas fa-music"></i> Entertainment & Sound</span>
+        <span><i class="fas fa-building"></i> Venues</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h3><i class="fas fa-shield-alt"></i> Service Providers & Venues</h3>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-refresh" onclick="refreshVendors()"><i class="fas fa-sync"></i> Refresh</button>
+      <span class="filter-stats" id="vendorCount"><strong>0</strong> listings</span>
+    </div>
+  </div>
+
+  <div class="tabs" id="typeTabs">
+    <button class="tab-btn active" data-filter="all">All</button>
+    <button class="tab-btn" data-filter="venue">Venues</button>
+    <button class="tab-btn" data-filter="provider">Service Providers</button>
+  </div>
+
+  <div id="vendorsGrid" class="vendors-grid">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading service providers and venues...</p>
+    </div>
+  </div>
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <i class="fas fa-users-slash"></i>
+    <h3>No results found</h3>
+    <p>Try adjusting your search.</p>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="z21-bottom-nav">
+  <div class="z21-bottom-nav-inner">
+    <a href="discover.html" class="z21-bottom-link active"><i class="fas fa-compass"></i> Discover</a>
+    <a href="organiserblueprint.html" class="z21-bottom-link"><i class="fas fa-wand-magic-sparkles"></i> Blueprint</a>
+    <a href="organiserinbox.html" class="z21-bottom-link"><i class="fas fa-inbox"></i> Inbox</a>
+    <a href="support.html" class="z21-bottom-link"><i class="fas fa-headset"></i> Support</a>
+    <a href="account.html" class="z21-bottom-link"><i class="fas fa-user"></i> Account</a>
+  </div>
+</nav>
+
+<!-- CHAT MODAL -->
+<div class="chat-modal-overlay" id="chatModal">
+  <div class="chat-modal">
+    <div class="chat-modal-header">
+      <div class="chat-recipient">
+        <div class="avatar" id="modalChatAvatar"><span id="modalChatInitials">?</span></div>
+        <div class="info">
+          <h4 id="modalChatName">Vendor</h4>
+          <span id="modalChatSub">Service Provider</span>
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeChatModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="chat-modal-body" id="modalChatMessages">
+      <div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.<br />Start the conversation!</p></div>
+    </div>
+    <div class="chat-modal-footer">
+      <input type="text" id="modalChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendModalMessage()" />
+      <button class="btn-send" onclick="sendModalMessage()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="profile-modal-overlay" id="vendorProfileModal">
+  <div class="profile-modal">
+    <button class="close-modal-btn" id="vendorProfileCloseBtn"><i class="fas fa-xmark"></i></button>
+    <div class="profile-modal-body" id="vendorProfileBody"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="z21-toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+  authDomain: "zone21.firebaseapp.com",
+  projectId: "zone21",
+  storageBucket: "zone21.firebasestorage.app",
+  messagingSenderId: "405963057292",
+  appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+  measurementId: "G-KE007Y89F1"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+let allListings = [];
+let filteredListings = [];
+let currentUser = null;
+let currentFilter = 'all';
+
+let chatThreadId = null;
+let chatOtherUid = null;
+let chatOtherName = '';
+let chatOtherAvatar = null;
+let chatUnsubscribe = null;
+let modalVendorId = null;
+
+const $ = id => document.getElementById(id);
+const grid = $('vendorsGrid');
+const emptyState = $('emptyState');
+const vendorCount = $('vendorCount');
+const searchInput = $('searchInput');
+const vendorProfileModal = $('vendorProfileModal');
+const vendorProfileBody = $('vendorProfileBody');
+const vendorProfileCloseBtn = $('vendorProfileCloseBtn');
+const typeTabs = $('typeTabs');
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════════════ */
+function showToast(msg, type = 'info') {
+  const c = $('toastWrap');
+  if (!c) { console.log(msg); return; }
+  const t = document.createElement('div');
+  t.className = `z21-toast ${type}`;
+  const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+  t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0'; t.style.transition = 'opacity .3s';
+    setTimeout(() => t.remove(), 300);
+  }, 4000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH — ORGANIZER GATE
+   ═══════════════════════════════════════════════════════════ */
+auth.onAuthStateChanged(async (user) => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  try {
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) { window.location.href = 'index.html'; return; }
+    const data = userDoc.data();
+    const role = data.role || '';
+    if (role !== 'organizer') {
+      if (role === 'service_provider') window.location.href = 'vendordashboard.html';
+      else window.location.href = 'index.html';
+      return;
+    }
+    currentUser = {
+      uid: user.uid,
+      name: data.name || user.email.split('@')[0],
+      email: user.email,
+      avatarUrl: data.avatarUrl || null,
+      role: 'organizer'
+    };
+    const avatarEl = $('topbar-avatar');
+    if (currentUser.avatarUrl) {
+      avatarEl.innerHTML = `<img src="${currentUser.avatarUrl}" alt="Avatar" />`;
+    } else {
+      avatarEl.innerHTML = `<span>${(currentUser.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'O')}</span>`;
+    }
+    loadListings();
+  } catch (error) {
+    console.error('Auth error:', error);
+    grid.innerHTML = `
+      <div class="empty-state" style="color:#ff9aa5;">
+        <i class="fas fa-exclamation-triangle" style="color:var(--accent);"></i>
+        <h3>Authentication Error</h3>
+        <p>${error.message}</p>
+        <button class="btn-refresh" onclick="auth.signOut()" style="margin-top:12px;">Sign Out</button>
+      </div>`;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD LISTINGS
+   ═══════════════════════════════════════════════════════════ */
+function loadListings() {
+  grid.innerHTML = `
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading service providers and venues...</p>
+    </div>`;
+
+  const venuesPromise = db.collection('venues').get()
+    .then(snap => {
+      const out = [];
+      snap.forEach(doc => out.push({ uid: doc.id, ...doc.data(), type: 'venue', collection: 'venues' }));
+      return out;
+    })
+    .catch(err => { console.error('venues:', err); return []; });
+
+  const providersPromise = db.collection('serviceProviders').get()
+    .then(snap => {
+      const out = [];
+      snap.forEach(doc => out.push({ uid: doc.id, ...doc.data(), type: 'provider', collection: 'serviceProviders' }));
+      return out;
+    })
+    .catch(err => { console.error('providers:', err); return []; });
+
+  Promise.all([venuesPromise, providersPromise])
+    .then(([venues, providers]) => {
+      allListings = [...venues, ...providers];
+      allListings.sort((a, b) => {
+        const aT = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate().getTime() : 0;
+        const bT = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().getTime() : 0;
+        return bT - aT;
+      });
+      // Fetch user data for fallbacks
+      const userFetchPromises = allListings.map(item =>
+        db.collection('users').doc(item.uid).get()
+          .then(s => {
+            if (s.exists) {
+              const u = s.data();
+              item._userName = u.name || '';
+              item._userAvatar = u.avatarUrl || null;
+            } else { item._userName = ''; item._userAvatar = null; }
+            return item;
+          })
+          .catch(() => { item._userName = ''; item._userAvatar = null; return item; })
+      );
+      return Promise.all(userFetchPromises);
+    })
+    .then(items => { allListings = items; applyFilters(); })
+    .catch(error => {
+      console.error('load error:', error);
+      grid.innerHTML = `
+        <div class="empty-state" style="color:#ff9aa5;">
+          <i class="fas fa-exclamation-triangle" style="color:var(--accent);"></i>
+          <h3>Failed to load listings</h3>
+          <p>${error.message}</p>
+          <button class="btn-refresh" onclick="loadListings()" style="margin-top:12px;">Retry</button>
+        </div>`;
+    });
+}
+
+function refreshVendors() { loadListings(); }
+
+/* ═══════════════════════════════════════════════════════════
+   FILTERS
+   ═══════════════════════════════════════════════════════════ */
+function applyFilters() {
+  const term = searchInput.value.trim().toLowerCase();
+  const typeFilter = currentFilter;
+  filteredListings = allListings.filter(item => {
+    if (typeFilter === 'venue' && item.type !== 'venue') return false;
+    if (typeFilter === 'provider' && item.type !== 'provider') return false;
+    if (!term) return true;
+    const searchable = `${item.name||''} ${item.category||''} ${item.services||''} ${item.location||''} ${item.secondaryServices||''} ${item.amenities||''}`.toLowerCase();
+    return searchable.includes(term);
+  });
+  renderListings(filteredListings);
+  vendorCount.innerHTML = `<strong>${filteredListings.length}</strong> listings`;
+}
+
+searchInput.addEventListener('input', applyFilters);
+
+typeTabs.addEventListener('click', function(e) {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const filter = btn.dataset.filter;
+  if (filter === currentFilter) return;
+  typeTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = filter;
+  applyFilters();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════ */
+function renderListings(listings) {
+  if (listings.length === 0) {
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+  grid.innerHTML = '';
+
+  listings.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.className = 'vendor-card animate-in';
+    card.style.animationDelay = `${(index % 12) * 0.04}s`;
+
+    const displayName = item.name || item._userName || 'Unnamed';
+    const avatarUrl = item.avatar || item._userAvatar || null;
+    const initials = displayName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+    const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="Avatar">` : initials;
+
+    const typeBadge = item.type === 'venue'
+      ? `<span class="type-badge venue">Venue</span>`
+      : `<span class="type-badge">Service</span>`;
+
+    const ratingNum = item.rating || 0;
+    const reviewsCount = item.reviewsCount || 0;
+    const fullStars = Math.floor(ratingNum);
+    const hasHalf = ratingNum % 1 >= 0.5;
+    let starHtml = '';
+    for (let i = 0; i < 5; i++) {
+      if (i < fullStars) starHtml += '★';
+      else if (i === fullStars && hasHalf) starHtml += '★';
+      else starHtml += '<span class="empty">☆</span>';
+    }
+    const ratingDisplay = ratingNum > 0
+      ? `<span class="stars">${starHtml}</span><span class="rating-num">${ratingNum.toFixed(1)}</span><span class="review-count">(${reviewsCount})</span>`
+      : `<span class="stars"><span class="empty">☆☆☆☆☆</span></span><span class="review-count" style="color:var(--text-dim);">New</span>`;
+
+    let tags = [];
+    if (item.services && item.services.length) tags = item.services;
+    else if (item.amenities && item.amenities.length) tags = item.amenities;
+    else if (item.secondaryServices) tags = item.secondaryServices.split(',').map(s => s.trim());
+
+    let tagsHtml = '';
+    if (tags.length > 0) {
+      const display = tags.slice(0, 3);
+      tagsHtml = display.map(t => `<span>${t}</span>`).join('');
+      if (tags.length > 3) tagsHtml += `<span class="more">+${tags.length - 3} more</span>`;
+    }
+
+    const category = item.category || item.serviceType || (item.type === 'venue' ? 'Venue' : 'Service Provider');
+    const description = item.description || item.bio || '';
+    const location = item.location || 'Location not set';
+    const basePrice = item.basePrice || 0;
+
+    let extraDetail = '';
+    if (item.type === 'venue' && item.capacity) {
+      extraDetail = `<span><i class="fas fa-users"></i> Capacity: ${item.capacity}</span>`;
+    } else if (item.type === 'provider' && item.yearsExperience) {
+      extraDetail = `<span><i class="fas fa-award"></i> ${item.yearsExperience} yrs exp</span>`;
+    }
+
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="avatar">${avatarHtml}</div>
+        <div class="card-info">
+          <div class="name">${displayName} ${typeBadge}</div>
+          <div class="service-type"><i class="fas fa-tag"></i> ${category}</div>
+          <div class="rating-row">${ratingDisplay}</div>
+        </div>
+      </div>
+      ${tagsHtml ? `<div class="service-tags">${tagsHtml}</div>` : ''}
+      ${description ? `<div class="description">${description}</div>` : ''}
+      <div class="details-row">
+        <span><i class="fas fa-map-pin"></i> ${location}</span>
+        <span class="price"><i class="fas fa-tag"></i> $${basePrice}</span>
+        ${extraDetail}
+      </div>
+      <div class="card-actions">
+        <button class="btn-message" onclick="openChatForVendor('${item.uid}')">
+          <i class="fas fa-paper-plane"></i> Message
+        </button>
+        <button class="btn-profile" onclick="openVendorProfile('${item.uid}', '${item.collection}')">
+          <i class="fas fa-eye"></i> Profile
+        </button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROFILE MODAL
+   ═══════════════════════════════════════════════════════════ */
+async function openVendorProfile(uid, collectionName) {
+  try {
+    const doc = await db.collection(collectionName).doc(uid).get();
+    if (!doc.exists) { showToast('Profile not found', 'error'); return; }
+    const data = doc.data();
+    const userSnap = await db.collection('users').doc(uid).get();
+    const userData = userSnap.exists ? userSnap.data() : {};
+    const merged = {
+      uid,
+      ...data,
+      name: data.name || userData.name || 'Unnamed',
+      avatarUrl: data.avatar || userData.avatarUrl || null,
+      type: collectionName === 'venues' ? 'venue' : 'provider',
+      collection: collectionName
+    };
+    renderVendorProfileModal(merged);
+    loadReviewsForModal(uid, collectionName);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to load profile', 'error');
+  }
+}
+
+function renderVendorProfileModal(item) {
+  const name = item.name || 'Unnamed';
+  const initials = name.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
+  const avatarHtml = item.avatarUrl ? `<img src="${item.avatarUrl}" alt="Avatar">` : initials;
+
+  const category = item.category || item.serviceType || (item.type === 'venue' ? 'Venue' : 'Service Provider');
+  const rating = item.rating || 0;
+  const reviewsCount = item.reviewsCount || 0;
+  const description = item.description || item.bio || 'No description provided.';
+  const basePrice = item.basePrice || 0;
+
+  const fullStars = Math.floor(rating);
+  const halfStar = rating % 1 >= 0.5;
+  let starsHtml = '';
+  for (let i = 1; i <= 5; i++) {
+    if (i <= fullStars) starsHtml += '<i class="fas fa-star"></i>';
+    else if (i === fullStars + 1 && halfStar) starsHtml += '<i class="fas fa-star-half-alt"></i>';
+    else starsHtml += '<i class="far fa-star"></i>';
+  }
+
+  let services = [];
+  if (item.services && item.services.length) services = item.services;
+  else if (item.amenities && item.amenities.length) services = item.amenities;
+  else if (item.secondaryServices) services = item.secondaryServices.split(',').map(s => s.trim());
+  const servicesHtml = services.map(s => `<span class="service-tag">${s}</span>`).join('');
+
+  const detailItems = [];
+  if (item.type === 'venue') {
+    if (item.capacity) detailItems.push({ icon: 'fa-users', label: 'Capacity', value: item.capacity + ' guests' });
+    if (item.venueType) detailItems.push({ icon: 'fa-archway', label: 'Venue Type', value: item.venueType });
+    if (item.pricingPackages) detailItems.push({ icon: 'fa-layer-group', label: 'Pricing Packages', value: item.pricingPackages });
+    if (item.rentalPolicies) detailItems.push({ icon: 'fa-file-contract', label: 'Rental Policies', value: item.rentalPolicies });
+    if (item.deposit) detailItems.push({ icon: 'fa-hand-holding-usd', label: 'Deposit Required', value: item.deposit });
+    if (item.operatingHours) detailItems.push({ icon: 'fa-clock', label: 'Operating Hours', value: item.operatingHours });
+    if (item.parking) detailItems.push({ icon: 'fa-parking', label: 'Parking', value: item.parking });
+    if (item.catering) detailItems.push({ icon: 'fa-utensils', label: 'Catering Options', value: item.catering });
+  } else {
+    if (item.secondaryServices) detailItems.push({ icon: 'fa-chevron-circle-right', label: 'Secondary Services', value: item.secondaryServices });
+    if (item.businessHours) detailItems.push({ icon: 'fa-clock', label: 'Business Hours', value: item.businessHours });
+    if (item.yearsExperience) detailItems.push({ icon: 'fa-award', label: 'Years of Experience', value: item.yearsExperience + ' years' });
+    if (item.serviceAreas) detailItems.push({ icon: 'fa-map-pin', label: 'Service Areas', value: item.serviceAreas });
+    if (item.languages) detailItems.push({ icon: 'fa-language', label: 'Languages Spoken', value: item.languages });
+    if (item.paymentMethods) detailItems.push({ icon: 'fa-credit-card', label: 'Payment Methods', value: item.paymentMethods });
+    if (item.cancellationPolicy) detailItems.push({ icon: 'fa-file-contract', label: 'Cancellation Policy', value: item.cancellationPolicy });
+  }
+  if (item.location) detailItems.push({ icon: 'fa-map-marker-alt', label: 'Location', value: item.location });
+
+  const detailHtml = detailItems.length > 0
+    ? detailItems.map(d => `
+        <div class="detail-item">
+          <i class="fas ${d.icon}"></i>
+          <div>
+            <span class="label">${d.label}</span>
+            <div class="value">${d.value}</div>
+          </div>
+        </div>`).join('')
+    : '<p style="grid-column:1/-1;color:var(--text-dim);font-size:13px;">No additional details available.</p>';
+
+  const socialLinks = [];
+  if (item.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: item.facebook, label: 'Facebook' });
+  if (item.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: item.instagram, label: 'Instagram' });
+  if (item.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: item.tiktok, label: 'TikTok' });
+  if (item.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: item.youtube, label: 'YouTube' });
+  if (item.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: item.website, label: 'Website' });
+  const socialHtml = socialLinks.length > 0
+    ? socialLinks.map(l => `<a href="${l.url}" target="_blank" class="social-link ${l.class}" title="${l.label}"><i class="${l.icon}"></i></a>`).join('')
+    : '';
+
+  const images = item.images || [];
+  let galleryHtml = '';
+  if (images.length > 0) {
+    const valid = images.filter(url => url && typeof url === 'string' && (url.startsWith('data:') || url.startsWith('http')));
+    if (valid.length > 0) {
+      galleryHtml = `
+        <div class="gallery-section">
+          <h4><i class="fas fa-images"></i> Gallery</h4>
+          <div class="gallery-grid">
+            ${valid.map((url, i) => `<div class="gallery-item"><img src="${url}" alt="Gallery ${i+1}" loading="lazy"></div>`).join('')}
+          </div>
+        </div>`;
+    }
+  }
+
+  const actionsHtml = `
+    <div class="modal-actions">
+      <button class="btn btn-message" onclick="closeVendorProfileModal(); openChatForVendor('${item.uid}')">
+        <i class="fas fa-paper-plane"></i> Message
+      </button>
+      <button class="btn btn-outline" onclick="copyVendorProfileLink('${item.uid}')">
+        <i class="fas fa-share-alt"></i> Share
+      </button>
+    </div>`;
+
+  const reviewSection = `
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px;">
+      <h4 style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-comment" style="color:var(--accent);"></i> Reviews
+      </h4>
+      <div id="modal-review-list" style="display:flex;flex-direction:column;gap:10px;max-height:220px;overflow-y:auto;margin-bottom:12px;"></div>
+      <div id="modal-review-form-container"></div>
+    </div>`;
+
+  vendorProfileBody.innerHTML = `
+    <div class="profile-cover"></div>
+    <div class="profile-avatar">${avatarHtml}</div>
+    <div class="profile-info">
+      <div class="name">${name}</div>
+      <div class="category">${category}${basePrice ? ` • Starts at $${basePrice}` : ''}</div>
+      <div class="rating-summary">
+        <span class="stars">${starsHtml}</span>
+        <span class="rating-number">${rating.toFixed(1)}</span>
+        <span class="reviews-count">(${reviewsCount} reviews)</span>
+      </div>
+      ${servicesHtml ? `<div class="services-tags">${servicesHtml}</div>` : ''}
+      ${description ? `<div class="description">${description}</div>` : ''}
+      <div class="detail-grid">${detailHtml}</div>
+      ${socialHtml ? `<div class="social-links">${socialHtml}</div>` : ''}
+      ${galleryHtml}
+      ${actionsHtml}
+      ${reviewSection}
+    </div>`;
+
+  vendorProfileModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  vendorProfileModal._item = item;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   REVIEWS
+   ═══════════════════════════════════════════════════════════ */
+async function loadReviewsForModal(profileId, collectionName) {
+  const list = $('modal-review-list');
+  if (!list) return;
+  list.innerHTML = '<p style="color:var(--text-dim);font-size:13px;">Loading reviews...</p>';
+
+  try {
+    const snap = await db.collection(collectionName).doc(profileId).collection('reviews')
+      .orderBy('createdAt', 'desc').get();
+    list.innerHTML = '';
+    if (snap.empty) {
+      list.innerHTML = '<p style="color:var(--text-dim);font-size:13px;">No reviews yet.</p>';
+    } else {
+      snap.forEach(doc => {
+        const r = doc.data();
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:12px 14px;background:var(--surface-2);border-radius:12px;border:1px solid var(--border);';
+        const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+        const date = r.createdAt && r.createdAt.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : 'Recently';
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <strong style="font-size:13px;color:var(--text);">${r.reviewerName || 'Anonymous'}</strong>
+            <span style="font-size:11px;color:var(--text-dim);">${date}</span>
+          </div>
+          <div style="color:#FBBF24;font-size:12px;letter-spacing:1px;margin-top:3px;">${stars}</div>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:6px;line-height:1.5;">${r.comment || ''}</p>`;
+        list.appendChild(div);
+      });
+    }
+
+    const container = $('modal-review-form-container');
+    if (!container) return;
+    const item = vendorProfileModal._item;
+    if (!item) return;
+
+    if (currentUser && currentUser.uid === profileId) {
+      container.innerHTML = '<p style="color:var(--text-dim);font-size:13px;">You cannot review your own profile.</p>';
+      return;
+    }
+    if (!currentUser) {
+      container.innerHTML = '<p style="color:var(--text-dim);font-size:13px;">Please sign in to leave a review.</p>';
+      return;
+    }
+
+    const existing = await checkExistingReviewModal(profileId, collectionName, currentUser.uid);
+    if (existing) {
+      container.innerHTML = `
+        <div class="review-box">
+          <p style="font-size:12px;color:var(--text-muted);">You have already reviewed. Edit below:</p>
+          <div class="star-rating-input" id="modal-star-input">
+            <i class="fas fa-star" data-value="1"></i><i class="fas fa-star" data-value="2"></i>
+            <i class="fas fa-star" data-value="3"></i><i class="fas fa-star" data-value="4"></i>
+            <i class="fas fa-star" data-value="5"></i>
+          </div>
+          <input type="text" id="modal-reviewer-name" value="${existing.reviewerName || ''}" placeholder="Your name" />
+          <textarea id="modal-review-comment" rows="2" placeholder="Write your review...">${existing.comment || ''}</textarea>
+          <button class="btn-send" style="padding:10px 20px;border-radius:100px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;box-shadow:0 4px 12px var(--accent-glow);" onclick="submitReviewFromModal('${profileId}','${collectionName}')">Update Review</button>
+          <span id="modal-review-status" style="font-size:12px;color:var(--text-dim);margin-left:8px;"></span>
+        </div>`;
+      const stars = container.querySelectorAll('#modal-star-input i');
+      const ratingVal = existing.rating || 0;
+      stars.forEach(star => { star.style.color = parseInt(star.dataset.value) <= ratingVal ? '#FBBF24' : 'rgba(255,255,255,.15)'; });
+      container.querySelector('button').dataset.reviewId = existing.id;
+      container.querySelector('button').dataset.selectedRating = ratingVal;
+      stars.forEach(star => {
+        star.addEventListener('click', function () {
+          const val = parseInt(this.dataset.value);
+          stars.forEach(s => { s.style.color = parseInt(s.dataset.value) <= val ? '#FBBF24' : 'rgba(255,255,255,.15)'; });
+          container.querySelector('button').dataset.selectedRating = val;
+        });
+      });
+    } else {
+      container.innerHTML = `
+        <div class="review-box">
+          <p style="font-size:12px;color:var(--text-muted);">Leave a review:</p>
+          <div class="star-rating-input" id="modal-star-input">
+            <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i>
+            <i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i>
+            <i class="far fa-star" data-value="5"></i>
+          </div>
+          <input type="text" id="modal-reviewer-name" placeholder="Your name" />
+          <textarea id="modal-review-comment" rows="2" placeholder="Write your review..."></textarea>
+          <button class="btn-send" style="padding:10px 20px;border-radius:100px;background:var(--accent);color:#fff;font-weight:800;font-size:13px;box-shadow:0 4px 12px var(--accent-glow);" onclick="submitReviewFromModal('${profileId}','${collectionName}')">Submit Review</button>
+          <span id="modal-review-status" style="font-size:12px;color:var(--text-dim);margin-left:8px;"></span>
+        </div>`;
+      const stars = container.querySelectorAll('#modal-star-input i');
+      stars.forEach(star => {
+        star.addEventListener('click', function () {
+          const val = parseInt(this.dataset.value);
+          stars.forEach(s => {
+            s.className = parseInt(s.dataset.value) <= val ? 'fas fa-star' : 'far fa-star';
+            s.style.color = parseInt(s.dataset.value) <= val ? '#FBBF24' : 'rgba(255,255,255,.15)';
+          });
+          container.querySelector('button').dataset.selectedRating = val;
+        });
+      });
+    }
+  } catch (e) {
+    console.error('loadReviews:', e);
+    list.innerHTML = '<p style="color:#ff9aa5;font-size:13px;">Failed to load reviews.</p>';
+  }
+}
+
+async function checkExistingReviewModal(profileId, collectionName, userId) {
+  try {
+    const snap = await db.collection(collectionName).doc(profileId).collection('reviews')
+      .where('reviewerId', '==', userId).get();
+    if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+    return null;
+  } catch (e) { console.error(e); return null; }
+}
+
+async function submitReviewFromModal(profileId, collectionName) {
+  const container = $('modal-review-form-container');
+  const btn = container.querySelector('button');
+  const rating = parseInt(btn.dataset.selectedRating) || 0;
+  if (rating === 0) { $('modal-review-status').textContent = 'Please select a rating.'; return; }
+  const comment = $('modal-review-comment').value.trim();
+  if (!comment) { $('modal-review-status').textContent = 'Please write a comment.'; return; }
+  const reviewerName = $('modal-reviewer-name').value.trim() || 'Anonymous';
+  const existingId = btn.dataset.reviewId || null;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const reviewData = {
+      rating, reviewerName, comment,
+      reviewerId: currentUser.uid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (existingId) {
+      await db.collection(collectionName).doc(profileId).collection('reviews').doc(existingId).update(reviewData);
+    } else {
+      reviewData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
+    }
+    await updateProfileRatingModal(profileId, collectionName);
+    $('modal-review-status').textContent = 'Review saved!';
+    loadReviewsForModal(profileId, collectionName);
+    const doc = await db.collection(collectionName).doc(profileId).get();
+    const data = doc.data();
+    const ratingNum = data.rating || 0;
+    const reviewsCount = data.reviewsCount || 0;
+    const summary = document.querySelector('.profile-modal-body .rating-summary');
+    if (summary) {
+      const starsEl = summary.querySelector('.stars');
+      if (starsEl) {
+        const full = Math.floor(ratingNum);
+        const half = ratingNum % 1 >= 0.5;
+        let html = '';
+        for (let i = 1; i <= 5; i++) {
+          if (i <= full) html += '<i class="fas fa-star"></i>';
+          else if (i === full + 1 && half) html += '<i class="fas fa-star-half-alt"></i>';
+          else html += '<i class="far fa-star"></i>';
+        }
+        starsEl.innerHTML = html;
+      }
+      const num = summary.querySelector('.rating-number');
+      if (num) num.textContent = ratingNum.toFixed(1);
+      const count = summary.querySelector('.reviews-count');
+      if (count) count.textContent = `(${reviewsCount} reviews)`;
+    }
+    btn.disabled = false;
+    btn.textContent = existingId ? 'Update Review' : 'Submit Review';
+  } catch (e) {
+    console.error(e);
+    $('modal-review-status').textContent = 'Error saving review.';
+    btn.disabled = false;
+    btn.textContent = existingId ? 'Update Review' : 'Submit Review';
+  }
+}
+
+async function updateProfileRatingModal(profileId, collectionName) {
+  try {
+    const snap = await db.collection(collectionName).doc(profileId).collection('reviews').get();
+    let total = 0, count = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.rating) { total += d.rating; count++; }
+    });
+    const avg = count > 0 ? total / count : 0;
+    await db.collection(collectionName).doc(profileId).update({ rating: avg, reviewsCount: count });
+  } catch (e) { console.error('update rating:', e); }
+}
+
+function closeVendorProfileModal() {
+  vendorProfileModal.classList.remove('active');
+  document.body.style.overflow = '';
+}
+vendorProfileModal.addEventListener('click', function (e) { if (e.target === this) closeVendorProfileModal(); });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && vendorProfileModal.classList.contains('active')) closeVendorProfileModal();
+});
+vendorProfileCloseBtn.addEventListener('click', closeVendorProfileModal);
+
+function copyVendorProfileLink(vendorId) {
+  const url = window.location.origin + window.location.pathname + '?id=' + vendorId;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('Profile link copied!', 'success')).catch(() => fallbackCopy(url));
+  } else fallbackCopy(url);
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); showToast('Profile link copied!', 'success'); }
+  catch (_) { showToast('Copy failed.', 'error'); }
+  document.body.removeChild(ta);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHAT MODAL
+   ═══════════════════════════════════════════════════════════ */
+function openChatForVendor(vendorId) {
+  if (!currentUser) { showToast('Please sign in first', 'error'); return; }
+  const listing = allListings.find(l => l.uid === vendorId);
+  if (!listing) { showToast('Vendor not found', 'error'); return; }
+
+  modalVendorId = vendorId;
+  chatOtherUid = vendorId;
+  chatOtherName = listing.name || listing._userName || 'Vendor';
+  chatOtherAvatar = listing.avatar || listing._userAvatar || null;
+
+  $('modalChatName').textContent = chatOtherName;
+  $('modalChatSub').textContent = listing.category || listing.serviceType || 'Service Provider';
+
+  const avatarEl = $('modalChatAvatar');
+  const initialsEl = $('modalChatInitials');
+  const existingImg = avatarEl.querySelector('img');
+  if (existingImg) existingImg.remove();
+  const initials = chatOtherName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase() || '?';
+  if (chatOtherAvatar) {
+    initialsEl.style.display = 'none';
+    const img = document.createElement('img');
+    img.src = chatOtherAvatar;
+    img.alt = chatOtherName;
+    img.onerror = function () { this.style.display = 'none'; initialsEl.style.display = 'inline'; initialsEl.textContent = initials; };
+    avatarEl.appendChild(img);
+  } else {
+    initialsEl.style.display = 'inline';
+    initialsEl.textContent = initials;
+  }
+
+  $('chatModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  const msgContainer = $('modalChatMessages');
+  msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
+  findOrCreateThread(listing);
+}
+
+function closeChatModal() {
+  $('chatModal').classList.remove('active');
+  document.body.style.overflow = '';
+  if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+  chatThreadId = null;
+  modalVendorId = null;
+}
+
+async function findOrCreateThread(vendor) {
+  if (!currentUser) return;
+  try {
+    const q = db.collection('threads').where('participants', 'array-contains', currentUser.uid);
+    const snap = await q.get();
+    let threadId = null;
+    snap.forEach(doc => {
+      const data = doc.data();
+      if (data.participants && data.participants.includes(chatOtherUid)) threadId = doc.id;
+    });
+
+    if (threadId) {
+      chatThreadId = threadId;
+      subscribeToMessages(threadId);
+    } else {
+      const newThread = {
+        participants: [currentUser.uid, chatOtherUid],
+        jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
+        lastMessageText: 'Start your conversation',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      const docRef = await db.collection('threads').add(newThread);
+      chatThreadId = docRef.id;
+      subscribeToMessages(chatThreadId);
+    }
+  } catch (err) {
+    console.error('thread error:', err);
+    showToast('Failed to start conversation', 'error');
+    $('modalChatMessages').innerHTML = '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--accent);"></i><p>Could not load conversation.</p></div>';
+  }
+}
+
+function subscribeToMessages(threadId) {
+  if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+  const msgContainer = $('modalChatMessages');
+  chatUnsubscribe = db.collection(`threads/${threadId}/messages`)
+    .orderBy('timestamp', 'asc')
+    .onSnapshot(snapshot => {
+      if (snapshot.empty) {
+        msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.<br />Start the conversation!</p></div>';
+        return;
+      }
+      msgContainer.innerHTML = '';
+      let lastDate = '';
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const msgDate = msg.timestamp ? msg.timestamp.toDate() : new Date();
+        const dateStr = msgDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if (dateStr !== lastDate) {
+          const div = document.createElement('div');
+          div.style.cssText = 'text-align:center;font-size:10px;color:var(--text-dim);padding:6px 0;font-weight:600;letter-spacing:.08em;text-transform:uppercase;';
+          div.textContent = dateStr;
+          msgContainer.appendChild(div);
+          lastDate = dateStr;
+        }
+        const isOut = msg.senderId === currentUser.uid;
+        const bubble = document.createElement('div');
+        bubble.className = `chat-message ${msg.isSystemRequest ? 'system' : (isOut ? 'out' : 'in')}`;
+        let content = msg.text || '';
+        if (msg.imageBase64) {
+          content += `<div style="margin-top:8px;"><img src="${msg.imageBase64}" style="max-width:200px;max-height:160px;border-radius:10px;width:100%;height:auto;object-fit:cover;" /></div>`;
+        }
+        const timeStr = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+        content += `<div class="time">${timeStr}</div>`;
+        bubble.innerHTML = content;
+        msgContainer.appendChild(bubble);
+      });
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    }, err => {
+      console.error('sub error:', err);
+      msgContainer.innerHTML = '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--accent);"></i><p>Could not load messages.</p></div>';
+    });
+}
+
+async function sendModalMessage() {
+  const input = $('modalChatInput');
+  const text = input.value.trim();
+  if (!text || !chatThreadId || !currentUser) return;
+  input.value = '';
+  try {
+    await db.collection(`threads/${chatThreadId}/messages`).add({
+      senderId: currentUser.uid,
+      text: text,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('threads').doc(chatThreadId).update({
+      lastMessageText: text.substring(0, 80),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('Message sent', 'success');
+  } catch (err) {
+    console.error('send error:', err);
+    showToast('Failed to send message', 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOGOUT
+   ═══════════════════════════════════════════════════════════ */
+$('logout-btn').addEventListener('click', () => {
+  auth.signOut().then(() => window.location.href = 'index.html');
+});
+
+/* ═══════════════════════════════════════════════════════════
+   EXPOSE
+   ═══════════════════════════════════════════════════════════ */
+window.openChatForVendor = openChatForVendor;
+window.closeChatModal = closeChatModal;
+window.sendModalMessage = sendModalMessage;
+window.refreshVendors = refreshVendors;
+window.loadListings = loadListings;
+window.applyFilters = applyFilters;
+window.showToast = showToast;
+window.openVendorProfile = openVendorProfile;
+window.closeVendorProfileModal = closeVendorProfileModal;
+window.copyVendorProfileLink = copyVendorProfileLink;
+window.submitReviewFromModal = submitReviewFromModal;
+window.loadReviewsForModal = loadReviewsForModal;
+
+console.log('✅ Discover page ready (Zone21 · iTunes dark theme).');
+</script>
+</body>
+</html>

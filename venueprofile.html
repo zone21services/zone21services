@@ -206,6 +206,19 @@
             "Sound System", "WiFi", "Backup Generator", "Security", "VIP Lounge", "Outdoor Space",
             "Swimming Pool", "Bridal Suite"];
 
+        // ===== LINK FIX =====
+        // If the vendor typed "facebook.com/x" or "@handle", the browser treats it
+        // as a path on THIS site (which is why it opened the login page). We just
+        // make sure it always starts with https://
+        function fixLink(value, base) {
+            if (!value) return '';
+            let v = String(value).trim();
+            if (!v) return '';
+            if (v.startsWith('http://') || v.startsWith('https://')) return v;
+            if (v.startsWith('@')) v = v.slice(1);
+            return base + v.replace(/^\/+/, '');
+        }
+
         let currentVenueId = null;
         let venueData = null;
         let isOwner = false;
@@ -288,7 +301,6 @@
                 try {
                     localStorage.setItem(getDraftKey(), payload);
                 } catch (quotaErr) {
-                    // localStorage has a limit; if images make it too big, save without them
                     const slim = { ...state, images: [], avatar: null, _slim: true };
                     localStorage.setItem(getDraftKey(), JSON.stringify(slim));
                     showDraftStatus('Progress saved');
@@ -481,12 +493,28 @@
             const initials = (venueData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
             const avatarHtml = venueData.avatar ? `<img src="${venueData.avatar}" alt="Avatar">` : initials;
 
+            // ✅ FIXED: links normalised so they always start with https://
             const socialLinks = [];
-            if (venueData.facebook) socialLinks.push({ class: 'social-facebook', icon: 'fab fa-facebook-f', url: venueData.facebook, label: 'Facebook' });
-            if (venueData.instagram) socialLinks.push({ class: 'social-instagram', icon: 'fab fa-instagram', url: venueData.instagram, label: 'Instagram' });
-            if (venueData.tiktok) socialLinks.push({ class: 'social-tiktok', icon: 'fab fa-tiktok', url: venueData.tiktok, label: 'TikTok' });
-            if (venueData.youtube) socialLinks.push({ class: 'social-youtube', icon: 'fab fa-youtube', url: venueData.youtube, label: 'YouTube' });
-            if (venueData.website) socialLinks.push({ class: 'social-website', icon: 'fas fa-globe', url: venueData.website, label: 'Website' });
+            if (venueData.facebook) socialLinks.push({
+                class: 'social-facebook', icon: 'fab fa-facebook-f',
+                url: fixLink(venueData.facebook, 'https://facebook.com/'), label: 'Facebook'
+            });
+            if (venueData.instagram) socialLinks.push({
+                class: 'social-instagram', icon: 'fab fa-instagram',
+                url: fixLink(venueData.instagram, 'https://instagram.com/'), label: 'Instagram'
+            });
+            if (venueData.tiktok) socialLinks.push({
+                class: 'social-tiktok', icon: 'fab fa-tiktok',
+                url: fixLink(venueData.tiktok, 'https://tiktok.com/@'), label: 'TikTok'
+            });
+            if (venueData.youtube) socialLinks.push({
+                class: 'social-youtube', icon: 'fab fa-youtube',
+                url: fixLink(venueData.youtube, 'https://youtube.com/@'), label: 'YouTube'
+            });
+            if (venueData.website) socialLinks.push({
+                class: 'social-website', icon: 'fas fa-globe',
+                url: fixLink(venueData.website, 'https://'), label: 'Website'
+            });
 
             const amenitiesHtml = (venueData.amenities || []).map(a => `<span class="service-tag">${a}</span>`).join('');
             const galleryHtml = (venueData.images || []).length > 0 ?
@@ -563,7 +591,7 @@
                         ${amenitiesHtml ? `<div class="services-tags"><strong>Amenities:</strong> ${amenitiesHtml}</div>` : ''}
                         ${venueData.description ? `<div class="description">${venueData.description}</div>` : ''}
                         <div class="detail-grid">${detailHtml}</div>
-                        ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
+                        ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" rel="noopener" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                             <button class="share-btn" onclick="copyProfileLink('${currentVenueId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
                         </div>
@@ -672,11 +700,11 @@
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media</h3>
                     <div class="form-grid">
-                        <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${venueData.tiktok || ''}"></div>
-                        <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${venueData.instagram || ''}"></div>
-                        <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${venueData.facebook || ''}"></div>
-                        <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${venueData.youtube || ''}"></div>
-                        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${venueData.website || ''}"></div>
+                        <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${venueData.tiktok || ''}" placeholder="@yourname or https://tiktok.com/@yourname"></div>
+                        <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${venueData.instagram || ''}" placeholder="@yourname or https://instagram.com/yourname"></div>
+                        <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${venueData.facebook || ''}" placeholder="yourpage or https://facebook.com/yourpage"></div>
+                        <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${venueData.youtube || ''}" placeholder="@yourchannel or https://youtube.com/@yourchannel"></div>
+                        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${venueData.website || ''}" placeholder="yourbusiness.com or https://yourbusiness.com"></div>
                     </div>
 
                     <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
@@ -726,7 +754,6 @@
             if (!file) return;
             if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
             const box = document.getElementById('avatar-preview-box');
-            const originalHtml = box.innerHTML;
             box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div>';
             compressToBase64(file, 400, 0.7, (base64) => {
                 venueData.avatar = base64;
@@ -786,6 +813,7 @@
 
             const selectedAmenities = Array.from(document.querySelectorAll('.edit-amenity-chk:checked')).map(cb => cb.value);
 
+            // ✅ Save links already fixed so stored data is always a full https:// URL
             const updates = {
                 name: document.getElementById('e-name').value.trim(),
                 location: document.getElementById('e-loc').value.trim(),
@@ -801,11 +829,11 @@
                 operatingHours: document.getElementById('e-hours').value.trim(),
                 parking: document.getElementById('e-parking').value.trim(),
                 catering: document.getElementById('e-catering').value.trim(),
-                tiktok: document.getElementById('e-tt').value.trim(),
-                instagram: document.getElementById('e-ig').value.trim(),
-                facebook: document.getElementById('e-fb').value.trim(),
-                youtube: document.getElementById('e-yt').value.trim(),
-                website: document.getElementById('e-web').value.trim(),
+                tiktok:    fixLink(document.getElementById('e-tt').value,  'https://tiktok.com/@'),
+                instagram: fixLink(document.getElementById('e-ig').value,  'https://instagram.com/'),
+                facebook:  fixLink(document.getElementById('e-fb').value,  'https://facebook.com/'),
+                youtube:   fixLink(document.getElementById('e-yt').value,  'https://youtube.com/@'),
+                website:   fixLink(document.getElementById('e-web').value, 'https://'),
                 avatar: venueData.avatar || null,
                 images: uploadedImages,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -819,7 +847,6 @@
                 toggleMode();
             } catch (e) {
                 console.error('Save error:', e);
-                // Friendly, non-technical error message
                 let msg = 'Could not save your changes right now. ';
                 if (e.code === 'permission-denied') {
                     msg += 'Please make sure you are signed in to the correct account and try again.';

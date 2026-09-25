@@ -22,15 +22,17 @@
     · 'admin_reply'          ← admin panel
     · 'user_reply'           ← this page
 
-  FIXES IN THIS VERSION
-    1. Subscription status badge now reads LIVE from subscriptions/{uid}_annual
-       (was stuck on the static message status, so "PENDING" never changed
-       even after admin approved).
-    2. Reply box now supports base64 image attachments (compressed to 800px,
-       0.7 quality, ~100-200KB per image — well under Firestore's 1MB limit).
-    3. Removed the duplicated invoice number in the thread header.
-    4. Navigation now includes "My Events" → zone21tools.html in top nav,
-       user dropdown, and bottom nav.
+  AUTH:
+    · Sign in / Sign up / Reset password all inline in one modal.
+    · Reset password sends a secure link via email and always tells the
+      user to check their inbox AND spam folder — never reveals whether
+      an address is registered.
+
+  FIXES PRESERVED
+    1. Subscription status badge reads LIVE from subscriptions/{uid}_annual.
+    2. Reply box supports base64 image attachments (compressed ~800px, 0.7).
+    3. No duplicate invoice number in thread header.
+    4. "My Events" nav link → zone21tools.html.
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -731,6 +733,21 @@ body.z21-loading{ overflow:hidden; }
   box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
 
+/* Forgot password link */
+.z21-forgot-row{display:flex;justify-content:flex-end;margin:-4px 0 14px;}
+.z21-link-btn{font-size:13px;font-weight:600;color:var(--accent);
+  padding:2px 0;transition:opacity .2s;}
+.z21-link-btn:hover{opacity:.78;text-decoration:underline}
+
+/* Reset panel */
+.z21-reset-icon{width:54px;height:54px;border-radius:15px;
+  background:rgba(250,36,60,.12);border:1px solid rgba(250,36,60,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;color:var(--accent);margin:0 auto 18px;}
+.z21-reset-hint{font-size:12.5px;color:var(--text-dim);
+  line-height:1.6;text-align:center;margin-top:16px;}
+.z21-reset-hint strong{color:var(--text-muted);font-weight:700}
+
 /* Form fields */
 .z21-field{margin-bottom:14px}
 .z21-field label{
@@ -951,7 +968,7 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </nav>
 
-<!-- AUTH MODAL -->
+<!-- AUTH MODAL — Sign In / Sign Up / Reset Password -->
 <div class="z21-modal" id="authModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -962,7 +979,7 @@ body.z21-loading{ overflow:hidden; }
       <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
     </div>
     <div class="z21-modal-body">
-      <div class="z21-auth-tabs">
+      <div class="z21-auth-tabs" id="authTabs">
         <button class="z21-auth-tab active" data-auth-tab="signin">Sign In</button>
         <button class="z21-auth-tab" data-auth-tab="signup">Sign Up</button>
       </div>
@@ -977,6 +994,11 @@ body.z21-loading{ overflow:hidden; }
         <div class="z21-field">
           <label>Password</label>
           <input type="password" id="signinPassword" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="z21-forgot-row">
+          <button type="button" class="z21-link-btn" id="forgotPasswordBtn">
+            Forgot password?
+          </button>
         </div>
         <button type="submit" class="z21-btn-full primary" id="signinSubmit">
           <i class="fas fa-arrow-right"></i> Sign In
@@ -1008,6 +1030,32 @@ body.z21-loading{ overflow:hidden; }
           <i class="fas fa-user-plus"></i> Create Account
         </button>
       </form>
+
+      <!-- RESET PASSWORD -->
+      <div id="resetPanel" style="display:none">
+        <div class="z21-reset-icon"><i class="fas fa-key"></i></div>
+
+        <div class="z21-form-msg" id="resetMsg"></div>
+
+        <form id="resetForm" autocomplete="on">
+          <div class="z21-field">
+            <label>Account Email</label>
+            <input type="email" id="resetEmail" required placeholder="you@example.com" autocomplete="email">
+          </div>
+          <button type="submit" class="z21-btn-full primary" id="resetSubmit">
+            <i class="fas fa-paper-plane"></i> Send Reset Link
+          </button>
+          <button type="button" class="z21-btn-full secondary" id="resetBackBtn">
+            <i class="fas fa-arrow-left"></i> Back to Sign In
+          </button>
+        </form>
+
+        <p class="z21-reset-hint">
+          Enter the email linked to your Zone21 account and we'll send you a
+          secure link to create a new password. <strong>Remember to check your
+          inbox and your spam / junk folder.</strong>
+        </p>
+      </div>
     </div>
   </div>
 </div>
@@ -1019,7 +1067,8 @@ body.z21-loading{ overflow:hidden; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signOut,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, addDoc, collection,
@@ -1077,7 +1126,7 @@ let userProfile = null;
 let allMessages = [];
 let allBookings = {};
 
-/* NEW: subscription cache — maps invoiceNumber → sub doc, and the primary sub doc */
+/* Subscription cache — maps invoiceNumber → sub doc, and the primary sub doc */
 let userSubsByInvoice = {};
 let userSubsPrimary = null;
 
@@ -1089,7 +1138,7 @@ let searchQuery = '';
 let unsubSent = null;
 let unsubReceived = null;
 let unsubBookings = null;
-let unsubUserSubs = null;   // ← new
+let unsubUserSubs = null;
 
 /* Attachment state */
 let pendingReplyImage = null;   // base64 data URL or null
@@ -1235,7 +1284,33 @@ function openAuthModal(mode = 'signin'){
   openModal('authModal');
 }
 
+function hideResetPanel(){
+  const panel = $('resetPanel');
+  if(panel) panel.style.display = 'none';
+  const tabs = $('authTabs');
+  if(tabs) tabs.style.display = '';
+}
+
+function showResetPanel(){
+  clearFormMsg('resetMsg');
+  // Prefill from whatever the user already typed on the sign-in form
+  const typed = ($('signinEmail')?.value || '').trim();
+  if(typed) $('resetEmail').value = typed;
+
+  $('signinForm').style.display = 'none';
+  $('signupForm').style.display = 'none';
+  $('authTabs').style.display = 'none';
+  $('resetPanel').style.display = '';
+
+  $('authTitle').textContent = 'Reset your password';
+  $('authSub').textContent = "We'll email you a secure link to set a new password.";
+
+  setTimeout(() => { try{ $('resetEmail').focus(); }catch(_){} }, 60);
+}
+
 function switchAuthTab(mode){
+  hideResetPanel();
+
   document.querySelectorAll('.z21-auth-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.authTab === mode);
   });
@@ -1246,6 +1321,7 @@ function switchAuthTab(mode){
     ? 'Welcome back. Sign in to continue.'
     : 'Free to create. Your conversations live here.';
   clearFormMsg('authMsg');
+  clearFormMsg('resetMsg');
 }
 
 document.querySelectorAll('.z21-auth-tab').forEach(t => {
@@ -1314,6 +1390,76 @@ $('signupForm').addEventListener('submit', async (e) => {
   }finally{
     btn.disabled = false;
     btn.innerHTML = orig;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RESET PASSWORD
+   ═══════════════════════════════════════════════════════════ */
+$('forgotPasswordBtn').addEventListener('click', showResetPanel);
+
+$('resetBackBtn').addEventListener('click', () => {
+  switchAuthTab('signin');
+  $('authTitle').textContent = 'Sign in to your inbox';
+});
+
+$('resetForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearFormMsg('resetMsg');
+
+  const email = $('resetEmail').value.trim();
+  if(!email){
+    showFormMsg('resetMsg', 'Please enter the email address on your account.', 'error');
+    return;
+  }
+
+  const btn = $('resetSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending link…';
+
+  let sent = false;
+  try{
+    await sendPasswordResetEmail(auth, email);
+    sent = true;
+  }catch(err){
+    const code = err?.code || '';
+    if(code.includes('network-request-failed')){
+      showFormMsg('resetMsg', 'Network error. Please check your connection and try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    if(code.includes('too-many-requests')){
+      showFormMsg('resetMsg', 'Too many attempts. Please wait a few minutes and try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    if(code.includes('invalid-email')){
+      showFormMsg('resetMsg', "That email address doesn't look valid. Please check and try again.", 'error');
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      return;
+    }
+    // Silently swallow user-not-found to avoid revealing registered emails.
+    console.warn('Password reset request handled privately:', code || err?.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = orig;
+  $('resetForm').reset();
+
+  showFormMsg(
+    'resetMsg',
+    'If an account exists for that email, a password reset link is on its way. ' +
+    'Please check your inbox — and be sure to check your spam / junk folder too. ' +
+    'The link expires in 1 hour.',
+    'success'
+  );
+
+  if(sent){
+    showToast('Reset link sent — check your inbox and spam folder.', 'success');
   }
 });
 
@@ -1394,7 +1540,7 @@ $('menuSignOut').addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION LISTENER (NEW)
+   SUBSCRIPTION LISTENER
    Keeps the subscription badge in sync with admin approvals.
    ═══════════════════════════════════════════════════════════ */
 function startSubscriptionListener(){
@@ -1562,15 +1708,13 @@ function enrichThread(t){
   else if(t.type === 'subscription'){
     out.title = 'Subscription';
 
-    /* ── Look up the REAL sub doc by invoice number ──
-       The message's own `status` field is set at creation time and
-       NEVER updates — that's why the badge was stuck on "pending".
-       The subscription doc is the live source of truth. */
+    /* Look up the REAL sub doc by invoice number. The message's own
+       `status` field is set at creation and never updates, so the
+       subscription doc is the live source of truth. */
     const invNum = t.root?.invoiceNumber;
     const subDoc = invNum ? userSubsByInvoice[invNum] : null;
 
     // Fallback: if we can't match by invoice, use the primary sub
-    // (covers older messages whose invoiceNumber may have been cleared)
     const fallbackSub = !subDoc && userSubsPrimary ? userSubsPrimary : null;
     const effective = subDoc || fallbackSub;
 
@@ -1582,12 +1726,11 @@ function enrichThread(t){
       else if(s === 'pending_payment' || s === 'pending') displayStatus = 'pending';
       else displayStatus = 'pending';
 
-      // Also respect soft-delete → treat as not-subscribed
       if(effective.deletedAt) displayStatus = 'pending';
     }
 
     out.subscriptionStatus = displayStatus;
-    out.subtitle = '';   // hide the duplicate invoice number
+    out.subtitle = '';
     out.ref = invNum || '';
   }
   else if(t.type === 'payment'){
@@ -1746,7 +1889,7 @@ function threadBadgeHTML(t){
            (t.ref ? `<span class="z21-pill neutral">${escapeHTML(t.ref)}</span>` : '');
   }
   if(t.type === 'subscription'){
-    const s = t.subscriptionStatus || 'pending';   // ← live status from sub doc
+    const s = t.subscriptionStatus || 'pending';
     return `<span class="z21-pill ${s}">${s}</span>`;
   }
   if(t.type === 'payment'){
@@ -2056,7 +2199,7 @@ function threadIconBg(iconClass){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBMIT REPLY (now supports base64 image attachment)
+   SUBMIT REPLY (supports base64 image attachment)
    ═══════════════════════════════════════════════════════════ */
 async function submitReply(thread){
   const input = $('replyInput');

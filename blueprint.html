@@ -218,6 +218,34 @@ body.z21-loading{ overflow:hidden; }
 .blueprint-result em{color:var(--text-muted);font-style:italic}
 .blueprint-result a{color:var(--accent);text-decoration:underline}
 
+/* ── Table safety net ─────────────────────────────────────
+   Prevents the "one character per line" collapse when the AI
+   produces nested tables or overly long single-cell content. */
+.blueprint-result table { table-layout: auto; }
+.blueprint-result table td,
+.blueprint-result table th { min-width: 70px; vertical-align: top; }
+.blueprint-result table td:first-child,
+.blueprint-result table th:first-child { min-width: 110px; }
+.blueprint-result table td > *:first-child { margin-top: 0; }
+.blueprint-result table td > *:last-child { margin-bottom: 0; }
+.blueprint-result table td h1,
+.blueprint-result table td h2,
+.blueprint-result table td h3,
+.blueprint-result table td h4 {
+  margin: 4px 0;
+  font-size: 13px;
+  border: none;
+  padding: 0;
+}
+.blueprint-result table td h2::before { display: none; }
+.blueprint-result table table { width: auto !important; margin: 0; }
+.blueprint-result table table td { min-width: 0; }
+
+.budget-success{background:rgba(48,209,88,.08);border-left:3px solid var(--success);padding:14px 18px;border-radius:var(--radius);margin-bottom:16px;}
+.budget-neutral{background:rgba(255,255,255,.04);border-left:3px solid var(--text-dim);padding:14px 18px;border-radius:var(--radius);margin-bottom:16px;}
+.budget-warning{background:rgba(250,36,60,.06);border-left:3px solid var(--accent);padding:14px 18px;border-radius:var(--radius);margin-bottom:16px;}
+
+/* VENDOR CARDS */
 .vendor-card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin:10px 0;transition:all .25s;border-left:3px solid var(--accent);overflow-wrap:break-word;}
 .vendor-card:hover{border-color:var(--border-2);background:var(--surface-3);transform:translateX(2px)}
 .vendor-card .vendor-name{font-weight:800;color:var(--text);font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;letter-spacing:-.01em;}
@@ -657,12 +685,10 @@ function classifyZone21Account(p) {
   if (isSecurity && !isPlanner) return 'Zone21 Security - EXCLUSIVE';
   if (isPlanner && !isSecurity) return 'Event Planner / Coordinator';
   if (isSecurity && isPlanner) {
-    // Prefer whichever the name suggests
     if (/security|guard/.test(name)) return 'Zone21 Security - EXCLUSIVE';
     if (/planner|planning|coordinator|event/.test(name)) return 'Event Planner / Coordinator';
     return 'Zone21 Security - EXCLUSIVE';
   }
-  // Name contains zone21 but no marker — cannot classify
   return null;
 }
 
@@ -696,8 +722,7 @@ function toArray(v) {
   return [];
 }
 
-/* Build a compact, relevant text blob for matching.
-   Uses ONLY the fields that actually exist in the vendor form. */
+/* Build a compact, relevant text blob for matching. */
 function buildProviderSearchText(p) {
   const parts = [
     p.name, p.businessName, p.companyName, p.displayName, p.username,
@@ -726,19 +751,17 @@ function buildVenueSearchText(v) {
   return parts.join('  ').toLowerCase();
 }
 
-/* Score a provider against a service.
-   Direct array match on services[] is worth far more than keyword hits. */
+/* Score a provider against a service. */
 function scoreProviderForService(p, service) {
   const serviceLower = service.toLowerCase();
   const providerServices = toArray(p.services);
   const matches = [];
 
-  // ── Direct hit in services[] array ──
+  // Direct hit in services[] array
   if (providerServices.includes(serviceLower)) {
     return { score: 100, matches: [service], direct: true };
   }
 
-  // ── Keyword hits across name / category / description / secondaryServices ──
   const keywords = SERVICE_KEYWORDS[service] || [serviceLower];
   const text = buildProviderSearchText(p);
   if (!text) return { score: 0, matches: [] };
@@ -750,17 +773,44 @@ function scoreProviderForService(p, service) {
     if (!k || seen.has(k)) return;
     seen.add(k);
     if (text.includes(k)) {
-      // Longer keyword = stronger signal
       const weight = k.length >= 8 ? 5 : k.length >= 5 ? 3 : 2;
       score += weight;
       matches.push(kw);
     }
   });
 
-  // Big bonus if the exact service string is somewhere in the text
   if (text.includes(serviceLower)) score += 8;
 
   return { score, matches, direct: false };
+}
+
+/* ─────────────────────────────────────────────
+   Display safety helpers — cap long vendor text
+   ───────────────────────────────────────────── */
+function cleanVendorField(value, maxLen) {
+  if (value == null) return '';
+  maxLen = maxLen || 100;
+  let s = String(value);
+  s = s.replace(/<[^>]*>/g, ' ');     // strip any HTML tags
+  s = s.replace(/\s+/g, ' ').trim();  // collapse whitespace
+  if (s.length > maxLen) s = s.slice(0, maxLen).trim() + '…';
+  return s;
+}
+
+function safePrice(v) {
+  const n = Number(v);
+  if (!isFinite(n) || n <= 0) return 'Pricing TBD';
+  return '$' + n.toLocaleString();
+}
+
+function safeServicesList(v, limit) {
+  limit = limit || 3;
+  if (!v) return '';
+  let arr = Array.isArray(v) ? v : String(v).split(/[,;\n|]+/);
+  arr = arr.map(s => String(s).replace(/<[^>]*>/g, '').trim()).filter(Boolean);
+  if (arr.length === 0) return '';
+  const shown = arr.slice(0, limit).join(', ');
+  return arr.length > limit ? shown + ' +' + (arr.length - limit) : shown;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1084,7 +1134,6 @@ function matchVenues(location, attendees, budget, requiredServices) {
     const reasoning = [];
     let fitScore = 0;
 
-    // Real venue signals — reject if there are none
     const vText = buildVenueSearchText(v);
     const venueSignals = ['venue','hall','space','banquet','premises','function room','garden','marquee','conference','event space'];
     const venueHits = venueSignals.filter(s => vText.includes(s)).length;
@@ -1114,13 +1163,13 @@ function matchVenues(location, attendees, budget, requiredServices) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MATCHING — PROVIDERS (main fix)
+   MATCHING — PROVIDERS
    ═══════════════════════════════════════════════════════════ */
 function matchProvidersByService(location, services, budget, dateStr) {
   const locationLower = (location || '').toLowerCase().trim();
   const out = {};
 
-  // Pre-classify all Zone21-owned accounts so we know which exclusive slot they go in
+  // Pre-classify all Zone21-owned accounts
   const zone21Map = new Map();
   cachedProviders.forEach(p => {
     if (isZone21Account(p)) {
@@ -1130,7 +1179,6 @@ function matchProvidersByService(location, services, budget, dateStr) {
   });
 
   services.forEach(service => {
-    // Venue slot is handled separately
     if (service === 'Venue / Space Rental') { out[service] = []; return; }
 
     // ── ZONE21-EXCLUSIVE SLOTS ──
@@ -1246,12 +1294,12 @@ function generateVenueHTML(vendors, venueTargetService) {
   }
   vendors.forEach((v, index) => {
     const providerUid = getProviderUid(v);
-    const name = v.name || v.businessName || 'Unnamed';
-    const location = v.location || 'Location TBD';
-    const price = v.basePrice > 0 ? `$${v.basePrice}` : 'Pricing TBD';
-    const capacity = v.capacity ? `${v.capacity} guests` : 'Capacity TBD';
+    const name = cleanVendorField(v.name || v.businessName, 60) || 'Unnamed';
+    const location = cleanVendorField(v.location, 60) || 'Location TBD';
+    const price = safePrice(v.basePrice);
+    const capacity = v.capacity ? `${cleanVendorField(v.capacity, 20)} guests` : 'Capacity TBD';
     const rating = v.rating ? Number(v.rating).toFixed(1) : 'N/A';
-    const vServices = v.services || v.amenities || [];
+    const servicesList = safeServicesList(v.services || v.amenities, 3);
     const reasoning = v.reasoning || ['Available for your event'];
     const borderColor = v.fitScore >= 4 ? 'var(--success)' : v.fitScore >= 2 ? 'var(--warn)' : 'var(--accent)';
     const canInclude = !!venueTargetService && !!providerUid;
@@ -1271,7 +1319,7 @@ function generateVenueHTML(vendors, venueTargetService) {
         <div class="vendor-detail"><i class="fas fa-users"></i> ${escapeHtml(capacity)}</div>
         <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
         ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
-        ${vServices.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(vServices.slice(0, 4).join(', '))}${vServices.length > 4 ? ' +' + (vServices.length - 4) : ''}</div>` : ''}
+        ${servicesList ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(servicesList)}</div>` : ''}
         <div style="margin:6px 0;">
           ${reasoning.map(r => {
             let cls = 'reasoning-badge';
@@ -1383,11 +1431,11 @@ function generateServiceSlotsHTML(services, matches) {
 
     providers.forEach((p, index) => {
       const providerUid = getProviderUid(p);
-      const name = p.name || p.businessName || 'Unnamed Provider';
-      const location = p.location || 'Location TBD';
-      const price = p.basePrice > 0 ? `$${p.basePrice}` : 'Pricing TBD';
+      const name = cleanVendorField(p.name || p.businessName, 60) || 'Unnamed Provider';
+      const location = cleanVendorField(p.location, 60) || 'Location TBD';
+      const price = safePrice(p.basePrice);
       const rating = p.rating ? Number(p.rating).toFixed(1) : 'N/A';
-      const psvcs = p.services || p.amenities || [];
+      const servicesList = safeServicesList(p.services || p.amenities, 3);
       const reasoning = p.reasoning || ['Available'];
       const borderColor = isExclusive ? 'var(--accent)'
         : (p.fitScore >= 5 ? 'var(--success)' : p.fitScore >= 3 ? 'var(--warn)' : 'var(--accent)');
@@ -1404,7 +1452,7 @@ function generateServiceSlotsHTML(services, matches) {
           <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
           <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
           ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
-          ${psvcs.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(psvcs.slice(0, 4).join(', '))}${psvcs.length > 4 ? ' +' + (psvcs.length - 4) : ''}</div>` : ''}
+          ${servicesList ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(servicesList)}</div>` : ''}
           <div style="margin:6px 0;">
             ${reasoning.map(r => {
               let cls = 'reasoning-badge';
@@ -1764,14 +1812,13 @@ async function generateBlueprint(isRegenerating) {
   const venueHTML = generateVenueHTML(matchedVenues, venueTargetService);
   const serviceSlotsHTML = generateServiceSlotsHTML(currentEventData.services, serviceMatches);
 
+  // ALWAYS append the vendor block at the very end of the AI content.
+  // Never regex-inject inside the AI output — if the AI produces a malformed
+  // table (unclosed <td>, missing </tr>), the regex can land inside a cell
+  // and trap the vendor cards in a 1-column layout.
   let htmlOutput = aiHtml;
-  const injectAfter = /(<h2[^>]*>.*?Budget.*?<\/h2>[\s\S]*?<\/table>)/i;
   const vendorBlock = `<h2>Venue Recommendations</h2>${venueHTML}${serviceSlotsHTML}`;
-  if (htmlOutput.match(injectAfter)) {
-    htmlOutput = htmlOutput.replace(injectAfter, `$1\n${vendorBlock}`);
-  } else {
-    htmlOutput += vendorBlock;
-  }
+  htmlOutput = htmlOutput + '\n' + vendorBlock;
 
   const helpSection = `
     <div class="zone21-help">
@@ -2208,4 +2255,4 @@ auth.onAuthStateChanged(async (user) => {
 });
 </script>
 </body>
-  </html>
+</html>

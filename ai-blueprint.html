@@ -715,103 +715,283 @@
             return true;
         }
 
+        /* ═══════════════════════════════════════════════════════════
+           ⬇️⬇️⬇️  NEW: INTELLIGENT MATCHING LAYER  ⬇️⬇️⬇️
+           Added — does not touch any other part of the app.
+           ═══════════════════════════════════════════════════════════ */
+
+        const SERVICE_KEYWORDS = {
+            "Event Planner / Coordinator": ["event planner","event planning","planner","coordinator","coordination","event management","event manager","organiser","organizer","planning"],
+            "Venue / Space Rental": ["venue","event space","hall","banquet","conference","space rental","premises","function room","garden","outdoor space"],
+            "Marquee / Tents & Chairs": ["marquee","tent","tents","chairs","canopy","tables","seating","marquee rental","tent hire"],
+            "PA System & Basic Sound": ["pa system","pa","sound","sound system","speakers","audio","microphone","mic","amplifier","public address"],
+            "DJ Services": ["dj","disk jockey","disc jockey","music","entertainment","mixer","turntable","deejay"],
+            "Stage & Decorative Lighting": ["stage","lighting","lights","led","decorative lighting","stage setup","uplighting","spotlight","chandelier"],
+            "Event Décor & Draping": ["decor","decoration","decorations","draping","drapes","drape","styling","balloons","flowers","florist","backdrop","centerpiece","stylist","event styling"],
+            "Catering (Food & Buffet)": ["catering","caterer","food","buffet","meals","chef","cook","cooking","cuisine","dishes","menu","kitchen","caterers"],
+            "Beverages & Mobile Bar": ["beverages","drinks","bar","mobile bar","bartender","cocktail","cocktails","wine","beer","juice","drink","mixologist"],
+            "Cake Designer / Baker": ["cake","cakes","baker","bakery","baking","dessert","pastry","cupcakes","wedding cake","cake designer"],
+            "Photographer": ["photographer","photography","photo","photos","camera","cameraman","cameramen","pictures","photoshoot","shoot","photo shoot","photo shoots","camera man"],
+            "Videographer": ["videographer","videography","video","videos","film","filming","cinematography","cinematographer","documentary","video coverage"],
+            "MC (Master of Ceremonies)": ["mc","master of ceremonies","emcee","host","hosting","presenter","announcer","compere","master ceremony"],
+            "Makeup Artist": ["makeup","make up","make-up","mua","cosmetics","cosmetologist","beauty","glam","eyelash","lashes","nail","nails","nail technician","manicure","pedicure","spa","facial","skincare","beautician","beauty therapist","makeup artist"],
+            "Hairstylist": ["hair","hairstylist","hair stylist","hairdresser","stylist","hair styling","braids","weave","barber","salon","hairdo"],
+            "Zone21 Security - EXCLUSIVE": ["security","securities","securing","guard","guards","guarding","bouncer","bouncers","zone21 security","zone 21 security","z21 security","protection","protective","bodyguard","body guard","crowd control","crowd management","security service","security services","security personnel","security company","security agency","security firm","security team","security officer","event security","event guard","marshals","marshalling","safety officer","doorman","access control","surveillance","patrol"],
+            "Transport / Car Hire": ["transport","transportation","car hire","car rental","vehicle","vehicles","cars","bus","buses","shuttle","chauffeur","limousine","limo","taxi","logistics"],
+            "Cleaning Services": ["cleaning","cleaner","cleaners","janitorial","sanitation","housekeeping","waste","trash","mopping","deep clean"],
+            "Ushers & Hostesses": ["usher","ushers","hostess","hostesses","waiters","waitresses","attendants","staffing","serving staff","service staff","protocol","waitress","waiter"]
+        };
+
+        function toArray(v) {
+            if (!v) return [];
+            if (Array.isArray(v)) return v.filter(Boolean).map(x => String(x).toLowerCase().trim());
+            if (typeof v === 'string') return v.split(/[,;\n|]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+            return [];
+        }
+
+        function buildProviderSearchText(p) {
+            const parts = [
+                p.name, p.businessName, p.companyName, p.brandName, p.displayName,
+                p.username, p.ownerName, p.fullName,
+                p.category, p.serviceType,
+                p.description, p.bio, p.about, p.tagline,
+                p.secondaryServices,
+                p.location, p.serviceAreas
+            ].filter(Boolean).map(x => String(x));
+            parts.push(...toArray(p.services));
+            parts.push(...toArray(p.amenities));
+            return parts.join('  ').toLowerCase();
+        }
+
+        function buildVenueSearchText(v) {
+            const parts = [
+                v.name, v.businessName, v.companyName, v.displayName, v.username,
+                v.category, v.serviceType, v.venueType,
+                v.description, v.bio, v.about, v.tagline,
+                v.location, v.serviceAreas
+            ].filter(Boolean).map(x => String(x));
+            parts.push(...toArray(v.services));
+            parts.push(...toArray(v.amenities));
+            return parts.join('  ').toLowerCase();
+        }
+
+        function scoreProviderForService(p, service) {
+            const serviceLower = service.toLowerCase();
+            const providerServices = toArray(p.services);
+            if (providerServices.includes(serviceLower)) {
+                return { score: 100, matches: [service], direct: true };
+            }
+            const keywords = SERVICE_KEYWORDS[service] || [serviceLower];
+            const text = buildProviderSearchText(p);
+            if (!text) return { score: 0, matches: [] };
+            let score = 0;
+            const matches = [];
+            const seen = new Set();
+            keywords.forEach(kw => {
+                const k = String(kw).toLowerCase().trim();
+                if (!k || seen.has(k)) return;
+                seen.add(k);
+                if (text.includes(k)) {
+                    const weight = k.length >= 8 ? 5 : k.length >= 5 ? 3 : 2;
+                    score += weight;
+                    matches.push(kw);
+                }
+            });
+            if (text.includes(serviceLower)) score += 8;
+            return { score, matches, direct: false };
+        }
+
+        function isExclusiveService(service) {
+            return service === 'Zone21 Security - EXCLUSIVE' || service === 'Event Planner / Coordinator';
+        }
+
+        function isZone21Account(p) {
+            const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+            return /zone\s*21|z-?21/.test(name);
+        }
+
+        function classifyZone21Account(p) {
+            const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+            const cat = String(p.category || p.serviceType || '').toLowerCase();
+            const desc = String(p.description || p.bio || '').toLowerCase();
+            const sec = String(p.secondaryServices || '').toLowerCase();
+            const servicesText = toArray(p.services).join(' ');
+            const blob = [name, cat, desc, sec, servicesText].join(' ');
+            const isSecurity = /security|guard|bouncer|protection|bodyguard/.test(blob);
+            const isPlanner  = /planner|planning|coordinator|coordination|event management|event manager/.test(blob);
+            if (isSecurity && !isPlanner) return 'Zone21 Security - EXCLUSIVE';
+            if (isPlanner && !isSecurity) return 'Event Planner / Coordinator';
+            if (isSecurity && isPlanner) {
+                if (/security|guard/.test(name)) return 'Zone21 Security - EXCLUSIVE';
+                if (/planner|planning|coordinator|event/.test(name)) return 'Event Planner / Coordinator';
+                return 'Zone21 Security - EXCLUSIVE';
+            }
+            return null;
+        }
+
+        function isThirdPartySecurity(p) {
+            if (isZone21Account(p)) return false;
+            const core = [p.name, p.businessName, p.companyName, p.displayName, p.username, p.category, p.serviceType].filter(Boolean).join(' ').toLowerCase();
+            return /\bsecurity\b|\bguard\b|\bbouncer\b|\bprotection\b|\bbodyguard\b/.test(core);
+        }
+
+        function isThirdPartyPlanner(p) {
+            if (isZone21Account(p)) return false;
+            const core = [p.name, p.businessName, p.companyName, p.displayName, p.username, p.category, p.serviceType].filter(Boolean).join(' ').toLowerCase();
+            return /\bevent planner\b|\bevent planning\b|\bplanner\b|\bcoordinator\b|\bevent management\b|\bevent manager\b/.test(core);
+        }
+        /* ═══════════════════════════════════════════════════════════
+           ⬆️⬆️⬆️  END OF NEW MATCHING LAYER  ⬆️⬆️⬆️
+           ═══════════════════════════════════════════════════════════ */
+
         // ============================================================
-        //  VENUE MATCHING
+        //  VENUE MATCHING  (REPLACED — uses intelligent scoring)
         // ============================================================
         function matchVenues(location, attendees, budget, requiredServices) {
-            const locationLower = (location || '').toLowerCase();
-            const nearbyVenues = cachedVenues.filter(v => {
-                const loc = (v.location || '').toLowerCase();
-                return loc.includes(locationLower) || locationLower.includes(loc);
-            });
-            const pool = nearbyVenues.length > 0 ? nearbyVenues : cachedVenues;
-            if (pool.length === 0) return [];
+            if (!cachedVenues.length) return [];
+            const locationLower = (location || '').toLowerCase().trim();
 
-            const results = pool.map(venue => {
-                const capacity = venue.capacity || 0;
-                const price = venue.basePrice || 0;
-                const services = venue.services || venue.amenities || [];
-                const hasCapacity = capacity > 0;
-                const hasPrice = price > 0;
-                const serviceMatch = requiredServices.some(s =>
-                    services.some(ps => ps.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(ps.toLowerCase())) ||
-                    s.includes('Venue') || s.includes('Marquee') || s.includes('Tents')
+            const scored = cachedVenues.map(v => {
+                const capacity = Number(v.capacity) || 0;
+                const price = Number(v.basePrice) || 0;
+                const vLoc = (v.location || '').toLowerCase();
+                const areas = (v.serviceAreas || '').toLowerCase();
+
+                const isNearby = locationLower && (
+                    vLoc.includes(locationLower) || locationLower.includes(vLoc) ||
+                    areas.includes(locationLower) || locationLower.includes(areas)
                 );
-                const isNearby = nearbyVenues.includes(venue);
 
-                let reasoning = [], fitScore = 0;
-                if (hasCapacity) {
+                const reasoning = [];
+                let fitScore = 0;
+
+                const vText = buildVenueSearchText(v);
+                const venueSignals = ['venue','hall','space','banquet','premises','function room','garden','marquee','conference','event space'];
+                const venueHits = venueSignals.filter(s => vText.includes(s)).length;
+                if (venueHits > 0) { fitScore += 4 + venueHits; reasoning.push('🏛️ Confirmed venue'); }
+                else return null;
+
+                if (capacity > 0) {
                     if (capacity >= attendees) { reasoning.push('✅ Capacity fits'); fitScore += 3; }
-                    else reasoning.push('⚠️ Capacity may be limited');
+                    else { reasoning.push('⚠️ Capacity may be limited'); fitScore -= 2; }
                 } else reasoning.push('ℹ️ Capacity TBD');
-                if (hasPrice && budget > 0) {
-                    const pct = (price / budget) * 100;
-                    if (pct <= 30) { reasoning.push('💰 Great value'); fitScore += 2; }
-                    else if (pct <= 50) { reasoning.push('💰 Reasonable'); fitScore += 1; }
-                    else reasoning.push('💰 Consider allocation');
-                } else reasoning.push('ℹ️ Price TBD');
-                if (serviceMatch) { reasoning.push('✅ Service match'); fitScore += 2; }
-                if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 2; }
-                return { ...venue, fitScore, reasoning: reasoning.length ? reasoning : ['ℹ️ Basic match'], serviceMatch, capacityMatch: capacity >= attendees };
-            });
 
-            results.sort((a, b) => b.fitScore - a.fitScore);
-            return results.slice(0, 3);
+                if (price > 0 && budget > 0) {
+                    const pct = (price / budget) * 100;
+                    if (pct <= 30) { reasoning.push('💰 Great value'); fitScore += 3; }
+                    else if (pct <= 50) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                    else if (pct <= 70) { reasoning.push('💰 Within budget'); fitScore += 1; }
+                    else reasoning.push('⚠️ Above budget');
+                } else reasoning.push('ℹ️ Price TBD');
+
+                if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
+
+                return { ...v, fitScore, reasoning };
+            }).filter(Boolean);
+
+            scored.sort((a, b) => b.fitScore - a.fitScore);
+            return scored.slice(0, 3);
         }
 
         // ============================================================
-        //  PER-SERVICE PROVIDER MATCHING
+        //  PER-SERVICE PROVIDER MATCHING  (REPLACED — intelligent scoring)
         // ============================================================
         function matchProvidersByService(location, services, budget, dateStr) {
-            const locationLower = (location || '').toLowerCase();
-            const nearby = cachedProviders.filter(p => {
-                const loc = (p.location || '').toLowerCase();
-                const areas = (p.serviceAreas || '').toLowerCase();
-                return loc.includes(locationLower) || locationLower.includes(loc) || areas.includes(locationLower);
-            });
-            const pool = nearby.length > 0 ? nearby : cachedProviders;
-
+            const locationLower = (location || '').toLowerCase().trim();
             const out = {};
+
+            const zone21Map = new Map();
+            cachedProviders.forEach(p => {
+                if (isZone21Account(p)) {
+                    const slot = classifyZone21Account(p);
+                    if (slot) zone21Map.set(p.id, slot);
+                }
+            });
+
             services.forEach(service => {
-                const matched = pool.filter(p => {
-                    const svcs = p.services || p.amenities || [];
-                    return svcs.some(ps =>
-                        ps.toLowerCase().includes(service.toLowerCase()) ||
-                        service.toLowerCase().includes(ps.toLowerCase())
+                if (service === 'Venue / Space Rental') { out[service] = []; return; }
+
+                if (isExclusiveService(service)) {
+                    const matches = cachedProviders.filter(p => zone21Map.get(p.id) === service);
+                    const scored = matches.map(p => {
+                        const price = Number(p.basePrice) || 0;
+                        const rating = Number(p.rating) || 0;
+                        const available = isProviderAvailable(p, dateStr);
+                        const tag = service === 'Zone21 Security - EXCLUSIVE'
+                            ? '🛡️ Zone21 Official Security'
+                            : '🎯 Zone21 Official Event Planning';
+                        const reasoning = [tag];
+                        let fitScore = 50;
+                        if (price > 0 && budget > 0) {
+                            const pct = (price / budget) * 100;
+                            if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 3; }
+                            else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                        }
+                        if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
+                        if (available) { reasoning.push('📅 Available'); fitScore += 2; }
+                        else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
+                        return { ...p, fitScore, reasoning };
+                    });
+                    scored.sort((a, b) => b.fitScore - a.fitScore);
+                    out[service] = scored.slice(0, 3);
+                    return;
+                }
+
+                const scored = cachedProviders.map(p => {
+                    if (zone21Map.has(p.id)) return null;
+                    if (isThirdPartySecurity(p) || isThirdPartyPlanner(p)) return null;
+
+                    const r = scoreProviderForService(p, service);
+                    if (r.score <= 0) return null;
+
+                    const price = Number(p.basePrice) || 0;
+                    const rating = Number(p.rating) || 0;
+                    const pLoc = (p.location || '').toLowerCase();
+                    const areas = (p.serviceAreas || '').toLowerCase();
+                    const isNearby = locationLower && (
+                        pLoc.includes(locationLower) || locationLower.includes(pLoc) ||
+                        areas.includes(locationLower) || locationLower.includes(areas)
                     );
-                }).filter(p => isProviderAvailable(p, dateStr));
+                    const available = isProviderAvailable(p, dateStr);
 
-                const scored = matched.map(p => {
-                    const price = p.basePrice || 0;
-                    const rating = p.rating || 0;
-                    const isNearby = nearby.includes(p);
-                    let reasoning = [], fitScore = 0;
+                    const reasoning = [];
+                    let fitScore = r.score;
 
-                    reasoning.push('✅ Service match');
-                    fitScore += 3;
+                    if (r.direct) reasoning.push('✅ Listed service');
+                    else reasoning.push('✅ Service match');
+                    if (r.matches.length > 1 && !r.direct) {
+                        reasoning.push(`🎯 ${r.matches.length} keyword hits`);
+                        fitScore += Math.min(r.matches.length, 3);
+                    }
 
                     if (price > 0 && budget > 0) {
                         const pct = (price / budget) * 100;
-                        if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 2; }
-                        else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 1; }
+                        if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 3; }
+                        else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                        else if (pct <= 70) { reasoning.push('💰 Within budget'); fitScore += 1; }
+                        else reasoning.push('⚠️ Above budget');
                     } else reasoning.push('ℹ️ Price TBD');
 
-                    if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
+                    if (rating >= 4.5) { reasoning.push('⭐ Top rated'); fitScore += 3; }
+                    else if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
                     else if (rating >= 3) { reasoning.push('⭐ Good rating'); fitScore += 1; }
 
-                    if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 2; }
-                    if (isProviderAvailable(p, dateStr)) { reasoning.push('📅 Available'); fitScore += 2; }
+                    if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
+
+                    if (available) { reasoning.push('📅 Available'); fitScore += 2; }
+                    else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
 
                     return { ...p, fitScore, reasoning };
-                }).sort((a, b) => b.fitScore - a.fitScore);
+                }).filter(Boolean);
 
+                scored.sort((a, b) => b.fitScore - a.fitScore);
                 out[service] = scored.slice(0, 3);
             });
             return out;
         }
 
         // ============================================================
-        //  HTML: VENUE CARDS
+        //  HTML: VENUE CARDS  (UNCHANGED)
         // ============================================================
         function generateVenueHTML(vendors, venueTargetService) {
             if (!vendors || vendors.length === 0) {
@@ -876,7 +1056,7 @@
         }
 
         // ============================================================
-        //  HTML: SERVICE SLOTS
+        //  HTML: SERVICE SLOTS  (UNCHANGED)
         // ============================================================
         function statusLabel(status) {
             return ({
@@ -1017,8 +1197,7 @@
 
             const msgContainer = document.getElementById('modalChatMessages');
             msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
-            
-            // Ensure the thread document exists before subscribing
+
             await db.collection('threads').doc(chatThreadId).set({
                 participants: [currentUser.uid, chatOtherUid],
                 jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
@@ -1540,7 +1719,6 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             }
         }
 
-        // ✅ DYNAMIC MESSAGE: This now accurately reflects the specific service requested by the user
         function buildInviteMessage(service, providerName) {
             const d = currentEventData;
             return `hie im requestion for your ${service} service on the ${d.date}. Are you available for bookings?`;
@@ -1560,7 +1738,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             const requestRef = db.collection('bookingRequests').doc();
 
             const requestDoc = {
-                userId: currentUser.uid, // ✅ CRITICAL FIX: Satisfies the fallback Firestore rule
+                userId: currentUser.uid,
                 eventId: currentSessionId,
                 eventName: currentEventData.name,
                 date: currentEventData.date,
@@ -1581,16 +1759,13 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // 1. Create Booking Request (isolated so a failure doesn't stop the chat message)
             try {
                 await requestRef.set(requestDoc);
                 console.log('[Zone21 Invite] ✓ bookingRequests created:', requestRef.id);
             } catch (e) {
                 console.error('[Zone21 Invite] ✗ FAILED bookingRequests write (check Firebase rules):', e);
-                // We do not throw here anymore, so the chat message can still try to send
             }
 
-            // 2. Send to Admin / Management Inbox
             try {
                 await db.collection('messages').add({
                     sender: 'user',
@@ -1619,12 +1794,10 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                 console.warn('[Zone21 Invite] ✗ admin message failed:', e.message);
             }
 
-            // 3. Send directly to Vendor Chat Thread (Deterministic ID)
             if (providerUid && providerUid !== 'admin') {
                 try {
                     const chatId = getChatId(currentUser.uid, providerUid);
-                    
-                    // Ensure thread exists
+
                     await db.collection('threads').doc(chatId).set({
                         participants: [currentUser.uid, providerUid],
                         jobTitle: service,
@@ -1632,7 +1805,6 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
 
-                    // Add message
                     await db.collection(`threads/${chatId}/messages`).add({
                         senderId: currentUser.uid,
                         text: messageText,
@@ -1647,7 +1819,6 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
                 }
             }
 
-            // 4. Send to Organiser Inbox (so they see a record)
             try {
                 await db.collection('messages').add({
                     sender: 'system',
@@ -1680,7 +1851,6 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             return { requestId: requestRef.id, providerId: providerUid, service, providerName: provider.name };
         }
 
-        // ✅ Send All Invitations
         async function sendAllInvitations() {
             if (!currentUser || !currentEventData) {
                 showToast('Not ready. Please generate a blueprint first.', 'error');
@@ -1693,7 +1863,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
 
             const checkboxes = document.querySelectorAll('input[data-approve-provider]:checked');
             console.log('[Zone21] Found checkboxes:', checkboxes.length);
-            
+
             if (checkboxes.length === 0) {
                 showToast('No providers selected. Tick "Include" next to the providers you want to invite.', 'info');
                 return;
@@ -1712,7 +1882,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             for (const cb of checkboxes) {
                 const service = cb.getAttribute('data-approve-service');
                 const providerId = cb.getAttribute('data-approve-provider');
-                
+
                 console.log('[Zone21] Attempting invite for:', service, providerId);
 
                 if (isLocallyInvited(service, providerId)) {
@@ -1750,7 +1920,7 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
             if (sentCount > 0) msg += `✅ ${sentCount} invitation(s) sent. `;
             if (skipCount > 0) msg += `ℹ️ ${skipCount} already invited. `;
             if (failCount > 0) msg += `❌ ${failCount} failed. `;
-            
+
             if (sentCount > 0) {
                 showToast(msg, 'success');
             } else {
@@ -1933,130 +2103,4 @@ Use clean, semantic markup. Never break out of the container. Never use fixed wi
         }
 
         function renderHistorySidebar() {
-            const historyList = document.getElementById('history-list');
-            if (!historyList) return;
-            historyList.innerHTML = '';
-
-            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-
-            const filtered = Object.values(allSessions).filter(s => {
-                const pkg = s?.formData?.package;
-                if (!pkg) return true;
-                return pkg === userPackage;
-            });
-
-            if (filtered.length === 0) {
-                historyList.innerHTML = `
-                    <div style="padding:14px 12px;text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5;">
-                        <i class="fas fa-folder-open" style="font-size:1.4rem;display:block;margin-bottom:6px;opacity:0.4;"></i>
-                        No ${userPackageName || ''} blueprints yet.<br>Generate one to see it here.
-                    </div>`;
-                return;
-            }
-
-            filtered
-                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                .forEach(session => {
-                    const item = document.createElement('div');
-                    item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
-                    item.innerHTML = `
-                        <span class="title"><i class="fas fa-clipboard-list"></i>${session.title}</span>
-                        <button class="delete-btn" onclick="deleteBlueprintSession('${session.id}', event)"><i class="fas fa-trash"></i></button>`;
-                    item.onclick = () => loadBlueprintSession(session.id);
-                    historyList.appendChild(item);
-                });
-        }
-
-        function loadBlueprintSession(sessionId) {
-            closeSidebar();
-            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-            const session = allSessions[sessionId];
-            if (!session) return;
-
-            const sessionPkg = session?.formData?.package;
-            if (sessionPkg && userPackage && sessionPkg !== userPackage) {
-                showToast(`This blueprint belongs to the "${sessionPkg}" package. Switch plans to view it.`, 'error');
-                return;
-            }
-
-            currentSessionId = session.id;
-            currentEventData = session.formData;
-            if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
-            if (!currentEventData.inviteQueues) currentEventData.inviteQueues = {};
-            formSection.style.display = 'none';
-            loadingDiv.style.display = 'none';
-            blueprintContainer.style.display = 'block';
-            finalBlueprint.innerHTML = session.blueprintHtml;
-            activeRequests = {};
-            subscribeToBookingRequests();
-            refreshSlotUI();
-            renderHistorySidebar();
-        }
-
-        function deleteBlueprintSession(sessionId, event) {
-            if (event) event.stopPropagation();
-            if (!confirm('Delete this event blueprint?')) return;
-            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
-            delete localSessions[sessionId];
-            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
-            if (currentSessionId === sessionId) startNewSession();
-            else renderHistorySidebar();
-        }
-
-        function startNewSession() {
-            closeSidebar();
-            currentSessionId = null;
-            currentEventData = null;
-            serviceMatches = {};
-            activeRequests = {};
-            if (bookingUnsubscribe) { bookingUnsubscribe(); bookingUnsubscribe = null; }
-            form.reset();
-            blueprintContainer.style.display = 'none';
-            loadingDiv.style.display = 'none';
-            formSection.style.display = 'block';
-            renderHistorySidebar();
-        }
-
-        // ============================================================
-        //  EXPOSE
-        // ============================================================
-        window.openChatForVendor = openChatForVendor;
-        window.closeChatModal = closeChatModal;
-        window.sendModalMessage = sendModalMessage;
-        window.openWhatsApp = openWhatsApp;
-        window.regenerateBlueprint = regenerateBlueprint;
-        window.startNewSession = startNewSession;
-        window.deleteBlueprintSession = deleteBlueprintSession;
-        window.loadBlueprintSession = loadBlueprintSession;
-        window.handleLogout = handleLogout;
-        window.showToast = showToast;
-        window.sendAllInvitations = sendAllInvitations;
-        window.updateInviteButtonState = updateInviteButtonState;
-
-        // ============================================================
-        //  INIT
-        // ============================================================
-        document.addEventListener('DOMContentLoaded', async function() {
-            auth.onAuthStateChanged(async (user) => {
-                if (user) {
-                    currentUser = user;
-                    headerUserEmail.textContent = user.email || 'user@example.com';
-                    await loadUserAndPackage();
-                    renderHistorySidebar();
-                } else {
-                    showToast('Please log in to continue.', 'error');
-                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
-                }
-            });
-
-            if (auth.currentUser) {
-                currentUser = auth.currentUser;
-                headerUserEmail.textContent = auth.currentUser.email || 'user@example.com';
-                await loadUserAndPackage();
-                renderHistorySidebar();
-            }
-        });
-    </script>
-
-</body>
-</html>
+            const historyList = document.getEle

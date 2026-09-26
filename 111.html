@@ -1,0 +1,2232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Zone21 | Event Blueprint Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --navy: #1A2A3A;
+            --navy-light: #2C3E50;
+            --slate: #4A6A7F;
+            --mint: #6B9F9F;
+            --mint-light: #B5D4D4;
+            --mint-soft: rgba(107, 159, 159, 0.10);
+            --coral: #D4856B;
+            --coral-soft: rgba(212, 133, 107, 0.08);
+            --grey: #E8EDF0;
+            --grey-light: #F5F7F9;
+            --text-primary: #1A2A3A;
+            --text-secondary: #4A6A7F;
+            --text-muted: #7A9BAE;
+            --bg-page: #F0F3F5;
+            --bg-surface: #FFFFFF;
+            --bg-input: #F5F7F9;
+            --border-light: #E8EDF0;
+            --border-strong: #D5DDE3;
+            --shadow-sm: 0 1px 3px rgba(26, 42, 58, 0.06);
+            --shadow-md: 0 4px 16px rgba(26, 42, 58, 0.08);
+            --shadow-lg: 0 8px 32px rgba(26, 42, 58, 0.10);
+            --shadow-xl: 0 16px 48px rgba(26, 42, 58, 0.14);
+            --radius: 10px;
+            --radius-xl: 18px;
+            --radius-full: 9999px;
+            font-size: 15px;
+        }
+
+        html, body {
+            height: 100%; height: -webkit-fill-available;
+            overflow: hidden; margin: 0; padding: 0;
+            background: var(--bg-page);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary); font-size: 0.95rem; line-height: 1.55;
+        }
+
+        .app { display: flex; height: 100dvh; width: 100vw; overflow: hidden; background: var(--bg-page); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--mint); border-radius: 5px; }
+
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: rgba(26, 42, 58, 0.4); z-index: 999; opacity: 0; transition: opacity 0.3s ease; }
+        .sidebar-overlay.active { display: block; opacity: 1; }
+
+        .sidebar { width: 280px; min-width: 280px; background: var(--navy); color: white; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; height: 100dvh; z-index: 1000; transition: transform 0.3s ease; }
+
+        .sidebar-header { padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .sidebar-header h2 { font-size: 0.85rem; font-weight: 600; color: var(--mint-light); letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px; }
+        .sidebar-header h2 i { color: var(--mint-light); font-size: 0.9rem; }
+        .sidebar-header .badge { font-size: 0.6rem; background: var(--mint); color: white; padding: 3px 10px; border-radius: 20px; font-weight: 600; text-transform: uppercase; }
+
+        .sidebar-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+
+        .new-chat-btn { width: 100%; padding: 10px; background: var(--mint); color: white; border: none; border-radius: var(--radius); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+        .new-chat-btn:hover { background: #5A8A8A; transform: translateY(-1px); }
+
+        .history-item { padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-radius: var(--radius); margin-bottom: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; transition: 0.2s; border-left: 2px solid transparent; }
+        .history-item:hover { background: rgba(255, 255, 255, 0.06); }
+        .history-item.active { border-left-color: var(--mint-light); background: rgba(255, 255, 255, 0.05); }
+        .history-item .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.8); font-weight: 400; }
+        .history-item .title i { color: var(--mint-light); margin-right: 8px; font-size: 0.75rem; }
+        .history-item .delete-btn { color: rgba(255, 255, 255, 0.2); padding: 2px 6px; border-radius: 4px; transition: 0.2s; cursor: pointer; background: none; border: none; font-size: 0.75rem; }
+        .history-item .delete-btn:hover { color: var(--coral); background: rgba(212, 133, 107, 0.12); }
+
+        .sidebar-footer { padding: 10px 20px; border-top: 1px solid rgba(255, 255, 255, 0.04); font-size: 0.65rem; color: rgba(255, 255, 255, 0.25); text-align: center; flex-shrink: 0; }
+
+        .workspace { flex: 1; background: var(--bg-page); display: flex; flex-direction: column; overflow: hidden; min-width: 0; height: 100dvh; }
+
+        .workspace-header { background: var(--navy); color: white; padding: 10px 20px; display: flex; align-items: center; gap: 14px; border-bottom: 2px solid var(--mint); flex-shrink: 0; flex-wrap: wrap; }
+        .workspace-header .menu-btn { display: none; background: transparent; border: none; color: white; font-size: 1.3rem; cursor: pointer; padding: 2px 4px; }
+        .workspace-header .brand h1 { font-size: 0.95rem; color: var(--mint-light); margin: 0; font-weight: 600; letter-spacing: -0.2px; }
+        .workspace-header .brand p { font-size: 0.6rem; color: rgba(255, 255, 255, 0.3); margin: 0; }
+        .workspace-header .right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .workspace-header .package-tag { background: var(--mint); color: white; padding: 3px 12px; border-radius: 20px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; }
+        .workspace-header .user-email { font-size: 0.65rem; color: rgba(255, 255, 255, 0.35); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .workspace-header .logout-btn { background: transparent; border: 1px solid rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.4); padding: 3px 12px; border-radius: 20px; font-size: 0.65rem; cursor: pointer; transition: 0.2s; }
+        .workspace-header .logout-btn:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--coral); color: white; }
+
+        .workspace-content { flex: 1; overflow-y: auto; padding: 16px 20px 20px 20px; background: var(--bg-page); }
+
+        .package-banner { background: var(--navy); color: white; padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .package-banner .pkg-label { font-size: 0.6rem; color: rgba(255, 255, 255, 0.35); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .package-banner .pkg-name { font-size: 0.9rem; font-weight: 600; color: var(--mint-light); }
+        .package-banner .pkg-limit { font-size: 0.65rem; background: rgba(255, 255, 255, 0.05); padding: 3px 12px; border-radius: 20px; color: rgba(255, 255, 255, 0.6); }
+        .package-banner .pkg-limit span { color: var(--mint-light); font-weight: 600; }
+        .package-banner .pkg-action { background: var(--mint); color: white; border: none; padding: 5px 14px; border-radius: 20px; font-weight: 600; font-size: 0.65rem; cursor: pointer; transition: 0.2s; text-decoration: none; }
+        .package-banner .pkg-action:hover { background: #5A8A8A; }
+
+        .form-section { background: white; padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+        .input-group { display: flex; flex-direction: column; gap: 3px; }
+        .input-group label { font-weight: 600; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; color: var(--text-secondary); letter-spacing: 0.2px; }
+        .input-group .hint { font-size: 0.65rem; color: var(--text-muted); font-weight: 400; }
+        .input-group input, .input-group select, .input-group textarea { padding: 9px 12px; border: 1px solid var(--border-light); border-radius: 6px; outline: none; transition: 0.3s; font-size: 0.9rem; background: var(--bg-input); width: 100%; color: var(--text-primary); font-family: 'Inter', sans-serif; }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--mint); background: white; box-shadow: 0 0 0 2px var(--mint-soft); }
+        .input-group textarea { resize: vertical; min-height: 50px; }
+
+        .limit-badge { display: inline-block; font-size: 0.6rem; background: var(--mint-soft); color: var(--mint); padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-left: 4px; border: 1px solid var(--mint-light); }
+
+        .services-wrapper { margin-top: 12px; }
+        .services-wrapper>label { font-weight: 600; font-size: 0.85rem; display: block; border-bottom: 1px solid var(--border-light); padding-bottom: 4px; margin-bottom: 8px; color: var(--text-secondary); }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 5px; }
+        .service-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; background: var(--bg-input); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border-light); cursor: pointer; transition: 0.2s; color: var(--text-secondary); }
+        .service-item:hover { background: white; border-color: var(--mint); }
+        .service-item input[type="checkbox"] { accent-color: var(--coral); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+        .service-item .zone21-badge { background: var(--mint); color: white; padding: 0 6px; border-radius: 8px; font-size: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; margin-left: auto; }
+
+        .submit-btn { width: 100%; padding: 11px; background: var(--navy); color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.3s; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .submit-btn:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .submit-btn:disabled { background: var(--grey); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+        #loading { display: none; text-align: center; padding: 40px 20px; background: white; border-radius: var(--radius); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); }
+        #loading .spinner { border: 3px solid var(--grey); width: 36px; height: 36px; border-radius: 50%; border-top-color: var(--mint); animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading h3 { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; }
+        #loading p { color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
+
+        #blueprint-container { display: none; }
+        .blueprint-wrapper { animation: fadeUp 0.35s ease forwards; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .blueprint-result { background: white; padding: 22px 24px; border-radius: var(--radius); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); line-height: 1.65; color: var(--text-primary); width: 100%; max-width: 100%; font-size: 0.95rem; overflow-x: hidden; overflow-y: visible; word-wrap: break-word; word-break: break-word; position: relative; }
+        .blueprint-result *, .blueprint-result *::before, .blueprint-result *::after { max-width: 100%; word-break: break-word; box-sizing: border-box; }
+
+        .blueprint-result table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 0.85rem; border-radius: var(--radius); overflow: hidden; background: white; box-shadow: var(--shadow-sm); display: table; table-layout: auto; min-width: 0; max-width: 100%; }
+        .blueprint-result table th { background: var(--navy); color: white; padding: 8px 12px; text-align: left; font-weight: 600; white-space: nowrap; font-size: 0.8rem; }
+        .blueprint-result table td { padding: 7px 12px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); max-width: 300px; overflow-wrap: break-word; font-size: 0.85rem; }
+        .blueprint-result table tr:nth-child(even) td { background: var(--grey-light); }
+        .blueprint-result table tr:last-child td { border-bottom: none; }
+
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 10px 0 16px; border-radius: var(--radius); border: 1px solid var(--border-light); max-width: 100%; }
+        .table-responsive table { margin: 0; border-radius: 0; border: none; box-shadow: none; min-width: 0; width: 100%; }
+
+        .blueprint-result h1 { color: var(--navy); font-size: 1.35rem; border-bottom: 2px solid var(--mint-light); padding-bottom: 8px; margin-bottom: 16px; text-align: left; font-weight: 700; max-width: 100%; overflow-wrap: break-word; line-height: 1.3; }
+        .blueprint-result h2 { color: var(--navy); font-size: 1.1rem; border-bottom: 1px solid var(--mint-light); padding-bottom: 5px; margin-top: 22px; margin-bottom: 10px; font-weight: 600; clear: both; max-width: 100%; overflow-wrap: break-word; line-height: 1.3; }
+        .blueprint-result h2:first-child { margin-top: 0; }
+        .blueprint-result h3 { color: var(--coral); font-size: 0.95rem; margin-top: 16px; margin-bottom: 6px; font-weight: 600; max-width: 100%; overflow-wrap: break-word; line-height: 1.3; }
+        .blueprint-result h4 { color: var(--navy); font-size: 0.9rem; margin-top: 12px; margin-bottom: 4px; font-weight: 600; max-width: 100%; overflow-wrap: break-word; line-height: 1.3; }
+        .blueprint-result ul, .blueprint-result ol { list-style-position: inside; padding-left: 4px; margin-bottom: 12px; max-width: 100%; }
+        .blueprint-result ul { list-style: none; padding-left: 0; }
+        .blueprint-result li { margin-bottom: 5px; font-size: 0.9rem; padding-left: 18px; position: relative; color: var(--text-secondary); max-width: 100%; overflow-wrap: break-word; line-height: 1.5; }
+        .blueprint-result li:before { content: "▸"; color: var(--mint); position: absolute; left: 2px; font-weight: 700; font-size: 0.75rem; }
+        .blueprint-result p { margin-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary); max-width: 100%; overflow-wrap: break-word; line-height: 1.6; }
+        .blueprint-result hr { border: none; border-top: 1px dashed var(--border-light); margin: 16px 0; max-width: 100%; }
+        .blueprint-result strong { color: var(--text-primary); font-weight: 600; }
+        .blueprint-result em { color: var(--text-secondary); font-style: italic; }
+
+        .budget-success { background: var(--mint-soft); border-left: 3px solid var(--mint); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 14px; max-width: 100%; overflow-wrap: break-word; }
+        .budget-neutral { background: rgba(74, 106, 127, 0.06); border-left: 3px solid var(--slate); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 14px; max-width: 100%; overflow-wrap: break-word; }
+        .budget-warning { background: var(--coral-soft); border-left: 3px solid var(--coral); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 14px; max-width: 100%; overflow-wrap: break-word; }
+
+        .vendor-card { background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 12px 16px; margin: 8px 0; transition: 0.2s; border-left: 3px solid var(--mint); box-shadow: var(--shadow-sm); max-width: 100%; overflow-wrap: break-word; }
+        .vendor-card:hover { border-color: var(--mint); box-shadow: var(--shadow-md); }
+        .vendor-card .vendor-name { font-weight: 600; color: var(--navy); font-size: 0.9rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 100%; }
+        .vendor-card .vendor-name .type-badge { font-size: 0.55rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: var(--mint-soft); color: var(--mint); letter-spacing: 0.02em; text-transform: uppercase; border: 1px solid var(--mint-light); flex-shrink: 0; }
+        .vendor-card .vendor-name .type-badge.venue { background: var(--coral-soft); color: var(--coral); border-color: var(--coral); }
+        .vendor-card .vendor-detail { font-size: 0.85rem; color: var(--text-secondary); margin: 3px 0; max-width: 100%; overflow-wrap: break-word; }
+        .vendor-card .vendor-detail i { width: 16px; color: var(--slate); flex-shrink: 0; font-size: 0.7rem; }
+        .vendor-card .reasoning-badge { display: inline-block; background: var(--mint-soft); color: var(--mint); padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; font-weight: 500; margin: 2px 2px 2px 0; border: 1px solid var(--mint-light); max-width: 100%; overflow-wrap: break-word; }
+        .vendor-card .reasoning-badge.warning { background: var(--coral-soft); color: var(--coral); border-color: var(--coral); }
+        .vendor-card .reasoning-badge.info { background: rgba(74, 106, 127, 0.08); color: var(--slate); border-color: var(--border-strong); }
+        .vendor-card .reasoning-badge.success { background: var(--mint-soft); color: var(--mint); border-color: var(--mint-light); }
+        .vendor-card .vendor-actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .vendor-card .contact-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 20px; font-weight: 500; font-size: 0.75rem; text-decoration: none; transition: 0.2s; border: 1px solid var(--border-light); cursor: pointer; color: var(--text-secondary); background: white; flex-shrink: 0; }
+        .vendor-card .contact-btn:hover { transform: translateY(-1px); color: white; }
+        .vendor-card .contact-btn i { font-size: 0.75rem; }
+        .vendor-card .contact-btn.primary { color: var(--navy); border-color: var(--navy-light); }
+        .vendor-card .contact-btn.primary:hover { background: var(--navy); border-color: var(--navy); }
+        .vendor-card .contact-btn.whatsapp { color: #128C7E; border-color: #25D366; }
+        .vendor-card .contact-btn.whatsapp:hover { background: #25D366; border-color: #25D366; }
+        .vendor-card .contact-btn.email { color: #B23121; border-color: #D44638; }
+        .vendor-card .contact-btn.email:hover { background: #D44638; border-color: #D44638; }
+
+        .external-source-card { background: var(--grey-light); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 12px 16px; margin: 8px 0; border-left: 3px solid var(--slate); max-width: 100%; overflow-wrap: break-word; }
+        .external-source-card .source-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 6px; max-width: 100%; overflow-wrap: break-word; }
+        .external-source-card .source-text strong { color: var(--navy); }
+        .external-source-card .zone21-contact { background: var(--navy); color: white; padding: 10px 16px; border-radius: var(--radius); display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 6px; font-size: 0.8rem; max-width: 100%; }
+        .external-source-card .zone21-contact a { color: var(--mint-light); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; flex-wrap: wrap; }
+        .external-source-card .zone21-contact a:hover { color: white; text-decoration: underline; }
+        .external-source-card .zone21-contact i { font-size: 0.8rem; flex-shrink: 0; }
+        .external-source-card.zone21-planning { border-left-color: var(--mint); background: var(--mint-soft); }
+        .external-source-card.zone21-planning .source-text { color: var(--text-primary); }
+        .external-source-card.zone21-planning .source-text strong { color: var(--navy); }
+
+        .zone21-help { background: var(--grey-light); color: var(--text-primary); padding: 16px 20px; border-radius: var(--radius); margin-top: 20px; border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); max-width: 100%; overflow-wrap: break-word; }
+        .zone21-help h2 { color: var(--navy) !important; border-bottom: 1px solid var(--mint-light) !important; padding-bottom: 5px; margin-top: 0 !important; font-size: 1rem; font-weight: 600; }
+        .zone21-help p { color: var(--text-secondary); margin: 6px 0 10px; font-size: 0.85rem; }
+        .zone21-help .help-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .zone21-help .help-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 20px; font-weight: 500; font-size: 0.75rem; text-decoration: none; transition: 0.2s; border: 1px solid var(--border-light); cursor: pointer; color: var(--text-secondary); background: white; flex-shrink: 0; }
+        .zone21-help .help-btn:hover { background: var(--mint); color: white; border-color: var(--mint); transform: translateY(-1px); }
+        .zone21-help .help-btn i { font-size: 0.75rem; }
+
+        .blueprint-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-light); }
+        .action-btn { padding: 7px 16px; border-radius: 20px; font-weight: 600; font-size: 0.75rem; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: 0.2s; color: white; flex-shrink: 0; }
+        .action-btn:hover { transform: translateY(-1px); }
+        .btn-download { background: var(--mint); }
+        .btn-download:hover { box-shadow: 0 4px 12px rgba(107, 159, 159, 0.3); }
+        .btn-regen { background: var(--navy); }
+        .btn-regen:hover { box-shadow: 0 4px 12px rgba(26, 42, 58, 0.2); }
+
+        /* Booking/invite styles */
+        .service-slot { background: white; border: 1px solid var(--border-light); border-radius: var(--radius); padding: 14px 16px; margin: 12px 0; box-shadow: var(--shadow-sm); }
+        .service-slot-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--border-light); padding-bottom: 8px; margin-bottom: 10px; }
+        .service-slot-header h3 { margin: 0; color: var(--navy); font-size: 0.95rem; font-weight: 700; }
+        .slot-status { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.4px; }
+        .slot-status.not_sent { background: var(--grey); color: var(--text-secondary); }
+        .slot-status.invited { background: #FFF4DC; color: #B07B00; }
+        .slot-status.accepted { background: var(--mint-soft); color: var(--mint); }
+        .slot-status.declined { background: var(--coral-soft); color: var(--coral); }
+
+        .vendor-card.is-invited { border-left-width: 4px; }
+        .vendor-card.is-accepted { border-left-color: var(--mint); background: #F7FBFB; }
+        .vendor-card.is-declined { border-left-color: var(--coral); background: #FDF6F3; opacity: 0.85; }
+
+        .vendor-status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .vendor-status-badge { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.3px; }
+        .vendor-status-badge.not_sent { background: var(--grey); color: var(--text-secondary); }
+        .vendor-status-badge.invited { background: #FFF4DC; color: #B07B00; }
+        .vendor-status-badge.accepted { background: var(--mint-soft); color: var(--mint); }
+        .vendor-status-badge.declined { background: var(--coral-soft); color: var(--coral); }
+
+        .approve-checkbox { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-secondary); cursor: pointer; user-select: none; background: var(--grey-light); padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border-light); transition: 0.2s; }
+        .approve-checkbox:hover { border-color: var(--mint); background: var(--mint-soft); }
+        .approve-checkbox input { accent-color: var(--mint); width: 13px; height: 13px; cursor: pointer; }
+        .approve-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .send-invites-btn { background: var(--mint); color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); }
+        .send-invites-btn:hover { background: #5A8A8A; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .send-invites-btn:disabled { background: var(--grey); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .confirm-banner { background: var(--mint); color: white; padding: 14px 20px; border-radius: var(--radius); margin: 12px 0; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-md); font-weight: 600; }
+        .confirm-banner i { font-size: 1.3rem; }
+        .confirm-banner .txt { font-size: 0.9rem; }
+        .confirm-banner .sub { font-size: 0.75rem; font-weight: 400; opacity: 0.9; }
+
+        .deadline-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; font-style: italic; }
+
+        .invite-info-banner { background: linear-gradient(135deg, #EAF4F4, #F5FBFF); border: 1px solid var(--mint-light); border-left: 4px solid var(--mint); border-radius: var(--radius); padding: 14px 18px; margin: 12px 0 16px; display: flex; gap: 12px; align-items: flex-start; }
+        .invite-info-banner i { color: var(--mint); font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+        .invite-info-banner .txt { font-size: 0.85rem; color: var(--text-primary); line-height: 1.6; }
+        .invite-info-banner strong { color: var(--navy); }
+
+        .approve-checkbox.invited { background: var(--mint-soft); border-color: var(--mint-light); color: var(--mint); font-weight: 600; cursor: default; }
+        .approve-checkbox .cb-label { font-weight: 500; }
+
+        /* CHAT MODAL */
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+        .chat-modal-overlay { position: fixed; inset: 0; background: rgba(26, 42, 58, 0.5); backdrop-filter: blur(6px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 16px; animation: fadeInOverlay 0.3s ease; }
+        .chat-modal-overlay.active { display: flex; }
+        .chat-modal { background: var(--bg-surface); border-radius: var(--radius); max-width: 560px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); animation: slideUp 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); overflow: hidden; border: 1px solid var(--border-light); }
+        .chat-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--border-light); background: var(--bg-surface); flex-shrink: 0; }
+        .chat-modal-header .chat-recipient { display: flex; align-items: center; gap: 10px; }
+        .chat-modal-header .chat-recipient .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--mint); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.75rem; flex-shrink: 0; overflow: hidden; }
+        .chat-modal-header .chat-recipient .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .chat-modal-header .chat-recipient .info h4 { font-size: 0.85rem; font-weight: 600; color: var(--navy); }
+        .chat-modal-header .chat-recipient .info span { font-size: 0.65rem; color: var(--text-muted); }
+        .chat-modal-header .close-btn { width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--bg-input); color: var(--text-muted); font-size: 1rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .chat-modal-header .close-btn:hover { background: var(--coral-soft); color: var(--coral); }
+        .chat-modal-body { flex: 1; overflow-y: auto; padding: 14px 18px; background: var(--grey-light); display: flex; flex-direction: column; gap: 4px; min-height: 160px; max-height: 320px; }
+        .chat-modal-body .empty-chat { text-align: center; color: var(--text-muted); padding: 30px 0; font-size: 0.85rem; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .chat-modal-body .empty-chat i { font-size: 2rem; color: var(--border-strong); margin-bottom: 8px; }
+        .chat-message { max-width: 78%; padding: 8px 14px; border-radius: 14px; font-size: 0.8rem; line-height: 1.45; word-wrap: break-word; animation: fadeUp 0.25s ease; }
+        .chat-message.in { background: var(--bg-surface); border: 1px solid var(--border-light); align-self: flex-start; border-bottom-left-radius: 3px; color: var(--text-primary); box-shadow: var(--shadow-sm); }
+        .chat-message.out { background: var(--navy); color: white; align-self: flex-end; border-bottom-right-radius: 3px; box-shadow: var(--shadow-sm); }
+        .chat-message.system { background: var(--mint-soft); border: 1px dashed var(--mint); align-self: stretch; max-width: 100%; border-radius: 8px; color: var(--text-primary); font-size: 0.78rem; white-space: pre-wrap; }
+        .chat-message .time { font-size: 0.55rem; opacity: 0.5; margin-top: 2px; text-align: right; }
+        .chat-message.in .time { color: var(--text-muted); }
+        .chat-message.out .time { color: rgba(255, 255, 255, 0.5); }
+        .chat-modal-footer { padding: 10px 16px 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+        .chat-modal-footer input { flex: 1; padding: 9px 14px; border: 1.5px solid var(--border-light); border-radius: var(--radius-full); font-size: 0.8rem; font-family: 'Inter', sans-serif; outline: none; background: var(--bg-input); color: var(--text-primary); transition: 0.3s; min-width: 0; }
+        .chat-modal-footer input:focus { border-color: var(--mint); box-shadow: 0 0 0 2px var(--mint-soft); background: white; }
+        .chat-modal-footer .btn-send { background: var(--navy); color: white; border: none; padding: 8px 16px; border-radius: var(--radius-full); font-weight: 600; font-size: 0.75rem; cursor: pointer; transition: 0.3s; font-family: 'Inter', sans-serif; white-space: nowrap; flex-shrink: 0; }
+        .chat-modal-footer .btn-send:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .chat-date-divider { text-align: center; font-size: 0.6rem; color: var(--text-muted); padding: 4px 0; font-weight: 500; letter-spacing: 0.03em; }
+
+        #toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 340px; width: 100%; }
+        .toast { padding: 11px 16px; border-radius: var(--radius); background: var(--navy); color: white; box-shadow: var(--shadow-lg); font-size: 0.8rem; animation: slideIn 0.3s ease forwards; display: flex; align-items: center; gap: 8px; }
+        .toast.success { border-left: 3px solid var(--mint); }
+        .toast.error { border-left: 3px solid var(--coral); }
+        .toast.info { border-left: 3px solid var(--slate); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+        @media (max-width: 768px) {
+            .app { flex-direction: column; }
+            .sidebar { position: fixed; top: 0; left: -300px; height: 100dvh; width: 270px; border-radius: 0 16px 16px 0; z-index: 1000; }
+            .sidebar.active { transform: translateX(300px); }
+            .workspace { border-radius: 0; box-shadow: none; height: 100dvh; }
+            .workspace-header .menu-btn { display: block; }
+            .workspace-content { padding: 10px 8px 16px 8px; }
+            .form-section { padding: 12px; }
+            .blueprint-result { padding: 14px 12px; }
+            .zone21-help { padding: 12px 10px; }
+            .help-actions { flex-direction: column; }
+            .zone21-help .help-btn { width: 100%; justify-content: center; }
+            .package-banner { flex-direction: column; align-items: stretch; text-align: center; }
+            .workspace-header .user-email { display: none; }
+            .blueprint-result h1 { font-size: 1.15rem; }
+            .blueprint-result table { font-size: 0.75rem; min-width: 0; width: 100%; }
+            .blueprint-result table th, .blueprint-result table td { padding: 5px 8px; max-width: 140px; }
+            #toast-container { top: 8px; right: 8px; max-width: calc(100% - 16px); }
+            .chat-modal { max-width: 100%; max-height: 92vh; border-radius: var(--radius); }
+            .chat-modal-body { max-height: 240px; padding: 12px 14px; }
+            .external-source-card .zone21-contact { flex-direction: column; gap: 6px; }
+            .vendor-card .vendor-name { font-size: 0.85rem; }
+            .vendor-card .reasoning-badge { font-size: 0.55rem; padding: 2px 6px; }
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            .blueprint-wrapper, .blueprint-wrapper * { visibility: visible; }
+            .blueprint-wrapper { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; }
+            .blueprint-result { border: none; box-shadow: none; padding: 0; }
+            .blueprint-controls { display: none !important; }
+            .zone21-help .help-actions { display: none !important; }
+            .vendor-card .vendor-actions { display: none !important; }
+            .approve-checkbox, .send-invites-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="app">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-calendar-check"></i>Past Events</h2>
+                <span class="badge" id="sidebar-package-badge">—</span>
+            </div>
+            <div class="sidebar-body">
+                <button class="new-chat-btn" onclick="startNewSession()">
+                    <i class="fas fa-plus-circle"></i> New Event
+                </button>
+                <div id="history-list"></div>
+            </div>
+            <div class="sidebar-footer">
+                <span id="sidebar-package-label">Package: —</span>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="workspace-header">
+                <button class="menu-btn" id="menu-btn"><i class="fas fa-bars"></i></button>
+                <div class="brand">
+                    <h1>Zone21 System</h1>
+                    <p>Event Allocation &amp; Blueprint Generator</p>
+                </div>
+                <div class="right">
+                    <span class="package-tag" id="header-package-tag">—</span>
+                    <span class="user-email" id="header-user-email">user@example.com</span>
+                    <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+
+            <div class="workspace-content" id="workspace-content">
+                <div class="package-banner" id="package-banner" style="display:none;">
+                    <div>
+                        <div class="pkg-label">Active Package</div>
+                        <div class="pkg-name" id="pkg-banner-name">—</div>
+                    </div>
+                    <div class="pkg-limit">Attendee Limit: <span id="pkg-banner-limit">—</span></div>
+                    <a class="pkg-action" id="pkg-banner-action" href="subscription.html">Manage</a>
+                </div>
+
+                <div class="form-section" id="form-section">
+                    <form id="eventForm">
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Event Name</label>
+                                <input type="text" id="eventName" required placeholder="e.g. Sarah's Wedding" />
+                            </div>
+                            <div class="input-group">
+                                <label>Location</label>
+                                <input type="text" id="eventLocation" required placeholder="e.g. Harare, Zimbabwe" />
+                            </div>
+                            <div class="input-group">
+                                <label>Event Type</label>
+                                <select id="eventType" required>
+                                    <option value="" disabled selected>Select Event Type...</option>
+                                    <option value="Social & Private Events">Social & Private Events</option>
+                                    <option value="Weddings & Traditional">Weddings & Traditional</option>
+                                    <option value="Entertainment Events">Entertainment</option>
+                                    <option value="Business & Corporate">Business & Corporate</option>
+                                    <option value="School & University">School & University</option>
+                                    <option value="Religious Events">Religious Events</option>
+                                    <option value="Community & Cultural">Community & Cultural</option>
+                                    <option value="Sports Events">Sports Events</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Contact</label>
+                                <input type="text" id="eventContact" required placeholder="Email or Phone" />
+                            </div>
+                            <div class="input-group">
+                                <label>Event Date</label>
+                                <input type="date" id="eventDate" required />
+                            </div>
+                            <div class="input-group">
+                                <label>Start Time</label>
+                                <input type="time" id="eventTime" required />
+                            </div>
+                            <div class="input-group">
+                                <label>Budget (USD)</label>
+                                <input type="number" id="eventBudget" required placeholder="e.g. 500" min="50" />
+                                <span class="hint" id="budget-hint">Recommended range for your package</span>
+                            </div>
+                            <div class="input-group">
+                                <label>Attendees <span class="limit-badge" id="attendee-limit-badge">—</span></label>
+                                <input type="number" id="eventAttendees" required placeholder="e.g. 50" min="1" />
+                                <span class="hint" id="attendee-hint">Maximum allowed</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom:10px;">
+                            <label>Additional Notes</label>
+                            <textarea id="eventNotes" placeholder="e.g. Strict budget, prioritize good PA system..."></textarea>
+                        </div>
+
+                        <div class="services-wrapper">
+                            <label>Required Service Providers</label>
+                            <div class="services-grid" id="servicesContainer"></div>
+                        </div>
+
+                        <button type="submit" class="submit-btn" id="generateBtn">
+                            <i class="fas fa-magic"></i> Generate Blueprint
+                        </button>
+                    </form>
+                </div>
+
+                <div id="loading">
+                    <div class="spinner"></div>
+                    <h3>Processing your event...</h3>
+                    <p id="loading-status">Analyzing budget, matching vendors, crafting your blueprint.</p>
+                </div>
+
+                <div id="blueprint-container">
+                    <div class="blueprint-wrapper">
+                        <div class="blueprint-result" id="final-blueprint"></div>
+                        <div class="blueprint-controls">
+                            <button class="action-btn btn-download" onclick="window.print()">
+                                <i class="fas fa-file-pdf"></i> Download
+                            </button>
+                            <button class="action-btn btn-regen" onclick="regenerateBlueprint()">
+                                <i class="fas fa-rotate"></i> Regenerate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-modal-overlay" id="chatModal">
+        <div class="chat-modal">
+            <div class="chat-modal-header">
+                <div class="chat-recipient">
+                    <div class="avatar" id="modalChatAvatar">
+                        <span id="modalChatInitials">?</span>
+                    </div>
+                    <div class="info">
+                        <h4 id="modalChatName">Vendor</h4>
+                        <span id="modalChatSub">Service Provider</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeChatModal()"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="chat-modal-body" id="modalChatMessages">
+                <div class="empty-chat">
+                    <i class="fa-regular fa-comment-dots"></i>
+                    <p>No messages yet.<br />Start the conversation!</p>
+                </div>
+            </div>
+            <div class="chat-modal-footer">
+                <input type="text" id="modalChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendModalMessage()" />
+                <button class="btn-send" onclick="sendModalMessage()">
+                    Send <i class="fa-solid fa-paper-plane" style="font-size:0.55rem;"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  FIREBASE
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementId: "G-KE007Y89F1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ============================================================
+        //  DEEPSEEK
+        // ============================================================
+        const DEEPSEEK_API_KEY = "sk-507daff2ef7d4fb4a36de42ac0ccc93a";
+        const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+        const DEEPSEEK_MODEL = "deepseek-chat";
+
+        const ZONE21 = {
+            phone: "+263789912268",
+            whatsapp: "+263789912268",
+            email: "zone21services@gmail.com",
+            instagram: "https://www.instagram.com/zone21_event_management",
+            facebook: "https://www.facebook.com/zone21events",
+            website: "https://zone21.co.zw"
+        };
+
+        const granularServices = [
+            "Event Planner / Coordinator", "Venue / Space Rental", "Marquee / Tents & Chairs",
+            "PA System & Basic Sound", "DJ Services", "Stage & Decorative Lighting",
+            "Event Décor & Draping", "Catering (Food & Buffet)", "Beverages & Mobile Bar",
+            "Cake Designer / Baker", "Photographer", "Videographer",
+            "MC (Master of Ceremonies)", "Makeup Artist", "Hairstylist",
+            "Zone21 Security - EXCLUSIVE", "Transport / Car Hire",
+            "Cleaning Services", "Ushers & Hostesses"
+        ];
+
+        const PACKAGES = {
+            small: { id: 'small', name: 'Small Event', maxAttendees: 35, label: 'Small', budgetHint: '$100 – $1,500', limitDisplay: '≤ 35' },
+            medium: { id: 'medium', name: 'Medium Event', maxAttendees: 355, label: 'Medium', budgetHint: '$1,500 – $15,000', limitDisplay: '≤ 355' },
+            large: { id: 'large', name: 'Large / Enterprise', maxAttendees: Infinity, label: 'Enterprise', budgetHint: 'Unlimited', limitDisplay: '∞' }
+        };
+
+        // ============================================================
+        //  STATE
+        // ============================================================
+        let currentSessionId = null;
+        let currentEventData = null;
+        let userPackage = null;
+        let userPackageName = null;
+        let userPackageLimit = Infinity;
+        let currentUser = null;
+        let cachedVenues = [];
+        let cachedProviders = [];
+        let lastGeneratedHTML = '';
+
+        let serviceMatches = {};
+        let activeRequests = {};
+        let bookingUnsubscribe = null;
+
+        let chatThreadId = null;
+        let chatOtherUid = null;
+        let chatOtherName = '';
+        let chatOtherAvatar = null;
+        let chatUnsubscribe = null;
+
+        // ============================================================
+        //  DOM
+        // ============================================================
+        const container = document.getElementById('servicesContainer');
+        const form = document.getElementById('eventForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const formSection = document.getElementById('form-section');
+        const loadingDiv = document.getElementById('loading');
+        const loadingStatus = document.getElementById('loading-status');
+        const blueprintContainer = document.getElementById('blueprint-container');
+        const finalBlueprint = document.getElementById('final-blueprint');
+
+        const eventName = document.getElementById('eventName');
+        const eventLocation = document.getElementById('eventLocation');
+        const eventType = document.getElementById('eventType');
+        const eventContact = document.getElementById('eventContact');
+        const eventDate = document.getElementById('eventDate');
+        const eventTime = document.getElementById('eventTime');
+        const eventBudget = document.getElementById('eventBudget');
+        const eventAttendees = document.getElementById('eventAttendees');
+        const eventNotes = document.getElementById('eventNotes');
+        const attendeeLimitBadge = document.getElementById('attendee-limit-badge');
+        const attendeeHint = document.getElementById('attendee-hint');
+        const budgetHint = document.getElementById('budget-hint');
+        const headerPackageTag = document.getElementById('header-package-tag');
+        const headerUserEmail = document.getElementById('header-user-email');
+        const sidebarPackageLabel = document.getElementById('sidebar-package-label');
+        const pkgBanner = document.getElementById('package-banner');
+        const pkgBannerName = document.getElementById('pkg-banner-name');
+        const pkgBannerLimit = document.getElementById('pkg-banner-limit');
+        const pkgBannerAction = document.getElementById('pkg-banner-action');
+        const sidebarPackageBadge = document.getElementById('sidebar-package-badge');
+
+        // ============================================================
+        //  POPULATE SERVICES
+        // ============================================================
+        granularServices.forEach(service => {
+            const isExclusive = service === "Zone21 Security - EXCLUSIVE";
+            const isChecked = isExclusive ||
+                service === "Venue / Space Rental" ||
+                service === "Catering (Food & Buffet)" ||
+                service === "DJ Services" ||
+                service === "Photographer" ||
+                service === "Cake Designer / Baker" ||
+                service === "Event Planner / Coordinator";
+            container.innerHTML += `
+                <label class="service-item">
+                    <input type="checkbox" name="services" value="${service}" ${isChecked ? 'checked' : ''}>
+                    ${service}
+                    ${isExclusive ? '<span class="zone21-badge">Zone21</span>' : ''}
+                </label>
+            `;
+        });
+
+        // ============================================================
+        //  TOAST
+        // ============================================================
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toast-container');
+            if (!c) { alert(msg); return; }
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
+            t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> ${msg}`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 4000);
+        }
+
+        // ============================================================
+        //  SIDEBAR
+        // ============================================================
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        function closeSidebar() { sidebar.classList.remove('active'); overlay.classList.remove('active'); }
+        if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.add('active'); overlay.classList.add('active'); });
+        if (overlay) overlay.addEventListener('click', closeSidebar);
+
+        async function handleLogout() {
+            try { await auth.signOut(); window.location.href = 'index.html'; }
+            catch (e) { showToast('Logout failed', 'error'); }
+        }
+
+        // ============================================================
+        //  FIRESTORE FETCH
+        // ============================================================
+        async function fetchVenues() {
+            try {
+                const snapshot = await db.collection('venues').get();
+                cachedVenues = [];
+                snapshot.forEach(doc => cachedVenues.push({ id: doc.id, ...doc.data() }));
+                return cachedVenues;
+            } catch (error) { console.error('venues:', error); return []; }
+        }
+
+        async function fetchServiceProviders() {
+            try {
+                const snapshot = await db.collection('serviceProviders').get();
+                cachedProviders = [];
+                snapshot.forEach(doc => cachedProviders.push({ id: doc.id, ...doc.data() }));
+                return cachedProviders;
+            } catch (error) { console.error('providers:', error); return []; }
+        }
+
+        // ============================================================
+        //  HELPERS
+        // ============================================================
+        function findProviderById(id) {
+            if (!id) return null;
+            return cachedProviders.find(p => (p.uid || p.id) === id) ||
+                   cachedVenues.find(v => (v.uid || v.id) === id) ||
+                   cachedProviders.find(p => p.id === id) ||
+                   cachedVenues.find(v => v.id === id) || null;
+        }
+
+        function getProviderUid(p) {
+            if (!p) return '';
+            return p.uid || p.id || '';
+        }
+
+        function pickVenueTargetService(requiredServices) {
+            return requiredServices.includes("Venue / Space Rental") ? "Venue / Space Rental" : null;
+        }
+
+        function makeSessionId() {
+            return 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+        }
+
+        function getChatId(uid1, uid2) {
+            return [uid1, uid2].sort().join('_');
+        }
+
+        // ============================================================
+        //  AVAILABILITY (deterministic)
+        // ============================================================
+        function isProviderAvailable(provider, dateStr) {
+            if (!dateStr) return true;
+            const unavailable = provider.unavailableDates || provider.blackoutDates || [];
+            if (Array.isArray(unavailable) && unavailable.includes(dateStr)) return false;
+            const confirmed = provider.confirmedDates || [];
+            if (Array.isArray(confirmed) && confirmed.includes(dateStr)) return false;
+            return true;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           ⬇️⬇️⬇️  NEW: INTELLIGENT MATCHING LAYER  ⬇️⬇️⬇️
+           Added — does not touch any other part of the app.
+           ═══════════════════════════════════════════════════════════ */
+
+        const SERVICE_KEYWORDS = {
+            "Event Planner / Coordinator": ["event planner","event planning","planner","coordinator","coordination","event management","event manager","organiser","organizer","planning"],
+            "Venue / Space Rental": ["venue","event space","hall","banquet","conference","space rental","premises","function room","garden","outdoor space"],
+            "Marquee / Tents & Chairs": ["marquee","tent","tents","chairs","canopy","tables","seating","marquee rental","tent hire"],
+            "PA System & Basic Sound": ["pa system","pa","sound","sound system","speakers","audio","microphone","mic","amplifier","public address"],
+            "DJ Services": ["dj","disk jockey","disc jockey","music","entertainment","mixer","turntable","deejay"],
+            "Stage & Decorative Lighting": ["stage","lighting","lights","led","decorative lighting","stage setup","uplighting","spotlight","chandelier"],
+            "Event Décor & Draping": ["decor","decoration","decorations","draping","drapes","drape","styling","balloons","flowers","florist","backdrop","centerpiece","stylist","event styling"],
+            "Catering (Food & Buffet)": ["catering","caterer","food","buffet","meals","chef","cook","cooking","cuisine","dishes","menu","kitchen","caterers"],
+            "Beverages & Mobile Bar": ["beverages","drinks","bar","mobile bar","bartender","cocktail","cocktails","wine","beer","juice","drink","mixologist"],
+            "Cake Designer / Baker": ["cake","cakes","baker","bakery","baking","dessert","pastry","cupcakes","wedding cake","cake designer"],
+            "Photographer": ["photographer","photography","photo","photos","camera","cameraman","cameramen","pictures","photoshoot","shoot","photo shoot","photo shoots","camera man"],
+            "Videographer": ["videographer","videography","video","videos","film","filming","cinematography","cinematographer","documentary","video coverage"],
+            "MC (Master of Ceremonies)": ["mc","master of ceremonies","emcee","host","hosting","presenter","announcer","compere","master ceremony"],
+            "Makeup Artist": ["makeup","make up","make-up","mua","cosmetics","cosmetologist","beauty","glam","eyelash","lashes","nail","nails","nail technician","manicure","pedicure","spa","facial","skincare","beautician","beauty therapist","makeup artist"],
+            "Hairstylist": ["hair","hairstylist","hair stylist","hairdresser","stylist","hair styling","braids","weave","barber","salon","hairdo"],
+            "Zone21 Security - EXCLUSIVE": ["security","securities","securing","guard","guards","guarding","bouncer","bouncers","zone21 security","zone 21 security","z21 security","protection","protective","bodyguard","body guard","crowd control","crowd management","security service","security services","security personnel","security company","security agency","security firm","security team","security officer","event security","event guard","marshals","marshalling","safety officer","doorman","access control","surveillance","patrol"],
+            "Transport / Car Hire": ["transport","transportation","car hire","car rental","vehicle","vehicles","cars","bus","buses","shuttle","chauffeur","limousine","limo","taxi","logistics"],
+            "Cleaning Services": ["cleaning","cleaner","cleaners","janitorial","sanitation","housekeeping","waste","trash","mopping","deep clean"],
+            "Ushers & Hostesses": ["usher","ushers","hostess","hostesses","waiters","waitresses","attendants","staffing","serving staff","service staff","protocol","waitress","waiter"]
+        };
+
+        function toArray(v) {
+            if (!v) return [];
+            if (Array.isArray(v)) return v.filter(Boolean).map(x => String(x).toLowerCase().trim());
+            if (typeof v === 'string') return v.split(/[,;\n|]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+            return [];
+        }
+
+        function buildProviderSearchText(p) {
+            const parts = [
+                p.name, p.businessName, p.companyName, p.brandName, p.displayName,
+                p.username, p.ownerName, p.fullName,
+                p.category, p.serviceType,
+                p.description, p.bio, p.about, p.tagline,
+                p.secondaryServices,
+                p.location, p.serviceAreas
+            ].filter(Boolean).map(x => String(x));
+            parts.push(...toArray(p.services));
+            parts.push(...toArray(p.amenities));
+            return parts.join('  ').toLowerCase();
+        }
+
+        function buildVenueSearchText(v) {
+            const parts = [
+                v.name, v.businessName, v.companyName, v.displayName, v.username,
+                v.category, v.serviceType, v.venueType,
+                v.description, v.bio, v.about, v.tagline,
+                v.location, v.serviceAreas
+            ].filter(Boolean).map(x => String(x));
+            parts.push(...toArray(v.services));
+            parts.push(...toArray(v.amenities));
+            return parts.join('  ').toLowerCase();
+        }
+
+        function scoreProviderForService(p, service) {
+            const serviceLower = service.toLowerCase();
+            const providerServices = toArray(p.services);
+            if (providerServices.includes(serviceLower)) {
+                return { score: 100, matches: [service], direct: true };
+            }
+            const keywords = SERVICE_KEYWORDS[service] || [serviceLower];
+            const text = buildProviderSearchText(p);
+            if (!text) return { score: 0, matches: [] };
+            let score = 0;
+            const matches = [];
+            const seen = new Set();
+            keywords.forEach(kw => {
+                const k = String(kw).toLowerCase().trim();
+                if (!k || seen.has(k)) return;
+                seen.add(k);
+                if (text.includes(k)) {
+                    const weight = k.length >= 8 ? 5 : k.length >= 5 ? 3 : 2;
+                    score += weight;
+                    matches.push(kw);
+                }
+            });
+            if (text.includes(serviceLower)) score += 8;
+            return { score, matches, direct: false };
+        }
+
+        function isExclusiveService(service) {
+            return service === 'Zone21 Security - EXCLUSIVE' || service === 'Event Planner / Coordinator';
+        }
+
+        function isZone21Account(p) {
+            const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+            return /zone\s*21|z-?21/.test(name);
+        }
+
+        function classifyZone21Account(p) {
+            const name = String(p.name || p.businessName || p.companyName || p.displayName || p.username || '').toLowerCase();
+            const cat = String(p.category || p.serviceType || '').toLowerCase();
+            const desc = String(p.description || p.bio || '').toLowerCase();
+            const sec = String(p.secondaryServices || '').toLowerCase();
+            const servicesText = toArray(p.services).join(' ');
+            const blob = [name, cat, desc, sec, servicesText].join(' ');
+            const isSecurity = /security|guard|bouncer|protection|bodyguard/.test(blob);
+            const isPlanner  = /planner|planning|coordinator|coordination|event management|event manager/.test(blob);
+            if (isSecurity && !isPlanner) return 'Zone21 Security - EXCLUSIVE';
+            if (isPlanner && !isSecurity) return 'Event Planner / Coordinator';
+            if (isSecurity && isPlanner) {
+                if (/security|guard/.test(name)) return 'Zone21 Security - EXCLUSIVE';
+                if (/planner|planning|coordinator|event/.test(name)) return 'Event Planner / Coordinator';
+                return 'Zone21 Security - EXCLUSIVE';
+            }
+            return null;
+        }
+
+        function isThirdPartySecurity(p) {
+            if (isZone21Account(p)) return false;
+            const core = [p.name, p.businessName, p.companyName, p.displayName, p.username, p.category, p.serviceType].filter(Boolean).join(' ').toLowerCase();
+            return /\bsecurity\b|\bguard\b|\bbouncer\b|\bprotection\b|\bbodyguard\b/.test(core);
+        }
+
+        function isThirdPartyPlanner(p) {
+            if (isZone21Account(p)) return false;
+            const core = [p.name, p.businessName, p.companyName, p.displayName, p.username, p.category, p.serviceType].filter(Boolean).join(' ').toLowerCase();
+            return /\bevent planner\b|\bevent planning\b|\bplanner\b|\bcoordinator\b|\bevent management\b|\bevent manager\b/.test(core);
+        }
+        /* ═══════════════════════════════════════════════════════════
+           ⬆️⬆️⬆️  END OF NEW MATCHING LAYER  ⬆️⬆️⬆️
+           ═══════════════════════════════════════════════════════════ */
+
+        // ============================================================
+        //  VENUE MATCHING  (REPLACED — uses intelligent scoring)
+        // ============================================================
+        function matchVenues(location, attendees, budget, requiredServices) {
+            if (!cachedVenues.length) return [];
+            const locationLower = (location || '').toLowerCase().trim();
+
+            const scored = cachedVenues.map(v => {
+                const capacity = Number(v.capacity) || 0;
+                const price = Number(v.basePrice) || 0;
+                const vLoc = (v.location || '').toLowerCase();
+                const areas = (v.serviceAreas || '').toLowerCase();
+
+                const isNearby = locationLower && (
+                    vLoc.includes(locationLower) || locationLower.includes(vLoc) ||
+                    areas.includes(locationLower) || locationLower.includes(areas)
+                );
+
+                const reasoning = [];
+                let fitScore = 0;
+
+                const vText = buildVenueSearchText(v);
+                const venueSignals = ['venue','hall','space','banquet','premises','function room','garden','marquee','conference','event space'];
+                const venueHits = venueSignals.filter(s => vText.includes(s)).length;
+                if (venueHits > 0) { fitScore += 4 + venueHits; reasoning.push('🏛️ Confirmed venue'); }
+                else return null;
+
+                if (capacity > 0) {
+                    if (capacity >= attendees) { reasoning.push('✅ Capacity fits'); fitScore += 3; }
+                    else { reasoning.push('⚠️ Capacity may be limited'); fitScore -= 2; }
+                } else reasoning.push('ℹ️ Capacity TBD');
+
+                if (price > 0 && budget > 0) {
+                    const pct = (price / budget) * 100;
+                    if (pct <= 30) { reasoning.push('💰 Great value'); fitScore += 3; }
+                    else if (pct <= 50) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                    else if (pct <= 70) { reasoning.push('💰 Within budget'); fitScore += 1; }
+                    else reasoning.push('⚠️ Above budget');
+                } else reasoning.push('ℹ️ Price TBD');
+
+                if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
+
+                return { ...v, fitScore, reasoning };
+            }).filter(Boolean);
+
+            scored.sort((a, b) => b.fitScore - a.fitScore);
+            return scored.slice(0, 3);
+        }
+
+        // ============================================================
+        //  PER-SERVICE PROVIDER MATCHING  (REPLACED — intelligent scoring)
+        // ============================================================
+        function matchProvidersByService(location, services, budget, dateStr) {
+            const locationLower = (location || '').toLowerCase().trim();
+            const out = {};
+
+            const zone21Map = new Map();
+            cachedProviders.forEach(p => {
+                if (isZone21Account(p)) {
+                    const slot = classifyZone21Account(p);
+                    if (slot) zone21Map.set(p.id, slot);
+                }
+            });
+
+            services.forEach(service => {
+                if (service === 'Venue / Space Rental') { out[service] = []; return; }
+
+                if (isExclusiveService(service)) {
+                    const matches = cachedProviders.filter(p => zone21Map.get(p.id) === service);
+                    const scored = matches.map(p => {
+                        const price = Number(p.basePrice) || 0;
+                        const rating = Number(p.rating) || 0;
+                        const available = isProviderAvailable(p, dateStr);
+                        const tag = service === 'Zone21 Security - EXCLUSIVE'
+                            ? '🛡️ Zone21 Official Security'
+                            : '🎯 Zone21 Official Event Planning';
+                        const reasoning = [tag];
+                        let fitScore = 50;
+                        if (price > 0 && budget > 0) {
+                            const pct = (price / budget) * 100;
+                            if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 3; }
+                            else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                        }
+                        if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
+                        if (available) { reasoning.push('📅 Available'); fitScore += 2; }
+                        else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
+                        return { ...p, fitScore, reasoning };
+                    });
+                    scored.sort((a, b) => b.fitScore - a.fitScore);
+                    out[service] = scored.slice(0, 3);
+                    return;
+                }
+
+                const scored = cachedProviders.map(p => {
+                    if (zone21Map.has(p.id)) return null;
+                    if (isThirdPartySecurity(p) || isThirdPartyPlanner(p)) return null;
+
+                    const r = scoreProviderForService(p, service);
+                    if (r.score <= 0) return null;
+
+                    const price = Number(p.basePrice) || 0;
+                    const rating = Number(p.rating) || 0;
+                    const pLoc = (p.location || '').toLowerCase();
+                    const areas = (p.serviceAreas || '').toLowerCase();
+                    const isNearby = locationLower && (
+                        pLoc.includes(locationLower) || locationLower.includes(pLoc) ||
+                        areas.includes(locationLower) || locationLower.includes(areas)
+                    );
+                    const available = isProviderAvailable(p, dateStr);
+
+                    const reasoning = [];
+                    let fitScore = r.score;
+
+                    if (r.direct) reasoning.push('✅ Listed service');
+                    else reasoning.push('✅ Service match');
+                    if (r.matches.length > 1 && !r.direct) {
+                        reasoning.push(`🎯 ${r.matches.length} keyword hits`);
+                        fitScore += Math.min(r.matches.length, 3);
+                    }
+
+                    if (price > 0 && budget > 0) {
+                        const pct = (price / budget) * 100;
+                        if (pct <= 20) { reasoning.push('💰 Competitive'); fitScore += 3; }
+                        else if (pct <= 40) { reasoning.push('💰 Reasonable'); fitScore += 2; }
+                        else if (pct <= 70) { reasoning.push('💰 Within budget'); fitScore += 1; }
+                        else reasoning.push('⚠️ Above budget');
+                    } else reasoning.push('ℹ️ Price TBD');
+
+                    if (rating >= 4.5) { reasoning.push('⭐ Top rated'); fitScore += 3; }
+                    else if (rating >= 4) { reasoning.push('⭐ Highly rated'); fitScore += 2; }
+                    else if (rating >= 3) { reasoning.push('⭐ Good rating'); fitScore += 1; }
+
+                    if (isNearby) { reasoning.push('📍 Nearby'); fitScore += 3; }
+
+                    if (available) { reasoning.push('📅 Available'); fitScore += 2; }
+                    else { reasoning.push('⚠️ Date clash'); fitScore -= 5; }
+
+                    return { ...p, fitScore, reasoning };
+                }).filter(Boolean);
+
+                scored.sort((a, b) => b.fitScore - a.fitScore);
+                out[service] = scored.slice(0, 3);
+            });
+            return out;
+        }
+
+        // ============================================================
+        //  HTML: VENUE CARDS  (UNCHANGED)
+        // ============================================================
+        function generateVenueHTML(vendors, venueTargetService) {
+            if (!vendors || vendors.length === 0) {
+                return `<div style="background:var(--grey-light);padding:12px 16px;border-radius:var(--radius);border-left:3px solid var(--slate);margin:8px 0;">
+                    <p style="margin:0;color:var(--text-secondary);font-size:0.85rem;">No venues found in our database. Contact Zone21 for assistance.</p>
+                </div>`;
+            }
+            let html = `<div style="margin:8px 0;">`;
+            if (venueTargetService) {
+                html += `<p style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 8px;">Tick <strong>Include</strong> on any venue below to invite it as your <strong>${escapeHtml(venueTargetService)}</strong> provider.</p>`;
+            }
+            vendors.forEach((v, index) => {
+                const providerUid = getProviderUid(v);
+                const name = v.name || 'Unnamed';
+                const location = v.location || 'Location TBD';
+                const price = v.basePrice > 0 ? `$${v.basePrice}` : 'Pricing TBD';
+                const capacity = v.capacity ? `${v.capacity} guests` : 'Capacity TBD';
+                const rating = v.rating ? v.rating.toFixed(1) : 'N/A';
+                const services = v.services || v.amenities || [];
+                const reasoning = v.reasoning || ['Available for your event'];
+                const borderColor = v.fitScore >= 4 ? 'var(--mint)' : v.fitScore >= 2 ? 'var(--slate)' : 'var(--coral)';
+                const canInclude = !!venueTargetService && !!providerUid;
+
+                html += `
+                    <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(venueTargetService || '')}" data-venue-card="1" style="border-left-color:${borderColor};">
+                        <div class="vendor-name" style="justify-content:space-between;">
+                            <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge venue">Venue</span></span>
+                            ${canInclude ? `
+                                <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
+                                    <input type="checkbox" data-approve-service="${escapeAttr(venueTargetService)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
+                                    <span class="cb-label">Include</span>
+                                </label>
+                            ` : ''}
+                        </div>
+                        <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
+                        <div class="vendor-detail"><i class="fas fa-users"></i> ${escapeHtml(capacity)}</div>
+                        <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
+                        ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
+                        ${services.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(services.slice(0, 4).join(', '))}${services.length > 4 ? ' +' + (services.length - 4) : ''}</div>` : ''}
+                        <div style="margin:4px 0;">
+                            ${reasoning.map(r => {
+                                let cls = 'reasoning-badge';
+                                if (r.includes('⚠️')) cls += ' warning';
+                                else if (r.includes('✅')) cls += ' success';
+                                else if (r.includes('ℹ️') || r.includes('📋')) cls += ' info';
+                                return `<span class="${cls}">${escapeHtml(r)}</span>`;
+                            }).join(' ')}
+                        </div>
+                        ${canInclude ? `
+                            <div class="vendor-status-line">
+                                <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
+                            </div>
+                        ` : ''}
+                        <div class="vendor-actions">
+                            ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
+                            <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        // ============================================================
+        //  HTML: SERVICE SLOTS  (UNCHANGED)
+        // ============================================================
+        function statusLabel(status) {
+            return ({
+                not_sent: 'Not yet invited',
+                invited: 'Invited',
+                accepted: 'Confirmed',
+                declined: 'Declined'
+            })[status] || status;
+        }
+
+        function generateServiceSlotsHTML(services, matches) {
+            if (!services.length) return '';
+            let html = `<h2>Service Providers by Requirement</h2>`;
+            html += `
+                <div class="invite-info-banner">
+                    <i class="fas fa-circle-info"></i>
+                    <div class="txt">
+                        <strong>How invitations work:</strong>
+                        Marking <strong>Include</strong> next to a provider and then clicking
+                        <strong>Invite All Selected</strong> means you are officially inviting that provider to be part of your event.
+                        <br><br>
+                        An automatic message with your event details will be sent directly to their chat inbox. You can view all sent messages in your own inbox.
+                        <br><br>
+                        Each blueprint is completely independent. You can invite the same provider to multiple different events — the system will send a fresh invitation each time.
+                    </div>
+                </div>`;
+
+            services.forEach(service => {
+                const providers = matches[service] || [];
+                html += `<div class="service-slot" data-service="${escapeAttr(service)}">`;
+                html += `<div class="service-slot-header">
+                    <h3>${escapeHtml(service)}</h3>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <span class="slot-status not_sent" data-slot-status="${escapeAttr(service)}">Not yet invited</span>
+                    </div>
+                </div>`;
+
+                if (providers.length === 0) {
+                    html += `<p style="font-size:0.85rem;color:var(--text-muted);margin:6px 0;">No providers found for this service in our database.</p>`;
+                } else {
+                    providers.forEach((p, index) => {
+                        const providerUid = getProviderUid(p);
+                        const name = p.name || 'Unnamed Provider';
+                        const location = p.location || 'Location TBD';
+                        const price = p.basePrice > 0 ? `$${p.basePrice}` : 'Pricing TBD';
+                        const rating = p.rating ? p.rating.toFixed(1) : 'N/A';
+                        const services = p.services || p.amenities || [];
+                        const reasoning = p.reasoning || ['Available'];
+                        const borderColor = p.fitScore >= 5 ? 'var(--mint)' : p.fitScore >= 3 ? 'var(--slate)' : 'var(--coral)';
+
+                        html += `
+                            <div class="vendor-card" data-provider-id="${escapeAttr(providerUid)}" data-service="${escapeAttr(service)}" data-rank="${index}" style="border-left-color:${borderColor};">
+                                <div class="vendor-name" style="justify-content:space-between;">
+                                    <span>${index + 1}. ${escapeHtml(name)} <span class="type-badge">Provider</span></span>
+                                    <label class="approve-checkbox" data-checkbox-wrapper="${escapeAttr(providerUid)}">
+                                        <input type="checkbox" data-approve-service="${escapeAttr(service)}" data-approve-provider="${escapeAttr(providerUid)}" onchange="updateInviteButtonState()">
+                                        <span class="cb-label">Include</span>
+                                    </label>
+                                </div>
+                                <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(location)}</div>
+                                <div class="vendor-detail"><i class="fas fa-tag"></i> ${escapeHtml(price)}</div>
+                                ${rating !== 'N/A' ? `<div class="vendor-detail"><i class="fas fa-star"></i> ${rating}/5</div>` : ''}
+                                ${services.length ? `<div class="vendor-detail"><i class="fas fa-cog"></i> ${escapeHtml(services.slice(0, 4).join(', '))}${services.length > 4 ? ' +' + (services.length - 4) : ''}</div>` : ''}
+                                <div style="margin:4px 0;">
+                                    ${reasoning.map(r => {
+                                        let cls = 'reasoning-badge';
+                                        if (r.includes('⚠️')) cls += ' warning';
+                                        else if (r.includes('✅') || r.includes('📅')) cls += ' success';
+                                        else if (r.includes('ℹ️')) cls += ' info';
+                                        return `<span class="${cls}">${escapeHtml(r)}</span>`;
+                                    }).join(' ')}
+                                </div>
+                                <div class="vendor-status-line">
+                                    <span class="vendor-status-badge not_sent" data-vendor-status="${escapeAttr(providerUid)}">Not yet invited</span>
+                                </div>
+                                <div class="vendor-actions">
+                                    ${providerUid ? `<button class="contact-btn primary" onclick="openChatForVendor('${providerUid}')"><i class="fas fa-envelope"></i> Message</button>` : ''}
+                                    <button class="contact-btn whatsapp" onclick="openWhatsApp('${providerUid}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                                </div>
+                            </div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+
+            html += `<div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button class="send-invites-btn" id="invite-all-btn" onclick="sendAllInvitations()">
+                    <i class="fas fa-paper-plane"></i> Invite All Selected
+                </button>
+                <span class="deadline-note">Select the providers you want, then click invite.</span>
+            </div>`;
+            return html;
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function escapeAttr(s) { return escapeHtml(s); }
+
+        // ============================================================
+        //  CHAT
+        // ============================================================
+        async function openChatForVendor(vendorId) {
+            if (!currentUser) { showToast('Please sign in first', 'error'); return; }
+            let vendor = findProviderById(vendorId);
+            if (!vendor) { showToast('Vendor not found', 'error'); return; }
+
+            const vendorUid = getProviderUid(vendor);
+            chatOtherUid = vendorUid;
+            chatOtherName = vendor.name || 'Vendor';
+            chatOtherAvatar = vendor.avatar || null;
+            chatThreadId = getChatId(currentUser.uid, vendorUid);
+
+            document.getElementById('modalChatName').textContent = chatOtherName;
+            document.getElementById('modalChatSub').textContent = vendor.category || vendor.serviceType || 'Service Provider';
+
+            const avatarEl = document.getElementById('modalChatAvatar');
+            const initialsEl = document.getElementById('modalChatInitials');
+            const existingImg = avatarEl.querySelector('img');
+            if (existingImg) existingImg.remove();
+
+            const initials = chatOtherName.split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase() || '?';
+            if (chatOtherAvatar) {
+                initialsEl.style.display = 'none';
+                const img = document.createElement('img');
+                img.src = chatOtherAvatar; img.alt = chatOtherName;
+                img.onerror = function() { this.style.display = 'none'; initialsEl.style.display = 'inline'; initialsEl.textContent = initials; };
+                avatarEl.appendChild(img);
+            } else {
+                initialsEl.style.display = 'inline';
+                initialsEl.textContent = initials;
+            }
+
+            document.getElementById('chatModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            const msgContainer = document.getElementById('modalChatMessages');
+            msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>Loading conversation…</p></div>';
+
+            await db.collection('threads').doc(chatThreadId).set({
+                participants: [currentUser.uid, chatOtherUid],
+                jobTitle: vendor.category || vendor.serviceType || 'Service Provider',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            subscribeToChatMessages(chatThreadId);
+        }
+
+        function subscribeToChatMessages(threadId) {
+            if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+            const msgContainer = document.getElementById('modalChatMessages');
+            chatUnsubscribe = db.collection(`threads/${threadId}/messages`).orderBy('timestamp', 'asc')
+                .onSnapshot(snapshot => {
+                    if (snapshot.empty) {
+                        msgContainer.innerHTML = '<div class="empty-chat"><i class="fa-regular fa-comment-dots"></i><p>No messages yet.<br />Start the conversation!</p></div>';
+                        return;
+                    }
+                    msgContainer.innerHTML = '';
+                    let lastDate = '';
+                    snapshot.forEach(doc => {
+                        const msg = doc.data();
+                        const msgDate = msg.timestamp ? msg.timestamp.toDate() : new Date();
+                        const dateStr = msgDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        if (dateStr !== lastDate) {
+                            const div = document.createElement('div');
+                            div.className = 'chat-date-divider';
+                            div.textContent = dateStr;
+                            msgContainer.appendChild(div);
+                            lastDate = dateStr;
+                        }
+                        const isOut = msg.senderId === currentUser.uid;
+                        const bubble = document.createElement('div');
+                        bubble.className = `chat-message ${msg.isSystemRequest ? 'system' : (isOut ? 'out' : 'in')}`;
+                        let content = msg.text || '';
+                        if (msg.imageBase64) {
+                            content += `<div style="margin-top:4px;"><img src="${msg.imageBase64}" style="max-width:160px;max-height:120px;border-radius:6px;width:100%;height:auto;object-fit:cover;" /></div>`;
+                        }
+                        const timeStr = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+                        content += `<div class="time">${timeStr}</div>`;
+                        bubble.innerHTML = content;
+                        msgContainer.appendChild(bubble);
+                    });
+                    msgContainer.scrollTop = msgContainer.scrollHeight;
+                }, err => {
+                    console.error('Message subscription error:', err);
+                    msgContainer.innerHTML = '<div class="empty-chat"><i class="fas fa-exclamation-circle" style="color:var(--coral);"></i><p>Could not load messages.</p></div>';
+                });
+        }
+
+        function closeChatModal() {
+            document.getElementById('chatModal').classList.remove('active');
+            document.body.style.overflow = '';
+            if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+            chatThreadId = null;
+        }
+
+        async function sendModalMessage() {
+            const input = document.getElementById('modalChatInput');
+            const text = input.value.trim();
+            if (!text || !chatThreadId || !currentUser) return;
+            input.value = '';
+            try {
+                await db.collection(`threads/${chatThreadId}/messages`).add({
+                    senderId: currentUser.uid,
+                    text: text,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await db.collection('threads').doc(chatThreadId).update({
+                    lastMessageText: text.substring(0, 80),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Message sent', 'success');
+            } catch (err) { console.error(err); showToast('Failed to send message', 'error'); }
+        }
+
+        function openWhatsApp(vendorId) {
+            const vendor = findProviderById(vendorId);
+            const name = vendor ? vendor.name : 'a vendor';
+            const msg = `Hi Zone21, I'm interested in booking ${name} for my event. Can you help me connect with them or find similar options?`;
+            window.open(`https://wa.me/${ZONE21.whatsapp.replace('+', '')}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // ============================================================
+        //  AUTH & PACKAGE
+        // ============================================================
+        async function loadUserAndPackage() {
+            try {
+                const user = auth.currentUser;
+                if (!user) { showToast('Please log in to continue.', 'error'); setTimeout(() => { window.location.href = 'index.html'; }, 1500); return false; }
+                currentUser = user;
+                headerUserEmail.textContent = user.email || 'user@example.com';
+
+                await Promise.all([fetchVenues(), fetchServiceProviders()]);
+
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists) { showToast('User profile not found.', 'error'); return false; }
+
+                const subSnapshot = await db.collection('subscriptions')
+                    .where('userId', '==', user.uid).where('status', '==', 'active').limit(1).get();
+
+                let foundPackage = null;
+                if (!subSnapshot.empty) {
+                    const subData = subSnapshot.docs[0].data();
+                    const planId = subData.planId || subData.plan;
+                    if (planId && PACKAGES[planId]) foundPackage = planId;
+                }
+
+                if (!foundPackage) {
+                    const pendingSnap = await db.collection('subscriptions')
+                        .where('userId', '==', user.uid).where('status', '==', 'pending_payment').limit(1).get();
+                    if (!pendingSnap.empty) {
+                        const pData = pendingSnap.docs[0].data();
+                        const planId = pData.planId || pData.plan;
+                        if (planId && PACKAGES[planId]) { foundPackage = planId; showToast('Payment pending. You can still generate blueprints.', 'info'); }
+                    }
+                }
+
+                if (!foundPackage) {
+                    pkgBanner.style.display = 'flex';
+                    pkgBannerName.textContent = 'No active package';
+                    pkgBannerLimit.textContent = '—';
+                    pkgBannerAction.textContent = 'Subscribe';
+                    pkgBannerAction.href = 'subscription.html';
+                    headerPackageTag.textContent = 'No Plan';
+                    headerPackageTag.style.background = 'var(--slate)';
+                    sidebarPackageLabel.textContent = 'Package: No active plan';
+                    sidebarPackageBadge.textContent = 'No Plan';
+                    attendeeLimitBadge.textContent = '—';
+                    attendeeHint.textContent = 'Subscribe to generate blueprints.';
+                    eventAttendees.disabled = true;
+                    generateBtn.disabled = true;
+                    generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe';
+                    showToast('Please subscribe to a package.', 'info');
+                    renderHistorySidebar();
+                    return false;
+                }
+
+                userPackage = foundPackage;
+                const pkg = PACKAGES[foundPackage];
+                userPackageName = pkg.name;
+                userPackageLimit = pkg.maxAttendees;
+
+                headerPackageTag.textContent = pkg.label;
+                headerPackageTag.style.background = 'var(--mint)';
+                headerPackageTag.style.color = 'white';
+                sidebarPackageBadge.textContent = pkg.label;
+                sidebarPackageLabel.textContent = `Package: ${pkg.name} (${pkg.limitDisplay})`;
+
+                pkgBanner.style.display = 'flex';
+                pkgBannerName.textContent = pkg.name;
+                pkgBannerLimit.textContent = pkg.limitDisplay;
+                pkgBannerAction.textContent = 'Manage';
+                pkgBannerAction.href = 'subscription.html';
+
+                const limitDisplay = pkg.maxAttendees === Infinity ? '∞' : `≤ ${pkg.maxAttendees}`;
+                attendeeLimitBadge.textContent = limitDisplay;
+                attendeeHint.textContent = `Maximum ${pkg.maxAttendees === Infinity ? 'unlimited' : pkg.maxAttendees} attendees.`;
+                eventAttendees.disabled = false;
+                eventAttendees.max = pkg.maxAttendees === Infinity ? Infinity : pkg.maxAttendees;
+                budgetHint.textContent = pkg.budgetHint || 'Set your total budget.';
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Blueprint';
+
+                eventAttendees.addEventListener('input', function() {
+                    const val = parseInt(this.value);
+                    if (pkg.maxAttendees !== Infinity && val > pkg.maxAttendees) {
+                        this.value = pkg.maxAttendees;
+                        showToast(`Attendees limited to ${pkg.maxAttendees}.`, 'info');
+                    }
+                });
+
+                showToast(`Welcome! ${pkg.name} package active.`, 'success');
+                renderHistorySidebar();
+                return true;
+            } catch (err) {
+                console.error('Package load error:', err);
+                showToast('Failed to load subscription data.', 'error');
+                renderHistorySidebar();
+                return false;
+            }
+        }
+
+        // ============================================================
+        //  FORM SUBMIT
+        // ============================================================
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!currentUser) { showToast('Please log in first.', 'error'); return; }
+            if (!userPackage) { showToast('Please subscribe first.', 'error'); return; }
+
+            const selectedServices = Array.from(document.querySelectorAll('input[name="services"]:checked')).map(cb => cb.value);
+            if (!selectedServices.length) { showToast('Select at least one service.', 'error'); return; }
+
+            if (!eventDate.value) { showToast('Please choose the event date.', 'error'); return; }
+            if (!eventTime.value) { showToast('Please choose the start time.', 'error'); return; }
+
+            const attendees = parseInt(eventAttendees.value);
+            if (userPackageLimit !== Infinity && attendees > userPackageLimit) {
+                eventAttendees.value = userPackageLimit;
+                showToast(`Attendees limited to ${userPackageLimit}.`, 'info');
+                return;
+            }
+
+            currentEventData = {
+                name: eventName.value || 'Untitled Event',
+                location: eventLocation.value || 'Harare, Zimbabwe',
+                type: eventType.value || 'Social & Private Events',
+                contact: eventContact.value || 'Not provided',
+                date: eventDate.value,
+                time: eventTime.value,
+                budget: parseFloat(eventBudget.value) || 500,
+                attendees: parseInt(eventAttendees.value) || 50,
+                notes: eventNotes.value || 'None',
+                services: selectedServices,
+                package: userPackage,
+                packageName: userPackageName,
+                packageLimit: userPackageLimit,
+                invitedHistory: {},
+                inviteQueues: {}
+            };
+
+            generateBlueprint(false);
+        });
+
+        // ============================================================
+        //  SANITIZE AI OUTPUT
+        // ============================================================
+        function sanitizeAIOutput(rawHtml) {
+            let html = rawHtml;
+            html = html.replace(/```html\s*/gi, '').replace(/```\s*/g, '');
+            html = html.replace(/```[a-zA-Z]*\s*/g, '');
+            html = html.replace(/`/g, '');
+            html = html.replace(/^#{1,6}\s+/gm, '');
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            const dangerousTags = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'style', 'base', 'form', 'input', 'button', 'select', 'option', 'textarea'];
+            dangerousTags.forEach(tag => {
+                html = html.replace(new RegExp(`<${tag}[^>]*>`, 'gi'), '').replace(new RegExp(`</${tag}>`, 'gi'), '');
+            });
+
+            html = html.replace(/on\w+="[^"]*"/gi, '');
+            html = html.replace(/on\w+='[^']*'/gi, '');
+            html = html.replace(/javascript:[^"'\s]*/gi, '');
+
+            const forbiddenWords = [
+                'AI', 'artificial intelligence', 'DeepSeek', 'ChatGPT', 'Claude', 'GPT-4', 'GPT', 'LLM',
+                'HTML', 'markdown', 'code block', 'language model', 'machine learning', 'neural network',
+                'I generated', 'I created', 'As an AI', 'As a language model', 'my training', 'my knowledge',
+                'based on my analysis', 'I recommend', 'I suggest', 'I think', 'I believe', 'in my opinion',
+                'I have', 'I will', 'I can', 'I would', 'I\'ve', 'I\'m', 'I am'
+            ];
+            forbiddenWords.forEach(word => {
+                const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+                html = html.replace(regex, '');
+            });
+            html = html.replace(/\bI\s+(recommend|suggest|think|believe|would|will|can|have|am|feel|know)\s+/gi, '');
+            html = html.replace(/<h[1-4][^>]*>\s*<\/h[1-4]>/gi, '');
+            html = html.replace(/<p[^>]*>\s*<\/p>/gi, '');
+            html = html.replace(/<li[^>]*>\s*<\/li>/gi, '');
+            html = html.replace(/<div[^>]*>\s*<\/div>/gi, '');
+            html = html.replace(/<span[^>]*>\s*<\/span>/gi, '');
+            html = html.replace(/<strong>\s*<\/strong>/gi, '');
+            html = html.replace(/<em>\s*<\/em>/gi, '');
+            html = html.replace(/<table[^>]*>/gi, '<table style="width:100%;">');
+            html = html.replace(/<td[^>]*>/gi, '<td>');
+            html = html.replace(/<th[^>]*>/gi, '<th>');
+            html = html.replace(/\n{3,}/g, '\n\n');
+            html = html.replace(/\s{3,}/g, '  ');
+            html = html.replace(/^(\s*)[-*]\s+/gm, '$1');
+            html = html.replace(/^\s*[-*]\s+/gm, '');
+            html = html.replace(/^\s*---+\s*$/gm, '<hr>');
+            html = html.replace(/^\s*>\s?/gm, '');
+            html = html.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+            html = html.replace(/<h[1-4][^>]*>\s*<strong>\s*<\/strong>\s*<\/h[1-4]>/gi, '');
+            html = html.replace(/\bAI\b/gi, '').replace(/\bDeepSeek\b/gi, '').replace(/\bHTML\b/gi, '');
+            html = html.replace(/<\/?code>/gi, '').replace(/<\/?pre>/gi, '');
+            return html.trim();
+        }
+
+        function wrapTablesInResponsiveContainer(html) {
+            return html.replace(/<table[\s\S]*?<\/table>/gi, m => `<div class="table-responsive">${m}</div>`);
+        }
+
+        // ============================================================
+        //  AI PROMPT
+        // ============================================================
+        function buildStrictPrompt(eventData) {
+            return `You are an experienced event planning consultant. Create a professional event blueprint as clean, semantic markup.
+
+CRITICAL FORMATTING RULES — FOLLOW EXACTLY:
+1. Use ONLY these tags: <h1>, <h2>, <h3>, <h4>, <p>, <ul>, <ol>, <li>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <div>, <span>, <strong>, <em>, <br>, <hr>, <a>.
+2. Do NOT use markdown, backticks, or any other formatting syntax.
+3. Do NOT use JavaScript, CSS, or any external resources.
+4. Do NOT use inline styles except: color, background-color, padding, margin, border-radius, border, font-size, font-weight, text-align.
+5. Do NOT use flexbox, grid, or position absolute. Use simple block layout.
+6. Tables must use thead, tbody, tr, th, td. No colspan or rowspan unless absolutely necessary.
+7. All text must be plain, readable, professional. No emojis (except ✅ ⚠️ ℹ️ 💰 ⭐ 📍 which are allowed).
+8. Do NOT mention the words "AI", "artificial intelligence", "DeepSeek", "ChatGPT", "Claude", "GPT", "language model", "machine learning", "neural network", "HTML", "markdown", "code", or any similar terms.
+9. Do NOT write in first person. Write in a professional, objective tone.
+10. Do NOT include any meta-commentary about how the content was generated.
+11. Do NOT include Venue Recommendations or Service Provider Recommendations sections — those are added separately by the system.
+
+CONTENT SECTIONS — IN ORDER:
+1. Executive Summary (feasibility score out of 10, key highlights)
+2. Event Analysis & Tips (setup, style, theme, dress code, color palette)
+3. Budget Analysis (breakdown table with allocation percentages, use budget-success/neutral/warning classes)
+4. Timeline (30-day countdown with specific tasks)
+5. Risk Analysis & Safety (risks, security considerations, backup power)
+6. Success Factors Checklist
+7. Marketing Strategies (differentiate between profit and non-profit events)
+8. Zone21 Recommendations (always include contact details)
+
+EVENT DETAILS:
+- Event: ${eventData.name}
+- Location: ${eventData.location}
+- Type: ${eventData.type}
+- Date: ${eventData.date} at ${eventData.time}
+- Budget: $${eventData.budget}
+- Attendees: ${eventData.attendees}
+- Contact: ${eventData.contact}
+- Notes: ${eventData.notes}
+- Required Services: ${eventData.services.join(', ')}
+
+CRITICAL RULE: For ANY planning/coordination/management service (Event Planner, Coordinator, etc.), ALWAYS recommend Zone21 Event Planners using the zone21-planning card format. NEVER recommend an external event planner.
+
+Zone21 contact: Call +263789912268, WhatsApp +263789912268, Email zone21services@gmail.com
+
+FORMAT TEMPLATE:
+<h1>Event Blueprint: ${eventData.name}</h1>
+<p>Professional summary...</p>
+<h2>Section Title</h2>
+<p>Content...</p>
+<ul><li>Item one</li><li>Item two</li></ul>
+<table><thead><tr><th>Column</th></tr></thead><tbody><tr><td>Data</td></tr></tbody></table>
+
+Use clean, semantic markup. Never break out of the container. Never use fixed widths.`;
+        }
+
+        // ============================================================
+        //  AI CACHE
+        // ============================================================
+        function makeAiCacheKey(d) {
+            return [d.location, d.type, d.budget, d.attendees, d.date, d.time, (d.services || []).slice().sort().join(','), d.notes].join('|');
+        }
+        function readAiCache(key) {
+            try {
+                const cache = JSON.parse(localStorage.getItem('zone21_ai_cache') || '{}');
+                return cache[key] || null;
+            } catch { return null; }
+        }
+        function writeAiCache(key, html) {
+            try {
+                const cache = JSON.parse(localStorage.getItem('zone21_ai_cache') || '{}');
+                cache[key] = html;
+                const keys = Object.keys(cache);
+                if (keys.length > 30) delete cache[keys[0]];
+                localStorage.setItem('zone21_ai_cache', JSON.stringify(cache));
+            } catch {}
+        }
+
+        // ============================================================
+        //  GENERATE BLUEPRINT
+        // ============================================================
+        async function generateBlueprint(isRegenerating) {
+            formSection.style.display = 'none';
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            loadingStatus.textContent = 'Analyzing your event...';
+
+            if (!isRegenerating) {
+                currentSessionId = makeSessionId();
+                currentEventData.invitedHistory = {};
+                currentEventData.inviteQueues = {};
+                activeRequests = {};
+                console.log('[Zone21] 🆕 New blueprint session:', currentSessionId, '| package:', userPackage);
+            } else {
+                if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
+                if (!currentEventData.inviteQueues) currentEventData.inviteQueues = {};
+                console.log('[Zone21] ♻️ Regenerating existing session:', currentSessionId);
+            }
+
+            loadingStatus.textContent = 'Finding venues and providers...';
+
+            const matchedVenues = matchVenues(currentEventData.location, currentEventData.attendees, currentEventData.budget, currentEventData.services);
+            serviceMatches = matchProvidersByService(currentEventData.location, currentEventData.services, currentEventData.budget, currentEventData.date);
+            const venueTargetService = pickVenueTargetService(currentEventData.services);
+
+            loadingStatus.textContent = 'Crafting your blueprint...';
+
+            const cacheKey = makeAiCacheKey(currentEventData);
+            let aiHtml = readAiCache(cacheKey);
+
+            if (aiHtml) {
+                loadingStatus.textContent = 'Loading cached blueprint...';
+            } else {
+                try {
+                    loadingStatus.textContent = 'Generating your blueprint...';
+                    const response = await fetch(DEEPSEEK_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
+                        body: JSON.stringify({
+                            model: DEEPSEEK_MODEL,
+                            messages: [{ role: "user", content: buildStrictPrompt(currentEventData) }],
+                            max_tokens: 6000,
+                            temperature: 0.4,
+                            top_p: 0.9
+                        })
+                    });
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`API Error ${response.status}: ${errText}`);
+                    }
+                    const data = await response.json();
+                    aiHtml = sanitizeAIOutput(data.choices[0].message.content.trim());
+                    writeAiCache(cacheKey, aiHtml);
+                } catch (error) {
+                    console.error('Generation Error:', error);
+                    loadingDiv.style.display = 'none';
+                    formSection.style.display = 'block';
+                    showToast('Error: ' + error.message, 'error');
+                    return;
+                }
+            }
+
+            const venueHTML = generateVenueHTML(matchedVenues, venueTargetService);
+            const serviceSlotsHTML = generateServiceSlotsHTML(currentEventData.services, serviceMatches);
+
+            let htmlOutput = aiHtml;
+
+            const injectAfter = /(<h2[^>]*>.*?Budget.*?<\/h2>[\s\S]*?<\/table>)/i;
+            const vendorBlock = `
+                <h2>Venue Recommendations</h2>
+                ${venueHTML}
+                ${serviceSlotsHTML}
+            `;
+            if (htmlOutput.match(injectAfter)) {
+                htmlOutput = htmlOutput.replace(injectAfter, `$1\n${vendorBlock}`);
+            } else {
+                htmlOutput += vendorBlock;
+            }
+
+            if (!htmlOutput.includes('Zone21 Security')) {
+                const securityBlock = `
+                    <div style="background:var(--navy);color:white;padding:14px 18px;border-radius:var(--radius);margin:16px 0;">
+                        <h3 style="color:var(--mint-light);margin:0 0 8px 0;font-size:1rem;">Security & Event Management</h3>
+                        <p style="margin:4px 0;color:rgba(255,255,255,0.85);font-size:0.9rem;">Professional security and event management services.</p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                            <a href="tel:+263789912268" style="color:var(--mint-light);text-decoration:none;font-size:0.8rem;"><i class="fas fa-phone"></i> +263789912268</a>
+                            <a href="https://wa.me/263789912268" target="_blank" style="color:#25D366;text-decoration:none;font-size:0.8rem;"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                            <a href="mailto:zone21services@gmail.com" style="color:var(--coral);text-decoration:none;font-size:0.8rem;"><i class="fas fa-envelope"></i> zone21services@gmail.com</a>
+                        </div>
+                    </div>`;
+                htmlOutput += securityBlock;
+            }
+
+            const helpSection = `
+                <div class="zone21-help">
+                    <h2>Need Expert Help? Let Zone21 Take Over</h2>
+                    <p>Vendor sourcing, venue booking, on-the-day coordination — we handle it all.</p>
+                    <div class="help-actions">
+                        <a href="mailto:${ZONE21.email}" class="help-btn"><i class="fas fa-envelope"></i> Email</a>
+                        <a href="https://wa.me/${ZONE21.whatsapp.replace('+', '')}" target="_blank" class="help-btn"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                        <a href="tel:${ZONE21.phone}" class="help-btn"><i class="fas fa-phone"></i> Call</a>
+                        <a href="${ZONE21.instagram}" target="_blank" class="help-btn"><i class="fab fa-instagram"></i> Instagram</a>
+                        <a href="${ZONE21.facebook}" target="_blank" class="help-btn"><i class="fab fa-facebook"></i> Facebook</a>
+                    </div>
+                </div>`;
+            if (!htmlOutput.includes('zone21-help')) htmlOutput = htmlOutput.trim() + helpSection;
+
+            htmlOutput = wrapTablesInResponsiveContainer(htmlOutput);
+            lastGeneratedHTML = htmlOutput;
+
+            loadingDiv.style.display = 'none';
+            blueprintContainer.style.display = 'block';
+            finalBlueprint.innerHTML = htmlOutput;
+
+            saveBlueprintState(htmlOutput);
+            subscribeToBookingRequests();
+            refreshSlotUI();
+            showToast('Blueprint generated successfully!', 'success');
+        }
+
+        function regenerateBlueprint() {
+            if (!currentEventData) {
+                showToast('No event data to regenerate.', 'error');
+                return;
+            }
+            const keepHistory = confirm(
+                'Regenerate blueprint?\n\n' +
+                'OK = Keep existing invitation history (prevents re-inviting same providers)\n' +
+                'Cancel = Start completely fresh (allows re-inviting everyone)'
+            );
+            if (keepHistory) {
+                generateBlueprint(true);
+            } else {
+                currentSessionId = null;
+                currentEventData.invitedHistory = {};
+                currentEventData.inviteQueues = {};
+                activeRequests = {};
+                generateBlueprint(false);
+            }
+        }
+
+        // ============================================================
+        //  BOOKING REQUEST SYSTEM
+        // ============================================================
+        function isLocallyInvited(service, providerId) {
+            const h = (currentEventData && currentEventData.invitedHistory) || {};
+            return (h[service] || []).includes(providerId);
+        }
+
+        function markLocallyInvited(service, providerId) {
+            if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
+            if (!currentEventData.invitedHistory[service]) currentEventData.invitedHistory[service] = [];
+            if (!currentEventData.invitedHistory[service].includes(providerId)) {
+                currentEventData.invitedHistory[service].push(providerId);
+            }
+        }
+
+        function buildInviteMessage(service, providerName) {
+            const d = currentEventData;
+            return `hie im requestion for your ${service} service on the ${d.date}. Are you available for bookings?`;
+        }
+
+        async function sendInvitationForSlot(service, provider) {
+            const providerUid = getProviderUid(provider);
+
+            console.log('[Zone21 Invite] Processing:', { service, providerName: provider?.name, providerUid });
+
+            if (!providerUid) {
+                console.warn('[Zone21 Invite] ✗ Provider has no UID — skipping');
+                return { skipped: true, reason: 'no_provider_uid' };
+            }
+
+            const messageText = buildInviteMessage(service, provider.name);
+            const requestRef = db.collection('bookingRequests').doc();
+
+            const requestDoc = {
+                userId: currentUser.uid,
+                eventId: currentSessionId,
+                eventName: currentEventData.name,
+                date: currentEventData.date,
+                time: currentEventData.time,
+                location: currentEventData.location,
+                organiserUid: currentUser.uid,
+                organiserName: currentUser.displayName || currentUser.email || 'Organiser',
+                organiserContact: currentEventData.contact,
+                providerId: providerUid,
+                providerName: provider.name || 'Provider',
+                providerDocId: provider.id || '',
+                service,
+                budget: currentEventData.budget,
+                notes: currentEventData.notes,
+                package: userPackage,
+                status: 'invited',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await requestRef.set(requestDoc);
+                console.log('[Zone21 Invite] ✓ bookingRequests created:', requestRef.id);
+            } catch (e) {
+                console.error('[Zone21 Invite] ✗ FAILED bookingRequests write (check Firebase rules):', e);
+            }
+
+            try {
+                await db.collection('messages').add({
+                    sender: 'user',
+                    senderId: currentUser.uid,
+                    senderType: 'organizer',
+                    senderName: currentEventData.name,
+                    subject: `Service Invitation: ${service} → ${provider.name || 'Provider'}`,
+                    message: messageText,
+                    type: 'service_invitation',
+                    recipientId: 'admin',
+                    status: 'unread',
+                    eventId: currentSessionId,
+                    eventName: currentEventData.name,
+                    service,
+                    providerId: providerUid,
+                    providerName: provider.name || 'Provider',
+                    date: currentEventData.date,
+                    time: currentEventData.time,
+                    location: currentEventData.location,
+                    budget: currentEventData.budget,
+                    requestId: requestRef.id,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('[Zone21 Invite] ✓ admin inbox notified');
+            } catch (e) {
+                console.warn('[Zone21 Invite] ✗ admin message failed:', e.message);
+            }
+
+            if (providerUid && providerUid !== 'admin') {
+                try {
+                    const chatId = getChatId(currentUser.uid, providerUid);
+
+                    await db.collection('threads').doc(chatId).set({
+                        participants: [currentUser.uid, providerUid],
+                        jobTitle: service,
+                        lastMessageText: messageText.substring(0, 80),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+
+                    await db.collection(`threads/${chatId}/messages`).add({
+                        senderId: currentUser.uid,
+                        text: messageText,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        isSystemRequest: true
+                    });
+
+                    console.log('[Zone21 Invite] ✓ vendor chat message sent to', chatId);
+                } catch (e) {
+                    console.error('[Zone21 Invite] ✗ vendor chat message failed:', e);
+                    showToast('⚠️ Chat message could not be sent. Check console for details.', 'error');
+                }
+            }
+
+            try {
+                await db.collection('messages').add({
+                    sender: 'system',
+                    senderId: 'system',
+                    senderType: 'system',
+                    senderName: 'Zone21 System',
+                    subject: `Invitation Sent: ${service} → ${provider.name || 'Provider'}`,
+                    message: `You have successfully sent the following invitation to ${provider.name || 'Provider'}:\n\n${messageText}`,
+                    type: 'service_invitation_sent',
+                    recipientId: currentUser.uid,
+                    status: 'read',
+                    eventId: currentSessionId,
+                    eventName: currentEventData.name,
+                    service,
+                    providerId: providerUid,
+                    providerName: provider.name || 'Provider',
+                    date: currentEventData.date,
+                    time: currentEventData.time,
+                    location: currentEventData.location,
+                    budget: currentEventData.budget,
+                    requestId: requestRef.id,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('[Zone21 Invite] ✓ organiser inbox notified');
+            } catch (e) {
+                console.warn('[Zone21 Invite] ✗ organiser inbox message failed:', e.message);
+            }
+
+            markLocallyInvited(service, providerUid);
+            return { requestId: requestRef.id, providerId: providerUid, service, providerName: provider.name };
+        }
+
+        async function sendAllInvitations() {
+            if (!currentUser || !currentEventData) {
+                showToast('Not ready. Please generate a blueprint first.', 'error');
+                return;
+            }
+            if (!currentSessionId) {
+                showToast('No active event session. Please regenerate the blueprint.', 'error');
+                return;
+            }
+
+            const checkboxes = document.querySelectorAll('input[data-approve-provider]:checked');
+            console.log('[Zone21] Found checkboxes:', checkboxes.length);
+
+            if (checkboxes.length === 0) {
+                showToast('No providers selected. Tick "Include" next to the providers you want to invite.', 'info');
+                return;
+            }
+
+            const btn = document.getElementById('invite-all-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            }
+
+            let sentCount = 0;
+            let failCount = 0;
+            let skipCount = 0;
+
+            for (const cb of checkboxes) {
+                const service = cb.getAttribute('data-approve-service');
+                const providerId = cb.getAttribute('data-approve-provider');
+
+                console.log('[Zone21] Attempting invite for:', service, providerId);
+
+                if (isLocallyInvited(service, providerId)) {
+                    console.log('[Zone21] Skipping already invited:', providerId);
+                    skipCount++;
+                    continue;
+                }
+
+                const provider = findProviderById(providerId);
+
+                if (!provider) {
+                    console.warn('[Zone21] Provider not found in cache:', providerId);
+                    failCount++;
+                    continue;
+                }
+
+                try {
+                    const result = await sendInvitationForSlot(service, provider);
+                    if (result.skipped) {
+                        failCount++;
+                    } else {
+                        sentCount++;
+                        activeRequests[service] = { ...result, status: 'invited', providerName: provider.name };
+                    }
+                } catch (e) {
+                    console.error('[Zone21] Invite error caught in main loop:', e);
+                    failCount++;
+                }
+            }
+
+            saveBlueprintState(lastGeneratedHTML);
+            refreshSlotUI();
+
+            let msg = '';
+            if (sentCount > 0) msg += `✅ ${sentCount} invitation(s) sent. `;
+            if (skipCount > 0) msg += `ℹ️ ${skipCount} already invited. `;
+            if (failCount > 0) msg += `❌ ${failCount} failed. `;
+
+            if (sentCount > 0) {
+                showToast(msg, 'success');
+            } else {
+                showToast(msg || '❌ No invitations sent. Check console for details.', 'error');
+            }
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Invite All Selected';
+            }
+        }
+
+        function updateInviteButtonState() {
+            const btn = document.getElementById('invite-all-btn');
+            if (!btn) return;
+            const anyChecked = Array.from(
+                document.querySelectorAll('input[data-approve-provider]')
+            ).some(cb => cb.checked && !cb.disabled);
+            btn.disabled = !anyChecked;
+        }
+
+        // ============================================================
+        //  LIVE STATUS
+        // ============================================================
+        function subscribeToBookingRequests() {
+            if (bookingUnsubscribe) { bookingUnsubscribe(); bookingUnsubscribe = null; }
+            if (!currentSessionId) return;
+
+            bookingUnsubscribe = db.collection('bookingRequests')
+                .where('eventId', '==', currentSessionId)
+                .onSnapshot(snapshot => {
+                    const latestByService = {};
+                    snapshot.forEach(doc => {
+                        const r = { id: doc.id, ...doc.data() };
+                        const svc = r.service;
+                        if (!latestByService[svc] || (r.createdAt && latestByService[svc].createdAt && r.createdAt.toMillis() > latestByService[svc].createdAt.toMillis())) {
+                            latestByService[svc] = r;
+                        }
+                    });
+
+                    Object.keys(latestByService).forEach(svc => {
+                        activeRequests[svc] = {
+                            requestId: latestByService[svc].id,
+                            providerId: latestByService[svc].providerId,
+                            providerName: latestByService[svc].providerName,
+                            status: latestByService[svc].status,
+                            service: svc
+                        };
+                    });
+
+                    refreshSlotUI();
+                    checkAllConfirmed();
+                }, err => console.error('booking subscription:', err));
+        }
+
+        function refreshSlotUI() {
+            if (!currentEventData) return;
+            (currentEventData.services || []).forEach(service => {
+                const active = activeRequests[service];
+                const slotStatusEl = document.querySelector(`[data-slot-status="${CSS.escape(service)}"]`);
+
+                document.querySelectorAll(`.vendor-card[data-service="${CSS.escape(service)}"]`).forEach(card => {
+                    const badge = card.querySelector('.vendor-status-badge');
+                    if (badge) { badge.className = 'vendor-status-badge not_sent'; badge.textContent = 'Not yet invited'; }
+                    card.classList.remove('is-invited', 'is-accepted', 'is-declined');
+                });
+
+                if (!active) {
+                    if (slotStatusEl) { slotStatusEl.className = 'slot-status not_sent'; slotStatusEl.textContent = 'Not yet invited'; }
+
+                    document.querySelectorAll(`input[data-approve-service="${CSS.escape(service)}"]`).forEach(cb => {
+                        const providerId = cb.getAttribute('data-approve-provider');
+                        const isInvited = (currentEventData.invitedHistory && currentEventData.invitedHistory[service] || []).includes(providerId);
+
+                        if (isInvited) {
+                            cb.checked = true;
+                            cb.disabled = true;
+                            const wrapper = cb.closest('.approve-checkbox');
+                            if (wrapper) {
+                                wrapper.classList.add('invited');
+                                const label = wrapper.querySelector('.cb-label');
+                                if (label) label.textContent = 'Invited';
+                            }
+                        } else {
+                            cb.disabled = false;
+                            const wrapper = cb.closest('.approve-checkbox');
+                            if (wrapper) {
+                                wrapper.classList.remove('invited');
+                                const label = wrapper.querySelector('.cb-label');
+                                if (label) label.textContent = 'Include';
+                            }
+                        }
+                    });
+                    updateInviteButtonState();
+                    return;
+                }
+
+                if (slotStatusEl) {
+                    slotStatusEl.className = `slot-status ${active.status}`;
+                    slotStatusEl.textContent = statusLabel(active.status);
+                }
+
+                const card = document.querySelector(
+                    `.vendor-card[data-provider-id="${CSS.escape(active.providerId)}"][data-service="${CSS.escape(service)}"]`
+                );
+                if (card) {
+                    const badge = card.querySelector('.vendor-status-badge');
+                    if (badge) { badge.className = `vendor-status-badge ${active.status}`; badge.textContent = statusLabel(active.status); }
+                    card.classList.add('is-invited');
+                    if (active.status === 'accepted') card.classList.add('is-accepted');
+                    if (active.status === 'declined') card.classList.add('is-declined');
+                }
+
+                document.querySelectorAll(`input[data-approve-service="${CSS.escape(service)}"]`).forEach(cb => {
+                    const providerId = cb.getAttribute('data-approve-provider');
+                    const isInvited = (currentEventData.invitedHistory && currentEventData.invitedHistory[service] || []).includes(providerId);
+
+                    if (isInvited) {
+                        cb.checked = true;
+                        cb.disabled = true;
+                        const wrapper = cb.closest('.approve-checkbox');
+                        if (wrapper) {
+                            wrapper.classList.add('invited');
+                            const label = wrapper.querySelector('.cb-label');
+                            if (label) label.textContent = 'Invited';
+                        }
+                    }
+                });
+            });
+            updateInviteButtonState();
+        }
+
+        function checkAllConfirmed() {
+            if (!currentEventData) return;
+            const services = currentEventData.services || [];
+            if (!services.length) return;
+            const allConfirmed = services.every(s => activeRequests[s] && activeRequests[s].status === 'accepted');
+
+            let banner = document.getElementById('all-confirmed-banner');
+            if (allConfirmed) {
+                if (!banner) {
+                    banner = document.createElement('div');
+                    banner.id = 'all-confirmed-banner';
+                    banner.className = 'confirm-banner';
+                    banner.innerHTML = `<i class="fas fa-circle-check"></i><div><div class="txt">All services confirmed</div><div class="sub">Every required provider has accepted for ${currentEventData.date}.</div></div>`;
+                    finalBlueprint.insertBefore(banner, finalBlueprint.firstChild);
+                }
+                if (currentSessionId) {
+                    db.collection('events').doc(currentSessionId).set({
+                        status: 'confirmed',
+                        confirmedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        organiserUid: currentUser.uid,
+                        eventName: currentEventData.name,
+                        date: currentEventData.date,
+                        time: currentEventData.time,
+                        package: userPackage
+                    }, { merge: true }).catch(() => {});
+                }
+            } else if (banner) {
+                banner.remove();
+            }
+        }
+
+        // ============================================================
+        //  HISTORY (filtered by active package)
+        // ============================================================
+        function saveBlueprintState(htmlOutput) {
+            const title = currentEventData.name || `${currentEventData.location} Event`;
+            const chatData = {
+                id: currentSessionId,
+                title: title,
+                formData: currentEventData,
+                blueprintHtml: htmlOutput,
+                updatedAt: new Date().toISOString()
+            };
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            localSessions[currentSessionId] = chatData;
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            renderHistorySidebar();
+        }
+
+        function renderHistorySidebar() {
+            const historyList = document.getElementById('history-list');
+            if (!historyList) return;
+            historyList.innerHTML = '';
+
+            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+
+            const filtered = Object.values(allSessions).filter(s => {
+                const pkg = s?.formData?.package;
+                if (!pkg) return true;
+                return pkg === userPackage;
+            });
+
+            if (filtered.length === 0) {
+                historyList.innerHTML = `
+                    <div style="padding:14px 12px;text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5;">
+                        <i class="fas fa-folder-open" style="font-size:1.4rem;display:block;margin-bottom:6px;opacity:0.4;"></i>
+                        No ${userPackageName || ''} blueprints yet.<br>Generate one to see it here.
+                    </div>`;
+                return;
+            }
+
+            filtered
+                .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                .forEach(session => {
+                    const item = document.createElement('div');
+                    item.className = `history-item ${session.id === currentSessionId ? 'active' : ''}`;
+                    item.innerHTML = `
+                        <span class="title"><i class="fas fa-clipboard-list"></i>${session.title}</span>
+                        <button class="delete-btn" onclick="deleteBlueprintSession('${session.id}', event)"><i class="fas fa-trash"></i></button>`;
+                    item.onclick = () => loadBlueprintSession(session.id);
+                    historyList.appendChild(item);
+                });
+        }
+
+        function loadBlueprintSession(sessionId) {
+            closeSidebar();
+            const allSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            const session = allSessions[sessionId];
+            if (!session) return;
+
+            const sessionPkg = session?.formData?.package;
+            if (sessionPkg && userPackage && sessionPkg !== userPackage) {
+                showToast(`This blueprint belongs to the "${sessionPkg}" package. Switch plans to view it.`, 'error');
+                return;
+            }
+
+            currentSessionId = session.id;
+            currentEventData = session.formData;
+            if (!currentEventData.invitedHistory) currentEventData.invitedHistory = {};
+            if (!currentEventData.inviteQueues) currentEventData.inviteQueues = {};
+            formSection.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            blueprintContainer.style.display = 'block';
+            finalBlueprint.innerHTML = session.blueprintHtml;
+            activeRequests = {};
+            subscribeToBookingRequests();
+            refreshSlotUI();
+            renderHistorySidebar();
+        }
+
+        function deleteBlueprintSession(sessionId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm('Delete this event blueprint?')) return;
+            let localSessions = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+            delete localSessions[sessionId];
+            localStorage.setItem('zone21_events', JSON.stringify(localSessions));
+            if (currentSessionId === sessionId) startNewSession();
+            else renderHistorySidebar();
+        }
+
+        function startNewSession() {
+            closeSidebar();
+            currentSessionId = null;
+            currentEventData = null;
+            serviceMatches = {};
+            activeRequests = {};
+            if (bookingUnsubscribe) { bookingUnsubscribe(); bookingUnsubscribe = null; }
+            form.reset();
+            blueprintContainer.style.display = 'none';
+            loadingDiv.style.display = 'none';
+            formSection.style.display = 'block';
+            renderHistorySidebar();
+        }
+
+        // ============================================================
+        //  EXPOSE
+        // ============================================================
+        window.openChatForVendor = openChatForVendor;
+        window.closeChatModal = closeChatModal;
+        window.sendModalMessage = sendModalMessage;
+        window.openWhatsApp = openWhatsApp;
+        window.regenerateBlueprint = regenerateBlueprint;
+        window.startNewSession = startNewSession;
+        window.deleteBlueprintSession = deleteBlueprintSession;
+        window.loadBlueprintSession = loadBlueprintSession;
+        window.handleLogout = handleLogout;
+        window.showToast = showToast;
+        window.sendAllInvitations = sendAllInvitations;
+        window.updateInviteButtonState = updateInviteButtonState;
+
+        // ============================================================
+        //  INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    headerUserEmail.textContent = user.email || 'user@example.com';
+                    await loadUserAndPackage();
+                    renderHistorySidebar();
+                } else {
+                    showToast('Please log in to continue.', 'error');
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                }
+            });
+
+            if (auth.currentUser) {
+                currentUser = auth.currentUser;
+                headerUserEmail.textContent = auth.currentUser.email || 'user@example.com';
+                await loadUserAndPackage();
+                renderHistorySidebar();
+            }
+        });
+    </script>
+
+</body>
+</html>

@@ -14,8 +14,8 @@
   ZONE21 ADMIN PANEL — single page, no sidebar
   Sections: Artists · Bookings · Messages · Schools
   · Browser back/forward navigates between sections
-  · Schools section aggregates students by university field
-    and gives full admin control (edit / delete / verify / bulk)
+  · Schools section manages a dedicated `schools` collection
+    (schools are first-class documents, not derived from users)
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -340,10 +340,6 @@ tbody tr.clickable{cursor:pointer}
   background:linear-gradient(135deg,var(--navy),var(--navy-2));
   color:var(--lime);font-size:17px;
 }
-.artist-thumb.student{
-  background:linear-gradient(135deg,#eff6ff,#dbeafe);
-  color:var(--info);font-size:15px;
-}
 .artist-cell-info{min-width:0}
 .artist-cell-info strong{
   display:block;font-weight:700;font-size:13.5px;margin-bottom:2px;
@@ -384,6 +380,8 @@ tbody tr.clickable{cursor:pointer}
 .pill.verified{background:#d1fae5;color:#065f46}
 .pill.unverified{background:#f1f5f9;color:#64748b}
 .pill.admin{background:#fce7f3;color:#9d174d}
+.pill.type{background:#eff6ff;color:#1e40af;text-transform:none;letter-spacing:0}
+.pill.inactive{background:#f1f5f9;color:#64748b}
 
 /* ═════════ STATS ROW ═════════ */
 .stats-row{
@@ -421,96 +419,53 @@ tbody tr.clickable{cursor:pointer}
   color:var(--text-3);
 }
 
-/* ═════════ SCHOOL DETAIL ═════════ */
-.school-header{
-  display:flex;align-items:center;gap:18px;
-  padding:20px 24px;
+/* ═════════ SCHOOL DETAIL MODAL ═════════ */
+.school-detail-header{
+  padding:22px 24px;
   background:linear-gradient(135deg,#102838 0%,#1a3d55 100%);
-  color:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0;
-  flex-wrap:wrap;
+  color:#fff;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
 }
-.school-header-avatar{
-  width:64px;height:64px;border-radius:14px;
+.school-detail-logo{
+  width:72px;height:72px;border-radius:16px;
   background:var(--lime);color:var(--navy);
   display:flex;align-items:center;justify-content:center;
-  font-size:26px;font-weight:900;flex-shrink:0;
+  font-size:28px;font-weight:900;flex-shrink:0;
+  overflow:hidden;
 }
-.school-header-body{flex:1;min-width:200px}
-.school-header-name{
-  font-size:20px;font-weight:900;letter-spacing:-.02em;
+.school-detail-logo img{width:100%;height:100%;object-fit:cover}
+.school-detail-body{flex:1;min-width:220px}
+.school-detail-name{
+  font-size:22px;font-weight:900;letter-spacing:-.02em;
   margin-bottom:6px;
   display:flex;align-items:center;gap:10px;flex-wrap:wrap;
 }
-.school-header-meta{
-  font-size:12.5px;color:rgba(255,255,255,.68);
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+.school-detail-meta{
+  font-size:13px;color:rgba(255,255,255,.72);
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
 }
-.school-header-meta i{font-size:11px;margin-right:4px}
+.school-detail-meta i{font-size:11px;margin-right:5px;opacity:.85}
 
-.school-stats{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-  gap:1px;background:var(--border);
-  border-bottom:1px solid var(--border);
+.school-detail-grid{
+  padding:24px;
+  display:grid;grid-template-columns:1fr 1fr;gap:20px;
 }
-.school-stat{
-  padding:16px 18px;background:var(--surface);
-  text-align:center;
-}
-.school-stat-value{
-  font-size:22px;font-weight:900;letter-spacing:-.03em;
-  line-height:1;margin-bottom:4px;
-}
-.school-stat-label{
-  font-size:10.5px;font-weight:700;
+.school-detail-field small{
+  display:block;font-size:10.5px;font-weight:800;
   letter-spacing:.08em;text-transform:uppercase;
-  color:var(--text-3);
+  color:var(--text-3);margin-bottom:5px;
 }
+.school-detail-field strong{
+  font-size:14px;font-weight:700;word-break:break-word;
+  display:block;line-height:1.45;
+}
+.school-detail-field a{color:var(--info);text-decoration:underline}
+.school-detail-field.full{grid-column:1/-1}
 
-.school-actions{
-  padding:14px 20px;background:var(--surface-2);
-  border-bottom:1px solid var(--border);
-  display:flex;gap:8px;flex-wrap:wrap;
-}
-
-.school-students-head{
-  padding:14px 20px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  gap:12px;flex-wrap:wrap;
-}
-.school-students-head h4{
-  font-size:13px;font-weight:800;
-  display:flex;align-items:center;gap:8px;
-}
-.school-students-head h4 i{color:var(--text-3);font-size:12px}
-
-.student-row{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 20px;border-bottom:1px solid var(--border);
-  transition:background .15s;
-}
-.student-row:hover{background:var(--surface-2)}
-.student-row:last-child{border-bottom:none}
-.student-row-avatar{
-  width:38px;height:38px;border-radius:50%;
-  background:linear-gradient(135deg,#eff6ff,#dbeafe);
-  color:var(--info);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:14px;flex-shrink:0;
-  overflow:hidden;
-}
-.student-row-avatar img{width:100%;height:100%;object-fit:cover}
-.student-row-body{flex:1;min-width:0}
-.student-row-name{
-  font-size:13.5px;font-weight:700;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  margin-bottom:2px;
-}
-.student-row-meta{
-  font-size:12px;color:var(--text-3);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.student-row-actions{
-  display:flex;gap:6px;flex-shrink:0;
+.school-detail-notes{
+  padding:14px 18px;background:var(--surface-2);
+  border-radius:10px;font-size:13.5px;line-height:1.6;
+  white-space:pre-wrap;color:var(--text-2);
 }
 
 /* ═════════ EMPTY ═════════ */
@@ -547,7 +502,7 @@ tbody tr.clickable{cursor:pointer}
 .modal-panel.sm{max-width:480px}
 .modal-panel.md{max-width:600px}
 .modal-panel.lg{max-width:900px}
-.modal-panel.xl{max-width:1080px}
+.modal-panel.xl{max-width:960px}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .modal-head{
   padding:20px 24px;border-bottom:1px solid var(--border);
@@ -597,14 +552,6 @@ tbody tr.clickable{cursor:pointer}
   border-color:var(--navy);box-shadow:0 0 0 3px rgba(16,40,56,.08);
 }
 .field-hint{font-size:11.5px;color:var(--text-3);margin-top:4px;line-height:1.4}
-.field-warn{
-  padding:10px 14px;border-radius:9px;
-  background:#fef3c7;border:1px solid #fde68a;
-  color:#92400e;font-size:12.5px;font-weight:600;
-  display:flex;align-items:flex-start;gap:8px;line-height:1.5;
-  margin-bottom:16px;
-}
-.field-warn i{margin-top:2px}
 
 /* PHOTO UPLOAD */
 .photo-upload{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -853,6 +800,7 @@ tbody tr.clickable{cursor:pointer}
   .thread-detail-head{padding-top:calc(16px + env(safe-area-inset-top,0px))}
   .form-grid{grid-template-columns:1fr;gap:0}
   .field.full{grid-column:auto}
+  .school-detail-grid{grid-template-columns:1fr}
 }
 @media(max-width:700px){
   .nav-cards{grid-template-columns:1fr;gap:10px}
@@ -874,9 +822,8 @@ tbody tr.clickable{cursor:pointer}
   thead th,tbody td{padding:10px 12px}
   .content{padding:14px 12px 50px}
   .brand-text span{display:none}
-  .school-header{padding:16px}
-  .school-header-avatar{width:52px;height:52px;font-size:22px}
-  .student-row{padding:10px 14px}
+  .school-detail-header{padding:16px}
+  .school-detail-logo{width:56px;height:56px;font-size:22px}
 }
 </style>
 </head>
@@ -954,7 +901,7 @@ tbody tr.clickable{cursor:pointer}
           <div class="nav-card-icon"><i class="fas fa-university"></i></div>
           <div class="nav-card-body">
             <div class="nav-card-label">Schools</div>
-            <div class="nav-card-sub" id="navSubSchools">Institution management</div>
+            <div class="nav-card-sub" id="navSubSchools">Institution registry</div>
           </div>
           <div class="nav-card-count" id="navCountSchools">0</div>
         </button>
@@ -1126,29 +1073,29 @@ tbody tr.clickable{cursor:pointer}
           <div class="stat-mini">
             <div class="stat-mini-icon"><i class="fas fa-university"></i></div>
             <div>
-              <div class="stat-mini-value" id="statSchools">0</div>
-              <div class="stat-mini-label">Schools</div>
-            </div>
-          </div>
-          <div class="stat-mini">
-            <div class="stat-mini-icon lime"><i class="fas fa-user-graduate"></i></div>
-            <div>
-              <div class="stat-mini-value" id="statStudents">0</div>
-              <div class="stat-mini-label">Students</div>
+              <div class="stat-mini-value" id="statTotalSchools">0</div>
+              <div class="stat-mini-label">Total Schools</div>
             </div>
           </div>
           <div class="stat-mini">
             <div class="stat-mini-icon success"><i class="fas fa-circle-check"></i></div>
             <div>
-              <div class="stat-mini-value" id="statSubscribed">0</div>
-              <div class="stat-mini-label">Subscribed</div>
+              <div class="stat-mini-value" id="statVerifiedSchools">0</div>
+              <div class="stat-mini-label">Verified</div>
             </div>
           </div>
           <div class="stat-mini">
-            <div class="stat-mini-icon pink"><i class="fas fa-crown"></i></div>
+            <div class="stat-mini-icon lime"><i class="fas fa-layer-group"></i></div>
             <div>
-              <div class="stat-mini-value sm" id="statTopSchool">—</div>
-              <div class="stat-mini-label">Top School</div>
+              <div class="stat-mini-value" id="statSchoolTypes">0</div>
+              <div class="stat-mini-label">Types</div>
+            </div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-icon pink"><i class="fas fa-location-dot"></i></div>
+            <div>
+              <div class="stat-mini-value sm" id="statTopCity">—</div>
+              <div class="stat-mini-label">Top City</div>
             </div>
           </div>
         </div>
@@ -1156,14 +1103,19 @@ tbody tr.clickable{cursor:pointer}
         <div class="toolbar">
           <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" id="schoolSearch" placeholder="Search schools by name…">
+            <input type="text" id="schoolSearch" placeholder="Search schools by name, city, or email…">
           </div>
-          <select class="toolbar-select" id="schoolSort">
-            <option value="students-desc">Most students</option>
-            <option value="name">Name (A–Z)</option>
-            <option value="recent">Most recent signup</option>
-            <option value="subscribed">Most subscribed</option>
+          <select class="toolbar-select" id="schoolTypeFilter">
+            <option value="">All Types</option>
           </select>
+          <select class="toolbar-select" id="schoolSort">
+            <option value="recent">Newest first</option>
+            <option value="name">Name (A–Z)</option>
+            <option value="city">City (A–Z)</option>
+          </select>
+          <button class="btn btn-lime" id="addSchoolBtn">
+            <i class="fas fa-plus"></i> Add School
+          </button>
         </div>
 
         <div class="card">
@@ -1172,10 +1124,10 @@ tbody tr.clickable{cursor:pointer}
               <thead>
                 <tr>
                   <th>School</th>
-                  <th>Students</th>
-                  <th>Subscribed</th>
-                  <th>Bookings</th>
-                  <th>Latest Signup</th>
+                  <th>Type</th>
+                  <th>City</th>
+                  <th>Contact</th>
+                  <th>Status</th>
                   <th style="text-align:right">Actions</th>
                 </tr>
               </thead>
@@ -1341,115 +1293,146 @@ tbody tr.clickable{cursor:pointer}
   </div>
 </div>
 
-<!-- ═════════ SCHOOL DETAIL MODAL ═════════ -->
-<div class="modal" id="schoolModal">
+<!-- ═════════ SCHOOL ADD/EDIT MODAL ═════════ -->
+<div class="modal" id="schoolFormModal">
+  <div class="modal-panel lg">
+    <div class="modal-head">
+      <div>
+        <h2 id="schoolFormTitle">Add New School</h2>
+        <p id="schoolFormSub">Fill in the school profile. Fields marked with * are required.</p>
+      </div>
+      <button class="modal-close" data-close="schoolFormModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="schoolForm" onsubmit="return false;">
+
+        <div class="field full">
+          <label>School Logo <span class="opt">(optional)</span></label>
+          <div class="photo-upload">
+            <div class="photo-preview" id="schoolLogoPreview">
+              <i class="fas fa-university"></i>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <input type="file" id="schoolLogoInput" accept="image/*" style="display:none">
+              <button type="button" class="btn btn-outline btn-sm" id="schoolLogoPickBtn">
+                <i class="fas fa-upload"></i> Choose Logo
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" id="schoolLogoRemoveBtn" style="display:none">
+                <i class="fas fa-times"></i> Remove
+              </button>
+              <div class="field-hint" style="margin-top:8px">
+                JPG, PNG, or WebP. Max 5MB. Automatically compressed to 300px, ~40KB.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field full">
+            <label>School Name <span class="req">*</span></label>
+            <input type="text" id="sfName" required placeholder="e.g. University of Zimbabwe">
+          </div>
+
+          <div class="field">
+            <label>Short Name / Abbreviation <span class="opt">(optional)</span></label>
+            <input type="text" id="sfShortName" placeholder="e.g. UZ">
+          </div>
+
+          <div class="field">
+            <label>Type <span class="req">*</span></label>
+            <select id="sfType" required>
+              <option value="university">University</option>
+              <option value="polytechnic">Polytechnic</option>
+              <option value="teachers_college">Teachers College</option>
+              <option value="technical_college">Technical College</option>
+              <option value="vocational">Vocational Training</option>
+              <option value="high_school">High School</option>
+              <option value="secondary_school">Secondary School</option>
+              <option value="primary_school">Primary School</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>City / Location <span class="req">*</span></label>
+            <input type="text" id="sfCity" required placeholder="e.g. Harare">
+          </div>
+
+          <div class="field">
+            <label>Province <span class="opt">(optional)</span></label>
+            <input type="text" id="sfProvince" placeholder="e.g. Harare Metropolitan">
+          </div>
+
+          <div class="field full">
+            <label>Address <span class="opt">(optional)</span></label>
+            <input type="text" id="sfAddress" placeholder="e.g. 630 Churchill Avenue, Mount Pleasant">
+          </div>
+
+          <div class="field">
+            <label>Email <span class="opt">(optional)</span></label>
+            <input type="email" id="sfEmail" placeholder="registrar@example.ac.zw">
+          </div>
+
+          <div class="field">
+            <label>Phone <span class="opt">(optional)</span></label>
+            <input type="tel" id="sfPhone" placeholder="+263 24 200 0000">
+          </div>
+
+          <div class="field full">
+            <label>Website <span class="opt">(optional)</span></label>
+            <input type="url" id="sfWebsite" placeholder="https://www.example.ac.zw">
+          </div>
+
+          <div class="field">
+            <label>Verified School</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sfVerified">
+                <span class="toggle-slider"></span>
+              </label>
+              <div class="toggle-text">
+                <strong>Mark as verified</strong>
+                <small>Verified schools show a badge in the list.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Active</label>
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" id="sfActive" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <div class="toggle-text">
+                <strong>School is active</strong>
+                <small>Inactive schools stay in the registry but are hidden from pickers.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="field full">
+            <label>Description / Notes <span class="opt">(optional)</span></label>
+            <textarea id="sfDescription" placeholder="Short notes about the school — faculties, programs, contacts…"></textarea>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close="schoolFormModal">Cancel</button>
+      <button class="btn btn-lime" id="schoolSaveBtn">
+        <i class="fas fa-save"></i> <span>Save School</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ SCHOOL VIEW MODAL ═════════ -->
+<div class="modal" id="schoolViewModal">
   <div class="modal-panel xl">
-    <div class="modal-head" style="display:none"></div>
-    <div class="modal-body flush" id="schoolModalBody" style="padding:0">
+    <div class="modal-body flush" id="schoolViewBody" style="padding:0">
       <div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- ═════════ EDIT SCHOOL MODAL ═════════ -->
-<div class="modal" id="editSchoolModal">
-  <div class="modal-panel sm">
-    <div class="modal-head">
-      <div>
-        <h2>Rename school</h2>
-        <p id="editSchoolSub">This will update the school name for every student in it.</p>
-      </div>
-      <button class="modal-close" data-close="editSchoolModal"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label>School Name <span class="req">*</span></label>
-        <input type="text" id="editSchoolName" placeholder="e.g. University of Zimbabwe">
-        <div class="field-hint" id="editSchoolHint">New name will be saved on all matching students.</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close="editSchoolModal">Cancel</button>
-      <button class="btn btn-lime" id="editSchoolSaveBtn">
-        <i class="fas fa-save"></i> <span>Save Changes</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═════════ EDIT STUDENT MODAL ═════════ -->
-<div class="modal" id="editStudentModal">
-  <div class="modal-panel md">
-    <div class="modal-head">
-      <div>
-        <h2>Edit student</h2>
-        <p id="editStudentSub">Update profile details for this student.</p>
-      </div>
-      <button class="modal-close" data-close="editStudentModal"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="field full">
-          <label>Full Name <span class="req">*</span></label>
-          <input type="text" id="esName">
-        </div>
-        <div class="field full">
-          <label>Email <span class="req">*</span></label>
-          <input type="email" id="esEmail">
-        </div>
-        <div class="field">
-          <label>Phone</label>
-          <input type="tel" id="esPhone" placeholder="+263 78 000 0000">
-        </div>
-        <div class="field">
-          <label>University</label>
-          <input type="text" id="esUniversity">
-        </div>
-        <div class="field full">
-          <label>Role</label>
-          <select id="esRole">
-            <option value="student">Student</option>
-            <option value="admin">Admin</option>
-          </select>
-          <div class="field-hint">Admins can access this admin panel. Use with caution.</div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close="editStudentModal">Cancel</button>
-      <button class="btn btn-lime" id="editStudentSaveBtn">
-        <i class="fas fa-save"></i> <span>Save Changes</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═════════ BULK MESSAGE MODAL ═════════ -->
-<div class="modal" id="bulkMsgModal">
-  <div class="modal-panel md">
-    <div class="modal-head">
-      <div>
-        <h2>Message all students</h2>
-        <p id="bulkMsgSub">Send an inbox message to every student in this school.</p>
-      </div>
-      <button class="modal-close" data-close="bulkMsgModal"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label>Subject <span class="req">*</span></label>
-        <input type="text" id="bulkMsgSubject" placeholder="e.g. Zone21 update for your school">
-      </div>
-      <div class="field">
-        <label>Message <span class="req">*</span></label>
-        <textarea id="bulkMsgBody" placeholder="Type your message…" style="min-height:140px"></textarea>
-        <div class="field-hint" id="bulkMsgHint">Recipients will see this in their inbox.</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close="bulkMsgModal">Cancel</button>
-      <button class="btn btn-lime" id="bulkMsgSendBtn">
-        <i class="fas fa-paper-plane"></i> <span>Send to All</span>
-      </button>
     </div>
   </div>
 </div>
@@ -1479,7 +1462,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
-  collection, onSnapshot, query, orderBy, where, getDocs, serverTimestamp
+  collection, onSnapshot, query, orderBy, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ═══════════════════════════════════════════════════════════
@@ -1504,6 +1487,18 @@ const ZIM_LOCATIONS = [
   'Kariba','Bindura','Rusape','Zvishavane','Gwanda','Nationwide'
 ];
 
+const SCHOOL_TYPES = [
+  { value: 'university',          label: 'University' },
+  { value: 'polytechnic',         label: 'Polytechnic' },
+  { value: 'teachers_college',    label: 'Teachers College' },
+  { value: 'technical_college',   label: 'Technical College' },
+  { value: 'vocational',          label: 'Vocational Training' },
+  { value: 'high_school',         label: 'High School' },
+  { value: 'secondary_school',    label: 'Secondary School' },
+  { value: 'primary_school',      label: 'Primary School' },
+  { value: 'other',               label: 'Other' }
+];
+
 const VALID_SECTIONS = ['artists', 'bookings', 'messages', 'schools'];
 
 const app = initializeApp(firebaseConfig);
@@ -1518,9 +1513,8 @@ let adminProfile = null;
 let allArtists = [];
 let allBookings = [];
 let allMessages = [];
-let allUsers = [];
+let allSchools = [];
 let threads = [];
-let schools = [];
 let activeThreadId = null;
 let currentArtistEditId = null;
 let pendingPhotoFile = null;
@@ -1528,9 +1522,10 @@ let pendingPhotoPreviewUrl = null;
 let pendingPhotoExistingUrl = null;
 let currentBookingFilter = 'all';
 let currentMessageFilter = 'all';
-let currentSchoolName = null;
-let editingStudentId = null;
-let currentBulkSchool = null;
+let currentSchoolEditId = null;
+let pendingSchoolLogoFile = null;
+let pendingSchoolLogoPreviewUrl = null;
+let pendingSchoolLogoExistingUrl = null;
 let unsubs = [];
 let currentSection = 'artists';
 
@@ -1553,13 +1548,6 @@ function escAttr(s){
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-function slugify(s){
-  return String(s || '')
-    .toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || 'school';
-}
 function toDate(ts){
   if(!ts) return null;
   if(typeof ts.toDate === 'function') return ts.toDate();
@@ -1577,6 +1565,16 @@ function timeAgo(d){
   if(s < 86400) return Math.floor(s/3600)+'h';
   if(s < 604800) return Math.floor(s/86400)+'d';
   return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function typeLabel(type){
+  const found = SCHOOL_TYPES.find(t => t.value === type);
+  return found ? found.label : (type || '—');
+}
+function initialsFromName(name){
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if(parts.length === 0) return '?';
+  if(parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 function showToast(msg, type='info'){
   const wrap = $('toastWrap');
@@ -1767,7 +1765,6 @@ function startListeners(){
       renderBookings();
       updateNavCounts();
       updateBookingCounts();
-      buildSchools(); // booking counts feed into school stats
     },
     (err) => console.warn('Bookings listener error:', err)
   ));
@@ -1785,24 +1782,24 @@ function startListeners(){
     (err) => console.warn('Messages listener error:', err)
   ));
 
-  /* ── Users listener — powers Schools aggregation ── */
+  /* ── Schools listener — dedicated `schools` collection ── */
   unsubs.push(onSnapshot(
-    query(collection(db, 'users'), orderBy('createdAt', 'desc')),
+    query(collection(db, 'schools'), orderBy('createdAt', 'desc')),
     (snap) => {
-      allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      buildSchools();
+      allSchools = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderSchools();
+      populateSchoolTypeFilter();
       updateNavCounts();
     },
     (err) => {
-      console.warn('Users listener error (ordered):', err);
-      // Fallback: unordered query
-      unsubs.push(onSnapshot(collection(db, 'users'), (snap) => {
-        allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        buildSchools();
+      console.warn('Schools listener error (ordered):', err);
+      // Fallback: unordered
+      unsubs.push(onSnapshot(collection(db, 'schools'), (snap) => {
+        allSchools = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSchools();
+        populateSchoolTypeFilter();
         updateNavCounts();
-      }, (e) => console.warn('Users listener error (fallback):', e)));
+      }, (e) => console.warn('Schools listener error (fallback):', e)));
     }
   ));
 }
@@ -1835,13 +1832,10 @@ function updateNavCounts(){
   $('dotBookings').style.display = pending > 0 ? '' : 'none';
   $('dotMessages').style.display = unread > 0 ? '' : 'none';
 
-  // Schools card
-  const schoolCount = schools.length;
-  const studentCount = allUsers.filter(u => (u.role || 'student') !== 'admin').length;
-  $('navCountSchools').textContent = schoolCount;
-  $('navSubSchools').textContent = schoolCount === 0
-    ? 'No institutions yet'
-    : `${schoolCount} institution${schoolCount===1?'':'s'} · ${studentCount} student${studentCount===1?'':'s'}`;
+  $('navCountSchools').textContent = allSchools.length;
+  $('navSubSchools').textContent = allSchools.length === 0
+    ? 'No schools registered'
+    : `${allSchools.length} school${allSchools.length===1?'':'s'} in registry`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2770,153 +2764,149 @@ $('markAllReadBtn').addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   SCHOOLS
-   Aggregates students (users where role !== 'admin') by their
-   `university` field, then provides full admin control.
+   SCHOOLS  —  Independent registry (dedicated `schools` collection)
+   Schools are first-class documents with full CRUD.
+   Nothing here is derived from user accounts.
    ═══════════════════════════════════════════════════════════ */
-function buildSchools(){
-  const map = new Map();
+function populateSchoolTypeFilter(){
+  const sel = $('schoolTypeFilter');
+  const current = sel.value;
+  const usedTypes = new Set(allSchools.map(s => s.type).filter(Boolean));
 
-  allUsers.forEach(u => {
-    // Skip admins — they're not "students at a school"
-    if(u.role === 'admin') return;
+  // Always show the standard types, mark which ones exist in the registry
+  sel.innerHTML = `<option value="">All Types</option>` +
+    SCHOOL_TYPES
+      .filter(t => usedTypes.size === 0 || usedTypes.has(t.value))
+      .map(t => {
+        const count = allSchools.filter(s => s.type === t.value).length;
+        const label = count > 0 ? `${t.label} (${count})` : t.label;
+        return `<option value="${escAttr(t.value)}">${esc(label)}</option>`;
+      }).join('');
 
-    const raw = (u.university || '').trim();
-    const name = raw || 'Unassigned / No school set';
-    const key = name.toLowerCase();
-
-    if(!map.has(key)){
-      map.set(key, {
-        key,
-        name,
-        students: [],
-        totalStudents: 0,
-        subscribedCount: 0,
-        bookingsCount: 0,
-        latestSignup: null
-      });
-    }
-
-    const s = map.get(key);
-    s.students.push(u);
-    s.totalStudents++;
-
-    if(u.subscriptionStatus === 'active' || u.subscriptionStatus === 'approved'){
-      s.subscribedCount++;
-    }
-
-    // Count bookings this student has made
-    const userBookings = allBookings.filter(b => b.userId === u.id).length;
-    s.bookingsCount += userBookings;
-
-    const createdAt = toDate(u.createdAt);
-    if(createdAt && (!s.latestSignup || createdAt > s.latestSignup)){
-      s.latestSignup = createdAt;
-    }
-  });
-
-  schools = Array.from(map.values()).sort((a, b) => b.totalStudents - a.totalStudents);
-}
-
-function applySchoolSort(list){
-  const sort = $('schoolSort')?.value || 'students-desc';
-  const copy = [...list];
-  switch(sort){
-    case 'name':            copy.sort((a,b) => a.name.localeCompare(b.name)); break;
-    case 'recent':          copy.sort((a,b) => (b.latestSignup?.getTime()||0) - (a.latestSignup?.getTime()||0)); break;
-    case 'subscribed':      copy.sort((a,b) => b.subscribedCount - a.subscribedCount); break;
-    default:                copy.sort((a,b) => b.totalStudents - a.totalStudents);
-  }
-  return copy;
+  // Preserve current selection if it still exists
+  if([...sel.options].some(o => o.value === current)) sel.value = current;
 }
 
 function renderSchools(){
   const tbody = $('schoolsTbody');
   if(!tbody) return;
 
-  // Stats
-  const totalStudents = allUsers.filter(u => u.role !== 'admin').length;
-  const subscribed = allUsers.filter(u =>
-    u.role !== 'admin' &&
-    (u.subscriptionStatus === 'active' || u.subscriptionStatus === 'approved')
-  ).length;
-  const top = schools.find(s => s.key !== 'unassigned / no school set') || schools[0];
+  // ── Real stats from the registry only ──
+  const total = allSchools.length;
+  const verified = allSchools.filter(s => s.verified).length;
+  const typesUsed = new Set(allSchools.map(s => s.type).filter(Boolean)).size;
+  const cityCounts = {};
+  allSchools.forEach(s => {
+    if(s.city) cityCounts[s.city] = (cityCounts[s.city] || 0) + 1;
+  });
+  const topCityEntry = Object.entries(cityCounts).sort((a,b) => b[1] - a[1])[0];
 
-  $('statSchools').textContent = schools.filter(s => s.key !== 'unassigned / no school set').length;
-  $('statStudents').textContent = totalStudents;
-  $('statSubscribed').textContent = subscribed;
-  $('statTopSchool').textContent = top ? top.name.slice(0, 26) + (top.name.length > 26 ? '…' : '') : '—';
+  $('statTotalSchools').textContent = total;
+  $('statVerifiedSchools').textContent = verified;
+  $('statSchoolTypes').textContent = typesUsed;
+  $('statTopCity').textContent = topCityEntry ? topCityEntry[0] : '—';
 
-  // Filter + sort
+  // ── Filter ──
   const q = ($('schoolSearch').value || '').toLowerCase().trim();
-  let list = schools;
-  if(q) list = list.filter(s => s.name.toLowerCase().includes(q));
-  list = applySchoolSort(list);
+  const typeFilter = $('schoolTypeFilter').value;
+  const sort = $('schoolSort').value;
 
+  let list = [...allSchools];
+  if(typeFilter) list = list.filter(s => s.type === typeFilter);
+  if(q){
+    list = list.filter(s => {
+      const hay = [s.name, s.shortName, s.city, s.province, s.email, s.phone]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  switch(sort){
+    case 'name':
+      list.sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
+      break;
+    case 'city':
+      list.sort((a,b) => String(a.city||'').localeCompare(String(b.city||'')));
+      break;
+    default:
+      list.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
+  }
+
+  // ── Render ──
   if(list.length === 0){
     tbody.innerHTML = `<tr><td colspan="6">
       <div class="empty">
         <div class="empty-icon"><i class="fas fa-university"></i></div>
-        <h3>${q ? 'No schools match' : 'No schools registered'}</h3>
-        <p>${q ? 'Try a different search term.' : 'Schools appear automatically when students sign up with a university name.'}</p>
+        <h3>${allSchools.length === 0 ? 'No schools registered yet' : 'No schools match'}</h3>
+        <p>${allSchools.length === 0
+          ? 'Click "Add School" to register your first institution.'
+          : 'Try a different search term or filter.'}</p>
       </div>
     </td></tr>`;
     return;
   }
 
   tbody.innerHTML = list.map(s => {
-    const isUnassigned = s.key === 'unassigned / no school set';
-    const initials = s.name.split(' ').map(w => w.charAt(0)).join('').slice(0,2).toUpperCase();
-    const latest = s.latestSignup ? fmtDate(s.latestSignup) : '—';
+    const initials = initialsFromName(s.shortName || s.name);
+    const logoHtml = s.logoUrl
+      ? `<img src="${escAttr(s.logoUrl)}" class="artist-thumb" onerror="this.outerHTML='<div class=\\'artist-thumb school\\'>${esc(initials)}</div>'">`
+      : `<div class="artist-thumb school">${esc(initials)}</div>`;
+
+    const contactBits = [];
+    if(s.email) contactBits.push(s.email);
+    if(s.phone) contactBits.push(s.phone);
+
+    const statusBadge = s.verified
+      ? `<span class="pill verified">Verified</span>`
+      : `<span class="pill unverified">Unverified</span>`;
+    const activeBadge = s.active === false
+      ? `<span class="pill inactive" style="margin-left:4px">Inactive</span>`
+      : '';
 
     return `
-      <tr class="${isUnassigned ? '' : 'clickable'}" ${isUnassigned ? '' : `data-school-key="${escAttr(s.key)}"`}>
+      <tr class="clickable" data-school-id="${escAttr(s.id)}">
         <td>
           <div class="artist-cell">
-            <div class="artist-thumb school">${esc(initials)}</div>
+            ${logoHtml}
             <div class="artist-cell-info">
-              <strong>${esc(s.name)}</strong>
-              <small>${isUnassigned
-                ? 'Students without a university set'
-                : `${s.subscribedCount} active subscription${s.subscribedCount===1?'':'s'}`}</small>
+              <strong>${esc(s.name || 'Unnamed school')}</strong>
+              <small>${esc(s.shortName || s.province || '—')}</small>
             </div>
           </div>
         </td>
-        <td><strong style="font-size:15px">${s.totalStudents}</strong></td>
-        <td>${s.subscribedCount > 0
-          ? `<span class="pill active">${s.subscribedCount}</span>`
-          : '<span style="color:var(--text-3)">0</span>'}</td>
-        <td>${s.bookingsCount > 0
-          ? `<strong>${s.bookingsCount}</strong>`
-          : '<span style="color:var(--text-3)">0</span>'}</td>
-        <td><span style="font-size:12.5px;color:var(--text-2)">${esc(latest)}</span></td>
+        <td><span class="pill type">${esc(typeLabel(s.type))}</span></td>
+        <td><strong>${esc(s.city || '—')}</strong></td>
+        <td style="max-width:220px">
+          <div style="font-size:12.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${contactBits.length ? esc(contactBits.join(' · ')) : '<span style="color:var(--text-3)">—</span>'}
+          </div>
+        </td>
+        <td>${statusBadge}${activeBadge}</td>
         <td onclick="event.stopPropagation()">
           <div class="cell-actions">
-            ${isUnassigned
-              ? '<span style="color:var(--text-3);font-size:12px">—</span>'
-              : `<button class="btn btn-outline btn-sm" data-school-open="${escAttr(s.key)}" title="View students">
-                   <i class="fas fa-eye"></i>
-                 </button>
-                 <button class="btn btn-outline btn-sm" data-school-rename="${escAttr(s.key)}" title="Rename school">
-                   <i class="fas fa-pen"></i>
-                 </button>
-                 <button class="btn btn-outline btn-sm" data-school-delete="${escAttr(s.key)}" title="Delete school" style="color:var(--danger);border-color:#fecaca">
-                   <i class="fas fa-trash"></i>
-                 </button>`}
+            <button class="btn btn-outline btn-sm" data-school-open="${escAttr(s.id)}" title="View">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-outline btn-sm" data-school-edit="${escAttr(s.id)}" title="Edit">
+              <i class="fas fa-pen"></i>
+            </button>
+            <button class="btn btn-outline btn-sm" data-school-delete="${escAttr(s.id)}" title="Delete" style="color:var(--danger);border-color:#fecaca">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         </td>
       </tr>`;
   }).join('');
 
-  // Attach handlers
-  tbody.querySelectorAll('[data-school-key]').forEach(tr => {
-    tr.addEventListener('click', () => openSchoolDetail(tr.dataset.schoolKey));
+  // Row click → open detail
+  tbody.querySelectorAll('[data-school-id]').forEach(tr => {
+    tr.addEventListener('click', () => openSchoolView(tr.dataset.schoolId));
   });
   tbody.querySelectorAll('[data-school-open]').forEach(b => {
-    b.addEventListener('click', (e) => { e.stopPropagation(); openSchoolDetail(b.dataset.schoolOpen); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); openSchoolView(b.dataset.schoolOpen); });
   });
-  tbody.querySelectorAll('[data-school-rename]').forEach(b => {
-    b.addEventListener('click', (e) => { e.stopPropagation(); openEditSchoolModal(b.dataset.schoolRename); });
+  tbody.querySelectorAll('[data-school-edit]').forEach(b => {
+    b.addEventListener('click', (e) => { e.stopPropagation(); openSchoolForm(b.dataset.schoolEdit); });
   });
   tbody.querySelectorAll('[data-school-delete]').forEach(b => {
     b.addEventListener('click', (e) => { e.stopPropagation(); deleteSchoolFlow(b.dataset.schoolDelete); });
@@ -2925,404 +2915,145 @@ function renderSchools(){
 
 $('schoolSearch').addEventListener('input', renderSchools);
 $('schoolSort').addEventListener('change', renderSchools);
+$('schoolTypeFilter').addEventListener('change', renderSchools);
 
-/* ── SCHOOL DETAIL MODAL ── */
-function openSchoolDetail(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-  currentSchoolName = s.key;
+/* ── ADD/EDIT SCHOOL FORM ── */
+$('addSchoolBtn').addEventListener('click', () => openSchoolForm(null));
 
-  const initials = s.name.split(' ').map(w => w.charAt(0)).join('').slice(0,2).toUpperCase();
+function openSchoolForm(id){
+  const s = id ? allSchools.find(x => x.id === id) : null;
+  currentSchoolEditId = s ? s.id : null;
+  pendingSchoolLogoFile = null;
+  pendingSchoolLogoPreviewUrl = null;
+  pendingSchoolLogoExistingUrl = s?.logoUrl || null;
 
-  const sortedStudents = [...s.students].sort((a, b) => {
-    const at = toDate(a.createdAt)?.getTime() || 0;
-    const bt = toDate(b.createdAt)?.getTime() || 0;
-    return bt - at;
-  });
+  $('schoolFormTitle').textContent = s ? 'Edit School' : 'Add New School';
+  $('schoolFormSub').textContent = s
+    ? `Editing ${s.name || 'school'}`
+    : 'Fill in the school profile. Fields marked with * are required.';
 
-  const bodyHtml = `
-    <div class="school-header">
-      <div class="school-header-avatar">${esc(initials)}</div>
-      <div class="school-header-body">
-        <div class="school-header-name">
-          ${esc(s.name)}
-          <span class="pill verified" style="text-transform:none">${s.totalStudents} student${s.totalStudents===1?'':'s'}</span>
-        </div>
-        <div class="school-header-meta">
-          <span><i class="fas fa-circle-check"></i> ${s.subscribedCount} subscribed</span>
-          <span><i class="fas fa-calendar-check"></i> ${s.bookingsCount} booking${s.bookingsCount===1?'':'s'}</span>
-          ${s.latestSignup ? `<span><i class="fas fa-clock"></i> Latest ${fmtDate(s.latestSignup)}</span>` : ''}
-        </div>
-      </div>
-      <button class="modal-close" style="color:rgba(255,255,255,.7);background:rgba(255,255,255,.08)" data-close="schoolModal">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
+  $('sfName').value = s?.name || '';
+  $('sfShortName').value = s?.shortName || '';
+  $('sfType').value = s?.type || 'university';
+  $('sfCity').value = s?.city || '';
+  $('sfProvince').value = s?.province || '';
+  $('sfAddress').value = s?.address || '';
+  $('sfEmail').value = s?.email || '';
+  $('sfPhone').value = s?.phone || '';
+  $('sfWebsite').value = s?.website || '';
+  $('sfDescription').value = s?.description || '';
+  $('sfVerified').checked = !!s?.verified;
+  $('sfActive').checked = s ? s.active !== false : true;
 
-    <div class="school-stats">
-      <div class="school-stat">
-        <div class="school-stat-value">${s.totalStudents}</div>
-        <div class="school-stat-label">Total Students</div>
-      </div>
-      <div class="school-stat">
-        <div class="school-stat-value" style="color:var(--success)">${s.subscribedCount}</div>
-        <div class="school-stat-label">Subscribed</div>
-      </div>
-      <div class="school-stat">
-        <div class="school-stat-value" style="color:${s.totalStudents - s.subscribedCount > 0 ? 'var(--warning)' : 'var(--success)'}">${s.totalStudents - s.subscribedCount}</div>
-        <div class="school-stat-label">Not Subscribed</div>
-      </div>
-      <div class="school-stat">
-        <div class="school-stat-value" style="color:var(--info)">${s.bookingsCount}</div>
-        <div class="school-stat-label">Bookings</div>
-      </div>
-    </div>
+  updateSchoolLogoPreview(s?.logoUrl || null);
 
-    <div class="school-actions">
-      <button class="btn btn-outline btn-sm" data-school-action="rename">
-        <i class="fas fa-pen"></i> Rename School
-      </button>
-      <button class="btn btn-outline btn-sm" data-school-action="bulk-message">
-        <i class="fas fa-paper-plane"></i> Message All Students
-      </button>
-      <button class="btn btn-outline btn-sm" data-school-action="export">
-        <i class="fas fa-download"></i> Copy Student List
-      </button>
-      <button class="btn btn-outline btn-sm" data-school-action="unlink" style="color:var(--warning);border-color:#fde68a">
-        <i class="fas fa-link-slash"></i> Unlink School
-      </button>
-      <button class="btn btn-outline btn-sm" data-school-action="delete-all" style="color:var(--danger);border-color:#fecaca;margin-left:auto">
-        <i class="fas fa-trash"></i> Delete All Students
-      </button>
-    </div>
-
-    <div class="school-students-head">
-      <h4><i class="fas fa-users"></i> Students in this school (${s.totalStudents})</h4>
-    </div>
-
-    <div id="schoolStudentsList">
-      ${sortedStudents.length === 0
-        ? `<div class="empty"><div class="empty-icon"><i class="fas fa-user-slash"></i></div><h3>No students</h3></div>`
-        : sortedStudents.map(st => renderStudentRow(st)).join('')}
-    </div>
-  `;
-
-  $('schoolModalBody').innerHTML = bodyHtml;
-  openModal('schoolModal');
-
-  // Close button
-  const closeBtn = $('schoolModalBody').querySelector('[data-close="schoolModal"]');
-  if(closeBtn) closeBtn.addEventListener('click', () => closeModal('schoolModal'));
-
-  // Action handlers
-  $('schoolModalBody').querySelectorAll('[data-school-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const action = btn.dataset.schoolAction;
-      if(action === 'rename') openEditSchoolModal(s.key);
-      else if(action === 'bulk-message') openBulkMessageModal(s.key);
-      else if(action === 'export') copyStudentList(s);
-      else if(action === 'unlink') unlinkSchoolFlow(s.key);
-      else if(action === 'delete-all') deleteAllStudentsFlow(s.key);
-    });
-  });
-
-  // Student row handlers
-  bindStudentRowHandlers();
+  $('schoolSaveBtn').querySelector('span').textContent = s ? 'Save Changes' : 'Save School';
+  openModal('schoolFormModal');
 }
 
-function renderStudentRow(st){
-  const initials = (st.name || st.email || 'S').charAt(0).toUpperCase();
-  const avatarHtml = st.avatarUrl
-    ? `<img src="${escAttr(st.avatarUrl)}" alt="" onerror="this.parentNode.textContent='${escAttr(initials)}'">`
-    : esc(initials);
-
-  const subStatus = st.subscriptionStatus === 'active' || st.subscriptionStatus === 'approved'
-    ? '<span class="pill active" style="text-transform:none">Subscribed</span>'
-    : '<span class="pill unverified" style="text-transform:none">Not subscribed</span>';
-
-  const roleBadge = st.role === 'admin'
-    ? '<span class="pill admin" style="text-transform:none">Admin</span>'
-    : '';
-
-  return `
-    <div class="student-row" data-student-id="${escAttr(st.id)}">
-      <div class="student-row-avatar">${avatarHtml}</div>
-      <div class="student-row-body">
-        <div class="student-row-name">${esc(st.name || 'Unnamed student')} ${roleBadge}</div>
-        <div class="student-row-meta">${esc(st.email || '')}${st.phone ? ' · ' + esc(st.phone) : ''}</div>
-      </div>
-      <div style="flex-shrink:0">${subStatus}</div>
-      <div class="student-row-actions">
-        <button class="btn btn-outline btn-sm" data-student-action="edit" data-student-id="${escAttr(st.id)}" title="Edit">
-          <i class="fas fa-pen"></i>
-        </button>
-        <button class="btn btn-outline btn-sm" data-student-action="delete" data-student-id="${escAttr(st.id)}" title="Delete" style="color:var(--danger);border-color:#fecaca">
-          <i class="fas fa-trash"></i>
-        </button>
-      </div>
-    </div>
-  `;
+function updateSchoolLogoPreview(url){
+  const prev = $('schoolLogoPreview');
+  const removeBtn = $('schoolLogoRemoveBtn');
+  if(url){
+    prev.innerHTML = `<img src="${escAttr(url)}" alt="" onerror="this.parentNode.innerHTML='<i class=\\'fas fa-university\\'></i>'">`;
+    prev.classList.add('has-image');
+    removeBtn.style.display = '';
+  } else {
+    prev.innerHTML = '<i class="fas fa-university"></i>';
+    prev.classList.remove('has-image');
+    removeBtn.style.display = 'none';
+  }
 }
 
-function bindStudentRowHandlers(){
-  $('schoolModalBody').querySelectorAll('[data-student-action]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const action = btn.dataset.studentAction;
-      const id = btn.dataset.studentId;
-      if(action === 'edit') openEditStudentModal(id);
-      else if(action === 'delete') deleteStudentFlow(id);
-    });
-  });
-}
+$('schoolLogoPickBtn').addEventListener('click', () => $('schoolLogoInput').click());
+$('schoolLogoRemoveBtn').addEventListener('click', () => {
+  pendingSchoolLogoFile = null;
+  pendingSchoolLogoPreviewUrl = null;
+  pendingSchoolLogoExistingUrl = null;
+  $('schoolLogoInput').value = '';
+  updateSchoolLogoPreview(null);
+});
 
-/* ── RENAME SCHOOL ── */
-function openEditSchoolModal(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-  currentSchoolName = s.key;
-  $('editSchoolName').value = s.name === 'Unassigned / No school set' ? '' : s.name;
-  $('editSchoolSub').textContent = `Renaming will update the university field for all ${s.totalStudents} student${s.totalStudents===1?'':'s'} in this school.`;
-  $('editSchoolHint').textContent = `New name will be saved on all ${s.totalStudents} matching students.`;
-  openModal('editSchoolModal');
-}
-
-$('editSchoolSaveBtn').addEventListener('click', async () => {
-  const newName = $('editSchoolName').value.trim();
-  if(!newName){
-    showToast('School name is required.', 'error');
+$('schoolLogoInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){
+    showToast('Image must be under 5MB.', 'error');
+    e.target.value = '';
     return;
   }
-
-  const s = schools.find(x => x.key === currentSchoolName);
-  if(!s){ showToast('School not found.', 'error'); return; }
-
-  const btn = $('editSchoolSaveBtn');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
-
-  try{
-    // Bulk update every student in this school
-    await Promise.all(s.students.map(st =>
-      updateDoc(doc(db, 'users', st.id), {
-        university: newName,
-        updatedAt: serverTimestamp()
-      })
-    ));
-
-    showToast(`Renamed to "${newName}" on ${s.students.length} student${s.students.length===1?'':'s'}.`, 'success');
-    closeModal('editSchoolModal');
-    // Close the detail modal too so it re-opens fresh
-    closeModal('schoolModal');
-  }catch(e){
-    console.error(e);
-    showToast('Rename failed: ' + e.message, 'error');
-  }finally{
-    btn.disabled = false;
-    btn.innerHTML = orig;
+  if(!file.type.startsWith('image/')){
+    showToast('Please select an image file.', 'error');
+    e.target.value = '';
+    return;
   }
-});
+  pendingSchoolLogoFile = file;
+  pendingSchoolLogoPreviewUrl = null;
 
-/* ── DELETE SCHOOL (all students) ── */
-async function deleteSchoolFlow(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-
-  const ok = await confirmDialog(
-    'Delete entire school?',
-    `Permanently delete all ${s.totalStudents} student account${s.totalStudents===1?'':'s'} in "${s.name}"? This cannot be undone. Bookings and messages will be anonymised.`
-  );
-  if(!ok) return;
-
-  await deleteAllStudentsInSchool(s);
-}
-
-async function deleteAllStudentsFlow(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-
-  const ok = await confirmDialog(
-    'Delete all students?',
-    `Permanently delete all ${s.totalStudents} student account${s.totalStudents===1?'':'s'} in "${s.name}"? This cannot be undone.`
-  );
-  if(!ok) return;
-
-  await deleteAllStudentsInSchool(s);
-}
-
-async function deleteAllStudentsInSchool(s){
-  showToast(`Deleting ${s.students.length} account${s.students.length===1?'':'s'}…`, 'info');
-
-  let ok = 0, fail = 0;
-  for(const st of s.students){
-    try{
-      // Anonymise bookings & messages
-      await anonymiseUserData(st.id);
-      // Delete user doc
-      await deleteDoc(doc(db, 'users', st.id));
-      ok++;
-    }catch(e){
-      console.error('Failed to delete', st.id, e);
-      fail++;
-    }
-  }
-
-  if(fail === 0){
-    showToast(`Deleted ${ok} student${ok===1?'':'s'}.`, 'success');
-  } else {
-    showToast(`Deleted ${ok}, failed ${fail}.`, 'error');
-  }
-
-  closeModal('schoolModal');
-}
-
-/* ── UNLINK SCHOOL (remove university field from all students) ── */
-async function unlinkSchoolFlow(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-
-  const ok = await confirmDialog(
-    'Unlink school?',
-    `Remove the school name from all ${s.totalStudents} student${s.totalStudents===1?'':'s'}? They'll move to "Unassigned". Student accounts will not be deleted.`
-  );
-  if(!ok) return;
-
-  try{
-    await Promise.all(s.students.map(st =>
-      updateDoc(doc(db, 'users', st.id), {
-        university: '',
-        updatedAt: serverTimestamp()
-      })
-    ));
-    showToast(`Unlinked ${s.students.length} student${s.students.length===1?'':'s'}.`, 'success');
-    closeModal('schoolModal');
-  }catch(e){
-    console.error(e);
-    showToast('Unlink failed: ' + e.message, 'error');
-  }
-}
-
-/* ── COPY STUDENT LIST ── */
-function copyStudentList(s){
-  const lines = s.students.map(st =>
-    [st.name || 'Unnamed', st.email || '', st.phone || '', st.subscriptionStatus || 'none'].join('\t')
-  );
-  const text = `# ${s.name}\nName\tEmail\tPhone\tSubscription\n${lines.join('\n')}`;
-
-  navigator.clipboard.writeText(text).then(() => {
-    showToast(`Copied ${s.students.length} student${s.students.length===1?'':'s'} to clipboard.`, 'success');
-  }).catch(() => {
-    // Fallback
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    try{ document.execCommand('copy'); showToast('Copied to clipboard.', 'success'); }
-    catch(_){ showToast('Copy failed.', 'error'); }
-    ta.remove();
-  });
-}
-
-/* ── BULK MESSAGE ── */
-function openBulkMessageModal(schoolKey){
-  const s = schools.find(x => x.key === schoolKey);
-  if(!s) return;
-  currentBulkSchool = s;
-  $('bulkMsgSubject').value = '';
-  $('bulkMsgBody').value = '';
-  $('bulkMsgSub').textContent = `Send an inbox message to all ${s.totalStudents} student${s.totalStudents===1?'':'s'} in "${s.name}".`;
-  $('bulkMsgHint').textContent = `Recipients will see this in their inbox under Support.`;
-  openModal('bulkMsgModal');
-}
-
-$('bulkMsgSendBtn').addEventListener('click', async () => {
-  if(!currentBulkSchool) return;
-  const subject = $('bulkMsgSubject').value.trim();
-  const body = $('bulkMsgBody').value.trim();
-
-  if(!subject){ showToast('Subject is required.', 'error'); return; }
-  if(!body){ showToast('Message is required.', 'error'); return; }
-
-  const btn = $('bulkMsgSendBtn');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
-
-  let ok = 0, fail = 0;
-  for(const st of currentBulkSchool.students){
-    try{
-      await addDoc(collection(db, 'messages'), {
-        sender: 'admin',
-        senderType: 'admin',
-        senderId: currentAdmin.uid,
-        senderName: 'Zone21 Team',
-        recipientId: st.id,
-        type: 'support',
-        subject,
-        message: body,
-        status: 'unread',
-        bulkSchool: currentBulkSchool.name,
-        createdAt: serverTimestamp()
-      });
-      ok++;
-    }catch(e){
-      console.error('Bulk message failed for', st.id, e);
-      fail++;
-    }
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = orig;
-
-  if(fail === 0){
-    showToast(`Sent to ${ok} student${ok===1?'':'s'}.`, 'success');
-  } else {
-    showToast(`Sent to ${ok}, ${fail} failed.`, 'error');
-  }
-  closeModal('bulkMsgModal');
-});
-
-/* ── EDIT STUDENT ── */
-function openEditStudentModal(studentId){
-  const st = allUsers.find(u => u.id === studentId);
-  if(!st) return;
-  editingStudentId = studentId;
-
-  $('editStudentSub').textContent = `Editing ${st.name || st.email || 'student'}`;
-  $('esName').value = st.name || '';
-  $('esEmail').value = st.email || '';
-  $('esPhone').value = st.phone || '';
-  $('esUniversity').value = st.university || '';
-  $('esRole').value = st.role || 'student';
-
-  openModal('editStudentModal');
-}
-
-$('editStudentSaveBtn').addEventListener('click', async () => {
-  if(!editingStudentId) return;
-  const name = $('esName').value.trim();
-  const email = $('esEmail').value.trim();
-  const phone = $('esPhone').value.trim();
-  const university = $('esUniversity').value.trim();
-  const role = $('esRole').value;
-
-  if(!name){ showToast('Name is required.', 'error'); return; }
-  if(!email){ showToast('Email is required.', 'error'); return; }
-
-  const btn = $('editStudentSaveBtn');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
-
-  try{
-    await updateDoc(doc(db, 'users', editingStudentId), {
-      name, email, phone, university, role,
-      updatedAt: serverTimestamp()
+  compressImageToBase64(file, 300, 0.6)
+    .then(base64 => {
+      pendingSchoolLogoPreviewUrl = base64;
+      updateSchoolLogoPreview(base64);
+    })
+    .catch(err => {
+      showToast('Could not preview: ' + err.message, 'error');
+      pendingSchoolLogoFile = null;
+      $('schoolLogoInput').value = '';
     });
-    showToast('Student updated.', 'success');
-    closeModal('editStudentModal');
-    closeModal('schoolModal'); // close detail so it re-renders on reopen
+});
+
+/* ── SAVE SCHOOL ── */
+$('schoolSaveBtn').addEventListener('click', async () => {
+  const btn = $('schoolSaveBtn');
+  const orig = btn.innerHTML;
+
+  const name = $('sfName').value.trim();
+  const type = $('sfType').value;
+  const city = $('sfCity').value.trim();
+
+  if(!name){ showToast('School name is required.', 'error'); $('sfName').focus(); return; }
+  if(!type){ showToast('School type is required.', 'error'); $('sfType').focus(); return; }
+  if(!city){ showToast('City / location is required.', 'error'); $('sfCity').focus(); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+  try{
+    const id = currentSchoolEditId || doc(collection(db, 'schools')).id;
+    let logoUrl = pendingSchoolLogoExistingUrl;
+
+    if(pendingSchoolLogoFile){
+      logoUrl = await compressImageToBase64(pendingSchoolLogoFile, 300, 0.6);
+    }
+
+    const payload = {
+      name,
+      shortName: $('sfShortName').value.trim() || null,
+      type,
+      city,
+      province: $('sfProvince').value.trim() || null,
+      address: $('sfAddress').value.trim() || null,
+      email: $('sfEmail').value.trim() || null,
+      phone: $('sfPhone').value.trim() || null,
+      website: $('sfWebsite').value.trim() || null,
+      description: $('sfDescription').value.trim() || null,
+      verified: $('sfVerified').checked,
+      active: $('sfActive').checked,
+      logoUrl: logoUrl || null,
+      updatedAt: serverTimestamp()
+    };
+
+    if(currentSchoolEditId){
+      await updateDoc(doc(db, 'schools', currentSchoolEditId), payload);
+      showToast('School updated.', 'success');
+    } else {
+      payload.createdAt = serverTimestamp();
+      payload.createdBy = currentAdmin.uid;
+      await setDoc(doc(db, 'schools', id), payload);
+      showToast('School added.', 'success');
+    }
+
+    closeModal('schoolFormModal');
   }catch(e){
     console.error(e);
     showToast('Save failed: ' + e.message, 'error');
@@ -3332,49 +3063,153 @@ $('editStudentSaveBtn').addEventListener('click', async () => {
   }
 });
 
-/* ── DELETE STUDENT ── */
-async function deleteStudentFlow(studentId){
-  const st = allUsers.find(u => u.id === studentId);
-  if(!st) return;
+/* ── VIEW SCHOOL ── */
+function openSchoolView(id){
+  const s = allSchools.find(x => x.id === id);
+  if(!s) return;
+
+  const initials = initialsFromName(s.shortName || s.name);
+  const logoHtml = s.logoUrl
+    ? `<img src="${escAttr(s.logoUrl)}" alt="">`
+    : esc(initials);
+
+  const created = toDate(s.createdAt);
+  const updated = toDate(s.updatedAt);
+
+  const bodyHtml = `
+    <div class="school-detail-header">
+      <div class="school-detail-logo">${logoHtml}</div>
+      <div class="school-detail-body">
+        <div class="school-detail-name">
+          ${esc(s.name)}
+          ${s.shortName ? `<span class="pill neutral" style="text-transform:none">${esc(s.shortName)}</span>` : ''}
+          ${s.verified ? `<span class="pill verified">Verified</span>` : `<span class="pill unverified">Unverified</span>`}
+          ${s.active === false ? `<span class="pill inactive">Inactive</span>` : ''}
+        </div>
+        <div class="school-detail-meta">
+          <span><i class="fas fa-graduation-cap"></i>${esc(typeLabel(s.type))}</span>
+          ${s.city ? `<span><i class="fas fa-location-dot"></i>${esc(s.city)}${s.province ? ', ' + esc(s.province) : ''}</span>` : ''}
+          ${created ? `<span><i class="fas fa-clock"></i>Added ${fmtDate(created)}</span>` : ''}
+        </div>
+      </div>
+      <button class="modal-close" style="color:rgba(255,255,255,.7);background:rgba(255,255,255,.08)" data-close="schoolViewModal">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="school-detail-grid">
+      <div class="school-detail-field">
+        <small>Type</small>
+        <strong>${esc(typeLabel(s.type))}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>City</small>
+        <strong>${esc(s.city || '—')}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>Province</small>
+        <strong>${esc(s.province || '—')}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>Short Name</small>
+        <strong>${esc(s.shortName || '—')}</strong>
+      </div>
+      <div class="school-detail-field full">
+        <small>Address</small>
+        <strong>${esc(s.address || '—')}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>Email</small>
+        <strong>${s.email ? `<a href="mailto:${escAttr(s.email)}">${esc(s.email)}</a>` : '—'}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>Phone</small>
+        <strong>${esc(s.phone || '—')}</strong>
+      </div>
+      <div class="school-detail-field full">
+        <small>Website</small>
+        <strong>${s.website ? `<a href="${escAttr(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a>` : '—'}</strong>
+      </div>
+      ${s.description ? `
+        <div class="school-detail-field full">
+          <small>Notes</small>
+          <div class="school-detail-notes">${esc(s.description)}</div>
+        </div>
+      ` : ''}
+      <div class="school-detail-field">
+        <small>Status</small>
+        <strong>${s.active === false ? 'Inactive' : 'Active'}</strong>
+      </div>
+      <div class="school-detail-field">
+        <small>Verified</small>
+        <strong>${s.verified ? 'Yes' : 'No'}</strong>
+      </div>
+      ${created ? `
+        <div class="school-detail-field">
+          <small>Registered</small>
+          <strong>${esc(fmtDate(created))}</strong>
+        </div>
+      ` : ''}
+      ${updated ? `
+        <div class="school-detail-field">
+          <small>Last Updated</small>
+          <strong>${esc(fmtDate(updated))}</strong>
+        </div>
+      ` : ''}
+    </div>
+
+    <div style="padding:14px 24px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--surface-2);flex-wrap:wrap">
+      <button class="btn btn-outline" data-close="schoolViewModal">Close</button>
+      <button class="btn btn-outline" data-school-view-action="edit" data-school-view-id="${escAttr(s.id)}">
+        <i class="fas fa-pen"></i> Edit
+      </button>
+      <button class="btn btn-danger" data-school-view-action="delete" data-school-view-id="${escAttr(s.id)}">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+    </div>
+  `;
+
+  $('schoolViewBody').innerHTML = bodyHtml;
+  openModal('schoolViewModal');
+
+  // Close button
+  $('schoolViewBody').querySelectorAll('[data-close="schoolViewModal"]').forEach(b => {
+    b.addEventListener('click', () => closeModal('schoolViewModal'));
+  });
+  // Actions
+  $('schoolViewBody').querySelectorAll('[data-school-view-action]').forEach(b => {
+    b.addEventListener('click', () => {
+      const action = b.dataset.schoolViewAction;
+      const schoolId = b.dataset.schoolViewId;
+      if(action === 'edit'){
+        closeModal('schoolViewModal');
+        setTimeout(() => openSchoolForm(schoolId), 180);
+      } else if(action === 'delete'){
+        closeModal('schoolViewModal');
+        setTimeout(() => deleteSchoolFlow(schoolId), 180);
+      }
+    });
+  });
+}
+
+/* ── DELETE SCHOOL ── */
+async function deleteSchoolFlow(id){
+  const s = allSchools.find(x => x.id === id);
+  if(!s) return;
 
   const ok = await confirmDialog(
-    'Delete student?',
-    `Permanently delete "${st.name || st.email || 'this student'}"? Their bookings and messages will be anonymised. This cannot be undone.`
+    'Delete school?',
+    `Permanently delete "${s.name}" from the registry? This only removes the school record — student accounts are not affected.`
   );
   if(!ok) return;
 
   try{
-    await anonymiseUserData(studentId);
-    await deleteDoc(doc(db, 'users', studentId));
-    showToast('Student deleted.', 'success');
-    closeModal('schoolModal');
+    await deleteDoc(doc(db, 'schools', id));
+    showToast('School deleted.', 'success');
   }catch(e){
     console.error(e);
     showToast('Delete failed: ' + e.message, 'error');
   }
-}
-
-/* ── SHARED: anonymise user data before delete ── */
-async function anonymiseUserData(uid){
-  const safeUpdate = async (collName, extraFields = {}) => {
-    try{
-      const snap = await getDocs(query(collection(db, collName), where('userId', '==', uid)));
-      await Promise.all(snap.docs.map(d => updateDoc(d.ref, {
-        userName: 'Deleted User',
-        userEmail: null,
-        userPhone: null,
-        anonymisedAt: serverTimestamp(),
-        ...extraFields
-      })));
-    }catch(e){
-      console.warn(`Anonymise ${collName} failed:`, e);
-    }
-  };
-  await safeUpdate('bookings');
-  await safeUpdate('messages', {
-    senderName: 'Deleted User',
-    status: 'read'
-  });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3392,7 +3227,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-console.log('✅ Zone21 Admin — Artists · Bookings · Messages · Schools');
+console.log('✅ Zone21 Admin — Artists · Bookings · Messages · Schools (registry)');
 </script>
 </body>
 </html>

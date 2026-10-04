@@ -61,13 +61,12 @@ html,body{height:100%;height:-webkit-fill-available;overflow:hidden;margin:0;pad
 .package-banner .pkg-limit span{color:var(--mint-light);font-weight:600}
 .package-banner .pkg-action{background:var(--mint);color:#fff;border:none;padding:5px 14px;border-radius:20px;font-weight:600;font-size:.65rem;cursor:pointer;text-decoration:none}
 .package-banner .pkg-action:hover{background:#5A8A8A}
-
-/* DETECTION BAR */
 .detect-bar{display:flex;align-items:stretch;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.detect-chip{flex:1;min-width:220px;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);border:1.5px solid;transition:.25s;background:#fff;box-shadow:var(--shadow-sm)}
+.detect-chip{flex:1 1 260px;min-width:0;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);border:1.5px solid;transition:.25s;background:#fff;box-shadow:var(--shadow-sm)}
 .detect-chip.country{background:linear-gradient(135deg,#F0FAFA,#FFFFFF)}
 .detect-chip.country.ok{border-color:var(--mint);box-shadow:0 0 0 3px var(--mint-soft)}
 .detect-chip.country.err{border-color:var(--coral);background:linear-gradient(135deg,#FDF6F3,#FFFFFF);box-shadow:0 0 0 3px var(--coral-soft)}
+.detect-chip.country.hidden-chip{display:none}
 .detect-chip.currency{background:linear-gradient(135deg,#F5F7F9,#FFFFFF);border-color:var(--border-strong)}
 .detect-chip.currency.zar{background:linear-gradient(135deg,#FFF9E6,#FFFFFF);border-color:#F5B400}
 .detect-chip.currency.usd{background:linear-gradient(135deg,#F0F6FF,#FFFFFF);border-color:#6B9F9F}
@@ -87,7 +86,6 @@ html,body{height:100%;height:-webkit-fill-available;overflow:hidden;margin:0;pad
 .currency-switch button:hover{color:var(--navy)}
 .currency-switch button.active{background:var(--navy);color:#fff;box-shadow:var(--shadow-sm)}
 .currency-switch button.active[data-currency="ZAR"]{background:linear-gradient(135deg,#007A4D,#007A4D);color:#FFB612}
-
 .form-section{background:#fff;padding:18px 20px;border-radius:var(--radius);border:1px solid var(--border-light);box-shadow:var(--shadow-sm)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:640px){.form-grid{grid-template-columns:1fr}}
@@ -219,8 +217,6 @@ html,body{height:100%;height:-webkit-fill-available;overflow:hidden;margin:0;pad
 .invite-info-banner i{color:var(--mint);font-size:1.3rem;flex-shrink:0;margin-top:2px}
 .invite-info-banner .txt{font-size:.85rem;color:var(--text-primary);line-height:1.6}
 .invite-info-banner strong{color:var(--navy)}
-
-/* CHAT + PROFILE MODALS */
 @keyframes slideUp{from{opacity:0;transform:translateY(30px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes fadeInOverlay{from{opacity:0}to{opacity:1}}
 .chat-modal-overlay{position:fixed;inset:0;background:rgba(26,42,58,.5);backdrop-filter:blur(6px);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;animation:fadeInOverlay .3s}
@@ -380,7 +376,7 @@ html,body{height:100%;height:-webkit-fill-available;overflow:hidden;margin:0;pad
       </div>
 
       <div class="detect-bar">
-        <div class="detect-chip country" id="countryChip">
+        <div class="detect-chip country hidden-chip" id="countryChip" style="display:none;">
           <div class="dc-icon"><i class="fas fa-globe-africa" id="countryChipIcon"></i></div>
           <div class="dc-text">
             <div class="dc-label">Event Country</div>
@@ -557,7 +553,7 @@ const USD_TO_ZAR = 19;
 const ZAR_NATIVE_COUNTRIES = new Set(['south africa', 'lesotho', 'eswatini', 'namibia']);
 
 /* ============================================================
-   COUNTRY DATABASE (strict)
+   COUNTRY DATABASE
 ============================================================ */
 const COUNTRY_DB = {
   'zimbabwe': {
@@ -649,7 +645,7 @@ const PACKAGES = {
 };
 
 /* ============================================================
-   ⭐ DOM REFS — declared FIRST so any listener can safely use them
+   DOM REFS
 ============================================================ */
 const $ = (id) => document.getElementById(id);
 
@@ -695,9 +691,8 @@ const currencyChipValue      = $('currencyChipValue');
 const currencyChipSub        = $('currencyChipSub');
 const locationHint           = $('location-hint');
 
-/* ⬇⬇⬇  PART B CONTINUES BELOW  ⬇⬇⬇ */
-
-    /* ============================================================
+/* ⬇⬇⬇  PART B CONTINUES HERE  ⬇⬇⬇ */
+  /* ============================================================
    STATE
 ============================================================ */
 let currentSessionId = null;
@@ -726,7 +721,6 @@ let currentProfileUid = null;
 let activeCurrency = 'USD';
 let currencyManuallySet = false;
 
-/* Load persisted currency preference */
 try {
   currencyManuallySet = localStorage.getItem('zone21_currency_manual') === '1';
   const stored = localStorage.getItem('zone21_currency');
@@ -734,7 +728,7 @@ try {
 } catch (e) {}
 
 /* ============================================================
-   COUNTRY DETECTION ENGINE
+   COUNTRY DETECTION
 ============================================================ */
 function normalizeLocation(str) {
   if (!str) return '';
@@ -743,16 +737,12 @@ function normalizeLocation(str) {
     .replace(/[^\w\s,]/g, ' ')
     .replace(/\s+/g, ' ').trim();
 }
-
-function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 function detectCountryFromLocation(locationStr) {
   const norm = normalizeLocation(locationStr);
   if (!norm) return null;
 
-  // PASS 1 — explicit country name/alias
   for (const [key, meta] of Object.entries(COUNTRY_DB)) {
     for (const alias of meta.aliases) {
       const a = normalizeLocation(alias);
@@ -761,7 +751,6 @@ function detectCountryFromLocation(locationStr) {
       if (re.test(norm)) return key;
     }
   }
-  // PASS 2 — city names, longest first
   const allCities = [];
   for (const [key, meta] of Object.entries(COUNTRY_DB)) {
     for (const city of meta.cities) {
@@ -774,7 +763,6 @@ function detectCountryFromLocation(locationStr) {
     const re = new RegExp(`(^|[\\s,])${escapeRegex(city)}($|[\\s,])`, 'i');
     if (re.test(norm)) return key;
   }
-  // PASS 3 — region/province
   for (const [key, meta] of Object.entries(COUNTRY_DB)) {
     for (const region of meta.regions) {
       const r = normalizeLocation(region);
@@ -801,10 +789,7 @@ function detectVendorCountry(vendor) {
   return null;
 }
 
-function getCountryMeta(key) {
-  if (!key) return null;
-  return COUNTRY_DB[key] || null;
-}
+function getCountryMeta(key) { return key ? (COUNTRY_DB[key] || null) : null; }
 
 /* ============================================================
    CURRENCY HELPERS
@@ -813,13 +798,8 @@ function getCurrencyForCountry(countryKey) {
   if (!countryKey) return 'USD';
   return ZAR_NATIVE_COUNTRIES.has(countryKey) ? 'ZAR' : 'USD';
 }
-
-function currencySymbol(c = activeCurrency) {
-  return (CURRENCIES[c] && CURRENCIES[c].symbol) || '$';
-}
-function currencyLabel(c = activeCurrency) {
-  return (CURRENCIES[c] && CURRENCIES[c].label) || 'US Dollar';
-}
+function currencySymbol(c = activeCurrency) { return (CURRENCIES[c] && CURRENCIES[c].symbol) || '$'; }
+function currencyLabel(c = activeCurrency) { return (CURRENCIES[c] && CURRENCIES[c].label) || 'US Dollar'; }
 function convertAmount(usdAmount, currency = activeCurrency) {
   const n = Number(usdAmount) || 0;
   return currency === 'ZAR' ? n * USD_TO_ZAR : n;
@@ -833,19 +813,22 @@ function formatFromUSD(usdAmount, currency = activeCurrency) {
 }
 
 /* ============================================================
-   ⭐ LIVE DETECTION UI UPDATES
+   ⭐ DETECTION UI — country chip hides when empty
 ============================================================ */
 function updateCountryChip() {
   if (!countryChip || !countryChipValue || !countryChipSub) return;
   const loc = (eventLocationInput && eventLocationInput.value) || '';
 
+  // ⭐ Hide completely when no location typed yet
   if (!loc.trim()) {
-    countryChip.className = 'detect-chip country';
-    countryChipIcon.className = 'fas fa-globe-africa';
-    countryChipValue.textContent = 'Waiting for location…';
-    countryChipSub.textContent = 'Include city & country in the location field';
+    countryChip.classList.add('hidden-chip');
+    countryChip.style.display = 'none';
     return;
   }
+
+  // Show as soon as the user starts typing
+  countryChip.classList.remove('hidden-chip');
+  countryChip.style.display = 'flex';
 
   const key = detectCountryFromLocation(loc);
   if (key) {
@@ -862,6 +845,7 @@ function updateCountryChip() {
   }
 }
 
+/* ⭐ Currency chip — no exchange rate shown */
 function updateCurrencyChip() {
   if (!currencyChip || !currencyChipValue || !currencyChipSub) return;
   const cur = CURRENCIES[activeCurrency];
@@ -871,7 +855,7 @@ function updateCurrencyChip() {
   currencyChipIcon.className = 'fas fa-coins';
   currencyChipValue.textContent = `${flag}  ${cur.code} ${cur.symbol}`;
   currencyChipSub.textContent = currencyManuallySet
-    ? `Manual selection · 1 USD = ${USD_TO_ZAR} ZAR`
+    ? 'Manually selected'
     : 'Auto-detected from your location';
 }
 
@@ -895,12 +879,10 @@ function updateBudgetHint() {
 }
 
 function applyCurrencyUI() {
-  // Buttons
   document.querySelectorAll('#currencySwitch button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
   });
 
-  // Budget badges and prefix
   if (budgetCurrencyBadge) {
     budgetCurrencyBadge.textContent = activeCurrency;
     budgetCurrencyBadge.className = 'currency-mini-badge' + (activeCurrency === 'ZAR' ? ' zar' : '');
@@ -910,7 +892,7 @@ function applyCurrencyUI() {
   updateCurrencyChip();
   updateBudgetHint();
 
-  // Live re-render visible vendor card prices
+  // Re-render visible vendor card prices
   document.querySelectorAll('.vendor-card[data-price-usd]').forEach(card => {
     const usd = Number(card.getAttribute('data-price-usd')) || 0;
     const priceEl = card.querySelector('.price-line .price-value');
@@ -918,7 +900,7 @@ function applyCurrencyUI() {
     priceEl.textContent = usd > 0 ? formatFromUSD(usd) : 'Pricing TBD';
   });
 
-  // Update the "prices shown in X" text inside blueprints
+  // Update "Prices shown in X" text
   document.querySelectorAll('.invite-info-banner .txt').forEach(el => {
     el.innerHTML = el.innerHTML.replace(
       /Prices shown in <strong>[A-Z]{3}<\/strong>/,
@@ -927,7 +909,6 @@ function applyCurrencyUI() {
   });
 }
 
-/* ⭐ Called by currency switcher buttons */
 function setCurrency(currency, isManual) {
   if (!CURRENCIES[currency]) return;
   activeCurrency = currency;
@@ -943,7 +924,6 @@ function setCurrency(currency, isManual) {
   applyCurrencyUI();
 }
 
-/* ⭐ Called when user types in location, if they haven't manually set currency */
 function autoDetectCurrencyFromLocation() {
   if (currencyManuallySet) return;
   const loc = (eventLocationInput && eventLocationInput.value) || '';
@@ -958,14 +938,12 @@ function autoDetectCurrencyFromLocation() {
 }
 
 /* ============================================================
-   ⭐ BIND LIVE INPUT LISTENERS (safe now — DOM refs exist)
+   LIVE INPUT LISTENERS
 ============================================================ */
 if (eventLocationInput) {
   let debounceTimer = null;
   eventLocationInput.addEventListener('input', () => {
-    // Immediate visual feedback
     updateCountryChip();
-    // Debounced currency auto-detect to avoid thrashing
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       autoDetectCurrencyFromLocation();
@@ -1075,6 +1053,7 @@ function scoreProviderForService(p, service) {
   const text = buildProviderSearchText(p);
   if (!text) return { score: 0, matches: [] };
   let score = 0;
+  const matches = [];
   const seen = new Set();
   keywords.forEach(kw => {
     const k = String(kw).toLowerCase().trim();
@@ -1083,13 +1062,9 @@ function scoreProviderForService(p, service) {
     if (text.includes(k)) {
       const w = k.length >= 8 ? 5 : k.length >= 5 ? 3 : 2;
       score += w;
-      matchesSafePush(kw);
+      matches.push(kw);
     }
   });
-  function matchesSafePush(x){ /* placeholder to avoid hoisting issues */ }
-  // rebuild matches properly
-  const matches = [];
-  keywords.forEach(kw => { if (text.includes(String(kw).toLowerCase())) matches.push(kw); });
   if (text.includes(serviceLower)) score += 8;
   return { score, matches, direct: false };
 }
@@ -1984,7 +1959,6 @@ eventForm.addEventListener('submit', function (e) {
     return;
   }
 
-  // Auto-lock currency if user hasn't overridden
   if (!currencyManuallySet) {
     const native = getCurrencyForCountry(resolvedCountry);
     if (native !== activeCurrency) {
@@ -2597,7 +2571,7 @@ function deleteBlueprintSession(id, event) {
 function startNewSession() {
   closeSidebar();
   currentSessionId = null;
-  currentEventData =  null;
+  currentEventData = null;
   serviceMatches = {};
   activeRequests = {};
   if (bookingUnsubscribe) { bookingUnsubscribe(); bookingUnsubscribe = null; }
@@ -2605,7 +2579,7 @@ function startNewSession() {
   blueprintContainer.style.display = 'none';
   loadingDiv.style.display = 'none';
   formSection.style.display = 'block';
-  updateCountryChip();
+  updateCountryChip();   // will hide it since input is now empty
   applyCurrencyUI();
   renderHistorySidebar();
 }
@@ -2634,7 +2608,6 @@ window.setCurrency = setCurrency;
    INIT
 ============================================================ */
 document.addEventListener('DOMContentLoaded', async function () {
-  // Profile modal close handlers
   const bpCloseBtn = $('blueprintProfileCloseBtn');
   const bpModal = $('blueprintProfileModal');
   if (bpCloseBtn) bpCloseBtn.addEventListener('click', closeBlueprintProfile);
@@ -2646,11 +2619,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
-  // Initial UI paint
   updateCountryChip();
   applyCurrencyUI();
 
-  // Auth
   auth.onAuthStateChanged(async (user) => {
     if (user) {
       currentUser = user;

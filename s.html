@@ -241,6 +241,9 @@
             padding: 3px;
         }
         .currency-options button {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
             border: 0;
             background: transparent;
             font-family: inherit;
@@ -1125,7 +1128,7 @@
             .section-head { align-items: flex-start; flex-direction: column; }
             .currency-switch { width: 100%; justify-content: space-between; border-radius: 14px; padding: 6px; }
             .currency-options { flex: 1; }
-            .currency-options button { flex: 1; }
+            .currency-options button { flex: 1; justify-content: center; }
         }
 
         @media (max-width: 768px) {
@@ -1244,8 +1247,8 @@
                 <div class="currency-switch" id="currency-switch">
                     <span class="currency-switch__label"><i class="fas fa-globe"></i> Currency</span>
                     <div class="currency-options">
-                        <button type="button" data-currency="USD" onclick="setCurrency('USD')">USD $</button>
-                        <button type="button" data-currency="ZAR" onclick="setCurrency('ZAR')">ZAR R</button>
+                        <button type="button" data-currency="USD" onclick="setCurrency('USD')">🇺🇸 USD $</button>
+                        <button type="button" data-currency="ZAR" onclick="setCurrency('ZAR')">🇿🇦 ZAR R</button>
                     </div>
                 </div>
             </div>
@@ -1660,11 +1663,6 @@
 
         /* ============================================================
            SILENT GEO DETECTION
-           ------------------------------------------------------------
-           1. Manual choice (localStorage) always wins — never overridden.
-           2. Timezone lookup  → country → currency
-           3. Browser locale   → country → currency
-           4. Silent IP lookup → country → currency (fails invisibly)
            ============================================================ */
         const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
 
@@ -1694,13 +1692,11 @@
         };
 
         function detectCountrySync() {
-            /* 1 — Timezone */
             try {
                 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
                 if (TIMEZONE_COUNTRY[tz]) return TIMEZONE_COUNTRY[tz];
             } catch (e) { /* silent */ }
 
-            /* 2 — Locale region */
             try {
                 const langs = [navigator.language, ...(navigator.languages || [])].filter(Boolean);
                 for (const lang of langs) {
@@ -1722,7 +1718,7 @@
                 const code = (await res.text()).trim().toUpperCase();
                 return /^[A-Z]{2}$/.test(code) ? code : null;
             } catch (e) {
-                return null; /* fail silently */
+                return null;
             }
         }
 
@@ -1730,7 +1726,6 @@
             return ZAR_COUNTRIES.has(code) ? 'ZAR' : 'USD';
         }
 
-        /* ---------- Currency state ---------- */
         let activeCurrency = 'USD';
         let manualCurrency = false;
         let detectedCountry = null;
@@ -1745,7 +1740,6 @@
             detectedCountry = detectCountrySync();
             if (detectedCountry) activeCurrency = currencyForCountry(detectedCountry);
 
-            /* Async refinement — completely silent, never overrides a manual pick */
             detectCountryViaIP().then(code => {
                 if (!code) return;
                 detectedCountry = code;

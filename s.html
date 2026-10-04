@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone21 · Subscriptions</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #102838;
+            --lime: #C0C800;
+            --pink: #F80070;
+            --white: #F8F8F8;
+            --grey: #E0E0E8;
+            --bg: #f0f4f8;
+            --surface: #FFFFFF;
+            --text: #102838;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --danger: #DC2626;
+            --success: #10B981;
+            --radius-xl: 20px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --shadow-md: 0 10px 30px rgba(16, 40, 56, 0.08);
+            --shadow-lg: 0 20px 50px rgba(16, 40, 56, 0.12);
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 1.5rem;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+        }
+        .app-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+
+        .header { text-align: center; margin-bottom: 2.5rem; }
+        .header h1 { color: var(--navy); font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; }
+        .header h1 span { color: var(--pink); }
+
+        .view { display: none; animation: fadeSlideIn 0.35s ease; }
+        .view.active { display: block; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ============================================================
+           CURRENCY SWITCHER
+           ============================================================ */
+        .currency-switch {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.9rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 6px 6px 1.1rem;
+            width: max-content;
+            max-width: 100%;
+            margin: 0 auto 2.2rem;
+            box-shadow: var(--shadow-md);
+            flex-wrap: wrap;
+        }
+        .currency-switch .currency-label {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .currency-switch .currency-label i { color: var(--lime); }
+        .currency-switch .currency-options {
+            display: flex;
+            gap: 4px;
+            background: var(--bg);
+            border-radius: 999px;
+            padding: 4px;
+        }
+        .currency-switch .currency-options button {
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            padding: 0.55rem 1.15rem;
+            border-radius: 999px;
+            font-weight: 800;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        .currency-switch .currency-options button:hover { color: var(--navy); }
+        .currency-switch .currency-options button.active {
+            background: var(--navy);
+            color: var(--lime);
+            box-shadow: var(--shadow-md);
+        }
+
+        .section-label {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin: 2rem 0 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .section-label i { color: var(--lime); }
+        .section-label small {
+            font-size: 0.8rem;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+
+        /* ============================================================
+           LOADING SPINNER FOR EVENTS GRID
+           ============================================================ */
+        .events-loading {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3.5rem 2rem;
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+        }
+        .events-loading i {
+            font-size: 2rem;
+            color: var(--lime);
+            display: block;
+            margin-bottom: 1rem;
+            animation: spin 1s linear infinite;
+        }
+        .events-loading p {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            width: 100%;
+        }
+        .plan-card, .event-card {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            padding: 24px 20px 20px;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+        }
+        .plan-card:hover { transform: translateY(-5px); border-color: var(--lime); box-shadow: var(--shadow-lg); }
+        .plan-card.popular { border-color: var(--pink); position: relative; }
+        .popular-badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--pink);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .plan-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--navy); }
+        .plan-price { font-size: 2rem; color: var(--navy); font-weight: 800; margin-bottom: 16px; }
+        .plan-price .unit { font-size: 1rem; color: #888; font-weight: 500; }
+        .plan-price .amount { transition: var(--transition); }
+        .plan-features { list-style: none; margin-bottom: 24px; flex: 1; }
+        .plan-features li { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #444; font-weight: 500; }
+        .plan-features li i { color: var(--lime); font-size: 1rem; }
+
+        .event-card {
+            border-color: var(--lime);
+            background: linear-gradient(135deg, #fafff0 0%, #ffffff 100%);
+        }
+        .event-card .event-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .event-card .event-package {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .event-card .event-status {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 2px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+        .event-card .event-date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.2rem;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            width: 100%;
+            font-family: inherit;
+        }
+        .btn-primary { background: var(--lime); color: var(--navy); }
+        .btn-primary:hover { background: var(--navy); color: var(--lime); transform: translateY(-2px); }
+        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--bg); border-color: var(--navy); color: var(--navy); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #059669; transform: translateY(-2px); }
+        .btn-danger { background: var(--pink); color: white; }
+        .btn-danger:hover { background: #c0005a; transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            padding: 2.5rem;
+            border: 1px solid var(--border);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--navy); font-weight: 800; }
+
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+        .steps::after {
+            content: '';
+            position: absolute;
+            top: 14px;
+            left: 12%;
+            right: 12%;
+            height: 3px;
+            background: var(--border);
+            z-index: 1;
+            border-radius: 2px;
+        }
+        .step {
+            flex: 1;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 2;
+            transition: var(--transition);
+        }
+        .step::before {
+            content: '';
+            display: block;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--border);
+            margin: 0 auto 8px;
+            transition: all var(--transition);
+            line-height: 32px;
+            font-size: 0.9rem;
+        }
+        .step[data-step="1"]::before { content: '1'; }
+        .step[data-step="2"]::before { content: '2'; }
+        .step[data-step="3"]::before { content: '3'; }
+        .step.active { color: var(--pink); }
+        .step.active::before { background: var(--pink); box-shadow: 0 0 0 6px rgba(248, 0, 112, 0.15); }
+        .step.done { color: var(--navy); }
+        .step.done::before { background: var(--navy); content: '✓'; }
+
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.95rem;
+            background: #F8FAFC;
+            transition: var(--transition);
+            color: var(--text);
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--pink); background: #fff; }
+        .form-row { display: flex; gap: 1rem; }
+        .form-row>* { flex: 1; }
+
+        .agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            background: rgba(192, 200, 0, 0.1);
+            border: 1px solid var(--lime);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1.5rem 0;
+            font-size: 0.85rem;
+            color: var(--navy);
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .agreement input { margin-top: 3px; accent-color: var(--pink); width: 18px; height: 18px; cursor: pointer; }
+
+        .order-summary {
+            background: #F8FAFC;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .order-summary .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+            gap: 1rem;
+        }
+        .order-summary .summary-row:last-child {
+            border-bottom: none;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--navy);
+        }
+        .order-summary .summary-row .label { color: var(--text-muted); }
+        .order-summary .summary-row .value { font-weight: 700; color: var(--navy); text-align: right; }
+        .order-summary .summary-row.total .value { color: var(--pink); font-size: 1.3rem; }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99998;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: max-content;
+            max-width: 90%;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 0.75rem 1.3rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: #fff;
+            animation: slideDown 0.35s ease;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            pointer-events: auto;
+        }
+        @keyframes slideDown { from { transform: translateY(-24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .empty-state i { font-size: 2rem; color: var(--grey); margin-bottom: 10px; display: block; }
+        .error-state {
+            color: var(--pink);
+            padding: 2rem;
+            text-align: center;
+        }
+        .error-state i { font-size: 2rem; color: var(--pink); margin-bottom: 10px; display: block; }
+        .error-state h4 { color: var(--navy); margin-bottom: 6px; }
+        .error-state p { font-size: 0.85rem; color: #666; }
+        .hidden { display: none !important; }
+
+        .invoice-wrapper {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .invoice-header-bar {
+            background: var(--navy);
+            padding: 1.2rem 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .invoice-header-bar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .invoice-header-bar .brand .logo-mark {
+            width: 38px;
+            height: 38px;
+            background: var(--lime);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--navy);
+        }
+        .invoice-header-bar .brand h2 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #fff;
+            margin: 0;
+        }
+        .invoice-header-bar .brand h2 span {
+            color: var(--lime);
+        }
+        .invoice-header-bar .invoice-number {
+            text-align: right;
+        }
+        .invoice-header-bar .invoice-number .label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.6;
+            font-weight: 600;
+        }
+        .invoice-header-bar .invoice-number .number {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+        }
+
+        .invoice-body {
+            padding: 2.5rem 2.5rem 2rem;
+            position: relative;
+        }
+
+        .unpaid-stamp {
+            position: absolute;
+            top: 2rem;
+            right: 2.5rem;
+            transform: rotate(18deg);
+            border: 4px solid var(--danger);
+            color: var(--danger);
+            font-size: 1.8rem;
+            font-weight: 900;
+            padding: 0.4rem 1.2rem;
+            border-radius: 8px;
+            opacity: 0.55;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            pointer-events: none;
+            background: rgba(220, 38, 38, 0.04);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            line-height: 1.2;
+            text-align: center;
+            z-index: 5;
+        }
+        .unpaid-stamp small {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            opacity: 0.7;
+        }
+
+        .invoice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .invoice-grid .bill-to h4,
+        .invoice-grid .invoice-meta h4 {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .invoice-grid .bill-to .name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+        .invoice-grid .bill-to .email {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            word-break: break-word;
+        }
+        .invoice-grid .invoice-meta .meta-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 4px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .invoice-grid .invoice-meta .meta-row:last-child {
+            border-bottom: none;
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-value {
+            font-weight: 700;
+            color: var(--navy);
+            text-align: right;
+        }
+        .invoice-grid .invoice-meta .meta-row .meta-value.danger {
+            color: var(--danger);
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0 2rem;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .invoice-table thead {
+            background: var(--navy);
+            color: #fff;
+        }
+        .invoice-table thead th {
+            padding: 0.9rem 1.2rem;
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
+        }
+        .invoice-table tbody td {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .invoice-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .invoice-table tbody .item-desc {
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .invoice-table tbody .item-amount {
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .invoice-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.2rem 1.5rem;
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .invoice-total-row .total-label {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .invoice-total-row .total-amount {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--pink);
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0 1.8rem;
+        }
+        .payment-method-card {
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            padding: 1.2rem 1.2rem 1rem;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: var(--transition);
+        }
+        .payment-method-card:hover {
+            border-color: var(--navy);
+            background: var(--surface);
+            box-shadow: var(--shadow-md);
+        }
+        .payment-method-card .method-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            padding: 6px;
+        }
+        .payment-method-card .method-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .payment-method-card .method-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--navy);
+            margin-bottom: 2px;
+        }
+        .payment-method-card .method-detail {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            word-break: break-word;
+        }
+        .payment-method-card .method-account {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        .payment-instructions {
+            background: rgba(11, 26, 43, 0.02);
+            border-left: 4px solid var(--lime);
+            padding: 1.2rem 1.5rem;
+            border-radius: var(--radius-md);
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .payment-instructions strong {
+            color: var(--navy);
+        }
+
+        .invoice-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+        .invoice-actions .btn {
+            flex: 1;
+            min-width: 160px;
+        }
+        .invoice-footer-note {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        .invoice-footer-note i {
+            color: var(--lime);
+        }
+
+        @media (max-width: 768px) {
+            .form-row { flex-direction: column; gap: 0; }
+            .card { padding: 1.5rem; }
+            .steps::after { display: none; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .invoice-body { padding: 1.2rem 1rem 1.2rem; }
+            .invoice-header-bar { padding: 0.8rem 1rem; flex-direction: column; align-items: flex-start; }
+            .invoice-header-bar .invoice-number { text-align: left; width: 100%; }
+            .unpaid-stamp { font-size: 1rem; padding: 0.15rem 0.6rem; top: 1rem; right: 1rem; transform: rotate(15deg); }
+            .unpaid-stamp small { font-size: 0.45rem; }
+            .invoice-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .payment-methods { grid-template-columns: 1fr; }
+            .invoice-actions { flex-direction: column; }
+            .invoice-actions .btn { min-width: auto; }
+            .order-summary .summary-row { font-size: 0.85rem; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 0.75rem; }
+            .header h1 { font-size: 1.6rem; }
+            .step { font-size: 0.7rem; }
+            .step::before { width: 28px; height: 28px; line-height: 28px; font-size: 0.8rem; }
+            .plan-card { padding: 20px 16px 16px; }
+            .currency-switch { width: 100%; justify-content: center; padding: 8px; border-radius: 16px; }
+            .currency-switch .currency-options { flex: 1; }
+            .currency-switch .currency-options button { flex: 1; padding: 0.55rem 0.5rem; }
+            .currency-switch .currency-label { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-container">
+        <div class="header" id="main-header">
+            <h1>Zone21 <span>System</span></h1>
+        </div>
+
+        <div class="view active" id="view-pricing">
+
+            <!-- ============ CURRENCY SWITCHER ============ -->
+            <div class="currency-switch" id="currency-switch">
+                <span class="currency-label"><i class="fas fa-globe"></i> Currency</span>
+                <div class="currency-options">
+                    <button type="button" data-currency="USD" onclick="setCurrency('USD')">🇺🇸 USD ($)</button>
+                    <button type="button" data-currency="ZAR" onclick="setCurrency('ZAR')">🇿🇦 ZAR (R)</button>
+                </div>
+            </div>
+
+            <div id="user-events-section">
+                <div class="section-label"><i class="fas fa-calendar-check"></i> Your Events <small>— Manage your existing events</small></div>
+                <div class="pricing-grid" id="user-events-grid">
+                    <div class="events-loading">
+                        <i class="fas fa-spinner"></i>
+                        <p>Loading your events…</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-label" style="margin-top: 2.5rem;"><i class="fas fa-shopping-cart"></i> Purchase a New Package</div>
+            <div class="pricing-grid" id="plan-grid">
+                <div class="plan-card">
+                    <div class="plan-title">Small Event</div>
+                    <div class="plan-price"><span class="amount" id="price-small">$10</span> <span class="unit">/ event</span></div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check-circle"></i> Support for up to 29 attendees</li>
+                        <li><i class="fas fa-check-circle"></i> Strict budget enforcement</li>
+                        <li><i class="fas fa-check-circle"></i> AI Vendor Matching</li>
+                        <li><i class="fas fa-check-circle"></i> Standard Blueprint Export</li>
+                    </ul>
+                    <div id="action-small">
+                        <button class="btn btn-primary" onclick="startCheckout('small')">Select Plan</button>
+                    </div>
+                </div>
+
+                <div class="plan-card popular">
+                    <div class="popular-badge">Most Popular</div>
+                    <div class="plan-title">Medium Event</div>
+                    <div class="plan-price"><span class="amount" id="price-medium">$125</span> <span class="unit">/ event</span></div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check-circle"></i> Support for up to 349 attendees</li>
+                        <li><i class="fas fa-check-circle"></i> Priority Vendor Allocations</li>
+                        <li><i class="fas fa-check-circle"></i> Advanced Budget Analysis</li>
+                        <li><i class="fas fa-check-circle"></i> Detailed Blueprint Export</li>
+                    </ul>
+                    <div id="action-medium">
+                        <button class="btn btn-primary" onclick="startCheckout('medium')">Select Plan</button>
+                    </div>
+                </div>
+
+                <div class="plan-card">
+                    <div class="plan-title">Large / Enterprise</div>
+                    <div class="plan-price"><span class="amount" id="price-large">$300</span> <span class="unit">/ event</span></div>
+                    <ul class="plan-features">
+                        <li><i class="fas fa-check-circle"></i> Unlimited attendees</li>
+                        <li><i class="fas fa-check-circle"></i> Unlimited Budgeting</li>
+                        <li><i class="fas fa-check-circle"></i> Premium Vendor Sourcing</li>
+                        <li><i class="fas fa-check-circle"></i> Zone21 Exclusive Security Focus</li>
+                    </ul>
+                    <div id="action-large">
+                        <button class="btn btn-primary" onclick="startCheckout('large')">Select Plan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="view" id="view-checkout">
+            <div class="card">
+                <div class="steps" id="steps-indicator">
+                    <div class="step active" data-step="1">Your Details</div>
+                    <div class="step" data-step="2">Billing Address</div>
+                    <div class="step" data-step="3">Review & Pay</div>
+                </div>
+
+                <form id="checkout-form" onsubmit="return false;">
+                    <div class="step-content" id="step-1">
+                        <h2>Your Details</h2>
+                        <div style="background: rgba(16,40,56,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                            <div>
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Selected Package</span>
+                                <div id="display-plan-name" style="font-weight: 800; color: var(--navy); font-size: 1.1rem;">-</div>
+                            </div>
+                            <button type="button" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto;" onclick="goBackToPricing()">Change</button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>First Name *</label><input type="text" id="cust-fname" placeholder="John" required></div>
+                            <div class="form-group"><label>Last Name *</label><input type="text" id="cust-lname" placeholder="Doe" required></div>
+                        </div>
+                        <div class="form-group"><label>Email Address *</label><input type="email" id="cust-email" placeholder="you@example.com" required></div>
+                        <div class="form-group"><label>Phone Number *</label><input type="tel" id="cust-phone" placeholder="+263 77 000 0000" required></div>
+                        <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(1, 2)">Continue to Billing <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+
+                    <div class="step-content hidden" id="step-2">
+                        <h2>Billing Address</h2>
+                        <div class="form-group"><label>Street Address *</label><input type="text" id="cust-street" placeholder="e.g. 45 Samora Machel Ave" required></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>City *</label><input type="text" id="cust-city" placeholder="e.g. Harare" required></div>
+                            <div class="form-group"><label>Country *</label>
+                                <select id="cust-country" required>
+                                    <option value="" disabled>Select your country</option>
+                                    <option value="Zimbabwe" selected>Zimbabwe</option>
+                                    <option value="South Africa">South Africa</option>
+                                    <option value="Zambia">Zambia</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Company (Optional)</label><input type="text" id="cust-company" placeholder="Your company name"></div>
+                            <div class="form-group"><label>ZIP / Postal Code</label><input type="text" id="cust-zip" placeholder="0000"></div>
+                        </div>
+                        <div class="agreement" onclick="document.getElementById('agreement').click()">
+                            <input type="checkbox" id="agreement" required onclick="event.stopPropagation()">
+                            <label for="agreement">I agree that all payments are manual. I will transfer the funds using the payment methods shown on my invoice.</label>
+                        </div>
+                        <div class="form-row">
+                            <button type="button" class="btn btn-outline btn-block" onclick="goToStep(1)"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                            <button type="button" class="btn btn-primary btn-block" onclick="validateAndNext(2, 3)">Review Summary <i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="step-content hidden" id="step-3">
+                        <h2>Order Summary</h2>
+                        <div class="order-summary">
+                            <div class="summary-row">
+                                <span class="label">Package</span>
+                                <span class="value" id="summary-plan">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Currency</span>
+                                <span class="value" id="summary-currency">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Billed To</span>
+                                <span class="value" id="summary-name">—</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="label">Quantity</span>
+                                <span class="value">1</span>
+                            </div>
+                            <div class="summary-row" style="border-bottom: 2px solid var(--border);">
+                                <span class="label">Unit Price</span>
+                                <span class="value" id="summary-unit-price">$0.00</span>
+                            </div>
+                            <div class="summary-row total">
+                                <span class="label">Total Due</span>
+                                <span class="value" id="summary-price">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <button type="button" class="btn btn-outline btn-block" onclick="goToStep(2)"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                            <button type="button" class="btn btn-primary btn-block" id="btn-generate-invoice" onclick="generateInvoice()"><i class="fa-solid fa-file-invoice"></i> Generate Invoice</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="view" id="view-invoice">
+            <div class="invoice-wrapper">
+                <div class="invoice-header-bar">
+                    <div class="brand">
+                        <div class="logo-mark">Z</div>
+                        <h2>Zone<span>21</span></h2>
+                    </div>
+                    <div class="invoice-number">
+                        <div class="label">Invoice Number</div>
+                        <div class="number" id="inv-number">INV-0000</div>
+                    </div>
+                </div>
+
+                <div class="invoice-body" id="invoice-print-area">
+                    <div class="unpaid-stamp">
+                        UNPAID
+                        <small>payment pending</small>
+                    </div>
+
+                    <div class="invoice-grid">
+                        <div class="bill-to">
+                            <h4>Bill To</h4>
+                            <div class="name" id="inv-name">Name</div>
+                            <div class="email" id="inv-email">email@example.com</div>
+                        </div>
+                        <div class="invoice-meta">
+                            <h4>Invoice Details</h4>
+                            <div class="meta-row">
+                                <span class="meta-label">Date</span>
+                                <span class="meta-value" id="inv-date">—</span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">Currency</span>
+                                <span class="meta-value" id="inv-currency">USD (US Dollar)</span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">Status</span>
+                                <span class="meta-value danger">UNPAID</span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">Payment Method</span>
+                                <span class="meta-value">Manual Transfer</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th style="text-align:right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="item-desc" id="inv-item">Package Name</td>
+                                <td class="item-amount" style="text-align:right;" id="inv-item-price">$0.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="invoice-total-row">
+                        <span class="total-label">Total Payable</span>
+                        <span class="total-amount" id="inv-total">$0.00</span>
+                    </div>
+
+                    <!-- ============ USD INSTRUCTIONS ============ -->
+                    <div class="payment-instructions" id="payment-instructions-usd">
+                        <strong>📌 Manual Payment Required (USD)</strong><br>
+                        Please transfer the exact total amount to one of the accounts below.<br>
+                        Use your <strong>Invoice Number</strong> as the payment reference.
+                    </div>
+
+                    <!-- ============ ZAR INSTRUCTIONS ============ -->
+                    <div class="payment-instructions hidden" id="payment-instructions-zar">
+                        <strong>📌 Manual Payment Required (South African Rand)</strong><br>
+                        Please transfer the exact total in <strong>ZAR</strong> to the Bank Zero / Mukuru account below,
+                        or send via <strong>E-Wallet</strong> to the number provided.<br>
+                        Use your <strong>Invoice Number</strong> as the payment reference.
+                    </div>
+
+                    <!-- ============ USD PAYMENT METHODS ============ -->
+                    <div class="payment-methods" id="payment-methods-usd">
+                        <div class="payment-method-card">
+                            <div class="method-icon">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgwnfhozjpovvXfL0xyqpu46qT3PjiQqNnUI97upb7S5JgCPPviUCxlPmJX27y7p9qa1qGWXB8qGKKG6SUrWnW9dNQrFLrNkbCH7OPynH0v-hErLb3LwkDDNrljlrAK1RBs1QniSaJkQJNPcg1D0xeCCxKN28WEbV3egQWEb43iSD-PeRYC5uI1loZcEhYY/s1600/722de7bfbab2b24020b8fb404bc9fe58_icon.png" alt="Ecocash">
+                            </div>
+                            <div class="method-name">Ecocash</div>
+                            <div class="method-detail">078 991 2268</div>
+                            <div class="method-account">Tanatswa Dean Mwanza</div>
+                        </div>
+
+                        <div class="payment-method-card">
+                            <div class="method-icon">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiol9STr7ImEkAH6KsKj4n5XsA6edceL24btsYwwo426RfFGa7uuqVMJrBY2U6FCFFPYX5Daf50iTun5jmqp9bx-sN1Ukmy0N2e7TSjPtT7TvRLfmS1FBjkeADvjzI2WpEpr0pB179sZBxNvZoH06DUdJzIkwa7JMzt_T1UH1ELIDMQKX8T3lhRaVrVR4K6/s1600/APP_ICON.png" alt="Innbucks">
+                            </div>
+                            <div class="method-name">Innbucks</div>
+                            <div class="method-detail">078 991 2268</div>
+                            <div class="method-account">Tanatswa Dean Mwanza</div>
+                        </div>
+
+                        <div class="payment-method-card">
+                            <div class="method-icon">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjcQFUEJrA33gQlP3kceYEdQCuJ1gXImN7b031MmiGlTdgqdD6An640fWWVV0R7jBsL2If96hrnDv9PypAbNBK_yQDH8z8Quefrt1Xc2xi6sShTFmHRgrO_sdGbvckOeMVoJZFIjA6DV_AJm9qLzliGiyU0DZXYT0SvPCvDR1_8J1aP4mEKObQk-3KfWJaV/s1600/kiev-ukraine-september-visa-mastercard-logos-printed-white-paper-visa-mastercard-american-multinational-102631953.jpg" alt="TN CyberTech Bank">
+                            </div>
+                            <div class="method-name">TN CyberTech Bank</div>
+                            <div class="method-detail">4638 3300 1429 9948</div>
+                            <div class="method-account">Corporate Account</div>
+                        </div>
+                    </div>
+
+                    <!-- ============ ZAR PAYMENT METHODS ============ -->
+                    <div class="payment-methods hidden" id="payment-methods-zar">
+                        <div class="payment-method-card">
+                            <div class="method-icon">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFCVvyDeworWiRtxvCLZfu6qJrTF-Yw89pyTtBQnHdy1I4SRiZzjt6O2jHOdzQ3TqBerKK4mZeXf2eTSuGHYhIKKR1w7uWKefCHr-mlQWT1djIZWUS-n3c8nzaCDFDSdzVAHzZCnsMscqTOi1Osp8U6NRSKwepTiZQZ6MfsWgJC7dkoXDxLXeCAUT9SA1R/s1600/Mukuru-Logo-Pack-Orange.jpg" alt="Bank Zero / Mukuru">
+                            </div>
+                            <div class="method-name">Bank Zero · Mukuru</div>
+                            <div class="method-detail">Acc No: 70034456519</div>
+                            <div class="method-account">Branch Code: 435000</div>
+                            <div class="method-account">Account Type: Current / Cheque</div>
+                            <div class="method-account">Holder: Takudzwa Nigel Mwanza</div>
+                        </div>
+
+                        <div class="payment-method-card">
+                            <div class="method-icon">
+                                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEintAcpjjwpAoJ5-jQZ7WvCpQ3Lju6x3-PZluIhV0gEDPYJZ6ECrUVT3TXpaGrpm_5nYrEGAxRIyoHxB5x9SH9r1VUpe9U5O-Y4e0Y2M8CSbXJuHcFeIJtVaOHd1aG9zN_G3sGEatmndjrU3pL0k8f4PMUpW3YkLlBVGr2bCJE82k9wEaXoM3eXbdjxhbZF/s1600/e-wallet-icon-e1559893309544.png" alt="E-Wallet">
+                            </div>
+                            <div class="method-name">E-Wallet</div>
+                            <div class="method-detail">+27 73 251 7297</div>
+                            <div class="method-account">Takudzwa Nigel Mwanza</div>
+                        </div>
+                    </div>
+
+                    <div class="invoice-actions">
+                        <button class="btn btn-outline" onclick="goBackToPricing()"><i class="fas fa-arrow-left"></i> Back to Packages</button>
+                        <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print Invoice</button>
+                        <a href="support.html" class="btn btn-danger"><i class="fas fa-upload"></i> Submit Proof of Payment</a>
+                    </div>
+
+                    <div class="invoice-footer-note">
+                        <i class="fas fa-shield-alt"></i> After payment, submit your proof to activate your event.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+            authDomain: "zone21.firebaseapp.com",
+            projectId: "zone21",
+            storageBucket: "zone21.firebasestorage.app",
+            messagingSenderId: "405963057292",
+            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+            measurementKind: "G-KE007Y89F1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        /* ============================================================
+           PLAN CATALOG + CURRENCY ENGINE
+           ============================================================ */
+        const PLAN_CATALOG = {
+            small:  { id: 'small',  name: 'Small Event Package',        prices: { USD: 10,  ZAR: 120  } },
+            medium: { id: 'medium', name: 'Medium Event Package',       prices: { USD: 125, ZAR: 1000 } },
+            large:  { id: 'large',  name: 'Large / Enterprise Package', prices: { USD: 300, ZAR: 2000 } }
+        };
+        const PLAN_ORDER = ['small', 'medium', 'large'];
+
+        const CURRENCIES = {
+            USD: { symbol: '$', label: 'USD (US Dollar)' },
+            ZAR: { symbol: 'R', label: 'ZAR (South African Rand)' }
+        };
+
+        let activeCurrency = 'USD';
+        try {
+            const stored = localStorage.getItem('zone21_currency');
+            if (stored && CURRENCIES[stored]) activeCurrency = stored;
+        } catch (e) { /* ignore */ }
+
+        function getPlan(planId) { return PLAN_CATALOG[planId] || null; }
+
+        function getPrice(planId, currency = activeCurrency) {
+            const plan = getPlan(planId);
+            if (!plan) return 0;
+            return plan.prices[currency] != null ? plan.prices[currency] : plan.prices.USD;
+        }
+
+        function currencySymbol(currency) {
+            return (CURRENCIES[currency] && CURRENCIES[currency].symbol) || '$';
+        }
+
+        function currencyLabel(currency) {
+            return (CURRENCIES[currency] && CURRENCIES[currency].label) || 'USD (US Dollar)';
+        }
+
+        function formatMoney(amount, currency = activeCurrency) {
+            const num = Number(amount) || 0;
+            const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return `${currencySymbol(currency)}${formatted}`;
+        }
+
+        /* Compact price for the plan cards (drops the trailing .00) */
+        function formatCompact(amount, currency = activeCurrency) {
+            return formatMoney(amount, currency).replace(/\.00$/, '');
+        }
+
+        let currentUser = null;
+        let selectedPlan = { id: '', name: '', price: 0, currency: 'USD' };
+
+        /* ---------- Currency switching ---------- */
+        window.setCurrency = function (currency) {
+            if (!CURRENCIES[currency] || currency === activeCurrency) {
+                if (CURRENCIES[currency]) applyCurrencyUI();
+                return;
+            }
+            activeCurrency = currency;
+            try { localStorage.setItem('zone21_currency', currency); } catch (e) {}
+
+            applyCurrencyUI();
+            updatePlanButtons();
+
+            /* Refresh the review summary if it is on screen */
+            const step3 = document.getElementById('step-3');
+            if (step3 && !step3.classList.contains('hidden') && selectedPlan.id) {
+                selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+                selectedPlan.currency = activeCurrency;
+                window.goToStep(3);
+            }
+        };
+
+        function applyCurrencyUI() {
+            document.querySelectorAll('#currency-switch .currency-options button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
+            });
+            PLAN_ORDER.forEach(id => {
+                const el = document.getElementById(`price-${id}`);
+                if (el) el.textContent = formatCompact(getPrice(id), activeCurrency);
+            });
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                const emailInput = document.getElementById('cust-email');
+                if (emailInput) {
+                    emailInput.value = user.email;
+                    emailInput.readOnly = true;
+                }
+                await updatePlanButtons();
+                await renderUserEvents();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        window.showToast = function(msg, type = 'info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.style.background = { error: '#DC2626', success: '#10B981', info: '#102838' } [type] || '#102838';
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transition = '0.3s';
+                setTimeout(() => t.remove(), 300);
+            }, 4500);
+        };
+
+        /* ============================================================
+           RENDER USER EVENTS
+        ============================================================ */
+        async function renderUserEvents() {
+            const grid = document.getElementById('user-events-grid');
+            if (!currentUser) {
+                grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i> Please log in to see your events.</div>`;
+                return;
+            }
+
+            grid.innerHTML = `
+                <div class="events-loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Loading your events…</p>
+                </div>
+            `;
+
+            const getSafeDate = (timestamp) => {
+                if (!timestamp) return new Date(0);
+                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
+                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+                return new Date(timestamp);
+            };
+
+            try {
+                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
+                const subsSnapshot = await getDocs(subsQ);
+
+                const activeInvoices = [];
+                const deletedInvoices = new Set();
+                const deletedPlanIds = new Set();
+                const deletedPlanNames = new Set();
+
+                subsSnapshot.forEach(docSnap => {
+                    const sub = docSnap.data();
+                    if (sub.deletedAt) {
+                        if (sub.invoiceNumber) deletedInvoices.add(String(sub.invoiceNumber));
+                        if (sub.planId) deletedPlanIds.add(String(sub.planId).toLowerCase());
+                        if (sub.planName) deletedPlanNames.add(String(sub.planName).toLowerCase());
+                    } else {
+                        if (sub.status === 'active' || sub.status === 'approved') {
+                            if (sub.invoiceNumber) activeInvoices.push(String(sub.invoiceNumber));
+                        }
+                    }
+                });
+
+                const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
+                const querySnapshot = await getDocs(q);
+                const events = [];
+
+                querySnapshot.forEach(docSnap => {
+                    let eventData = docSnap.data();
+                    let eventId = docSnap.id;
+
+                    const evInv = eventData.invoiceNumber ? String(eventData.invoiceNumber) : '';
+                    const evPlanId = eventData.packageId ? String(eventData.packageId).toLowerCase() : '';
+                    const evPkgName = eventData.package ? String(eventData.package).toLowerCase() : '';
+
+                    if ((evInv && deletedInvoices.has(evInv)) ||
+                        (evPlanId && deletedPlanIds.has(evPlanId)) ||
+                        (evPkgName && deletedPlanNames.has(evPkgName))) {
+                        console.log('Hiding event from deleted package:', eventId, evPlanId || evPkgName);
+                        return;
+                    }
+
+                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber && activeInvoices.includes(String(eventData.invoiceNumber))) {
+                        eventData.status = 'approved';
+                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true }).catch(err => console.log('Self-heal error:', err));
+                    }
+
+                    events.push({ id: eventId, ...eventData });
+                });
+
+                const validEvents = events.filter(e => e.status !== 'pending_payment');
+
+                if (validEvents.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column:1/-1;">
+                            <i class="fas fa-clock"></i>
+                            <h4 style="margin: 8px 0 4px; color: var(--navy);">No active events yet</h4>
+                            <p style="font-size:0.9rem;">Your newly created events will appear here once payment is approved.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                validEvents.sort((a, b) => {
+                    const da = getSafeDate(a.createdAt);
+                    const db2 = getSafeDate(b.createdAt);
+                    return db2 - da;
+                });
+
+                grid.innerHTML = validEvents.map(event => {
+                    const packageName = event.package || 'Unknown Package';
+                    let status = event.status || 'approved';
+                    if (status.toLowerCase() === 'draft') status = 'approved';
+                    const dateObj = getSafeDate(event.createdAt);
+                    const dateStr = dateObj.getTime() > 0 ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                    return `
+                        <div class="event-card">
+                            <div class="event-name">${event.name || 'Untitled Event'}</div>
+                            <div class="event-package"><i class="fas fa-tag" style="color:var(--lime);"></i> ${packageName}</div>
+                            <div class="event-status"><i class="fas fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> ${status.toUpperCase()}</div>
+                            <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
+                            <a href="manageevent.html?eventId=${event.id}" class="btn btn-success"><i class="fas fa-arrow-right"></i> Manage Event</a>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading events:', error);
+                grid.innerHTML = `
+                    <div class="error-state" style="grid-column:1/-1;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Could not load events</h4>
+                        <button class="btn btn-outline" style="margin-top:12px;" onclick="renderUserEvents()"><i class="fas fa-redo"></i> Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        /* ---------- Plan buttons (currency aware) ---------- */
+        function selectPlanButtonHtml(planId) {
+            const priceTxt = formatCompact(getPrice(planId), activeCurrency);
+            return `<button class="btn btn-primary" onclick="startCheckout('${planId}')">
+                        <i class="fas fa-cart-plus"></i> Select Plan · ${priceTxt}
+                    </button>`;
+        }
+
+        async function updatePlanButtons() {
+            if (!currentUser) return;
+
+            for (const planId of PLAN_ORDER) {
+                const container = document.getElementById(`action-${planId}`);
+                if (!container) continue;
+                try {
+                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                    let buttonHtml = selectPlanButtonHtml(planId);
+
+                    /* Skip soft-deleted subs — treat as if they don't exist */
+                    if (subSnap.exists() && !subSnap.data().deletedAt) {
+                        const subData = subSnap.data();
+                        if (subData.status === 'pending_payment') {
+                            buttonHtml = `
+                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                    <button class="btn btn-outline" disabled style="background:#FFFDF5; border-color:#C0C800; color:#102838;"><i class="fa-solid fa-clock"></i> Pending Payment</button>
+                                    <button class="btn btn-outline" onclick="viewExistingInvoice('${planId}')"><i class="fa-solid fa-file-invoice"></i> View Invoice</button>
+                                </div>
+                            `;
+                        } else if (subData.status === 'active' || subData.status === 'approved') {
+                            buttonHtml = `
+                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                    <button class="btn btn-success" disabled style="background:var(--success); border:none; color:white;"><i class="fa-solid fa-circle-check"></i> Package Approved</button>
+                                    <button class="btn btn-outline" onclick="window.location.href='myevents.html'"><i class="fa-solid fa-list"></i> Go To Your Events</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${planId}')"><i class="fa-solid fa-plus"></i> Create Another</button>
+                                </div>
+                            `;
+                        } else if (subData.status === 'rejected') {
+                            buttonHtml = `
+                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                    <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);"><i class="fa-solid fa-xmark"></i> Payment Rejected</button>
+                                    <button class="btn btn-primary" onclick="startCheckout('${planId}')">Try Again</button>
+                                </div>
+                            `;
+                        }
+                    }
+                    container.innerHTML = buttonHtml;
+                } catch (error) {
+                    console.error("Read skipped (Rules/Network):", error);
+                    container.innerHTML = selectPlanButtonHtml(planId);
+                }
+            }
+        }
+
+        window.showView = function(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        /* ---------- Start checkout (currency aware) ---------- */
+        window.startCheckout = async function(planId) {
+            if (!currentUser) { window.location.href = "index.html"; return; }
+
+            const plan = getPlan(planId);
+            if (!plan) { showToast('Unknown package selected.', 'error'); return; }
+
+            try {
+                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                const subData = subSnap.exists() ? subSnap.data() : null;
+                if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
+                    showToast('You already have a pending invoice for this plan.', 'error');
+                    return;
+                }
+            } catch (error) { console.error(error); }
+
+            const price = getPrice(planId, activeCurrency);
+
+            selectedPlan.id = planId;
+            selectedPlan.name = plan.name;
+            selectedPlan.price = price;
+            selectedPlan.currency = activeCurrency;
+
+            document.getElementById('main-header').style.display = 'none';
+            document.getElementById('display-plan-name').innerText =
+                `${plan.name} — ${formatMoney(price, activeCurrency)}`;
+            window.showView('view-checkout');
+            window.goToStep(1);
+        };
+
+        window.goBackToPricing = function() {
+            document.getElementById('main-header').style.display = 'block';
+            window.showView('view-pricing');
+            applyCurrencyUI();
+            renderUserEvents();
+            updatePlanButtons();
+        };
+
+        window.goToStep = function(stepNum) {
+            document.querySelectorAll('.step').forEach(step => {
+                const sNum = parseInt(step.getAttribute('data-step'));
+                step.classList.remove('active', 'done');
+                if (sNum < stepNum) step.classList.add('done');
+                if (sNum === stepNum) step.classList.add('active');
+            });
+
+            document.querySelectorAll('.step-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`step-${stepNum}`).classList.remove('hidden');
+
+            if (stepNum === 3) {
+                const fName = document.getElementById('cust-fname').value;
+                const lName = document.getElementById('cust-lname').value;
+
+                /* Keep the selected plan in sync with the current currency */
+                if (selectedPlan.id) {
+                    selectedPlan.currency = activeCurrency;
+                    selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+                }
+
+                document.getElementById('summary-plan').innerText = selectedPlan.name;
+                document.getElementById('summary-currency').innerText = currencyLabel(selectedPlan.currency);
+                document.getElementById('summary-name').innerText = `${fName} ${lName}`;
+                document.getElementById('summary-unit-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
+                document.getElementById('summary-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
+            }
+        };
+
+        window.validateAndNext = function(currentStep, nextStep) {
+            const stepContainer = document.getElementById(`step-${currentStep}`);
+            const inputs = stepContainer.querySelectorAll('input[required], select[required]');
+            let valid = true;
+            inputs.forEach(input => {
+                if (!input.checkValidity()) { input.reportValidity();
+                    valid = false; }
+            });
+            if (currentStep === 2) {
+                const checkbox = document.getElementById('agreement');
+                if (!checkbox.checked) {
+                    showToast("Please agree to the manual payment terms to proceed.", "error");
+                    valid = false;
+                }
+            }
+            if (valid) window.goToStep(nextStep);
+        };
+
+        /* ---------- Invoice currency rendering ---------- */
+        function applyInvoiceCurrency(currency) {
+            const isZar = currency === 'ZAR';
+
+            const usdMethods = document.getElementById('payment-methods-usd');
+            const zarMethods = document.getElementById('payment-methods-zar');
+            const usdInstr = document.getElementById('payment-instructions-usd');
+            const zarInstr = document.getElementById('payment-instructions-zar');
+
+            if (usdMethods) usdMethods.classList.toggle('hidden', isZar);
+            if (zarMethods) zarMethods.classList.toggle('hidden', !isZar);
+            if (usdInstr) usdInstr.classList.toggle('hidden', isZar);
+            if (zarInstr) zarInstr.classList.toggle('hidden', !isZar);
+
+            const curEl = document.getElementById('inv-currency');
+            if (curEl) curEl.innerText = currencyLabel(currency);
+        }
+
+        window.generateInvoice = async function() {
+            if (!currentUser) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            /* Make sure price matches the currency the user is seeing right now */
+            if (selectedPlan.id) {
+                selectedPlan.currency = activeCurrency;
+                selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+            }
+
+            try {
+                const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
+                const subSnap = await getDoc(subRef);
+                const subData = subSnap.exists() ? subSnap.data() : null;
+                if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
+                    showToast('You already have a pending invoice for this plan.', 'error');
+                    return;
+                }
+            } catch (error) {
+                console.warn("Duplicate check bypassed:", error);
+            }
+
+            const btn = document.getElementById('btn-generate-invoice');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+
+            try {
+                const fName = document.getElementById('cust-fname').value;
+                const lName = document.getElementById('cust-lname').value;
+                const email = document.getElementById('cust-email').value;
+                const phone = document.getElementById('cust-phone').value;
+                const company = document.getElementById('cust-company').value;
+                const zip = document.getElementById('cust-zip').value;
+                const street = document.getElementById('cust-street').value;
+                const city = document.getElementById('cust-city').value;
+                const country = document.getElementById('cust-country').value;
+                const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+
+                const currency = selectedPlan.currency;
+                const price = selectedPlan.price;
+
+                console.log('📝 Generating invoice for:', selectedPlan.name, currency, price);
+                console.log('📝 Invoice number:', invNumber);
+
+                const subId = `${currentUser.uid}_${selectedPlan.id}`;
+                const subRef = doc(db, 'subscriptions', subId);
+
+                /* 1. CREATE INVOICE */
+                await setDoc(doc(db, "invoices", invNumber), {
+                    userId: currentUser.uid,
+                    invoiceNumber: invNumber,
+                    currency: currency,
+                    packageDetails: {
+                        name: selectedPlan.name,
+                        price: price,
+                        currency: currency
+                    },
+                    customerInfo: {
+                        firstName: fName,
+                        lastName: lName,
+                        email: email,
+                        phone: phone,
+                        company: company,
+                        zip: zip,
+                        address: { street, city, country }
+                    },
+                    paymentStatus: 'pending_manual_transfer',
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+                console.log('✅ Invoice created:', invNumber);
+
+                /* 2. CHECK IF SUBSCRIPTION EXISTS - UPDATE OR CREATE */
+                const subSnap = await getDoc(subRef);
+
+                if (subSnap.exists()) {
+                    await setDoc(subRef, {
+                        userId: currentUser.uid,
+                        planId: selectedPlan.id,
+                        planName: selectedPlan.name,
+                        price: price,
+                        currency: currency,
+                        invoiceNumber: invNumber,
+                        status: 'pending_payment',
+                        deletedAt: deleteField(),
+                        deletedBy: deleteField(),
+                        deletedByEmail: deleteField(),
+                        updatedAt: serverTimestamp(),
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: { street, city, country }
+                        }
+                    }, { merge: true });
+                    console.log('✅ Subscription UPDATED (soft-delete cleared):', subId);
+                } else {
+                    await setDoc(subRef, {
+                        userId: currentUser.uid,
+                        planId: selectedPlan.id,
+                        planName: selectedPlan.name,
+                        price: price,
+                        currency: currency,
+                        invoiceNumber: invNumber,
+                        status: 'pending_payment',
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        customerInfo: {
+                            firstName: fName,
+                            lastName: lName,
+                            email: email,
+                            phone: phone,
+                            company: company,
+                            zip: zip,
+                            address: { street, city, country }
+                        }
+                    });
+                    console.log('✅ Subscription CREATED:', subId);
+                }
+
+                /* 3. UPDATE USER */
+                await setDoc(doc(db, "users", currentUser.uid), {
+                    activePlan: selectedPlan.name,
+                    subscriptionStatus: 'pending_payment',
+                    latestInvoiceId: invNumber,
+                    preferredCurrency: currency
+                }, { merge: true });
+                console.log('✅ User updated');
+
+                /* 4. CREATE EVENT */
+                const eventsRef = collection(db, 'events');
+                const newEventRef = await addDoc(eventsRef, {
+                    organizerId: currentUser.uid,
+                    name: `My ${selectedPlan.name}`,
+                    package: selectedPlan.name,
+                    packageId: selectedPlan.id,
+                    currency: currency,
+                    price: price,
+                    status: 'pending_payment',
+                    createdAt: serverTimestamp(),
+                    location: '',
+                    date: null,
+                    budget: 0,
+                    attendees: 0,
+                    notes: '',
+                    ticketsSold: 0,
+                    grossRevenue: 0,
+                    blueprint: null,
+                    invoiceNumber: invNumber
+                });
+                console.log('✅ Event created:', newEventRef.id);
+                localStorage.setItem('zone21_latest_event', newEventRef.id);
+
+                /* 5. UPDATE INVOICE WITH EVENT ID */
+                await setDoc(doc(db, "invoices", invNumber), {
+                    eventId: newEventRef.id
+                }, { merge: true });
+
+                /* 6. UPDATE SUBSCRIPTION WITH EVENT ID */
+                await setDoc(subRef, {
+                    eventId: newEventRef.id
+                }, { merge: true });
+
+                /* 7. DISPLAY INVOICE */
+                document.getElementById('inv-number').innerText = invNumber;
+                document.getElementById('inv-name').innerText = `${fName} ${lName}`;
+                document.getElementById('inv-email').innerText = email;
+                document.getElementById('inv-date').innerText = dateStr;
+                document.getElementById('inv-item').innerText = selectedPlan.name;
+                document.getElementById('inv-item-price').innerText = formatMoney(price, currency);
+                document.getElementById('inv-total').innerText = formatMoney(price, currency);
+
+                applyInvoiceCurrency(currency);
+
+                localStorage.setItem('zone21_package', selectedPlan.name);
+                localStorage.setItem('zone21_invoice', invNumber);
+                localStorage.setItem('zone21_currency', currency);
+
+                showToast('✅ Invoice generated successfully!', 'success');
+                window.showView('view-invoice');
+                updatePlanButtons();
+
+            } catch (error) {
+                console.error("❌ Database Error:", error);
+                console.error("❌ Error details:", error.message);
+                showToast('Failed to generate invoice: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.viewExistingInvoice = async function(planId) {
+            if (!currentUser) { window.location.href = "index.html"; return; }
+            try {
+                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+                if (!subSnap.exists()) return;
+                const subData = subSnap.data();
+                if (subData.deletedAt) {
+                    showToast('This package has been removed by the admin.', 'error');
+                    return;
+                }
+                const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
+                if (!invSnap.exists()) { showToast('Invoice not found.', 'error'); return; }
+                const invData = invSnap.data();
+
+                /* Resolve the invoice currency (older invoices default to USD) */
+                const invCurrency = invData.currency
+                    || (invData.packageDetails && invData.packageDetails.currency)
+                    || 'USD';
+                const invPrice = (invData.packageDetails && invData.packageDetails.price) || 0;
+
+                const getSafeDate = (ts) => {
+                    if (!ts) return new Date();
+                    if (typeof ts.toDate === 'function') return ts.toDate();
+                    if (ts.seconds) return new Date(ts.seconds * 1000);
+                    return new Date(ts);
+                };
+                const dateStr = getSafeDate(invData.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+                document.getElementById('inv-number').innerText = invData.invoiceNumber;
+                document.getElementById('inv-name').innerText = `${invData.customerInfo.firstName} ${invData.customerInfo.lastName}`;
+                document.getElementById('inv-email').innerText = invData.customerInfo.email;
+                document.getElementById('inv-date').innerText = dateStr;
+                document.getElementById('inv-item').innerText = invData.packageDetails.name;
+                document.getElementById('inv-item-price').innerText = formatMoney(invPrice, invCurrency);
+                document.getElementById('inv-total').innerText = formatMoney(invPrice, invCurrency);
+
+                applyInvoiceCurrency(invCurrency);
+
+                document.getElementById('main-header').style.display = 'none';
+                window.showView('view-invoice');
+            } catch (error) {
+                console.error("Error viewing invoice:", error);
+                showToast("Failed to load invoice.", "error");
+            }
+        };
+
+        window.renderUserEvents = renderUserEvents;
+        window.updatePlanButtons = updatePlanButtons;
+
+        /* Paint the currency UI immediately (before auth resolves) */
+        applyCurrencyUI();
+    </script>
+</body>
+</html>

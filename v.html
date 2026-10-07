@@ -1183,28 +1183,205 @@ window.selectAllServices = function(on){
     cb.closest('.svc').classList.toggle('checked', on);
   });
 };
-
 /* ==========================================================================
-   GENERATE MATCHES
+   AI-POWERED VENDOR MATCHING
+   Sends event context + scoped vendors to DeepSeek.
+   Returns { serviceName: [providerObj, ...] } ranked best-first.
+========================================================================== */
+async function aiMatchVendors(eventData, scopedProviders, scopedVenues){
+  const requiredServices = eventData.services || [];
+  if(!requiredServices.length) return {};
+
+  /* ---------- 1. Pre-filter to reduce tokens ---------- */
+  const keywordsFor = (svc) => {
+    const lc = svc.toLowerCase();
+    return lc.replace(/[()\-\/&,]/g,' ').split(/\s+/).filter(w=>w.length>3);
+  };
+
+  const relevantProviders = scopedProviders.filter(p => {
+    const text = buildSearchText(p);
+    const svcs = toArray(p.services).map(s=>s.toLowerCase());
+    return requiredServices.some(svc=>{
+      const lc = svc.toLowerCase();
+      if(svcs.some(s=>s.includes(lc) || lc.includes(s))) return true;
+      const words = keywordsFor(svc);
+      return words.length && words.filter(w=>text.includes(w)).length >= Math.min(2, words.length);
+    });
+  }).slice(0, 180); // hard cap on token cost
+
+  const relevantVenues = scopedVenues.filter(v => {
+    const text = buildSearchText(v);
+    return requiredServices.some(svc => {
+      const lc = svc.toLowerCase();
+      return /venue|hall|space|reception|conference|marquee|site|church|arena|stadium|ballroom/i.test(svc) &&
+             /venue|hall|space|reception|conference|marquee|site|arena|stadium|ballroom/i.test(text);
+    });
+  }).slice(0, 80);
+
+  if(!relevantProviders.length && !relevantVenues.length){
+    return {};
+  }
+
+  /* ---------- 2. Compact payloads ---------- */
+  const compactProvider = p => ({
+    id: getUid(p),
+    n: safe(p.name || p.businessName || p.companyName || 'Vendor', 45),
+    c: safe(p.category || p.serviceType || '', 30),
+    s: toArray(p.services).slice(0,6).map(x=>safe(x,28)),
+    p: Number(p.eventRate || p.dayRate || p.hourlyRate || p.basePrice || 0),
+    pt: p.eventRate ? 'event' : p.dayRate ? 'day' : p.hourlyRate ? 'hour' : p.basePrice ? 'base' : 'na',
+    r: Number(p.rating || 0),
+    l: safe(p.location || '', 35),
+    x: !isAvailable(p, eventData.date) ? 1 : 0
+  });
+
+  const compactVenue = v => ({
+    id: getUid(v),
+    n: safe(v.name || v.businessName || 'Venue', 45),
+    cap: Number(v.capacity || 0),
+    p: Number(v.basePrice || 0),
+    r: Number(v.rating || 0),
+    l: safe(v.location || '', 35),
+    t: safe(v.venueType || '', 25)
+  });
+
+  const providerPayload = relevantProviders.map(compactProvider);
+  const venuePayload = relevantVenues.map(compactVenue);
+
+  /* ---------- 3. Build prompt ---------- */
+  const curName = CURRENCIES[eventData.currency].label;
+  const sym = CURRENCIES[eventData.currency].symbol;
+
+  const prompt = `You are Zone21's vendor matching engine. Match the best registered vendors to each required service for this event.
+
+EVENT CONTEXT:
+- Type: ${eventData.type}
+- Name: ${eventData.name}
+- Location: ${eventData.location}
+- Date: ${eventData.date} at ${eventData.time} · Duration ${eventData.duration}h
+- Attendees: ${eventData.attendees}
+- Total Budget: ${sym}${eventData.budgetDisplay} ${curName}
+- Theme: ${eventData.theme || 'not specified'}
+- Notes: ${eventData.notes || 'none'}
+
+REQUIRED SERVICES (${requiredServices.length}):
+${requiredServices.map((s,i)=>`${i+1}. ${s}`).join('\n')}
+
+PROVIDERS (${providerPayload.length}):
+${JSON.stringify(providerPayload)}
+
+VENUES (${venuePayload.length}):
+${JSON.stringify(venuePayload)}
+
+RULES — follow strictly:
+1. For EACH required service above, pick the BEST 3 to 5 vendors from PROVIDERS or VENUES.
+2. Rank by: exact-service relevance, category fit, theme/type alignment, location proximity to event city, price vs the budget (event rate / day / hour × ${eventData.duration}h), rating, and availability (x:1 means unavailable — never rank those above x:0).
+3. A venue service ("Venue / Reception Hall", "Church / Ceremony Site", "Conference Venue / Hotel", etc.) must be matched from VENUES. All other services from PROVIDERS.
+4. "Zone21 Security" services MUST only be matched to providers whose name contains "zone 21", "zone21", or "z21". If none exist, return an empty array for that service.
+5. Never invent IDs. Only use IDs that appear in the lists above.
+6. Order matters — best first.
+7. Return ONLY valid JSON, no markdown, no backticks:
+{
+  "matches": {
+    "Service Name Exactly As Written": ["vendorId1","vendorId2","vendorId3"],
+    "...": []
+  }
+}
+8. If a service has no viable vendor, return an empty array for it.`;
+
+  /* ---------- 4. Call DeepSeek ---------- */
+  const res = await fetch(DEEPSEEK.apiUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${DEEPSEEK.apiKey}` },
+    body: JSON.stringify({
+      model: DEEPSEEK.model,
+      messages: [
+        { role:'system', content:'You are Zone21\'s vendor matching engine. Reply ONLY with valid JSON.' },
+        { role:'user', content: prompt }
+      ],
+      temperature: 0.2,
+      response_format: { type:'json_object' },
+      max_tokens: 4500
+    })
+  });
+
+  if(!res.ok){
+    const t = await res.text();
+    if(res.status===401) throw new Error('Vendor engine misconfigured.');
+    if(res.status===402) throw new Error('Vendor engine credits exhausted.');
+    if(res.status===429) throw new Error('Rate limit reached — try again shortly.');
+    throw new Error('Vendor engine error: ' + t.slice(0,120));
+  }
+
+  const j = await res.json();
+  let content = j?.choices?.[0]?.message?.content || '';
+  content = content.replace(/```json/gi,'').replace(/```/g,'').trim();
+
+  let parsed;
+  try { parsed = JSON.parse(content); }
+  catch(e){
+    const m = content.match(/\{[\s\S]*\}/);
+    if(!m) throw new Error('Invalid vendor engine response.');
+    parsed = JSON.parse(m[0]);
+  }
+
+  /* ---------- 5. Map IDs back to full vendor objects ---------- */
+  const lookup = new Map();
+  [...scopedProviders, ...scopedVenues].forEach(v => lookup.set(getUid(v), v));
+
+  const out = {};
+  const aiMatches = parsed.matches || {};
+
+  Object.keys(aiMatches).forEach(svcKey => {
+    // Find the canonical service name (case-insensitive match to requiredServices)
+    const canonical = requiredServices.find(s=>s.toLowerCase()===svcKey.toLowerCase()) || svcKey;
+    const ids = Array.isArray(aiMatches[svcKey]) ? aiMatches[svcKey] : [];
+    const ranked = [];
+    ids.forEach((id, idx) => {
+      const full = lookup.get(id);
+      if(!full) return;
+      const isVenue = scopedVenues.some(v=>getUid(v)===id);
+      const priceUsd = Number(full.eventRate || full.dayRate || full.hourlyRate || full.basePrice) || 0;
+      ranked.push({
+        ...full,
+        priceUsd,
+        _source: isVenue ? 'venue' : 'provider',
+        fitScore: Math.max(50, 100 - idx*6),
+        reasons: [
+          '🎯 Selected by Zone21 engine',
+          `📊 Rank #${idx+1} · score ${Math.max(50,100-idx*6)}/100`
+        ]
+      });
+    });
+    out[canonical] = ranked;
+  });
+
+  // Ensure every required service has an entry
+  requiredServices.forEach(svc => { if(!out[svc]) out[svc] = []; });
+
+  return out;
+    }
+/* ==========================================================================
+   GENERATE MATCHES — AI-FIRST
 ========================================================================== */
 async function generateMatches(){
-  const name = $('evName').value.trim();
-  const location = $('evLocation').value.trim();
-  const date = $('evDate').value;
-  const time = $('evTime').value;
-  const duration = parseInt($('evDuration').value) || 6;
-  const attendees = parseInt($('evAttendees').value);
+  const name          = $('evName').value.trim();
+  const location      = $('evLocation').value.trim();
+  const date          = $('evDate').value;
+  const time          = $('evTime').value;
+  const duration      = parseInt($('evDuration').value) || 6;
+  const attendees     = parseInt($('evAttendees').value);
   const budgetDisplay = parseFloat($('evBudget').value);
-  const contact = $('evContact').value.trim();
-  const theme = $('evTheme').value.trim();
-  const notes = $('evNotes').value.trim();
+  const contact       = $('evContact').value.trim();
+  const theme         = $('evTheme').value.trim();
+  const notes         = $('evNotes').value.trim();
 
-  if(!name){ toast('Please enter an event name.', 'error'); $('evName').focus(); return; }
-  if(!location){ toast('Please enter a location.', 'error'); $('evLocation').focus(); return; }
-  if(!date){ toast('Please pick a date.', 'error'); $('evDate').focus(); return; }
-  if(!time){ toast('Please pick a start time.', 'error'); $('evTime').focus(); return; }
-  if(!attendees || attendees<1){ toast('Please enter attendee count.', 'error'); $('evAttendees').focus(); return; }
-  if(!budgetDisplay || budgetDisplay<1){ toast('Please enter a valid budget.', 'error'); $('evBudget').focus(); return; }
+  if(!name){        toast('Please enter an event name.',   'error'); $('evName').focus();     return; }
+  if(!location){    toast('Please enter a location.',      'error'); $('evLocation').focus(); return; }
+  if(!date){        toast('Please pick a date.',           'error'); $('evDate').focus();     return; }
+  if(!time){        toast('Please pick a start time.',     'error'); $('evTime').focus();     return; }
+  if(!attendees||attendees<1){ toast('Please enter attendee count.','error'); $('evAttendees').focus(); return; }
+  if(!budgetDisplay||budgetDisplay<1){ toast('Please enter a valid budget.','error'); $('evBudget').focus(); return; }
   if(selectedServices.size===0){ toast('Please select at least one service.', 'error'); return; }
 
   const country = detectCountry(location);
@@ -1228,7 +1405,9 @@ async function generateMatches(){
     }
   }
 
-  const budgetUsd = activeCurrency==='ZAR' ? Math.round((budgetDisplay/USD_TO_ZAR)*100)/100 : budgetDisplay;
+  const budgetUsd = activeCurrency==='ZAR'
+    ? Math.round((budgetDisplay/USD_TO_ZAR)*100)/100
+    : budgetDisplay;
 
   currentEventData = {
     name, location, country,
@@ -1243,47 +1422,100 @@ async function generateMatches(){
   };
 
   currentSessionId = 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-
-  // Build matches
   matches = {};
   pickedProviders = {};
   invitations = {};
   notifications = [];
 
-  const scopedVenues = venuesCache.filter(v=>detectVendorCountry(v)===country);
-  const scopedProviders = providersCache.filter(p=>detectVendorCountry(p)===country);
+  // Scope vendors to country
+  const scopedVenues    = venuesCache.filter(v => detectVendorCountry(v) === country);
+  const scopedProviders = providersCache.filter(p => detectVendorCountry(p) === country);
 
-  // Match venues
-  const venueMatches = matchVenues(scopedVenues, location, attendees, budgetUsd);
-  const venueSvc = Array.from(selectedServices).find(s=>/Venue/i.test(s) && /Hall|Reception|Space|Conference/i.test(s));
-  if(venueSvc){
-    matches[venueSvc] = venueMatches;
-    if(venueMatches.length) pickedProviders[venueSvc] = getUid(venueMatches[0]);
+  // ---- Show engine loading state ----
+  const btn = document.querySelector('button[onclick*="generateMatches"]');
+  const originalLabel = btn ? btn.innerHTML : '';
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Zone21 engine is matching vendors…';
+  }
+  toast('Zone21 engine is reading your event and ranking vendors…', 'info');
+
+  let matched = {};
+  let aiWorked = false;
+
+  // ---- 1. Try AI matching ----
+  try {
+    matched = await aiMatchVendors(currentEventData, scopedProviders, scopedVenues);
+    const totalMatched = Object.values(matched).reduce((s,arr)=>s+arr.length, 0);
+    if(totalMatched > 0) aiWorked = true;
+  } catch(e){
+    console.warn('AI matching failed, falling back to local scoring:', e.message);
+    toast('Vendor engine unavailable — using local ranking.', 'info');
   }
 
-  // Match providers for the rest
-  const existingVenueServices = new Set();
-  if(venueSvc) existingVenueServices.add(venueSvc);
-
-  for(const svc of selectedServices){
-    if(existingVenueServices.has(svc)) continue;
-    const isExclusive = /Zone21 Security/i.test(svc);
-    const scored = scopedProviders
-      .map(p=>scoreProvider(p, svc, location, budgetUsd, date))
-      .filter(Boolean)
-      .sort((a,b)=>b.fitScore - a.fitScore)
-      .slice(0,5);
-    matches[svc] = scored;
-    if(scored.length) pickedProviders[svc] = getUid(scored[0]);
+  // ---- 2. Local fallback for any service the AI left empty ----
+  if(!aiWorked || !Object.keys(matched).length){
+    matched = localMatchVendors(scopedVenues, scopedProviders, location, attendees, budgetUsd, date);
+  } else {
+    // Fill any gaps with local scoring
+    const fallback = localMatchVendors(scopedVenues, scopedProviders, location, attendees, budgetUsd, date);
+    Object.keys(fallback).forEach(svc=>{
+      if(!matched[svc] || matched[svc].length === 0){
+        matched[svc] = fallback[svc] || [];
+      }
+    });
   }
 
-  toast(`Found ${Object.values(matches).reduce((s,a)=>s+a.length,0)} vendors in ${metaOf(country).display}.`, 'success');
+  // ---- 3. Assign matches + auto-pick top of each service ----
+  matches = matched;
+  Object.entries(matches).forEach(([svc, list])=>{
+    if(list && list.length) pickedProviders[svc] = getUid(list[0]);
+  });
+
+  const totalFound = Object.values(matches).reduce((s,arr)=>s+arr.length, 0);
+  const emptyCount = Object.values(matches).filter(a=>!a||!a.length).length;
+
+  toast(
+    `Zone21 engine matched ${totalFound} vendors across ${Object.keys(matches).length} services${aiWorked?' · AI ranked':''}.` +
+    (emptyCount? ` ${emptyCount} need attention.` : ''),
+    totalFound ? 'success' : 'error'
+  );
+
+  if(btn){
+    btn.disabled = false;
+    btn.innerHTML = originalLabel || '<i class="fas fa-magnifying-glass"></i> Find Vendors';
+  }
+
   renderProviderReview();
   showView('view-providers');
 }
 window.generateMatches = generateMatches;
 
 /* ==========================================================================
+   LOCAL FALLBACK MATCHER (used if AI unavailable)
+========================================================================== */
+function localMatchVendors(scopedVenues, scopedProviders, location, attendees, budgetUsd, date){
+  const out = {};
+
+  // Venue service
+  const venueSvc = currentEventData.services.find(s=>/venue|hall|reception|conference|church|arena|ballroom/i.test(s));
+  if(venueSvc){
+    out[venueSvc] = matchVenues(scopedVenues, location, attendees, budgetUsd);
+  }
+
+  // All other services
+  currentEventData.services.forEach(svc=>{
+    if(svc === venueSvc) return;
+    const scored = scopedProviders
+      .map(p => scoreProvider(p, svc, location, budgetUsd, date))
+      .filter(Boolean)
+      .sort((a,b)=>b.fitScore - a.fitScore)
+      .slice(0, 5);
+    out[svc] = scored;
+  });
+
+  return out;
+  }=========================================================================
    MATCHING ENGINE
 ========================================================================== */
 function getUid(p){ return p ? (p.uid || p.id || '') : ''; }

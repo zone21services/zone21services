@@ -2286,30 +2286,54 @@ function regenerateBlueprint(){
 }
 window.regenerateBlueprint = regenerateBlueprint;
 
-/* PACKAGE LOADING */
+/* PACKAGE LOADING — dual strategy (exact IDs → query by userId) + no auto-redirect */
 async function loadUserAndPackage(){
   const user = auth.currentUser;
   if(!user) return false;
   currentUser = user;
   headerUser.textContent = user.email || 'user@example.com';
-  await Promise.all([fetchVenues(), fetchProviders()]);
+
+  try { await Promise.all([fetchVenues(), fetchProviders()]); } catch(e){ console.warn(e); }
 
   const PLAN_IDS = ['small','medium','large'];
-  let found = null, pending = false;
+  let found = null, pending = false, debugLog = [];
 
+  // Strategy 1 — exact doc IDs
   for(const pid of PLAN_IDS){
     try {
       const snap = await db.collection('subscriptions').doc(`${user.uid}_${pid}`).get();
-      if(!snap.exists) continue;
+      if(!snap.exists){ debugLog.push(`${pid}: none`); continue; }
       const d = snap.data();
-      if(d.deletedAt) continue;
+      if(d.deletedAt){ debugLog.push(`${pid}: deleted`); continue; }
       const st = String(d.status || '').toLowerCase();
       const rp = d.planId || d.plan || pid;
+      debugLog.push(`${pid}: ${st}/${rp}`);
       if(!rp || !PACKAGES[rp]) continue;
       if(st === 'active' || st === 'approved'){ found = rp; pending = false; break; }
-      if(!found && st === 'pending_payment'){ found = rp; pending = true; }
-    } catch(e){}
+      if(!found && (st === 'pending_payment' || st === 'pending')){ found = rp; pending = true; }
+    } catch(e){ debugLog.push(`${pid}: err ${e.code||'?'}`); }
   }
+
+  // Strategy 2 — query the whole collection by userId
+  if(!found){
+    try {
+      const q = await db.collection('subscriptions').where('userId','==',user.uid).get();
+      debugLog.push(`query: ${q.size}`);
+      q.forEach(docSnap => {
+        if(found) return;
+        const d = docSnap.data();
+        if(d.deletedAt) return;
+        const st = String(d.status || '').toLowerCase();
+        const rp = d.planId || d.plan || '';
+        debugLog.push(`q:${docSnap.id}=${st}/${rp}`);
+        if(!PACKAGES[rp]) return;
+        if(st === 'active' || st === 'approved'){ found = rp; pending = false; }
+        else if(!found && (st === 'pending_payment' || st === 'pending')){ found = rp; pending = true; }
+      });
+    } catch(e){ debugLog.push(`query err ${e.code||'?'}`); }
+  }
+
+  console.log('Zone21 subscription debug →', debugLog.join(' | '));
 
   if(!found){
     pkgBanner.style.display = 'block';
@@ -2317,14 +2341,36 @@ async function loadUserAndPackage(){
     pkgLimit.textContent = '—';
     headerPkgTag.textContent = 'No Plan';
     headerPkgTag.style.background = 'var(--coral)';
+    headerPkgTag.style.color = '#fff';
     sidebarPkgLabel.textContent = 'Package: No active plan';
     sidebarPkgBadge.textContent = 'No Plan';
     generateBtn.disabled = true;
     generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe to continue';
-    showToast('Subscribe to generate blueprints.', 'info');
-    setTimeout(() => { window.location.href = 'subscription.html'; }, 2000);
-    return false;
+    showToast('No active subscription found. Open the console (F12) to see the debug log.', 'warn');
+    return false;   // ← NO auto-redirect anymore
   }
+
+  userPackage = found;
+  const pkg = PACKAGES[found];
+  userPackageName = pkg.name;
+  userPackageLimit = pkg.maxAttendees;
+
+  headerPkgTag.textContent = pkg.label;
+  headerPkgTag.style.background = 'var(--lime)';
+  headerPkgTag.style.color = 'var(--navy)';
+  sidebarPkgBadge.textContent = pkg.label;
+  sidebarPkgLabel.textContent = `Package: ${pkg.name}`;
+  pkgBanner.style.display = 'block';
+  pkgName.textContent = pkg.name;
+  pkgLimit.textContent = pkg.maxAttendees === Infinity ? '∞' : pkg.maxAttendees;
+  attendeeHint.textContent = pkg.maxAttendees === Infinity ? 'Unlimited attendees' : `Max ${pkg.maxAttendees} attendees`;
+  generateBtn.disabled = false;
+  generateBtn.innerHTML = '<i class="fas fa-rocket"></i> Generate &amp; Auto-Coordinate';
+
+  if(pending) showToast('Payment pending. You can still prepare blueprints.', 'info');
+  else showToast(`${pkg.name} active.`, 'success');
+  return true;
+}
 
   userPackage = found;
   const pkg = PACKAGES[found];

@@ -622,9 +622,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </div>
 
 <script>
-/* ══════════════════════════════════════════════════════════════
-   PART B — Firebase, constants, state, helpers
-   ══════════════════════════════════════════════════════════════ */
+/* FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
   authDomain: "zone21.firebaseapp.com",
@@ -638,10 +636,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* ============================================================
-   DeepSeek — routes through OpenRouter free tier first,
-   then falls back to paid DeepSeek API (works with 0 credits)
-============================================================ */
+/* DeepSeek via OpenRouter free tier, with paid DeepSeek fallback */
 const DEEPSEEK = {
   apiKey: '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',
   apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
@@ -662,9 +657,7 @@ const ZONE21 = {
   website: "https://zone21.co.zw"
 };
 
-/* ============================================================
-   21 EVENT TYPES + RECOMMENDED SERVICES
-============================================================ */
+/* EVENT TYPES */
 const EVENT_TYPES = {
   'Wedding': { icon:'fa-ring', services:['Event Planner / Coordinator','Venue / Space Rental','Catering (Food & Buffet)','Cake Designer / Baker','Beverages & Mobile Bar','Event Décor & Draping','Florist','Stage & Decorative Lighting','Marquee / Tents & Chairs','Photographer','Videographer','Makeup Artist','Hairstylist','DJ Services','Live Band','MC (Master of Ceremonies)','Ushers & Hostesses','Zone21 Security - EXCLUSIVE','Transport / Car Hire','Cleaning Services'] },
   'Birthday Party': { icon:'fa-birthday-cake', services:['Event Planner / Coordinator','Venue / Space Rental','Catering (Food & Buffet)','Cake Designer / Baker','Beverages & Mobile Bar','Event Décor & Draping','Balloon Artist','Photographer','Videographer','DJ Services','MC (Master of Ceremonies)','Kids Entertainer','Face Painter','Photo Booth','Candy Bar','Ushers & Hostesses','Zone21 Security - EXCLUSIVE','Cleaning Services'] },
@@ -804,7 +797,6 @@ window.showToast = showToast;
 
 function normaliseLoc(s){return s?String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s,]/g,' ').replace(/\s+/g,' ').trim():'';}
 function escapeRegex(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-
 function detectCountry(loc){
   const n = normaliseLoc(loc); if(!n) return null;
   for(const [k,m] of Object.entries(COUNTRY_DB)){
@@ -822,16 +814,13 @@ function detectCountry(loc){
 function getCountryMeta(k){return k?COUNTRY_DB[k]:null;}
 function countryFlag(k){const m=getCountryMeta(k);return m?m.flag:'🌍';}
 function countryName(k){const m=getCountryMeta(k);return m?m.display:'your country';}
-
 function detectVendorCountry(v){
   if(!v) return null;
   const cands = [v.location, v.address, v.city&&v.country?`${v.city}, ${v.country}`:'', v.city, v.country, v.region].filter(Boolean);
   for(const c of cands){const d=detectCountry(c); if(d) return d;}
   return null;
 }
-
 function isExclusiveService(s){return s==='Zone21 Security - EXCLUSIVE'||s==='Event Planner / Coordinator';}
-
 function isZone21Account(p){
   const n = String(p.name||p.businessName||p.companyName||p.displayName||'').toLowerCase();
   return /zone\s*21|z-?21/.test(n);
@@ -900,17 +889,11 @@ function isProviderAvailable(p, date, time){
   if(Array.isArray(unavail) && unavail.includes(date)) return { available: false };
   const confirmed = p.confirmedDates || [];
   if(Array.isArray(confirmed) && confirmed.includes(date)) return { available: false };
-  const slots = p.bookedSlots || [];
-  if(Array.isArray(slots) && slots.some(s => s.date === date && (!time || !s.time || s.time === time))) return { available: false };
   return { available: true };
 }
 function scopedProviders(country){
   if(!country) return [];
   return cachedProviders.filter(p => detectVendorCountry(p) === country);
-}
-function scopedVenues(country){
-  if(!country) return [];
-  return cachedVenues.filter(v => detectVendorCountry(v) === country);
 }
 
 /* MATCHING ENGINE */
@@ -966,7 +949,7 @@ function allocateBudget(services, budgetUsd){
   return alloc;
 }
 
-/* STEP 1: EVENT TYPE PICKER */
+/* EVENT TYPE PICKER */
 function renderEventTypePicker(){
   eventTypePicker.innerHTML = '';
   Object.entries(EVENT_TYPES).forEach(([name, meta]) => {
@@ -1013,7 +996,7 @@ function updateServicesCount(){
   servicesCount.textContent = `${n} selected`;
 }
 
-/* SIDEBAR / LOGOUT */
+/* SIDEBAR */
 $('menuBtn').addEventListener('click', () => {
   $('sidebar').classList.add('active');
   $('sidebarOverlay').classList.add('active');
@@ -1045,9 +1028,7 @@ async function fetchProviders(){
   } catch(e) { console.warn('providers', e); }
 }
 
-/* ============================================================
-   DEEPSEEK CALL — OpenRouter free tier first, paid as fallback
-============================================================ */
+/* DEEPSEEK — OpenRouter free tier first, paid as fallback */
 async function deepseekCall(messages, opts = {}){
   const callOne = async (url, key, model, extra = {}) => {
     const body = {
@@ -1075,7 +1056,6 @@ async function deepseekCall(messages, opts = {}){
   const models = [DEEPSEEK.model, ...(DEEPSEEK.fallbackModels || [])];
   let lastErr = null;
 
-  // Try free DeepSeek models on OpenRouter first
   for(const model of models){
     try {
       return await callOne(DEEPSEEK.apiUrl, DEEPSEEK.apiKey, model, {
@@ -1088,7 +1068,6 @@ async function deepseekCall(messages, opts = {}){
     }
   }
 
-  // Final fallback: paid DeepSeek (only fires when OpenRouter fails completely)
   if(DEEPSEEK.paidFallback){
     try {
       return await callOne(
@@ -1178,8 +1157,7 @@ eventForm.addEventListener('submit', async function(e){
   const country = detectCountry(location);
   if(!country){
     showToast('Include the country in your location (e.g. "Harare, Zimbabwe").', 'error');
-    $('fLocation').focus();
-    return;
+    $('fLocation').focus(); return;
   }
 
   if(userPackageLimit !== Infinity && attendees > userPackageLimit){
@@ -1252,7 +1230,7 @@ async function generateAndCoordinate(){
   await autoInviteAll();
 }
 
-/* AUTO-INVITE ALL */
+/* AUTO-INVITE */
 async function autoInviteAll(){
   const services = currentEventData.services || [];
   for(const service of services){
@@ -1266,60 +1244,36 @@ async function autoInviteAll(){
 async function attemptInvite(service){
   if(replacementInFlight.has(service)) return;
   replacementInFlight.add(service);
-
   try {
     const invited = currentEventData.invitedHistory[service] || [];
     const matches = serviceMatches[service] || [];
     const candidates = matches.filter(p => !invited.includes(getProviderUid(p)));
-
     if(!candidates.length){
       if(matches.length){
-        pushNotif({
-          type: 'warning',
-          title: 'All providers declined',
-          service,
+        pushNotif({ type: 'warning', title: 'All providers declined', service,
           text: `Every eligible provider for <strong>${escapeHtml(service)}</strong> was tried. Zone21 will source one for you.`,
-          action: 'contact'
-        });
+          action: 'contact' });
       } else {
-        pushNotif({
-          type: 'warning',
-          title: 'No providers available',
-          service,
+        pushNotif({ type: 'warning', title: 'No providers available', service,
           text: `No registered providers found in <strong>${escapeHtml(countryName(currentEventData.country))}</strong> for <strong>${escapeHtml(service)}</strong>. Zone21 will source one.`,
-          action: 'contact'
-        });
+          action: 'contact' });
       }
       return;
     }
-
     const provider = candidates[0];
     const uid = getProviderUid(provider);
-
     currentEventData.invitedHistory[service] = [...invited, uid];
-
     const result = await sendAssignment(service, provider);
     if(!result || result.skipped) return;
-
     activeRequests[service] = {
-      assignmentId: result.assignmentId,
-      providerId: uid,
+      assignmentId: result.assignmentId, providerId: uid,
       providerName: provider.name || provider.businessName || 'Provider',
       providerDocId: provider.id || '',
-      status: 'invited',
-      service,
-      meeting: null
+      status: 'invited', service, meeting: null
     };
-
-    pushNotif({
-      type: 'info',
-      title: 'Invitation sent',
-      service,
+    pushNotif({ type: 'info', title: 'Invitation sent', service,
       text: `<strong>${escapeHtml(provider.name || provider.businessName || 'Provider')}</strong> was auto-invited as your ${escapeHtml(service)} provider.`,
-      providerId: uid,
-      assignmentId: result.assignmentId
-    });
-
+      providerId: uid, assignmentId: result.assignmentId });
   } catch(err){
     console.error('auto-invite:', service, err);
   } finally {
@@ -1330,44 +1284,26 @@ async function attemptInvite(service){
 async function sendAssignment(service, provider){
   const uid = getProviderUid(provider);
   if(!uid) return { skipped: true };
-
   const d = currentEventData;
-  const messageText = `Zone21 Assignment — ${service}
-
-Hi ${provider.name || provider.businessName || 'there'},
-
-Zone21 is coordinating an event:
-- Date: ${d.date} at ${d.time}
-- Location: ${d.location}
-- Service: ${service}
-- Guests: ${d.attendees}
-- Budget: $${d.budget}
-
-Please respond through your Zone21 provider dashboard. All meetings and payments are mediated by Zone21.`;
+  const messageText = `Zone21 Assignment — ${service}\n\nHi ${provider.name || provider.businessName || 'there'},\n\nZone21 is coordinating an event:\n- Date: ${d.date} at ${d.time}\n- Location: ${d.location}\n- Service: ${service}\n- Guests: ${d.attendees}\n- Budget: $${d.budget}\n\nPlease respond through your Zone21 provider dashboard. All meetings and payments are mediated by Zone21.`;
 
   const ref = db.collection('assignments').doc();
   const doc = {
-    eventId: currentSessionId,
-    eventName: d.name,
-    eventType: d.type,
+    eventId: currentSessionId, eventName: d.name, eventType: d.type,
     organizerId: currentUser.uid,
     organizerName: currentUser.displayName || currentUser.email || 'Organiser',
     organizerContact: d.contact,
-    providerId: uid,
-    providerName: provider.name || provider.businessName || 'Provider',
+    providerId: uid, providerName: provider.name || provider.businessName || 'Provider',
     providerDocId: provider.id || '',
-    service,
-    date: d.date, time: d.time, location: d.location, country: d.country,
+    service, date: d.date, time: d.time, location: d.location, country: d.country,
     budget: d.budget, attendees: d.attendees,
     theme: d.theme || '', notes: d.notes,
-    package: userPackage,
-    status: 'invited',
+    package: userPackage, status: 'invited',
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     userId: currentUser.uid, legacy: true
   };
-
-  try { await ref.set(doc); } catch(e){ console.warn('assignment write:', e.message); return { skipped: true }; }
+  try { await ref.set(doc); } catch(e){ return { skipped: true }; }
   try { await db.collection('bookingRequests').doc(ref.id).set(doc); } catch(e){}
 
   if(uid && uid !== 'admin'){
@@ -1380,41 +1316,33 @@ Please respond through your Zone21 provider dashboard. All meetings and payments
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
       await db.collection(`threads/${chatId}/messages`).add({
-        senderId: currentUser.uid,
-        text: messageText,
+        senderId: currentUser.uid, text: messageText,
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        isSystemRequest: true,
-        assignmentId: ref.id,
-        eventId: currentSessionId,
-        service
+        isSystemRequest: true, assignmentId: ref.id, eventId: currentSessionId, service
       });
     } catch(e){}
   }
-
   try {
     await db.collection('messages').add({
-      sender: 'user', senderId: currentUser.uid, senderType: 'organizer',
+      sender:'user', senderId: currentUser.uid, senderType:'organizer',
       senderName: d.name,
       subject: `Assignment: ${service} → ${provider.name || 'Provider'}`,
-      message: messageText, type: 'service_assignment',
-      recipientId: 'admin', status: 'unread',
-      eventId: currentSessionId, eventName: d.name,
-      country: d.country,
+      message: messageText, type:'service_assignment',
+      recipientId:'admin', status:'unread',
+      eventId: currentSessionId, eventName: d.name, country: d.country,
       service, providerId: uid, providerName: provider.name || 'Provider',
       date: d.date, time: d.time, location: d.location, budget: d.budget,
       assignmentId: ref.id,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   } catch(e){}
-
   return { assignmentId: ref.id, providerId: uid, service, providerName: provider.name };
 }
 
-/* REALTIME ASSIGNMENT LISTENER + AUTO-REPLACE */
+/* REALTIME LISTENER + AUTO-REPLACE */
 function subscribeToAssignments(){
   if(assignmentUnsub){ assignmentUnsub(); assignmentUnsub = null; }
   if(!currentSessionId) return;
-
   assignmentUnsub = db.collection('assignments')
     .where('eventId', '==', currentSessionId)
     .onSnapshot(snap => {
@@ -1425,71 +1353,43 @@ function subscribeToAssignments(){
         if(!svc) return;
         const prev = activeRequests[svc];
         const prevStatus = prev ? prev.status : null;
-
         activeRequests[svc] = {
-          assignmentId: id,
-          providerId: data.providerId,
-          providerName: data.providerName,
-          providerDocId: data.providerDocId || '',
-          status: data.status,
-          service: svc,
-          meeting: data.meeting || null
+          assignmentId: id, providerId: data.providerId,
+          providerName: data.providerName, providerDocId: data.providerDocId || '',
+          status: data.status, service: svc, meeting: data.meeting || null
         };
-
         if(data.status === 'accepted' && prevStatus !== 'accepted'){
-          pushNotif({
-            type: 'accepted',
-            title: '✅ Provider accepted',
-            service: svc,
-            providerId: data.providerId,
-            assignmentId: id,
+          pushNotif({ type: 'accepted', title: '✅ Provider accepted', service: svc,
+            providerId: data.providerId, assignmentId: id,
             text: `<strong>${escapeHtml(data.providerName||'Provider')}</strong> confirmed as your ${escapeHtml(svc)} provider. You can now request a meeting through Zone21.`,
-            action: 'schedule'
-          });
+            action: 'schedule' });
         }
-
         if(data.status === 'declined' && prevStatus !== 'declined'){
-          pushNotif({
-            type: 'declined',
-            title: 'Provider declined',
-            service: svc,
+          pushNotif({ type: 'declined', title: 'Provider declined', service: svc,
             providerId: data.providerId,
-            text: `<strong>${escapeHtml(data.providerName||'Provider')}</strong> declined. Zone21 is finding a replacement automatically…`
-          });
-
+            text: `<strong>${escapeHtml(data.providerName||'Provider')}</strong> declined. Zone21 is finding a replacement automatically…` });
           setTimeout(async () => {
             if(!currentEventData.replacedMap) currentEventData.replacedMap = {};
             if(!currentEventData.replacedMap[svc]) currentEventData.replacedMap[svc] = [];
             currentEventData.replacedMap[svc].push({
-              declinedId: data.providerId,
-              declinedName: data.providerName,
+              declinedId: data.providerId, declinedName: data.providerName,
               at: new Date().toISOString()
             });
-
             await attemptInvite(svc);
-
             const now = activeRequests[svc];
             if(now && now.status === 'invited' && now.providerId !== data.providerId){
               const rec = currentEventData.replacedMap[svc][currentEventData.replacedMap[svc].length - 1];
               rec.replacedById = now.providerId;
               rec.replacedByName = now.providerName;
-
-              pushNotif({
-                type: 'replaced',
-                title: '🔄 Replacement assigned',
-                service: svc,
-                providerId: now.providerId,
-                assignmentId: now.assignmentId,
-                text: `<strong>${escapeHtml(now.providerName||'Provider')}</strong> replaced ${escapeHtml(data.providerName||'the previous provider')}.`
-              });
+              pushNotif({ type: 'replaced', title: '🔄 Replacement assigned', service: svc,
+                providerId: now.providerId, assignmentId: now.assignmentId,
+                text: `<strong>${escapeHtml(now.providerName||'Provider')}</strong> replaced ${escapeHtml(data.providerName||'the previous provider')}.` });
             }
-
             renderDashboard();
             saveBlueprintState();
           }, 1200);
         }
       });
-
       renderDashboard();
     }, err => console.warn('assignments sub:', err.message));
 }
@@ -1503,16 +1403,13 @@ function pushNotif(n){
   eventNotifications.unshift(n);
   if(eventNotifications.length > 60) eventNotifications.length = 60;
 }
-
 function renderNotifications(){
   const total = (currentEventData.services || []).length;
   const accepted = Object.values(activeRequests).filter(a => a.status === 'accepted').length;
   const pct = total ? Math.round((accepted/total)*100) : 0;
-
   const items = eventNotifications.length
-    ? eventNotifications.map(n => notifItemHTML(n)).join('')
+    ? eventNotifications.map(notifItemHTML).join('')
     : '<div class="notif-empty"><i class="fas fa-bell-slash"></i>No notifications yet. Zone21 is auto-inviting providers…</div>';
-
   notifPanel.innerHTML = `
     <div class="notif-panel">
       <div class="notif-head">
@@ -1526,11 +1423,9 @@ function renderNotifications(){
       </div>
     </div>`;
 }
-
 function notifItemHTML(n){
   const icons = { accepted:'fa-circle-check', declined:'fa-circle-xmark', replaced:'fa-rotate', warning:'fa-triangle-exclamation', info:'fa-circle-info' };
   const icon = icons[n.type] || 'fa-circle-info';
-
   let action = '';
   if(n.action === 'schedule' && n.assignmentId){
     action = `<button class="ni-action green" onclick="openSchedule('${escapeAttr(n.assignmentId)}','${escapeAttr(n.service||'')}','${escapeAttr(n.providerName||'')}')"><i class="fas fa-calendar-plus"></i> Request Meeting</button>`;
@@ -1538,7 +1433,6 @@ function notifItemHTML(n){
     const msg = `Hi Zone21, I need help with ${n.service || 'a service'} for my event on ${currentEventData?.date || ''} in ${currentEventData?.location || ''}.`;
     action = `<a class="ni-action whatsapp" href="https://wa.me/${ZONE21.whatsapp.replace('+','')}?text=${encodeURIComponent(msg)}" target="_blank"><i class="fab fa-whatsapp"></i> Contact Zone21</a>`;
   }
-
   return `
     <div class="notif-item ${n.type}">
       <i class="fas ${icon} ni-icon"></i>
@@ -1551,7 +1445,7 @@ function notifItemHTML(n){
     </div>`;
 }
 
-/* DASHBOARD RENDER */
+/* DASHBOARD */
 function renderDashboard(){
   renderDashHeader();
   renderDashOverview();
@@ -1559,18 +1453,15 @@ function renderDashboard(){
   renderDashPlan();
   renderDashFooter();
 }
-
 function renderDashHeader(){
   const services = currentEventData.services || [];
   const accepted = services.filter(s => activeRequests[s]?.status === 'accepted').length;
   const invited = services.filter(s => activeRequests[s]?.status === 'invited').length;
   const declined = services.filter(s => activeRequests[s]?.status === 'declined').length;
-
   let step = 'planning';
   if(accepted === services.length && services.length > 0) step = 'live';
   else if(accepted > 0) step = 'confirmed';
   else if(invited > 0 || declined > 0) step = 'providers';
-
   const steps = [
     { key:'planning', label:'Planning' },
     { key:'providers', label:'Providers' },
@@ -1578,16 +1469,12 @@ function renderDashHeader(){
     { key:'live', label:'Live' }
   ];
   const idx = steps.findIndex(s => s.key === step);
-
   const statusLabel = step === 'live' ? 'Ready' : step === 'confirmed' ? 'In Progress' : step === 'providers' ? 'In Progress' : 'Planning';
-
   const stepsHtml = steps.map((s, i) => {
     const cls = i < idx ? 'done' : i === idx ? 'current' : '';
     return `<div class="dash-step ${cls}"><span class="dot">${i < idx ? '<i class="fas fa-check"></i>' : i + 1}</span><span class="label">${s.label}</span></div>`;
   }).join('');
-
   const hasNotif = eventNotifications.length > 0;
-
   dashHeader.innerHTML = `
     <div class="dash-header">
       <div class="dash-brand">
@@ -1602,22 +1489,16 @@ function renderDashHeader(){
       <div class="dash-progress">${stepsHtml}</div>
     </div>`;
 }
-
-function scrollToNotifs(){
-  if(notifPanel) notifPanel.scrollIntoView({ behavior:'smooth', block:'start' });
-}
-
+function scrollToNotifs(){ if(notifPanel) notifPanel.scrollIntoView({ behavior:'smooth', block:'start' }); }
 function renderDashOverview(){
   const meta = getCountryMeta(currentEventData.country);
   const dt = new Date(currentEventData.date);
   const dateStr = isNaN(dt) ? currentEventData.date : dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
-
   const venueService = currentEventData.services.includes('Venue / Space Rental') ? 'Venue / Space Rental' : null;
   const venueTop = venueService ? (serviceMatches[venueService] || [])[0] : null;
   const venueThumb = venueTop?.images?.[0] || venueTop?.avatar || '';
   const venueName = venueTop?.name || venueTop?.businessName || 'Venue TBD';
   const venueLocation = venueTop?.location || currentEventData.location;
-
   dashOverview.innerHTML = `
     <div class="dash-overview">
       <div class="dash-overview-head">
@@ -1643,23 +1524,16 @@ function renderDashOverview(){
       </div>
     </div>`;
 }
-
 function renderDashPlan(){
   const services = currentEventData.services || [];
   const categories = [];
   const used = new Set();
   for(const [catName, cat] of Object.entries(SERVICE_CATEGORIES)){
     const matching = services.filter(s => cat.services.includes(s));
-    if(matching.length){
-      categories.push({ name: catName, icon: cat.icon, services: matching });
-      matching.forEach(s => used.add(s));
-    }
+    if(matching.length){ categories.push({ name: catName, icon: cat.icon, services: matching }); matching.forEach(s => used.add(s)); }
   }
   const remaining = services.filter(s => !used.has(s));
-  if(remaining.length){
-    categories.push({ name: 'Other Services', icon:'fa-circle-dot', services: remaining });
-  }
-
+  if(remaining.length){ categories.push({ name: 'Other Services', icon:'fa-circle-dot', services: remaining }); }
   const rowsHtml = categories.map(cat => {
     const statuses = cat.services.map(s => activeRequests[s]?.status || 'pending');
     let overall = 'pending';
@@ -1667,11 +1541,8 @@ function renderDashPlan(){
     else if(statuses.some(s => s === 'invited')) overall = 'progress';
     else if(statuses.some(s => s === 'accepted')) overall = 'progress';
     else if(statuses.some(s => s === 'declined')) overall = 'replacing';
-    else if(statuses.every(s => s === 'pending')) overall = 'pending';
-
     const statusText = { confirmed:'Confirmed', progress:'In Progress', ready:'Ready', pending:'Pending', replacing:'Replacing', noprovider:'No Provider' }[overall] || 'Pending';
     const statusCls = { confirmed:'confirmed', progress:'progress', ready:'ready', pending:'pending', replacing:'replacing', noprovider:'noprovider' }[overall] || 'pending';
-
     return `
       <div class="dash-plan-row ${openCategory === cat.name ? 'open' : ''}" onclick="toggleCategory('${escapeAttr(cat.name)}')">
         <div class="pr-icon"><i class="fas ${cat.icon}"></i></div>
@@ -1683,19 +1554,16 @@ function renderDashPlan(){
         ${cat.services.map(svc => renderServiceBlock(svc)).join('')}
       </div>`;
   }).join('');
-
   dashPlan.innerHTML = `
     <div class="dash-plan">
       <div class="dash-plan-head">Your Plan</div>
       <div class="dash-plan-list">${rowsHtml}</div>
     </div>`;
 }
-
 function renderServiceBlock(service){
   const active = activeRequests[service];
   const matches = serviceMatches[service] || [];
   const isExclusive = isExclusiveService(service);
-
   let statusBadge = '<span class="badge pr-status pending" style="font-size:.6rem;">Pending</span>';
   if(active){
     if(active.status === 'accepted') statusBadge = '<span class="badge pr-status confirmed" style="font-size:.6rem;">Confirmed</span>';
@@ -1704,7 +1572,6 @@ function renderServiceBlock(service){
   } else if(matches.length === 0){
     statusBadge = '<span class="badge pr-status noprovider" style="font-size:.6rem;">No provider</span>';
   }
-
   let body = '';
   if(!matches.length){
     body = `
@@ -1723,7 +1590,6 @@ function renderServiceBlock(service){
     const list = assignedUid
       ? [matches.find(p => getProviderUid(p) === assignedUid), ...matches.filter(p => getProviderUid(p) !== assignedUid)].filter(Boolean)
       : matches;
-
     body = list.slice(0, 3).map((p, idx) => {
       const uid = getProviderUid(p);
       const isAssigned = assignedUid === uid;
@@ -1733,10 +1599,8 @@ function renderServiceBlock(service){
       const avatarHTML = avatar
         ? `<img src="${escapeAttr(avatar)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
         : escapeHtml(initials);
-
       const price = p.priceUsd ? `$${Number(p.priceUsd).toLocaleString()}` : 'Pricing TBD';
       const rating = p.rating ? `⭐ ${Number(p.rating).toFixed(1)}` : '';
-
       const statusTag = isAssigned
         ? `<span style="font-size:.6rem;font-weight:800;color:var(--green);">Assigned</span>`
         : wasReplaced
@@ -1744,15 +1608,12 @@ function renderServiceBlock(service){
         : idx === 0 && !assignedUid
         ? `<span style="font-size:.6rem;font-weight:800;color:var(--lime-deep);">Top Match</span>`
         : '';
-
       let actions = `
         <button onclick="event.stopPropagation(); openProviderProfile('${escapeAttr(uid)}')"><i class="fas fa-eye"></i> Profile</button>
         <button onclick="event.stopPropagation(); openChat('${escapeAttr(uid)}','${escapeAttr(p.name||'')}')"><i class="fas fa-comment"></i> Message</button>`;
-
       if(isAssigned && active.status === 'accepted'){
         actions += `<button class="primary" onclick="event.stopPropagation(); openSchedule('${escapeAttr(active.assignmentId)}','${escapeAttr(service)}','${escapeAttr(active.providerName||'')}')"><i class="fas fa-calendar-plus"></i> Request Meeting</button>`;
       }
-
       return `
         <div class="prov-mini ${isAssigned ? 'assigned' : ''} ${wasReplaced ? 'replaced' : ''}">
           <div class="pm-av">${avatarHTML}</div>
@@ -1767,7 +1628,6 @@ function renderServiceBlock(service){
           </div>
         </div>`;
     }).join('');
-
     if(active && active.status === 'invited'){
       body += `
         <div style="margin-top:6px;padding:8px 10px;background:var(--input);border-radius:8px;font-size:.68rem;color:var(--text-muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
@@ -1777,7 +1637,6 @@ function renderServiceBlock(service){
         </div>`;
     }
   }
-
   return `
     <div class="svc-block">
       <div class="svc-head">
@@ -1787,18 +1646,12 @@ function renderServiceBlock(service){
       ${body}
     </div>`;
 }
-
-function toggleCategory(name){
-  openCategory = openCategory === name ? null : name;
-  renderDashPlan();
-}
+function toggleCategory(name){ openCategory = openCategory === name ? null : name; renderDashPlan(); }
 window.toggleCategory = toggleCategory;
-
 function renderDashFooter(){
   const services = currentEventData.services || [];
   const allDone = services.length && services.every(s => activeRequests[s]?.status === 'accepted');
   const anyInvited = services.some(s => activeRequests[s]?.status === 'invited');
-
   if(allDone){
     dashFooter.innerHTML = `
       <div class="dash-footer">
@@ -1821,7 +1674,6 @@ function renderDashFooter(){
     dashFooter.innerHTML = '';
   }
 }
-
 function simulateResponse(service, status){
   const active = activeRequests[service];
   if(!active?.assignmentId){ showToast('No active invitation to simulate.', 'warn'); return; }
@@ -1846,7 +1698,7 @@ function toggleNarrative(open){
 }
 window.toggleNarrative = toggleNarrative;
 
-/* SCHEDULE MODAL */
+/* SCHEDULE */
 function openSchedule(assignmentId, service, providerName){
   if(!assignmentId){ showToast('No assignment to schedule.', 'error'); return; }
   scheduleAssignmentId = assignmentId;
@@ -1860,28 +1712,22 @@ function openSchedule(assignmentId, service, providerName){
   $('scheduleModal').classList.add('active');
 }
 window.openSchedule = openSchedule;
-
 function closeScheduleModal(){ $('scheduleModal').classList.remove('active'); scheduleAssignmentId = null; }
 window.closeScheduleModal = closeScheduleModal;
-
 async function confirmSchedule(){
   const id = scheduleAssignmentId;
   const svc = scheduleService;
   if(!id) return;
-
   const date = $('schDate').value;
   const time = $('schTime').value;
   const type = $('schType').value;
   const location = $('schLocation').value.trim();
   const notes = $('schNotes').value.trim();
-
   if(!date || !time || !location){ showToast('Fill date, time and location.', 'error'); return; }
-
   const btn = $('confirmScheduleBtn');
   btn.disabled = true;
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
-
   const meeting = {
     date, time, type, location, notes,
     scheduledBy: currentUser.uid,
@@ -1889,32 +1735,18 @@ async function confirmSchedule(){
     scheduledAt: new Date().toISOString(),
     mediatedBy: 'Zone21'
   };
-
   try {
-    await db.collection('assignments').doc(id).set({
-      meeting,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
+    await db.collection('assignments').doc(id).set({ meeting, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     const active = activeRequests[svc];
     if(active?.providerId){
       const chatId = getChatId(currentUser.uid, active.providerId);
-      const text = `📅 Meeting Request via Zone21 — ${svc}
-
-Date: ${date}
-Time: ${time}
-Type: ${type.replace(/_/g,' ')}
-Location: ${location}${notes ? '\nNotes: ' + notes : ''}
-
-Zone21 mediates all meetings between organiser and provider. Confirm through your provider dashboard.`;
+      const text = `📅 Meeting Request via Zone21 — ${svc}\n\nDate: ${date}\nTime: ${time}\nType: ${type.replace(/_/g,' ')}\nLocation: ${location}${notes ? '\nNotes: ' + notes : ''}\n\nZone21 mediates all meetings between organiser and provider. Confirm through your provider dashboard.`;
       await db.collection(`threads/${chatId}/messages`).add({
-        senderId: currentUser.uid,
-        text,
+        senderId: currentUser.uid, text,
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         isSystemRequest: true
       });
     }
-
     await db.collection('messages').add({
       sender:'user', senderId: currentUser.uid, senderType:'organizer',
       senderName: currentEventData.name,
@@ -1925,19 +1757,12 @@ Zone21 mediates all meetings between organiser and provider. Confirm through you
       service: svc, providerId: active?.providerId || '',
       providerName: active?.providerName || '',
       date: currentEventData.date, time: currentEventData.time,
-      location: currentEventData.location,
-      assignmentId: id,
+      location: currentEventData.location, assignmentId: id,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    pushNotif({
-      type: 'info',
-      title: '📅 Meeting requested',
-      service: svc,
+    pushNotif({ type: 'info', title: '📅 Meeting requested', service: svc,
       text: `Meeting with <strong>${escapeHtml(active?.providerName || 'provider')}</strong> requested for <strong>${date} at ${time}</strong>. Zone21 will confirm with both parties.`,
-      providerId: active?.providerId || ''
-    });
-
+      providerId: active?.providerId || '' });
     closeScheduleModal();
     renderDashboard();
     showToast('Meeting request sent via Zone21.', 'success');
@@ -1951,21 +1776,18 @@ Zone21 mediates all meetings between organiser and provider. Confirm through you
 }
 window.confirmSchedule = confirmSchedule;
 
-/* PROVIDER PROFILE MODAL */
+/* PROVIDER PROFILE */
 async function openProviderProfile(uid){
   if(!uid) return;
   const modal = $('profileModal');
   const body = $('profileBody');
   modal.classList.add('active');
   body.innerHTML = '<div class="prof-loading"><div class="sp"></div><p>Loading profile…</p></div>';
-
   try {
     let collection = resolveCollection(uid);
     let data = null;
-
     if(collection){
-      try { const d = await db.collection(collection).doc(uid).get(); if(d.exists) data = { uid, ...d.data() }; }
-      catch(e){}
+      try { const d = await db.collection(collection).doc(uid).get(); if(d.exists) data = { uid, ...d.data() }; } catch(e){}
     } else {
       try {
         let d = await db.collection('venues').doc(uid).get();
@@ -1973,17 +1795,8 @@ async function openProviderProfile(uid){
         else { d = await db.collection('serviceProviders').doc(uid).get(); if(d.exists){ collection='serviceProviders'; data = { uid, ...d.data() }; } }
       } catch(e){}
     }
-
-    if(!data){
-      const local = findProviderById(uid);
-      if(local){ collection = collection || 'serviceProviders'; data = { uid, ...local }; }
-    }
-
-    if(!data){
-      body.innerHTML = '<div class="prof-loading"><p>Profile not found.</p></div>';
-      return;
-    }
-
+    if(!data){ const local = findProviderById(uid); if(local){ collection = collection || 'serviceProviders'; data = { uid, ...local }; } }
+    if(!data){ body.innerHTML = '<div class="prof-loading"><p>Profile not found.</p></div>'; return; }
     try {
       const u = await db.collection('users').doc(uid).get();
       if(u.exists){
@@ -1995,7 +1808,6 @@ async function openProviderProfile(uid){
         if(!data.phone) data.phone = ud.phone || ud.contact || '';
       }
     } catch(e){}
-
     renderProfile(data, collection);
   } catch(e){
     console.error(e);
@@ -2003,7 +1815,6 @@ async function openProviderProfile(uid){
   }
 }
 window.openProviderProfile = openProviderProfile;
-
 function renderProfile(item, collection){
   const body = $('profileBody');
   const name = item.name || item.businessName || item.companyName || 'Unnamed Provider';
@@ -2012,13 +1823,11 @@ function renderProfile(item, collection){
   const avatarHTML = avatarUrl
     ? `<img src="${escapeAttr(avatarUrl)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
     : escapeHtml(initials);
-
   const isVenue = collection === 'venues' || item.type === 'venue';
   const category = item.category || item.serviceType || item.venueType || (isVenue ? 'Venue' : 'Service Provider');
   const rating = Number(item.rating) || 0;
   const reviews = Number(item.reviewsCount) || 0;
   const description = cleanField(item.description || item.bio || item.about || '', 800) || 'No description provided.';
-
   let stars = '';
   const full = Math.floor(rating), half = rating % 1 >= 0.5;
   for(let i = 1; i <= 5; i++){
@@ -2026,13 +1835,11 @@ function renderProfile(item, collection){
     else if(i === full + 1 && half) stars += '<i class="fas fa-star-half-alt"></i>';
     else stars += '<i class="far fa-star"></i>';
   }
-
   let services = [];
   if(Array.isArray(item.services)) services = item.services;
   else if(typeof item.services === 'string') services = item.services.split(/[,;\n|]+/).map(s=>s.trim()).filter(Boolean);
   else if(item.secondaryServices) services = String(item.secondaryServices).split(/[,;\n|]+/).map(s=>s.trim()).filter(Boolean);
   services = services.map(s => cleanField(s, 40)).filter(Boolean);
-
   const details = [];
   if(isVenue){
     if(item.capacity) details.push({ i:'fa-users', l:'Capacity', v:item.capacity + ' guests' });
@@ -2049,16 +1856,13 @@ function renderProfile(item, collection){
   if(item.email) details.push({ i:'fa-envelope', l:'Email', v:item.email });
   if(item.phone) details.push({ i:'fa-phone', l:'Phone', v:item.phone });
   if(item.basePrice) details.push({ i:'fa-tag', l:'Starting Price', v:'$' + Number(item.basePrice).toLocaleString() });
-
   const images = Array.isArray(item.images) ? item.images.filter(u => u && typeof u === 'string' && (u.startsWith('data:') || u.startsWith('http'))) : [];
-
   const socials = [];
   if(item.facebook) socials.push({ cls:'fb', i:'fab fa-facebook-f', u:item.facebook, l:'Facebook' });
   if(item.instagram) socials.push({ cls:'ig', i:'fab fa-instagram', u:item.instagram, l:'Instagram' });
   if(item.tiktok) socials.push({ cls:'tt', i:'fab fa-tiktok', u:item.tiktok, l:'TikTok' });
   if(item.youtube) socials.push({ cls:'yt', i:'fab fa-youtube', u:item.youtube, l:'YouTube' });
   if(item.website) socials.push({ cls:'web', i:'fas fa-globe', u:item.website, l:'Website' });
-
   body.innerHTML = `
     <div class="prof-hero"></div>
     <div class="prof-avatar">${avatarHTML}</div>
@@ -2077,7 +1881,6 @@ function renderProfile(item, collection){
       ${images.length ? `<div class="prof-gallery"><h4><i class="fas fa-images"></i> Gallery (${images.length})</h4><div class="prof-gallery-grid">${images.slice(0, 12).map((u, i) => `<div class="prof-gallery-item" onclick="window.open(this.querySelector('img').src, '_blank')"><img src="${escapeAttr(u)}" alt="Photo ${i+1}" loading="lazy"></div>`).join('')}</div></div>` : ''}
     </div>`;
 }
-
 function closeProfileModal(){ $('profileModal').classList.remove('active'); }
 window.closeProfileModal = closeProfileModal;
 
@@ -2089,16 +1892,13 @@ async function openChat(uid, name){
   $('chatName').textContent = name || 'Provider';
   $('chatSub').textContent = 'Service Provider';
   $('chatInit').textContent = (name || 'P').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
-
   $('chatModal').classList.add('active');
-
   try {
     await db.collection('threads').doc(chatThreadId).set({
       participants: [currentUser.uid, uid],
       jobTitle: 'Service Provider',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-
     if(chatUnsub){ chatUnsub(); chatUnsub = null; }
     chatUnsub = db.collection(`threads/${chatThreadId}/messages`).orderBy('timestamp', 'asc').onSnapshot(snap => {
       const body = $('chatBody');
@@ -2130,14 +1930,12 @@ async function openChat(uid, name){
   } catch(e){ console.warn(e); }
 }
 window.openChat = openChat;
-
 function closeChat(){
   $('chatModal').classList.remove('active');
   if(chatUnsub){ chatUnsub(); chatUnsub = null; }
   chatThreadId = null;
 }
 window.closeChat = closeChat;
-
 async function sendChat(){
   const input = $('chatInput');
   const text = input.value.trim();
@@ -2174,7 +1972,6 @@ function saveBlueprintState(){
   localStorage.setItem('zone21_events', JSON.stringify(all));
   renderHistorySidebar();
 }
-
 function renderHistorySidebar(){
   const list = $('historyList');
   if(!list) return;
@@ -2197,7 +1994,6 @@ function renderHistorySidebar(){
     list.appendChild(item);
   });
 }
-
 function loadSession(id){
   closeSidebar();
   const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
@@ -2209,7 +2005,6 @@ function loadSession(id){
   eventNotifications = s.notifications || [];
   seenNotifs = new Set();
   lastBlueprintHTML = s.blueprintHtml || '';
-
   const ctx = {
     country: currentEventData.country,
     location: currentEventData.location,
@@ -2220,20 +2015,17 @@ function loadSession(id){
   };
   serviceMatches = {};
   currentEventData.services.forEach(sv => { serviceMatches[sv] = matchProviders(sv, ctx); });
-
   bpNarrBody.innerHTML = lastBlueprintHTML;
   $('step1').style.display = 'none';
   $('step2').style.display = 'none';
   $('step3').style.display = 'none';
   loadingDiv.style.display = 'none';
   blueprintContainer.style.display = 'block';
-
   renderDashboard();
   subscribeToAssignments();
   renderHistorySidebar();
 }
 window.loadSession = loadSession;
-
 function deleteSession(id, event){
   if(event) event.stopPropagation();
   if(!confirm('Delete this event blueprint?')) return;
@@ -2244,7 +2036,6 @@ function deleteSession(id, event){
   else renderHistorySidebar();
 }
 window.deleteSession = deleteSession;
-
 function startNewSession(){
   closeSidebar();
   if(assignmentUnsub){ assignmentUnsub(); assignmentUnsub = null; }
@@ -2257,13 +2048,11 @@ function startNewSession(){
   seenNotifs.clear();
   lastBlueprintHTML = '';
   openCategory = null;
-
   $('step1').style.display = 'block';
   $('step2').style.display = 'none';
   $('step3').style.display = 'none';
   loadingDiv.style.display = 'none';
   blueprintContainer.style.display = 'none';
-
   eventForm.reset();
   selectedTypeName.textContent = 'your event';
   servicesGrid.innerHTML = '';
@@ -2273,7 +2062,6 @@ function startNewSession(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 window.startNewSession = startNewSession;
-
 function regenerateBlueprint(){
   if(!currentEventData){ showToast('No event to regenerate.', 'error'); return; }
   if(!confirm('Regenerate blueprint?\n\nAll current invitations will be reset. Providers who already accepted will still be honored on the backend.')) return;
@@ -2286,7 +2074,7 @@ function regenerateBlueprint(){
 }
 window.regenerateBlueprint = regenerateBlueprint;
 
-/* PACKAGE LOADING — dual strategy (exact IDs → query by userId) + no auto-redirect */
+/* PACKAGE LOADING — dual strategy, no auto-redirect */
 async function loadUserAndPackage(){
   const user = auth.currentUser;
   if(!user) return false;
@@ -2314,7 +2102,7 @@ async function loadUserAndPackage(){
     } catch(e){ debugLog.push(`${pid}: err ${e.code||'?'}`); }
   }
 
-  // Strategy 2 — query the whole collection by userId
+  // Strategy 2 — query the collection by userId
   if(!found){
     try {
       const q = await db.collection('subscriptions').where('userId','==',user.uid).get();
@@ -2347,30 +2135,8 @@ async function loadUserAndPackage(){
     generateBtn.disabled = true;
     generateBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe to continue';
     showToast('No active subscription found. Open the console (F12) to see the debug log.', 'warn');
-    return false;   // ← NO auto-redirect anymore
+    return false;
   }
-
-  userPackage = found;
-  const pkg = PACKAGES[found];
-  userPackageName = pkg.name;
-  userPackageLimit = pkg.maxAttendees;
-
-  headerPkgTag.textContent = pkg.label;
-  headerPkgTag.style.background = 'var(--lime)';
-  headerPkgTag.style.color = 'var(--navy)';
-  sidebarPkgBadge.textContent = pkg.label;
-  sidebarPkgLabel.textContent = `Package: ${pkg.name}`;
-  pkgBanner.style.display = 'block';
-  pkgName.textContent = pkg.name;
-  pkgLimit.textContent = pkg.maxAttendees === Infinity ? '∞' : pkg.maxAttendees;
-  attendeeHint.textContent = pkg.maxAttendees === Infinity ? 'Unlimited attendees' : `Max ${pkg.maxAttendees} attendees`;
-  generateBtn.disabled = false;
-  generateBtn.innerHTML = '<i class="fas fa-rocket"></i> Generate &amp; Auto-Coordinate';
-
-  if(pending) showToast('Payment pending. You can still prepare blueprints.', 'info');
-  else showToast(`${pkg.name} active.`, 'success');
-  return true;
-}
 
   userPackage = found;
   const pkg = PACKAGES[found];
@@ -2409,7 +2175,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeSidebar();
     }
   });
-
   auth.onAuthStateChanged(async user => {
     if(user){
       await loadUserAndPackage();
@@ -2421,4 +2186,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 </body>
-</html>
+  </html>

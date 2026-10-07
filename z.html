@@ -841,7 +841,7 @@ const db = firebase.firestore();
 
 /* Backend blueprint writer (never surfaced in UI) */
 const BLUEPRINT_WRITER = {
-  apiKey: 'sk-1d616cbf9ff34c84b9da2ef9de807bcc',
+  apiKey: 'sk-507daff2ef7d4fb4a36de42ac0ccc93a',
   apiUrl: 'https://api.deepseek.com/v1/chat/completions',
   model:  'deepseek-chat'
 };
@@ -2025,4 +2025,1027 @@ function renderDashPlan(){
     const statusCls  = { confirmed:'confirmed', progress:'progress', pending:'pending', replacing:'replacing' }[overall];
 
     return `
-      <div class="dash-plan-row ${openCategory === cat.name ? 'open' : ''}" onclick="toggleCat
+      <div class="dash-plan-row ${openCategory === cat.name ? 'open' : ''}" onclick="toggleCategory('${escapeAttr(cat.name)}')">
+        <div class="pr-icon"><i class="fas ${cat.icon}"></i></div>
+        <div class="pr-name">${escapeHtml(cat.name)}</div>
+        <span class="pr-status ${statusCls}">${statusText}</span>
+        <i class="fas fa-chevron-right pr-chev"></i>
+      </div>
+      <div class="dash-plan-detail ${openCategory === cat.name ? 'open' : ''}">
+        ${cat.services.map(renderServiceBlock).join('')}
+      </div>`;
+  }).join('');
+
+  dashPlan.innerHTML = `
+    <div class="dash-plan">
+      <div class="dash-plan-head">Your Plan</div>
+      <div class="dash-plan-list">${rowsHtml}</div>
+    </div>`;
+}
+function renderServiceBlock(service){
+  const active = activeRequests[service];
+  const matches = serviceMatches[service] || [];
+  const isExcl = isExclusiveService(service);
+
+  let statusBadge = '<span class="badge pr-status pending" style="font-size:.6rem;">Pending</span>';
+  if(active){
+    if(active.status === 'paid') statusBadge = '<span class="badge pr-status paid" style="font-size:.6rem;">Paid</span>';
+    else if(active.status === 'deposit_paid') statusBadge = '<span class="badge pr-status paid" style="font-size:.6rem;">Deposit Paid</span>';
+    else if(active.status === 'accepted') statusBadge = '<span class="badge pr-status confirmed" style="font-size:.6rem;">Confirmed</span>';
+    else if(active.status === 'invited') statusBadge = '<span class="badge pr-status progress" style="font-size:.6rem;">Invited</span>';
+    else if(active.status === 'declined') statusBadge = '<span class="badge pr-status replacing" style="font-size:.6rem;">Replacing</span>';
+  } else if(!matches.length){
+    statusBadge = '<span class="badge pr-status noprovider" style="font-size:.6rem;">No provider</span>';
+  }
+
+  let body = '';
+  if(!matches.length && !active){
+    body = `
+      <div class="prov-mini no-match">
+        <div class="pm-av"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="pm-body">
+          <div class="pm-name">No eligible provider found</div>
+          <div class="pm-meta">No providers registered for this service in ${escapeHtml(countryName(currentEventData.country))}.</div>
+          <div class="pm-actions">
+            <a href="https://wa.me/${ZONE21.whatsapp.replace('+','')}?text=${encodeURIComponent('Hi Zone21, I need a ' + service + ' in ' + currentEventData.location + ' on ' + currentEventData.date)}" target="_blank"><i class="fab fa-whatsapp"></i> Ask Zone21</a>
+          </div>
+        </div>
+      </div>`;
+  } else if(active){
+    const p = matches.find(x => getProviderUid(x) === active.providerId) || findProviderById(active.providerId) || {};
+    const uid = active.providerId;
+    const avatar = p.avatar || p.avatarUrl || '';
+    const initials = String(p.name || active.providerName || 'P').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    const avatarHTML = avatar
+      ? `<img src="${escapeAttr(avatar)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
+      : escapeHtml(initials);
+    const rate = active.rate || 0;
+    const rt = active.rateType || 'fixed';
+    const dur = active.durationHours || currentEventData.durationHours || 8;
+    const total = rt === 'hourly' ? rate * dur : rate;
+    const priceLine = rate ? `$${total.toLocaleString()}${rt === 'hourly' ? ` <small>($${rate}/hr × ${dur}h)</small>` : ''}` : 'Pricing TBD';
+
+    let actions = `
+      <button onclick="event.stopPropagation(); openProviderProfile('${escapeAttr(uid)}')"><i class="fas fa-eye"></i> Profile</button>
+      <button onclick="event.stopPropagation(); openChat('${escapeAttr(uid)}','${escapeAttr(p.name||active.providerName||'')}')"><i class="fas fa-comment"></i> Message</button>`;
+    if(['accepted','deposit_paid','paid'].includes(active.status)){
+      actions += `<button class="primary" onclick="event.stopPropagation(); openSchedule('${escapeAttr(active.assignmentId)}','${escapeAttr(service)}','${escapeAttr(active.providerName||'')}')"><i class="fas fa-calendar-plus"></i> Meeting</button>`;
+    }
+    if(active.status === 'accepted'){
+      actions += `<button class="warn" onclick="event.stopPropagation(); openCart()"><i class="fas fa-credit-card"></i> Pay Now</button>`;
+    }
+
+    body = `
+      <div class="prov-mini assigned">
+        <div class="pm-av">${avatarHTML}</div>
+        <div class="pm-body">
+          <div class="pm-name">${escapeHtml(cleanField(p.name || active.providerName || 'Provider', 50))}</div>
+          <div class="pm-meta">
+            <span><i class="fas fa-map-marker-alt"></i>${escapeHtml(cleanField(p.location || 'Location TBD', 30))}</span>
+            <span><i class="fas fa-tag"></i>${priceLine}</span>
+            ${p.rating ? `<span>⭐ ${Number(p.rating).toFixed(1)}</span>` : ''}
+          </div>
+          <div class="pm-actions">${actions}</div>
+        </div>
+      </div>`;
+  } else {
+    const top = matches.slice(0, 2);
+    body = top.map((p, idx) => {
+      const uid = getProviderUid(p);
+      const avatar = p.avatar || p.avatarUrl || '';
+      const initials = String(p.name || p.businessName || 'P').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+      const avatarHTML = avatar
+        ? `<img src="${escapeAttr(avatar)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
+        : escapeHtml(initials);
+      const price = p.priceUsd ? `$${Number(p.priceUsd).toLocaleString()}` : 'Pricing TBD';
+      return `
+        <div class="prov-mini">
+          <div class="pm-av">${avatarHTML}</div>
+          <div class="pm-body">
+            <div class="pm-name">${escapeHtml(cleanField(p.name || p.businessName || 'Provider', 50))} ${idx===0 ? '<span style="font-size:.6rem;font-weight:800;color:var(--lime-deep);">Top Match</span>' : ''}</div>
+            <div class="pm-meta">
+              <span><i class="fas fa-map-marker-alt"></i>${escapeHtml(cleanField(p.location || 'Location TBD', 30))}</span>
+              <span><i class="fas fa-tag"></i>${escapeHtml(price)}</span>
+              ${p.rating ? `<span>⭐ ${Number(p.rating).toFixed(1)}</span>` : ''}
+            </div>
+            <div class="pm-actions">
+              <button onclick="event.stopPropagation(); openProviderProfile('${escapeAttr(uid)}')"><i class="fas fa-eye"></i> Profile</button>
+              <button onclick="event.stopPropagation(); openChat('${escapeAttr(uid)}','${escapeAttr(p.name||'')}')"><i class="fas fa-comment"></i> Message</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+  return `
+    <div class="svc-block">
+      <div class="svc-head">
+        <strong>${isExcl ? '<i class="fas fa-shield-halved" style="color:var(--coral);"></i> ' : ''}${escapeHtml(service)}</strong>
+        ${statusBadge}
+      </div>
+      ${body}
+    </div>`;
+}
+function toggleCategory(name){ openCategory = openCategory === name ? null : name; renderDashPlan(); }
+window.toggleCategory = toggleCategory;
+
+function renderDashFooter(){
+  const services = currentEventData.services || [];
+  const allConfirmed = services.length && services.every(s => ['accepted','paid','deposit_paid'].includes(activeRequests[s]?.status));
+  const allPaid = services.length && services.every(s => activeRequests[s]?.status === 'paid');
+  const anyInvited = services.some(s => activeRequests[s]?.status === 'invited');
+  const pendingPay = Object.keys(cart).length > 0 && !allPaid;
+
+  if(allPaid){
+    dashFooter.innerHTML = `<div class="dash-footer"><i class="fas fa-circle-check"></i><div>
+      <div class="txt">All services paid. Event fully confirmed.</div>
+      <div class="sub">Sit back and relax — Zone21 has everything covered.</div></div></div>`;
+  } else if(allConfirmed){
+    dashFooter.innerHTML = `<div class="dash-footer"><i class="fas fa-circle-check"></i><div>
+      <div class="txt">All providers confirmed!</div>
+      <div class="sub">${pendingPay ? 'Secure your bookings via Manage Payments.' : 'Your event is ready.'}</div>
+    </div>${pendingPay ? `<button class="btn lime" style="margin-left:auto;" onclick="openCart()"><i class="fas fa-credit-card"></i> Pay Now</button>` : ''}</div>`;
+  } else if(anyInvited){
+    dashFooter.innerHTML = `<div class="dash-footer waiting"><i class="fas fa-hourglass-half"></i><div>
+      <div class="txt">Zone21 is coordinating with providers…</div>
+      <div class="sub">You'll be notified here as soon as each one confirms.</div></div></div>`;
+  } else {
+    dashFooter.innerHTML = '';
+  }
+}
+
+/* CART */
+function addToCart(service){
+  const active = activeRequests[service];
+  if(!active) return;
+  const provider = findProviderById(active.providerId) || selectedProvider[service] || {};
+  const rate = Number(active.rate) || Number(provider.priceUsd) || Number(provider.basePrice) || 0;
+  const rt = active.rateType || provider.rateType || 'fixed';
+  const dur = active.durationHours || currentEventData.durationHours || 8;
+  const total = rt === 'hourly' ? rate * dur : rate;
+  cart[service] = {
+    service,
+    providerId: active.providerId,
+    providerName: active.providerName || provider.name || provider.businessName || 'Provider',
+    providerDocId: active.providerDocId || provider.id || '',
+    assignmentId: active.assignmentId,
+    rate, rateType: rt, durationHours: dur, total,
+    paymentType: null,
+    status: 'unpaid'
+  };
+  updateCartBadge();
+}
+
+function openCart(){
+  providerSelection.style.display = 'none';
+  blueprintContainer.style.display = 'none';
+  cartView.style.display = 'block';
+  renderCart();
+  cartView.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+window.openCart = openCart;
+function closeCart(){
+  cartView.style.display = 'none';
+  blueprintContainer.style.display = 'block';
+  blueprintContainer.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+window.closeCart = closeCart;
+
+function cartStatsSummary(){
+  const items = Object.values(cart);
+  const total = items.reduce((s,x) => s + (x.total||0), 0);
+  const paid = items.filter(x => x.status === 'paid' || x.status === 'deposit_paid').reduce((s,x) => s + (x.total||0), 0);
+  const balance = total - paid;
+  return { items, total, paid, balance, count: items.length };
+}
+
+function renderCart(){
+  const { items, total, paid, balance, count } = cartStatsSummary();
+  updateCartBadge();
+  cartStats.innerHTML = `
+    <div class="cs-item"><span class="n">${count}</span><span class="l">Confirmed services</span></div>
+    <div class="cs-item"><span class="n">$${total.toLocaleString()}</span><span class="l">Total</span></div>
+    <div class="cs-item"><span class="n">$${paid.toLocaleString()}</span><span class="l">Paid</span></div>
+    <div class="cs-item"><span class="n">$${balance.toLocaleString()}</span><span class="l">Outstanding</span></div>`;
+
+  if(!items.length){
+    cartItemsList.innerHTML = `
+      <div class="cart-empty">
+        <i class="fas fa-shopping-cart"></i>
+        <h4>No confirmed services yet</h4>
+        <p>When a provider accepts your invitation, the service is added here automatically so you can lock in the booking.</p>
+      </div>`;
+    cartSummary.innerHTML = '';
+    invoiceWrap.style.display = 'none';
+    return;
+  }
+
+  cartItemsList.innerHTML = items.map(item => {
+    const initials = String(item.providerName || 'P').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    const provider = findProviderById(item.providerId) || {};
+    const avatar = provider.avatar || provider.avatarUrl || '';
+    const avatarHTML = avatar
+      ? `<img src="${escapeAttr(avatar)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
+      : escapeHtml(initials);
+    const rateLine = item.rateType === 'hourly'
+      ? `$${item.rate.toLocaleString()}/hour × ${item.durationHours}h`
+      : `$${item.rate.toLocaleString()} fixed`;
+    let statusTag = '';
+    if(item.status === 'paid') statusTag = '<span class="pr-status paid">Paid in full</span>';
+    else if(item.status === 'deposit_paid') statusTag = '<span class="pr-status paid">Deposit paid</span>';
+    else if(item.status === 'pending') statusTag = '<span class="pr-status progress">Awaiting approval</span>';
+    else statusTag = '<span class="pr-status pending">Unpaid</span>';
+
+    return `
+      <div class="cart-line">
+        <div class="cl-av">${avatarHTML}</div>
+        <div class="cl-body">
+          <div class="cl-svc">${escapeHtml(item.service)}</div>
+          <div class="cl-name">${escapeHtml(cleanField(item.providerName, 60))}</div>
+          <div class="cl-det"><strong>Rate:</strong> ${rateLine}</div>
+          <div style="margin-top:6px;">${statusTag}</div>
+        </div>
+        <div class="cl-price">
+          <div class="amount">$${(item.total||0).toLocaleString()}</div>
+          <div class="rate">Total</div>
+          ${item.status === 'unpaid' ? `<button class="remove" onclick="openPayment('${escapeAttr(item.service)}')">Pay now</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  const dep = Math.round(total * 0.4);
+  const hasUnpaid = items.some(x => x.status === 'unpaid');
+  cartSummary.innerHTML = `
+    <h3><i class="fas fa-receipt"></i> Order Summary</h3>
+    <div class="sum-row"><span>Services (${count})</span><span class="val">$${total.toLocaleString()}</span></div>
+    <div class="sum-row"><span>Paid to date</span><span class="val" style="color:var(--green-deep);">− $${paid.toLocaleString()}</span></div>
+    <div class="sum-row deposit"><span>Balance</span><span class="val">$${balance.toLocaleString()}</span></div>
+    <div class="sum-row total"><span>Total due</span><span class="val">$${balance.toLocaleString()}</span></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:.72rem;color:var(--text-muted);line-height:1.6;">
+      <strong style="color:var(--navy);display:block;margin-bottom:6px;">Payment options per service</strong>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Deposit (40%)</span><strong style="color:var(--green-deep);">$${dep.toLocaleString()}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;"><span>Full payment</span><strong style="color:var(--navy);">$${total.toLocaleString()}</strong></div>
+    </div>
+    ${hasUnpaid
+      ? `<button class="checkout-btn" onclick="openPayment('__all__')"><i class="fas fa-lock"></i> Pay Outstanding Services</button>`
+      : `<button class="checkout-btn" disabled><i class="fas fa-circle-check"></i> All services paid</button>`}
+    <div class="checkout-note">
+      <i class="fas fa-shield-halved"></i> Booking is valid after a deposit or full payment is received by Zone21.
+    </div>`;
+  renderInvoice();
+}
+
+function renderInvoice(){
+  const items = Object.values(cart);
+  if(!items.length){ invoiceWrap.style.display = 'none'; return; }
+  invoiceWrap.style.display = 'block';
+
+  const total = items.reduce((s,x)=>s+(x.total||0),0);
+  const paid = items.filter(x=>x.status==='paid'||x.status==='deposit_paid').reduce((s,x)=>s+(x.total||0),0);
+  const balance = total - paid;
+  const invNo = 'Z21-' + (currentSessionId||'').toUpperCase().slice(-8);
+  const invDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+  const anyPaid = items.some(x=>x.status==='paid');
+  const anyDeposit = items.some(x=>x.status==='deposit_paid');
+  const anyPending = items.some(x=>x.status==='pending');
+  let statusClass = 'pending', statusText = 'Pending payment';
+  if(anyPaid && !anyPending){ statusClass='paid'; statusText='Paid'; }
+  else if(anyDeposit || anyPaid){ statusClass='approved'; statusText='Deposit received'; }
+  else if(anyPending){ statusClass='pending'; statusText='Awaiting approval'; }
+
+  const rows = items.map(item => {
+    const rateLine = item.rateType === 'hourly'
+      ? `$${item.rate.toLocaleString()} × ${item.durationHours}h`
+      : 'Fixed fee';
+    let s = '';
+    if(item.status === 'paid') s = '<span style="color:var(--green-deep);font-weight:700;">Paid</span>';
+    else if(item.status === 'deposit_paid') s = '<span style="color:var(--green-deep);font-weight:700;">Deposit paid</span>';
+    else if(item.status === 'pending') s = '<span style="color:#B07B00;font-weight:700;">Pending</span>';
+    else s = '<span style="color:var(--text-muted);font-weight:700;">Unpaid</span>';
+    return `<tr><td>${escapeHtml(item.service)}<span class="sub">${escapeHtml(item.providerName)}</span></td><td>${rateLine}</td><td>${s}</td><td>$${(item.total||0).toLocaleString()}</td></tr>`;
+  }).join('');
+  const deposit40 = Math.round(total * 0.4);
+
+  invoiceWrap.innerHTML = `
+    <div class="inv-head">
+      <div class="inv-brand">
+        <div class="logo"><i class="fas fa-handshake"></i> ZONE21 EVENTS</div>
+        <div class="tag">Event Coordination · Zimbabwe &amp; Region</div>
+        <div class="contact"><strong>${escapeHtml(ZONE21.email)}</strong><br>${escapeHtml(ZONE21.phone)} (call / WhatsApp)<br>${escapeHtml(ZONE21.website)}</div>
+      </div>
+      <div class="inv-meta">
+        <div class="inv-no">Invoice No.</div>
+        <div class="inv-num">${escapeHtml(invNo)}</div>
+        <div class="inv-date">Issued ${escapeHtml(invDate)}</div>
+        <div class="inv-status ${statusClass}">${statusText}</div>
+      </div>
+    </div>
+    <div class="inv-parties">
+      <div class="inv-party">
+        <div class="pl">Billed To</div>
+        <div class="pv">${escapeHtml(currentEventData.contact || 'Organiser')}<small>${escapeHtml(currentUser?.email || '')}</small></div>
+      </div>
+      <div class="inv-party">
+        <div class="pl">Event</div>
+        <div class="pv">${escapeHtml(currentEventData.name)}<small>${escapeHtml(currentEventData.date)} · ${escapeHtml(currentEventData.location)}</small></div>
+      </div>
+    </div>
+    <table class="inv-table">
+      <thead><tr><th>Service / Provider</th><th>Rate</th><th>Status</th><th>Amount</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="inv-totals">
+      <div class="tr"><span>Subtotal</span><span class="v">$${total.toLocaleString()}</span></div>
+      <div class="tr"><span>Zone21 coordination fee</span><span class="v">Included</span></div>
+      ${paid > 0 ? `<div class="tr paid"><span>Paid to date</span><span class="v">− $${paid.toLocaleString()}</span></div>` : ''}
+      <div class="tr grand"><span>Total due</span><span class="v">$${balance.toLocaleString()}</span></div>
+      ${balance > 0 && !anyPaid && !anyDeposit ? `<div class="tr deposit"><span>Option — 40% deposit</span><span class="v">$${deposit40.toLocaleString()}</span></div>` : ''}
+      ${balance > 0 ? `<div class="tr balance"><span>Balance after deposit</span><span class="v">$${Math.max(0, balance - deposit40).toLocaleString()}</span></div>` : ''}
+    </div>
+    <div class="inv-terms">
+      <strong>Payment terms &amp; booking validity</strong>
+      <ul>
+        <li>Your booking is <strong>valid as soon as a deposit or full payment is received</strong> by Zone21.</li>
+        <li>Deposit amounts are held by Zone21 and released to providers after the event is completed.</li>
+        <li>All payments are subject to Zone21 admin approval before being marked as received.</li>
+        <li>Cancellation &amp; refund policy governed by Zone21 terms of service.</li>
+      </ul>
+    </div>
+    <div class="inv-foot">
+      <div class="thanks">Thank you for coordinating with Zone21 Events.</div>
+      <div class="actions">
+        <button class="btn primary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+        <button class="btn outline" onclick="closeCart()"><i class="fas fa-arrow-left"></i> Back</button>
+      </div>
+    </div>`;
+}
+
+/* PAYMENT MODAL */
+function openPayment(service){
+  currentPaymentSvc = service;
+  const items = service === '__all__'
+    ? Object.values(cart).filter(x => x.status === 'unpaid')
+    : [cart[service]].filter(Boolean);
+  if(!items.length){ showToast('Nothing to pay.', 'warn'); return; }
+
+  const total = items.reduce((s,x)=>s+(x.total||0),0);
+  const dep = Math.round(total * 0.4);
+
+  const usdHTML = PAYMENT_METHODS.USD.map(m => `
+    <div class="pay-method" data-m="${escapeAttr(m.id)}" onclick="selectPayMethod(this)">
+      <span class="pm-icon"><i class="fas ${m.icon}"></i></span>
+      <div class="pm-name">${escapeHtml(m.name)}</div>
+      <div class="pm-sub">${escapeHtml(m.account)}</div>
+      <div class="pm-num">${escapeHtml(m.number)}</div>
+    </div>`).join('');
+  const zarHTML = PAYMENT_METHODS.ZAR.map(m => `
+    <div class="pay-method" data-m="${escapeAttr(m.id)}" onclick="selectPayMethod(this)">
+      <span class="pm-icon"><i class="fas ${m.icon}"></i></span>
+      <div class="pm-name">${escapeHtml(m.name)}</div>
+      <div class="pm-sub">${escapeHtml(m.account)}</div>
+      <div class="pm-num">${escapeHtml(m.number)}</div>
+    </div>`).join('');
+
+  $('paymentBody').innerHTML = `
+    <div style="background:var(--lime-soft);border-left:3px solid var(--lime-deep);padding:12px 14px;border-radius:10px;margin-bottom:16px;font-size:.83rem;line-height:1.55;">
+      <strong>${items.length} service${items.length===1?'':'s'}</strong> · Total <strong>$${total.toLocaleString()}</strong>
+      <div style="font-size:.72rem;color:var(--text-2);margin-top:4px;">Your booking becomes valid once Zone21 receives a deposit or full payment.</div>
+    </div>
+
+    <div class="pay-group-title" style="margin-top:0;">Payment type</div>
+    <div class="pay-opt selected" data-type="deposit" onclick="selectPayType('deposit')">
+      <input type="radio" name="payType" value="deposit" checked>
+      <div class="po-body">
+        <div class="po-title">Deposit (40%)</div>
+        <div class="po-desc">Booking valid immediately. Balance due before event day.</div>
+      </div>
+      <div class="po-amount">$${dep.toLocaleString()}</div>
+    </div>
+    <div class="pay-opt" data-type="full" onclick="selectPayType('full')">
+      <input type="radio" name="payType" value="full">
+      <div class="po-body">
+        <div class="po-title">Full payment</div>
+        <div class="po-desc">Settle everything today. No further action needed.</div>
+      </div>
+      <div class="po-amount">$${total.toLocaleString()}</div>
+    </div>
+
+    <div class="pay-group-title">USD accounts</div>
+    <div class="pay-methods">${usdHTML}</div>
+
+    <div class="pay-group-title">South African Rand accounts</div>
+    <div class="pay-methods">${zarHTML}</div>
+
+    <div style="margin-top:18px;padding:12px 14px;background:var(--input);border-radius:10px;font-size:.74rem;color:var(--text-2);line-height:1.6;">
+      <i class="fas fa-circle-info" style="color:var(--lime-deep);"></i>
+      Transfer the exact amount to the selected account using your <strong>Invoice Number</strong> as reference. Booking stays <strong>pending admin approval</strong> until Zone21 verifies receipt.
+    </div>`;
+
+  const first = $('paymentBody').querySelector('.pay-method');
+  if(first) first.classList.add('selected');
+  $('paymentModal').classList.add('active');
+}
+window.openPayment = openPayment;
+
+function selectPayType(t){
+  document.querySelectorAll('#paymentBody .pay-opt').forEach(el => el.classList.toggle('selected', el.dataset.type === t));
+  document.querySelectorAll('#paymentBody input[name="payType"]').forEach(r => r.checked = (r.value === t));
+}
+window.selectPayType = selectPayType;
+function selectPayMethod(el){
+  document.querySelectorAll('#paymentBody .pay-method').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+window.selectPayMethod = selectPayMethod;
+function closePaymentModal(){ $('paymentModal').classList.remove('active'); currentPaymentSvc = null; }
+window.closePaymentModal = closePaymentModal;
+
+async function submitPayment(){
+  const btn = $('confirmPayBtn');
+  const items = currentPaymentSvc === '__all__'
+    ? Object.values(cart).filter(x => x.status === 'unpaid')
+    : [cart[currentPaymentSvc]].filter(Boolean);
+  if(!items.length){ showToast('Nothing to pay.', 'warn'); return; }
+
+  const payType = (document.querySelector('#paymentBody input[name="payType"]:checked')?.value) || 'deposit';
+  const methodEl = document.querySelector('#paymentBody .pay-method.selected');
+  const method = methodEl ? methodEl.dataset.m : 'ecocash';
+  const methodName = methodEl ? methodEl.querySelector('.pm-name')?.textContent : 'Ecocash';
+
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
+
+  const total = items.reduce((s,x)=>s+(x.total||0),0);
+  const amountDue = payType === 'full' ? total : Math.round(total * 0.4);
+  const invNo = 'Z21-' + (currentSessionId||'').toUpperCase().slice(-8) + '-' + Date.now().toString().slice(-4);
+
+  try {
+    const invRef = await db.collection('invoices').add({
+      invoiceNo: invNo,
+      eventId: currentSessionId,
+      eventName: currentEventData.name,
+      organizerId: currentUser.uid,
+      organizerName: currentUser.displayName || currentUser.email || 'Organiser',
+      organizerContact: currentEventData.contact,
+      services: items.map(x => ({ service:x.service, providerId:x.providerId, providerName:x.providerName, rate:x.rate, rateType:x.rateType, durationHours:x.durationHours, total:x.total })),
+      paymentType: payType, method, methodName,
+      subtotal: total, amountDue, amountPaid: 0,
+      status: 'pending', approved: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      userId: currentUser.uid
+    });
+
+    for(const item of items){
+      if(item.assignmentId){
+        try {
+          await db.collection('assignments').doc(item.assignmentId).set({
+            paymentStatus:'pending', paymentType:payType, method,
+            invoiceId: invRef.id, invoiceNo: invNo, amountDue,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge:true });
+        } catch(e){}
+      }
+      cart[item.service].status = 'pending';
+      cart[item.service].paymentType = payType;
+      cart[item.service].invoiceId = invRef.id;
+      cart[item.service].invoiceNo = invNo;
+    }
+
+    try {
+      await db.collection('messages').add({
+        sender:'user', senderId:currentUser.uid, senderType:'organizer',
+        senderName: currentEventData.name,
+        subject: `Payment submitted — ${invNo}`,
+        message: `Amount: $${amountDue.toLocaleString()} (${payType})\nMethod: ${methodName}\nServices:\n${items.map(i => '- ' + i.service + ' · ' + i.providerName).join('\n')}`,
+        type:'payment_submitted', recipientId:'admin', status:'unread',
+        eventId: currentSessionId, eventName: currentEventData.name,
+        invoiceId: invRef.id, invoiceNo: invNo, amount: amountDue,
+        paymentType: payType, method,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(e){}
+
+    pushNotif({
+      type:'info', title:'💳 Payment submitted',
+      text: `Invoice <strong>${escapeHtml(invNo)}</strong> for <strong>$${amountDue.toLocaleString()}</strong> via ${escapeHtml(methodName)}. Zone21 will confirm once received.`
+    });
+
+    closePaymentModal();
+    renderCart();
+    renderDashboard();
+    saveBlueprintState();
+    showToast('Payment submitted for approval.', 'success');
+  } catch(e){
+    showToast('Payment submission failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+window.submitPayment = submitPayment;
+
+/* NARRATIVE TOGGLE */
+function toggleNarrative(open){
+  const isOpen = bpNarrBody.classList.contains('open');
+  const nextState = typeof open === 'boolean' ? open : !isOpen;
+  bpNarrBody.classList.toggle('open', nextState);
+  bpNarrHead.classList.toggle('open', nextState);
+}
+window.toggleNarrative = toggleNarrative;
+
+/* SCHEDULE */
+function openSchedule(assignmentId, service, providerName){
+  if(!assignmentId){ showToast('No assignment to schedule.', 'error'); return; }
+  scheduleAssignmentId = assignmentId; scheduleService = service;
+  $('scheduleContext').innerHTML = `<strong>${escapeHtml(service)}</strong> · ${escapeHtml(providerName||'Provider')}<br><span style="font-size:.78rem;color:var(--text-2);">Zone21 will mediate the meeting and confirm with both parties.</span>`;
+  $('schDate').value = currentEventData.date || '';
+  $('schTime').value = '10:00';
+  $('schLocation').value = 'Zone21 Office, ' + (currentEventData.location || '');
+  $('schType').value = 'zone21_office';
+  $('schNotes').value = '';
+  $('scheduleModal').classList.add('active');
+}
+window.openSchedule = openSchedule;
+function closeScheduleModal(){ $('scheduleModal').classList.remove('active'); scheduleAssignmentId = null; }
+window.closeScheduleModal = closeScheduleModal;
+
+async function confirmSchedule(){
+  const id = scheduleAssignmentId; const svc = scheduleService;
+  if(!id) return;
+  const date = $('schDate').value, time = $('schTime').value, type = $('schType').value;
+  const location = $('schLocation').value.trim(), notes = $('schNotes').value.trim();
+  if(!date || !time || !location){ showToast('Fill date, time and location.', 'error'); return; }
+
+  const btn = $('confirmScheduleBtn'); btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+
+  const meeting = { date, time, type, location, notes,
+    scheduledBy: currentUser.uid,
+    scheduledByName: currentUser.displayName || currentUser.email || 'Organiser',
+    scheduledAt: new Date().toISOString(), mediatedBy: 'Zone21' };
+
+  try {
+    await db.collection('assignments').doc(id).set({ meeting, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+    const active = activeRequests[svc];
+    if(active?.providerId){
+      const chatId = getChatId(currentUser.uid, active.providerId);
+      const text = `📅 Meeting Request — ${svc}\n\nDate: ${date}\nTime: ${time}\nType: ${type.replace(/_/g,' ')}\nLocation: ${location}${notes ? '\nNotes: ' + notes : ''}\n\nZone21 mediates all meetings.`;
+      try {
+        await db.collection(`threads/${chatId}/messages`).add({
+          senderId: currentUser.uid, text,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(), isSystemRequest: true
+        });
+      } catch(e){}
+    }
+    try {
+      await db.collection('messages').add({
+        sender:'user', senderId: currentUser.uid, senderType:'organizer',
+        senderName: currentEventData.name,
+        subject: `Meeting request: ${svc} → ${active?.providerName || 'Provider'}`,
+        message: `Meeting requested:\n${date} at ${time}\nType: ${type}\nLocation: ${location}\nService: ${svc}`,
+        type:'meeting_request', recipientId:'admin', status:'unread',
+        eventId: currentSessionId, eventName: currentEventData.name,
+        service: svc, providerId: active?.providerId || '',
+        providerName: active?.providerName || '',
+        date: currentEventData.date, time: currentEventData.time,
+        location: currentEventData.location, assignmentId: id,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(e){}
+
+    pushNotif({ type:'info', title:'📅 Meeting requested', service: svc,
+      text:`Meeting with <strong>${escapeHtml(active?.providerName || 'provider')}</strong> on <strong>${date} at ${time}</strong>. Zone21 will confirm with both parties.`,
+      providerId: active?.providerId || '' });
+
+    closeScheduleModal();
+    renderDashboard();
+    saveBlueprintState();
+    showToast('Meeting request sent.', 'success');
+  } catch(e){
+    showToast('Failed to send: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+window.confirmSchedule = confirmSchedule;
+
+/* PROVIDER PROFILE */
+async function openProviderProfile(uid){
+  if(!uid) return;
+  const modal = $('profileModal'); const body = $('profileBody');
+  modal.classList.add('active');
+  body.innerHTML = '<div class="prof-loading"><div class="sp"></div><p>Loading profile…</p></div>';
+  try {
+    let collection = resolveCollection(uid);
+    let data = null;
+    if(collection){
+      try { const d = await db.collection(collection).doc(uid).get(); if(d.exists) data = { uid, ...d.data() }; } catch(e){}
+    } else {
+      try {
+        let d = await db.collection('venues').doc(uid).get();
+        if(d.exists){ collection='venues'; data = { uid, ...d.data() }; }
+        else { d = await db.collection('serviceProviders').doc(uid).get(); if(d.exists){ collection='serviceProviders'; data = { uid, ...d.data() }; } }
+      } catch(e){}
+    }
+    if(!data){ const local = findProviderById(uid); if(local){ collection = collection || 'serviceProviders'; data = { uid, ...local }; } }
+    if(!data){ body.innerHTML = '<div class="prof-loading"><p>Profile not found.</p></div>'; return; }
+
+    try {
+      const u = await db.collection('users').doc(uid).get();
+      if(u.exists){
+        const ud = u.data();
+        if(!data.name && !data.businessName) data.name = ud.name || '';
+        if(!data.avatar && !data.avatarUrl) data.avatar = ud.avatar || ud.avatarUrl || null;
+        if(!data.description && !data.bio) data.description = ud.bio || '';
+        if(!data.email) data.email = ud.email || '';
+        if(!data.phone) data.phone = ud.phone || ud.contact || '';
+      }
+    } catch(e){}
+    renderProfile(data, collection);
+  } catch(e){
+    body.innerHTML = '<div class="prof-loading"><p>Failed to load profile.</p></div>';
+  }
+}
+window.openProviderProfile = openProviderProfile;
+
+function renderProfile(item, collection){
+  const body = $('profileBody');
+  const name = item.name || item.businessName || item.companyName || 'Unnamed Provider';
+  const initials = name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  const avatarUrl = item.avatar || item.avatarUrl || null;
+  const avatarHTML = avatarUrl
+    ? `<img src="${escapeAttr(avatarUrl)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeAttr(initials)}';">`
+    : escapeHtml(initials);
+
+  const isVenue = collection === 'venues' || item.type === 'venue';
+  const category = item.category || item.serviceType || item.venueType || (isVenue ? 'Venue' : 'Service Provider');
+  const rating = Number(item.rating) || 0;
+  const reviews = Number(item.reviewsCount) || 0;
+  const description = cleanField(item.description || item.bio || item.about || '', 800) || 'No description provided.';
+
+  let stars = '';
+  const full = Math.floor(rating), half = rating % 1 >= 0.5;
+  for(let i = 1; i <= 5; i++){
+    if(i <= full) stars += '<i class="fas fa-star"></i>';
+    else if(i === full + 1 && half) stars += '<i class="fas fa-star-half-alt"></i>';
+    else stars += '<i class="far fa-star"></i>';
+  }
+
+  let services = [];
+  if(Array.isArray(item.services)) services = item.services;
+  else if(typeof item.services === 'string') services = item.services.split(/[,;\n|]+/).map(s=>s.trim()).filter(Boolean);
+  else if(item.secondaryServices) services = String(item.secondaryServices).split(/[,;\n|]+/).map(s=>s.trim()).filter(Boolean);
+  services = services.map(s => cleanField(s, 40)).filter(Boolean);
+
+  const details = [];
+  if(isVenue){
+    if(item.capacity) details.push({ i:'fa-users', l:'Capacity', v:item.capacity + ' guests' });
+    if(item.venueType) details.push({ i:'fa-building', l:'Venue Type', v:item.venueType });
+    if(item.operatingHours) details.push({ i:'fa-clock', l:'Operating Hours', v:item.operatingHours });
+    if(item.parking) details.push({ i:'fa-parking', l:'Parking', v:item.parking });
+  } else {
+    if(item.yearsExperience) details.push({ i:'fa-award', l:'Experience', v:item.yearsExperience + ' years' });
+    if(item.businessHours) details.push({ i:'fa-clock', l:'Business Hours', v:item.businessHours });
+    if(item.serviceAreas) details.push({ i:'fa-map-pin', l:'Service Areas', v:item.serviceAreas });
+    if(item.languages) details.push({ i:'fa-language', l:'Languages', v:item.languages });
+  }
+  if(item.location) details.push({ i:'fa-map-marker-alt', l:'Location', v:item.location });
+  if(item.email) details.push({ i:'fa-envelope', l:'Email', v:item.email });
+  if(item.phone) details.push({ i:'fa-phone', l:'Phone', v:item.phone });
+  if(item.basePrice){
+    const rt = item.rateType || item.pricingType || 'fixed';
+    details.push({ i:'fa-tag', l:'Starting Price', v:'$' + Number(item.basePrice).toLocaleString() + (rt === 'hourly' ? ' / hour' : ' (fixed)') });
+  }
+
+  const images = Array.isArray(item.images)
+    ? item.images.filter(u => u && typeof u === 'string' && (u.startsWith('data:') || u.startsWith('http')))
+    : [];
+
+  const socials = [];
+  if(item.facebook)  socials.push({ cls:'fb',  i:'fab fa-facebook-f', u:item.facebook,  l:'Facebook' });
+  if(item.instagram) socials.push({ cls:'ig',  i:'fab fa-instagram',  u:item.instagram, l:'Instagram' });
+  if(item.tiktok)    socials.push({ cls:'tt',  i:'fab fa-tiktok',     u:item.tiktok,    l:'TikTok' });
+  if(item.youtube)   socials.push({ cls:'yt',  i:'fab fa-youtube',    u:item.youtube,   l:'YouTube' });
+  if(item.website)   socials.push({ cls:'web', i:'fas fa-globe',      u:item.website,   l:'Website' });
+
+  body.innerHTML = `
+    <div class="prof-hero"></div>
+    <div class="prof-avatar">${avatarHTML}</div>
+    <div class="prof-info">
+      <div class="prof-name">${escapeHtml(cleanField(name, 100))}</div>
+      <div class="prof-cat">${escapeHtml(cleanField(category, 100))}</div>
+      <div class="prof-rating">
+        <span class="prof-stars">${stars}</span>
+        <span class="prof-rating-num">${rating.toFixed(1)}</span>
+        <span class="prof-reviews">(${reviews} review${reviews === 1 ? '' : 's'})</span>
+      </div>
+      ${services.length ? `<div class="prof-tags">${services.slice(0, 14).map(s => `<span class="prof-tag">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
+      <div class="prof-desc">${escapeHtml(description)}</div>
+      ${details.length ? `<div class="prof-grid">${details.map(d => `<div class="prof-item"><i class="fas ${d.i}"></i><div><span class="lbl">${escapeHtml(d.l)}</span><div class="val">${escapeHtml(cleanField(d.v, 200))}</div></div></div>`).join('')}</div>` : ''}
+      ${socials.length ? `<div class="prof-social">${socials.map(s => `<a class="${s.cls}" href="${escapeAttr(s.u)}" target="_blank" rel="noopener" title="${s.l}"><i class="${s.i}"></i></a>`).join('')}</div>` : ''}
+      ${images.length ? `<div class="prof-gallery"><h4><i class="fas fa-images"></i> Gallery (${images.length})</h4><div class="prof-gallery-grid">${images.slice(0, 12).map((u, i) => `<div class="prof-gallery-item" onclick="window.open(this.querySelector('img').src, '_blank')"><img src="${escapeAttr(u)}" alt="Photo ${i+1}" loading="lazy"></div>`).join('')}</div></div>` : ''}
+    </div>`;
+}
+function closeProfileModal(){ $('profileModal').classList.remove('active'); }
+window.closeProfileModal = closeProfileModal;
+
+/* CHAT */
+async function openChat(uid, name){
+  if(!uid || !currentUser) return;
+  chatOtherUid = uid; chatThreadId = getChatId(currentUser.uid, uid);
+  $('chatName').textContent = name || 'Provider';
+  $('chatInit').textContent = (name || 'P').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+  $('chatModal').classList.add('active');
+  try {
+    await db.collection('threads').doc(chatThreadId).set({
+      participants: [currentUser.uid, uid],
+      jobTitle: 'Service Provider',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    if(chatUnsub){ chatUnsub(); chatUnsub = null; }
+    chatUnsub = db.collection(`threads/${chatThreadId}/messages`).orderBy('timestamp', 'asc').onSnapshot(snap => {
+      const body = $('chatBody');
+      if(snap.empty){
+        body.innerHTML = '<div class="notif-empty"><i class="fa-regular fa-comment-dots"></i>No messages yet.</div>';
+        return;
+      }
+      body.innerHTML = '';
+      let lastDate = '';
+      snap.forEach(doc => {
+        const msg = doc.data();
+        const dt = msg.timestamp ? msg.timestamp.toDate() : new Date();
+        const dateStr = dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+        if(dateStr !== lastDate){
+          const d = document.createElement('div');
+          d.className = 'chat-date'; d.textContent = dateStr;
+          body.appendChild(d); lastDate = dateStr;
+        }
+        const isOut = msg.senderId === currentUser.uid;
+        const el = document.createElement('div');
+        el.className = `chat-msg ${msg.isSystemRequest ? 'system' : (isOut ? 'out' : 'in')}`;
+        el.innerHTML = `${escapeHtml(msg.text || '')}<div class="tm">${dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</div>`;
+        body.appendChild(el);
+      });
+      body.scrollTop = body.scrollHeight;
+    });
+  } catch(e){ console.warn(e); }
+}
+window.openChat = openChat;
+function closeChat(){
+  $('chatModal').classList.remove('active');
+  if(chatUnsub){ chatUnsub(); chatUnsub = null; }
+  chatThreadId = null; chatOtherUid = null;
+}
+window.closeChat = closeChat;
+async function sendChat(){
+  const input = $('chatInput');
+  const text = input.value.trim();
+  if(!text || !chatThreadId || !currentUser) return;
+  input.value = '';
+  try {
+    await db.collection(`threads/${chatThreadId}/messages`).add({
+      senderId: currentUser.uid, text,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('threads').doc(chatThreadId).update({
+      lastMessageText: text.substring(0, 80),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e){ showToast('Send failed', 'error'); }
+}
+window.sendChat = sendChat;
+
+/* SAVE / HISTORY */
+function saveBlueprintState(){
+  if(!currentSessionId || !currentEventData) return;
+  const data = {
+    id: currentSessionId, title: currentEventData.name,
+    formData: currentEventData,
+    blueprintHtml: lastBlueprintHTML,
+    notifications: eventNotifications,
+    activeRequests, cart,
+    selectedProviderIds: Object.fromEntries(Object.entries(selectedProvider).map(([k,v]) => [k, getProviderUid(v)])),
+    updatedAt: new Date().toISOString()
+  };
+  const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+  all[currentSessionId] = data;
+  localStorage.setItem('zone21_events', JSON.stringify(all));
+  renderHistorySidebar();
+}
+function renderHistorySidebar(){
+  const list = $('historyList');
+  if(!list) return;
+  list.innerHTML = '';
+  const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+  const arr = Object.values(all).filter(s => {
+    const pkg = s?.formData?.package;
+    return !pkg || pkg === userPackage;
+  });
+  if(!arr.length){
+    list.innerHTML = `<div style="padding:14px 12px;text-align:center;font-size:.72rem;color:rgba(255,255,255,.35);line-height:1.5;"><i class="fas fa-folder-open" style="font-size:1.4rem;display:block;margin-bottom:6px;opacity:.4;"></i>No blueprints yet.</div>`;
+    return;
+  }
+  arr.sort((a,b) => new Date(b.updatedAt) - new Date(a.updatedAt)).forEach(s => {
+    const flag = s?.formData?.country ? (getCountryMeta(s.formData.country)?.flag||'') + ' ' : '';
+    const item = document.createElement('div');
+    item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
+    item.innerHTML = `<span class="title"><i class="fas fa-clipboard-list"></i>${flag}${escapeHtml(s.title)}</span><button class="delete-btn" onclick="deleteSession('${s.id}', event)"><i class="fas fa-trash"></i></button>`;
+    item.onclick = () => loadSession(s.id);
+    list.appendChild(item);
+  });
+}
+function loadSession(id){
+  closeSidebar();
+  const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+  const s = all[id]; if(!s) return;
+  currentSessionId = s.id;
+  currentEventData = s.formData;
+  activeRequests = s.activeRequests || {};
+  cart = s.cart || {};
+  eventNotifications = s.notifications || [];
+  seenNotifs = new Set();
+  lastBlueprintHTML = s.blueprintHtml || '';
+
+  const ctx = {
+    country: currentEventData.country, location: currentEventData.location,
+    budgetUsd: currentEventData.budget, date: currentEventData.date,
+    time: currentEventData.time, durationHours: currentEventData.durationHours || 8,
+    allocations: currentEventData.allocations
+  };
+  serviceMatches = {};
+  currentEventData.services.forEach(sv => { serviceMatches[sv] = matchProviders(sv, ctx); });
+
+  selectedProvider = {};
+  if(s.selectedProviderIds){
+    Object.entries(s.selectedProviderIds).forEach(([svc, uid]) => {
+      const found = (serviceMatches[svc] || []).find(p => getProviderUid(p) === uid);
+      if(found) selectedProvider[svc] = found;
+    });
+  }
+  rejectedProviders = {};
+
+  bpNarrBody.innerHTML = lastBlueprintHTML;
+  $('step1').style.display = 'none';
+  $('step2').style.display = 'none';
+  $('step3').style.display = 'none';
+  loadingDiv.style.display = 'none';
+  providerSelection.style.display = 'none';
+  cartView.style.display = 'none';
+  blueprintContainer.style.display = 'block';
+
+  renderDashboard();
+  subscribeToAssignments();
+  renderHistorySidebar();
+  updateCartBadge();
+}
+window.loadSession = loadSession;
+
+function deleteSession(id, event){
+  if(event) event.stopPropagation();
+  if(!confirm('Delete this event blueprint?')) return;
+  const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+  delete all[id];
+  localStorage.setItem('zone21_events', JSON.stringify(all));
+  if(currentSessionId === id) startNewSession();
+  else renderHistorySidebar();
+}
+window.deleteSession = deleteSession;
+
+function startNewSession(){
+  closeSidebar();
+  if(assignmentUnsub){ assignmentUnsub(); assignmentUnsub = null; }
+  currentSessionId = null; currentEventData = null;
+  selectedEventType = ''; serviceMatches = {};
+  selectedProvider = {}; rejectedProviders = {};
+  activeRequests = {}; eventNotifications = [];
+  seenNotifs.clear(); lastBlueprintHTML = '';
+  openCategory = null; cart = {};
+
+  $('step1').style.display = 'block';
+  $('step2').style.display = 'none';
+  $('step3').style.display = 'none';
+  loadingDiv.style.display = 'none';
+  providerSelection.style.display = 'none';
+  blueprintContainer.style.display = 'none';
+  cartView.style.display = 'none';
+
+  eventForm.reset();
+  selectedTypeName.textContent = 'your event';
+  servicesGrid.innerHTML = '';
+  servicesCount.textContent = '0 selected';
+  renderEventTypePicker();
+  renderHistorySidebar();
+  updateCartBadge();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.startNewSession = startNewSession;
+
+function regenerateBlueprint(){
+  if(!currentEventData){ showToast('No event to regenerate.', 'error'); return; }
+  if(!confirm('Regenerate blueprint?\n\nAll current invitations will be reset.')) return;
+  currentEventData.invitedHistory = {};
+  currentEventData.replacedMap = {};
+  activeRequests = {}; eventNotifications = [];
+  seenNotifs.clear();
+  providerSelection.style.display = 'block';
+  cartView.style.display = 'none';
+  blueprintContainer.style.display = 'none';
+  renderProviderSelection();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.regenerateBlueprint = regenerateBlueprint;
+
+/* PACKAGE */
+async function loadUserAndPackage(){
+  const user = auth.currentUser; if(!user) return false;
+  currentUser = user;
+  headerUser.textContent = user.email || 'user@example.com';
+  await Promise.all([fetchVenues(), fetchProviders()]);
+
+  const PLAN_IDS = ['small','medium','large'];
+  let found = null, pending = false;
+
+  for(const pid of PLAN_IDS){
+    try {
+      const snap = await db.collection('subscriptions').doc(`${user.uid}_${pid}`).get();
+      if(!snap.exists) continue;
+      const d = snap.data();
+      if(d.deletedAt) continue;
+      const st = String(d.status || '').toLowerCase();
+      const rp = d.planId || d.plan || pid;
+      if(!rp || !PACKAGES[rp]) continue;
+      if(st === 'active' || st === 'approved'){ found = rp; pending = false; break; }
+      if(!found && st === 'pending_payment'){ found = rp; pending = true; }
+    } catch(e){}
+  }
+
+  if(!found){
+    pkgBanner.style.display = 'block';
+    pkgName.textContent = 'No active package';
+    pkgLimit.textContent = '—';
+    headerPkgTag.textContent = 'No Plan';
+    headerPkgTag.style.background = 'var(--coral)';
+    sidebarPkgLabel.textContent = 'Package: No active plan';
+    sidebarPkgBadge.textContent = 'No Plan';
+    findBtn.disabled = true;
+    findBtn.innerHTML = '<i class="fas fa-lock"></i> Subscribe to continue';
+    showToast('Subscribe to generate blueprints.', 'info');
+    setTimeout(() => { window.location.href = 'subscription.html'; }, 2200);
+    return false;
+  }
+
+  userPackage = found;
+  const pkg = PACKAGES[found];
+  userPackageName = pkg.name;
+  userPackageLimit = pkg.maxAttendees;
+
+  headerPkgTag.textContent = pkg.label;
+  headerPkgTag.style.background = 'var(--lime)';
+  headerPkgTag.style.color = 'var(--navy)';
+  sidebarPkgBadge.textContent = pkg.label;
+  sidebarPkgLabel.textContent = `Package: ${pkg.name}`;
+  pkgBanner.style.display = 'block';
+  pkgName.textContent = pkg.name;
+  pkgLimit.textContent = pkg.maxAttendees === Infinity ? '∞' : pkg.maxAttendees;
+  attendeeHint.textContent = pkg.maxAttendees === Infinity ? 'Unlimited attendees' : `Max ${pkg.maxAttendees} attendees`;
+  findBtn.disabled = false;
+  findBtn.innerHTML = '<i class="fas fa-arrow-right"></i> Show Available Providers';
+
+  if(pending) showToast('Payment pending. You can still prepare blueprints.', 'info');
+  else showToast(`${pkg.name} active.`, 'success');
+  return true;
+}
+
+/* BOOT */
+document.addEventListener('DOMContentLoaded', async () => {
+  renderEventTypePicker();
+  renderHistorySidebar();
+  document.querySelectorAll('.modal-overlay, .chat-overlay').forEach(m => {
+    m.addEventListener('click', e => { if(e.target === m) m.classList.remove('active'); });
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      $('scheduleModal').classList.remove('active');
+      $('profileModal').classList.remove('active');
+      $('chatModal').classList.remove('active');
+      $('paymentModal').classList.remove('active');
+      closeSidebar();
+    }
+  });
+  auth.onAuthStateChanged(async user => {
+    if(user){
+      await loadUserAndPackage();
+      renderHistorySidebar();
+    } else {
+      window.location.href = 'index.html';
+    }
+  });
+});
+</script>
+</body>
+</html>

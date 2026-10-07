@@ -830,7 +830,7 @@ const ZONE21 = {
   website: "https://zone21.co.zw"
 };
 
-/* ⚠️ SECURITY WARNING — see README. This key is exposed to the browser. */
+/* ⚠️ SECURITY WARNING — rotate this key and move it server-side ASAP */
 const DEEPSEEK_API_KEY = "sk-507daff2ef7d4fb4a36de42ac0ccc93a";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 const DEEPSEEK_MODEL = "deepseek-chat";
@@ -841,6 +841,9 @@ const CURRENCIES = {
 };
 const USD_TO_ZAR = 19;
 const ZAR_NATIVE_COUNTRIES = new Set(['south africa','lesotho','eswatini','namibia']);
+
+/* Any service that describes a physical venue/space is routed to the venues pool */
+const VENUE_SERVICE_REGEX = /\b(venue|hall|banquet|rooftop|garden|marquee|ballroom|premises|function room|reception|conference hall|event space|ceremony site|auditorium)\b/i;
 
 const PAYMENT_METHODS = {
   USD: [
@@ -1306,6 +1309,52 @@ function isProviderAvailable(p, date, time){
   return { available: true };
 }
 
+/* ══════════════════════════════════════════════════════════════
+   SESSION DEDUPLICATION
+   ══════════════════════════════════════════════════════════════ */
+function sessionSignature(fd){
+  if(!fd) return '';
+  return [
+    (fd.name||'').trim().toLowerCase(),
+    fd.date || '',
+    fd.time || '',
+    (fd.location||'').trim().toLowerCase(),
+    (fd.services||[]).slice().sort().join(',')
+  ].join('|');
+}
+
+function findExistingSessionId(sig){
+  if(!sig) return null;
+  const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+  for(const [id, sess] of Object.entries(all)){
+    if(sessionSignature(sess.formData) === sig) return id;
+  }
+  return null;
+}
+
+function cleanLegacySessions(){
+  try {
+    const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
+    const sigToId = {};
+    let removed = 0;
+    for(const [id, sess] of Object.entries(all)){
+      const sig = sessionSignature(sess.formData);
+      if(!sig){ sigToId['__empty_' + id] = id; continue; }
+      if(!sigToId[sig]){ sigToId[sig] = id; continue; }
+      const keepId = sigToId[sig];
+      const keepTime = new Date(all[keepId].updatedAt || 0).getTime();
+      const newTime  = new Date(sess.updatedAt || 0).getTime();
+      if(newTime > keepTime){ delete all[keepId]; sigToId[sig] = id; }
+      else { delete all[id]; }
+      removed++;
+    }
+    if(removed){
+      localStorage.setItem('zone21_events', JSON.stringify(all));
+      console.log('[Zone21] Cleaned', removed, 'duplicate session(s).');
+    }
+  } catch(e){ console.warn('cleanLegacySessions', e); }
+}
+
 function matchVenues(location, attendees, budgetUsd, requiredServices){
   if(!cachedVenues.length) return [];
   const locationLower = (location || '').toLowerCase().trim();
@@ -1351,7 +1400,9 @@ function matchProvidersByService(location, services, budgetUsd, dateStr){
     }
   });
   services.forEach(service => {
-    if(service === 'Venue / Space Rental'){ out[service] = []; return; }
+    // Route ALL venue-type services to the venues pool (handled by caller)
+    if(VENUE_SERVICE_REGEX.test(service)){ out[service] = []; return; }
+
     if(isExclusiveService(service)){
       const matches = cachedProviders.filter(p => zone21Map.get(p.id) === service);
       const scored = matches.map(p => {
@@ -1660,7 +1711,7 @@ function statusLabel(status){
 }
 
 function generateServiceSlotsHTML(services, matches, countryKey){
-  const providerServices = services.filter(s => s !== 'Venue / Space Rental');
+  const providerServices = services.filter(s => !VENUE_SERVICE_REGEX.test(s));
   if(!providerServices.length) return '';
   const meta = countryKey ? getCountryMeta(countryKey) : null;
   const name = meta ? meta.display : 'your country';
@@ -1738,75 +1789,43 @@ function generateServiceSlotsHTML(services, matches, countryKey){
   return html;
 }
 
-function buildLocalBlueprint(d, allocations){
-  const meta = getCountryMeta(d.country);
-  const dateObj = new Date(d.date);
-  const dateStr = isNaN(dateObj) ? d.date : dateObj.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const cur = d.currency || activeCurrency;
-  const sym = currencySymbol(cur);
-  const allocRows = Object.entries(allocations||{}).map(([k,v]) =>
-    `<tr><td>${escapeHtml(k)}</td><td style="text-align:right">${sym}${Math.round(convertAmount(v,cur)).toLocaleString()}</td></tr>`).join('');
-  return `
-    <h1>Event Blueprint — ${escapeHtml(d.name)}</h1>
-    <p><strong>Type:</strong> ${escapeHtml(d.type)} · <strong>Location:</strong> ${escapeHtml(d.location)} ${meta?meta.flag:''} · <strong>Date:</strong> ${escapeHtml(dateStr)} at ${escapeHtml(d.time)} · <strong>Guests:</strong> ${d.attendees} · <strong>Duration:</strong> ${d.durationHours}h</p>
-    <h2>Executive Summary</h2>
-    <p>Coordination of <strong>${d.services.length} service categories</strong> for <strong>${escapeHtml(d.name)}</strong> in ${escapeHtml(countryName(d.country))}. Operating budget: <strong>${sym}${Math.round(convertAmount(d.budget,cur)).toLocaleString()}</strong>.</p>
-    <h2>Budget Analysis (${cur})</h2>
-    <table><thead><tr><th>Service</th><th style="text-align:right">Allocation (${sym})</th></tr></thead><tbody>${allocRows}</tbody></table>
-    <h2>Timeline (30-day countdown)</h2>
-    <ul>
-      <li><strong>T-30:</strong> Confirm budget, contract venue, lock primary providers.</li>
-      <li><strong>T-21:</strong> Send invitations, finalise catering headcount, décor theme.</li>
-      <li><strong>T-14:</strong> Confirm décor, entertainment and photography timings.</li>
-      <li><strong>T-7:</strong> Final walkthrough, seating plan, transport confirmations.</li>
-      <li><strong>T-3:</strong> Reconfirm provider arrival times and payment balances.</li>
-      <li><strong>T-1:</strong> Setup day — stage, décor, sound checks, rehearsal.</li>
-      <li><strong>Event Day:</strong> On-site coordination by Zone21.</li>
-    </ul>
-    <h2>Risk Analysis & Safety</h2>
-    <ul>
-      <li>⚠️ Weather — outdoor segments need a backup marquee or indoor fallback.</li>
-      <li>⚠️ Provider no-show — Zone21 holds a replacement queue for every service.</li>
-      <li>⚠️ Power failure — generator backup advised for AV, lighting, catering.</li>
-      <li>⚠️ Crowd safety — Zone21 Security handles crowd flow and emergency access.</li>
-    </ul>
-    <h2>Success Factors</h2>
-    <ul>
-      <li>✅ All providers confirmed and payment cleared 7 days before the event.</li>
-      <li>✅ Guest list finalised and shared with catering and seating.</li>
-      <li>✅ Run-of-show distributed to MC, AV, entertainment, security.</li>
-    </ul>
-    <h2>Marketing Strategies</h2>
-    <ul>
-      <li>📍 Branded event hashtag + social media coordinator for live coverage.</li>
-      <li>📍 Publish post-event highlight reel within 72 hours.</li>
-    </ul>
-    <h2>Zone21 Coordination</h2>
-    <p>Phone / WhatsApp: <strong>${ZONE21.phone}</strong><br>Email: <strong>${ZONE21.email}</strong></p>
-  `;
-}
-
+/* ══════════════════════════════════════════════════════════════
+   AI GENERATION  —  NO SILENT FALLBACK
+   ══════════════════════════════════════════════════════════════ */
 async function generateAIBlueprint(d, allocations){
   const cacheKey = makeAiCacheKey(d);
   const cached = readAiCache(cacheKey);
-  if(cached) { console.log('[Zone21 AI] Using cached blueprint'); return cached; }
+  if(cached){ console.log('[Zone21 AI] using cache'); return cached; }
+
   const prompt = buildStrictPrompt(d, allocations);
-  console.log('[Zone21 AI] → POST', DEEPSEEK_API_URL, '| model:', DEEPSEEK_MODEL);
-  const response = await fetch(DEEPSEEK_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
-    body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 8192,
-      temperature: 0.4,
-      top_p: 0.9
-    })
-  });
-  if(!response.ok){
-    const t = await response.text();
-    throw new Error(`AI API ${response.status}: ${t}`);
+  console.log('[Zone21 AI] → POST', DEEPSEEK_API_URL, '| key tail:', DEEPSEEK_API_KEY.slice(-6));
+
+  let response;
+  try {
+    response = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 8192,
+        temperature: 0.4,
+        top_p: 0.9
+      })
+    });
+  } catch(netErr){
+    const e = new Error('Network error contacting AI: ' + netErr.message);
+    e.status = 0;
+    throw e;
   }
+
+  if(!response.ok){
+    const text = await response.text().catch(() => '');
+    const e = new Error(`AI API ${response.status}: ${text.slice(0, 200) || response.statusText}`);
+    e.status = response.status;
+    throw e;
+  }
+
   const data = await response.json();
   console.log('[Zone21 AI] ← 200 OK | usage:', data.usage);
   let html = sanitizeAIOutput(data.choices[0].message.content.trim());
@@ -1901,7 +1920,7 @@ if(fLocationInput){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   FORM SUBMIT → AI BLUEPRINT + MATCH PROVIDERS + VENUES
+   FORM SUBMIT
    ══════════════════════════════════════════════════════════════ */
 eventForm.addEventListener('submit', async function(e){
   e.preventDefault();
@@ -1941,7 +1960,7 @@ eventForm.addEventListener('submit', async function(e){
   }
   const budgetUsd = activeCurrency === 'ZAR' ? budgetDisplay / USD_TO_ZAR : budgetDisplay;
   const allocations = allocateBudget(services, budgetUsd);
-  currentSessionId = makeSessionId();
+
   currentEventData = {
     name, location, country, contact, date, time, durationHours, attendees,
     budgetDisplay, budget: budgetUsd, budgetCurrency: activeCurrency, currency: activeCurrency,
@@ -1950,11 +1969,23 @@ eventForm.addEventListener('submit', async function(e){
     package: userPackage, packageName: userPackageName,
     invitedHistory: {}, replacedMap: {}
   };
+
+  // Reuse an existing session if this exact event already exists
+  const sig = sessionSignature(currentEventData);
+  const existingId = findExistingSessionId(sig);
+  if(existingId){
+    currentSessionId = existingId;
+    console.log('[Zone21] Reusing existing session:', existingId);
+    showToast('Updating your existing blueprint for this event.', 'info');
+  } else {
+    currentSessionId = makeSessionId();
+  }
+
   await findAndReviewProviders();
 });
 
 /* ══════════════════════════════════════════════════════════════
-   FIND & REVIEW  —  AI blueprint + venues + services
+   FIND & REVIEW  —  HARD FAIL ON AI, ROUTE VENUES, AUTOSAVE
    ══════════════════════════════════════════════════════════════ */
 async function findAndReviewProviders(){
   $('step1').style.display = 'none';
@@ -1962,35 +1993,34 @@ async function findAndReviewProviders(){
   $('step3').style.display = 'none';
   loadingDiv.style.display = 'block';
   loadingTitle.textContent = 'Zone21 AI is crafting your blueprint…';
-  loadingStatus.textContent = 'Analysing your event and matching providers…';
+  loadingStatus.textContent = 'Contacting AI model…';
 
-  // 1) AI narrative
+  // ── 1) AI narrative — hard fail, no silent fallback ──
   let aiHtml = '';
-  let aiSource = 'AI';
   try {
-    console.log('[Zone21 AI] Requesting blueprint from DeepSeek…', {
-      model: DEEPSEEK_MODEL,
-      services: currentEventData.services.length,
-      country: currentEventData.country,
-      currency: currentEventData.currency
-    });
-    loadingStatus.textContent = 'Contacting AI model…';
     aiHtml = await generateAIBlueprint(currentEventData, currentEventData.allocations);
-    console.log('[Zone21 AI] ✓ Blueprint received —', aiHtml.length, 'chars');
-    showToast('AI blueprint generated.', 'success');
+    showToast('AI blueprint received.', 'success');
   } catch(err){
-    aiSource = 'Local';
-    console.error('[Zone21 AI] ✗ Request failed:', err);
-    showToast('AI unavailable — using local fallback. See console for details.', 'warn');
-    loadingStatus.textContent = 'AI unavailable — using local blueprint generator.';
-    await new Promise(r => setTimeout(r, 300));
-    aiHtml = buildLocalBlueprint(currentEventData, currentEventData.allocations);
+    console.error('[Zone21 AI] ✗ FAILED:', err);
+    loadingDiv.style.display = 'none';
+    $('step3').style.display = 'block';
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate AI Blueprint &amp; Match Providers';
+
+    let msg;
+    if(err.status === 401) msg = 'AI key rejected (401). Rotate the key in the DeepSeek dashboard and update the code.';
+    else if(err.status === 402) msg = 'AI account has insufficient balance (402). Top up DeepSeek.';
+    else if(err.status === 429) msg = 'AI rate limit hit (429). Wait a moment and retry.';
+    else if(err.status === 0)   msg = err.message;
+    else msg = 'AI request failed: ' + (err.message || 'unknown error');
+    showToast(msg, 'error');
+    return;
   }
 
-  // 2) Match venues + providers
+  // ── 2) Match venues + providers ──
   loadingTitle.textContent = 'Matching venues and providers…';
   loadingStatus.textContent = `Scanning providers for ${countryName(currentEventData.country)}…`;
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, 250));
 
   const matchedVenues = matchVenues(
     currentEventData.location,
@@ -2004,8 +2034,20 @@ async function findAndReviewProviders(){
     currentEventData.budget,
     currentEventData.date
   );
-  const venueTargetService = currentEventData.services.includes('Venue / Space Rental')
-    ? 'Venue / Space Rental' : null;
+
+  // Route every venue-type service slot to the venue pool
+  currentEventData.services.forEach(svc => {
+    if(VENUE_SERVICE_REGEX.test(svc) && matchedVenues.length){
+      serviceMatches[svc] = matchedVenues.map(v => ({
+        ...v,
+        priceUsd: v.priceUsd || v.basePrice || 0,
+        fitScore: v.fitScore,
+        reasoning: v.reasoning
+      }));
+    }
+  });
+
+  const venueTargetService = currentEventData.services.find(s => VENUE_SERVICE_REGEX.test(s)) || null;
 
   providerSelections = {};
   currentEventData.services.forEach(s => {
@@ -2014,7 +2056,7 @@ async function findAndReviewProviders(){
     providerSelections[s] = { selectedUid: top, history: top ? [top] : [], exhausted: false };
   });
 
-  // 3) Assemble full blueprint
+  // ── 3) Assemble full blueprint ──
   const venueHTML = generateVenueHTML(matchedVenues, venueTargetService);
   const serviceSlotsHTML = generateServiceSlotsHTML(
     currentEventData.services,
@@ -2028,12 +2070,13 @@ async function findAndReviewProviders(){
   combinedHtml = wrapTablesInResponsive(combinedHtml);
   lastBlueprintHTML = combinedHtml;
 
-  // 4) Populate the dashboard narrative card
   bpNarrBody.innerHTML = combinedHtml;
   bpNarrHead.classList.add('open');
   bpNarrBody.classList.add('open');
 
-  // 5) Show the AI blueprint RIGHT NOW in the review screen
+  // ── 4) SAVE IMMEDIATELY so it survives tab close ──
+  saveBlueprintState();
+
   loadingDiv.style.display = 'none';
   renderProviderReview();
   providerReview.style.display = 'block';
@@ -2041,13 +2084,12 @@ async function findAndReviewProviders(){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   REVIEW SCREEN — now shows the AI blueprint at the top
+   REVIEW SCREEN
    ══════════════════════════════════════════════════════════════ */
 function renderProviderReview(){
   const services = currentEventData.services || [];
   const meta = getCountryMeta(currentEventData.country);
 
-  // Full AI blueprint visible immediately at the top of the review screen
   let html = `
     <div class="card" style="margin-bottom:16px;padding:22px 24px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--lime);padding-bottom:10px;margin-bottom:16px;">
@@ -2588,7 +2630,7 @@ function renderDashOverview(){
   const meta = getCountryMeta(currentEventData.country);
   const dt = new Date(currentEventData.date);
   const dateStr = isNaN(dt) ? currentEventData.date : dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
-  const venueService = currentEventData.services.find(s => SERVICE_CATEGORIES['Venue & Space'].kw.some(k => s.toLowerCase().includes(k)));
+  const venueService = currentEventData.services.find(s => VENUE_SERVICE_REGEX.test(s));
   const venueTop = venueService ? (serviceMatches[venueService] || [])[0] : null;
   const venueThumb = venueTop?.images?.[0] || venueTop?.avatar || '';
   const venueName = venueTop?.name || venueTop?.businessName || 'Venue TBD';
@@ -3280,8 +3322,13 @@ function openWhatsApp(vendorId){
 }
 window.openWhatsApp = openWhatsApp;
 
+/* ══════════════════════════════════════════════════════════════
+   SAVE / HISTORY  —  with dedup sweep
+   ══════════════════════════════════════════════════════════════ */
 function saveBlueprintState(){
-  if(!currentSessionId || !currentEventData) return;
+  if(!currentEventData) return;
+  if(!currentSessionId) currentSessionId = makeSessionId();
+
   const title = currentEventData.name;
   const data = {
     id: currentSessionId, title,
@@ -3293,8 +3340,27 @@ function saveBlueprintState(){
     cartItems,
     updatedAt: new Date().toISOString()
   };
+
   const all = JSON.parse(localStorage.getItem('zone21_events') || '{}');
   all[currentSessionId] = data;
+
+  // Sweep: keep only the newest session per signature
+  const sigToId = {};
+  for(const [id, sess] of Object.entries(all)){
+    const sig = sessionSignature(sess.formData);
+    if(!sig){ sigToId['__empty_' + id] = id; continue; }
+    if(!sigToId[sig]){ sigToId[sig] = id; continue; }
+    const keepId = sigToId[sig];
+    const keepTime = new Date(all[keepId].updatedAt || 0).getTime();
+    const newTime  = new Date(sess.updatedAt || 0).getTime();
+    if(newTime > keepTime){
+      delete all[keepId];
+      sigToId[sig] = id;
+    } else {
+      delete all[id];
+    }
+  }
+
   localStorage.setItem('zone21_events', JSON.stringify(all));
   renderHistorySidebar();
 }
@@ -3338,6 +3404,13 @@ function loadSession(id){
   lastBlueprintHTML = s.blueprintHtml || '';
   if(currentEventData.currency){ activeCurrency = currentEventData.currency; applyCurrencyUI(); }
   serviceMatches = matchProvidersByService(currentEventData.location, currentEventData.services, currentEventData.budget, currentEventData.date);
+  // Re-route venue services after loading (they don't persist in localStorage)
+  const mv = matchVenues(currentEventData.location, currentEventData.attendees, currentEventData.budget, currentEventData.services);
+  currentEventData.services.forEach(svc => {
+    if(VENUE_SERVICE_REGEX.test(svc) && mv.length){
+      serviceMatches[svc] = mv.map(v => ({ ...v, priceUsd: v.priceUsd || v.basePrice || 0 }));
+    }
+  });
   bpNarrBody.innerHTML = lastBlueprintHTML;
   bpNarrHead.classList.add('open');
   bpNarrBody.classList.add('open');
@@ -3481,6 +3554,9 @@ async function loadUserAndPackage(){
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // One-time dedupe of historic duplicates BEFORE rendering sidebar
+  cleanLegacySessions();
+
   renderEventTypePicker();
   renderHistorySidebar();
   applyCurrencyUI();

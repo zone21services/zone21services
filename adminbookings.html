@@ -11,17 +11,21 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 ADMIN PANEL — single page, no sidebar
-  Sections: Artists · Bookings · Messages · Schools
+  ZONE21 ADMIN PANEL — v2 · Event-Request Workflow
 
-  SCHOOLS SECTION:
-    · Aggregates real schools from student sign-ups — the
-      `university` field on users/{uid} (populated at sign-up on
-      discover.html). The admin does NOT create schools.
-    · Shows schools only — no individual student accounts listed.
-    · Only schools with at least one real student appear.
-    · Admin can rename (bulk-update students) or unlink a school
-      (clears the field on students who signed up under it).
+  NEW: Event requests (isEventRequest: true) drive the Bookings
+  section. Artists no longer publish prices — admins source acts,
+  assign them, send quotes, and manage the pipeline.
+
+  Request lifecycle:
+    pending   → just submitted, awaiting review
+    sourcing  → admin is finding / negotiating with an artist
+    quoted    → admin has assigned an artist + sent a quote
+    confirmed → organizer accepted the quote
+    completed → event has happened
+    declined  → cannot fulfill
+
+  Sections: Artists · Bookings · Messages · Schools
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -44,6 +48,8 @@
   --warning:#F59E0B;
   --danger:#DC2626;
   --info:#3B82F6;
+  --purple:#8B5CF6;
+  --cyan:#06B6D4;
   --radius:10px;
   --radius-lg:16px;
   --shadow:0 1px 3px rgba(16,40,56,.05),0 4px 14px rgba(16,40,56,.05);
@@ -75,7 +81,7 @@ img{max-width:100%;display:block}
   flex:1;width:100%;max-width:1500px;margin:0 auto;
 }
 
-/* ═════════ TOPBAR ═════════ */
+/* TOPBAR */
 .topbar{
   background:var(--surface);
   border-bottom:1px solid var(--border);
@@ -123,7 +129,7 @@ img{max-width:100%;display:block}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;
 }
 
-/* ═════════ NAV CARDS ═════════ */
+/* NAV CARDS */
 .nav-cards{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -185,12 +191,12 @@ img{max-width:100%;display:block}
 }
 .nav-card.active .nav-card-count{color:var(--lime)}
 
-/* ═════════ SECTION ═════════ */
+/* SECTION */
 .section{display:none;animation:fadeUp .25s ease}
 .section.active{display:block}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
-/* ═════════ BUTTONS ═════════ */
+/* BUTTONS */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   padding:9px 16px;border-radius:9px;
@@ -206,13 +212,15 @@ img{max-width:100%;display:block}
 .btn-outline:hover{background:var(--surface-2);border-color:var(--border-2)}
 .btn-danger{background:var(--danger);color:#fff}
 .btn-danger:hover{background:#b91c1c}
+.btn-info{background:var(--info);color:#fff}
+.btn-info:hover{background:#2563eb}
 .btn-ghost{background:transparent;color:var(--text-2)}
 .btn-ghost:hover{background:var(--surface-2);color:var(--text)}
 .btn-sm{padding:6px 12px;font-size:12px;border-radius:7px}
 .btn-sm i{font-size:11px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
-/* ═════════ CARDS ═════════ */
+/* CARDS */
 .card{
   background:var(--surface);
   border:1px solid var(--border);
@@ -231,7 +239,7 @@ img{max-width:100%;display:block}
 .card-head h3 i{color:var(--text-3);font-size:14px}
 .card-body{padding:20px}
 
-/* ═════════ TOOLBAR ═════════ */
+/* TOOLBAR */
 .toolbar{
   display:flex;align-items:center;gap:10px;
   flex-wrap:wrap;margin-bottom:16px;
@@ -258,7 +266,7 @@ img{max-width:100%;display:block}
 }
 .toolbar-select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(16,40,56,.08)}
 
-/* ═════════ FILTER CHIPS ═════════ */
+/* FILTER CHIPS */
 .filter-chips{
   display:flex;gap:6px;flex-wrap:wrap;
   align-items:center;
@@ -288,6 +296,8 @@ img{max-width:100%;display:block}
 }
 .chip-dot.dot-all{background:var(--navy)}
 .chip-dot.dot-pending{background:var(--warning)}
+.chip-dot.dot-sourcing{background:var(--purple)}
+.chip-dot.dot-quoted{background:var(--cyan)}
 .chip-dot.dot-confirmed{background:var(--success)}
 .chip-dot.dot-completed{background:var(--info)}
 .chip-dot.dot-declined{background:var(--danger)}
@@ -307,12 +317,14 @@ img{max-width:100%;display:block}
 .filter-chip.active .chip-count{background:var(--lime);color:var(--navy)}
 .filter-chip.has-items{border-color:var(--border-2)}
 .filter-chip.has-items[data-status="pending"] .chip-count{background:#fef3c7;color:#92400e}
+.filter-chip.has-items[data-status="sourcing"] .chip-count{background:#ede9fe;color:#5b21b6}
+.filter-chip.has-items[data-status="quoted"] .chip-count{background:#cffafe;color:#155e75}
 .filter-chip.has-items[data-status="confirmed"] .chip-count{background:#d1fae5;color:#065f46}
 .filter-chip.has-items[data-status="completed"] .chip-count{background:#dbeafe;color:#1e40af}
 .filter-chip.has-items[data-status="declined"] .chip-count{background:#fee2e2;color:#991b1b}
 .filter-chip.active.has-items .chip-count{background:var(--lime);color:var(--navy)}
 
-/* ═════════ TABLE ═════════ */
+/* TABLE */
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 thead th{
@@ -346,6 +358,10 @@ tbody tr.clickable{cursor:pointer}
   background:linear-gradient(135deg,var(--navy),var(--navy-2));
   color:var(--lime);font-size:17px;
 }
+.artist-thumb.event{
+  background:linear-gradient(135deg,#fef3c7,#fcd34d);
+  color:#78350f;font-size:17px;
+}
 .artist-cell-info{min-width:0}
 .artist-cell-info strong{
   display:block;font-weight:700;font-size:13.5px;margin-bottom:2px;
@@ -366,7 +382,7 @@ tbody tr.clickable{cursor:pointer}
 }
 .chip.more{background:var(--border);color:var(--text-3)}
 
-/* STATUS PILLS */
+/* PILLS */
 .pill{
   display:inline-flex;align-items:center;gap:5px;
   padding:4px 10px;border-radius:100px;
@@ -374,6 +390,8 @@ tbody tr.clickable{cursor:pointer}
   letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;
 }
 .pill.pending{background:#fef3c7;color:#92400e}
+.pill.sourcing{background:#ede9fe;color:#5b21b6}
+.pill.quoted{background:#cffafe;color:#155e75}
 .pill.confirmed{background:#d1fae5;color:#065f46}
 .pill.completed{background:#dbeafe;color:#1e40af}
 .pill.declined,.pill.rejected,.pill.cancelled{background:#fee2e2;color:#991b1b}
@@ -389,7 +407,7 @@ tbody tr.clickable{cursor:pointer}
 .pill.type{background:#eff6ff;color:#1e40af;text-transform:none;letter-spacing:0}
 .pill.inactive{background:#f1f5f9;color:#64748b}
 
-/* ═════════ STATS ROW ═════════ */
+/* STATS ROW */
 .stats-row{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
@@ -413,6 +431,8 @@ tbody tr.clickable{cursor:pointer}
 .stat-mini-icon.success{background:#d1fae5;color:var(--success)}
 .stat-mini-icon.warn{background:#fef3c7;color:var(--warning)}
 .stat-mini-icon.pink{background:#fce7f3;color:var(--pink)}
+.stat-mini-icon.purple{background:#ede9fe;color:var(--purple)}
+.stat-mini-icon.cyan{background:#cffafe;color:var(--cyan)}
 .stat-mini-value{
   font-size:22px;font-weight:900;letter-spacing:-.03em;line-height:1.05;
   margin-bottom:2px;
@@ -425,7 +445,7 @@ tbody tr.clickable{cursor:pointer}
   color:var(--text-3);
 }
 
-/* ═════════ EMPTY ═════════ */
+/* EMPTY */
 .empty{
   padding:60px 24px;text-align:center;
   display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -439,7 +459,7 @@ tbody tr.clickable{cursor:pointer}
 .empty h3{font-size:15px;font-weight:700}
 .empty p{color:var(--text-3);font-size:13.5px;max-width:360px}
 
-/* ═════════ MODAL ═════════ */
+/* MODAL */
 .modal{
   position:fixed;inset:0;z-index:100;
   display:none;align-items:center;justify-content:center;
@@ -459,6 +479,7 @@ tbody tr.clickable{cursor:pointer}
 .modal-panel.sm{max-width:480px}
 .modal-panel.md{max-width:600px}
 .modal-panel.lg{max-width:900px}
+.modal-panel.xl{max-width:1080px}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .modal-head{
   padding:20px 24px;border-bottom:1px solid var(--border);
@@ -558,7 +579,134 @@ tbody tr.clickable{cursor:pointer}
 .toggle-text strong{display:block;font-size:13px;font-weight:700;margin-bottom:2px}
 .toggle-text small{font-size:11.5px;color:var(--text-3)}
 
-/* ═════════ MESSAGES ═════════ */
+/* ═════════ EVENT REQUEST DETAIL ═════════ */
+.req-hero{
+  padding:18px 20px;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
+  color:#fff;margin-bottom:18px;position:relative;overflow:hidden;
+}
+.req-hero::before{
+  content:'';position:absolute;right:-40px;top:-40px;
+  width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(192,200,0,.18),transparent 70%);
+}
+.req-hero-top{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:14px;margin-bottom:14px;flex-wrap:wrap;position:relative;z-index:1;
+}
+.req-hero-title{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-bottom:5px}
+.req-hero-sub{
+  font-size:12.5px;color:rgba(255,255,255,.7);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.req-hero-sub code{
+  font-family:'SF Mono',Menlo,monospace;font-size:11px;
+  background:rgba(255,255,255,.12);padding:3px 8px;border-radius:5px;color:var(--lime);
+}
+.req-status-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:100px;
+  font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.req-status-badge.pending{background:rgba(245,158,11,.22);color:#fbbf24}
+.req-status-badge.sourcing{background:rgba(139,92,246,.22);color:#c4b5fd}
+.req-status-badge.quoted{background:rgba(6,182,212,.22);color:#67e8f9}
+.req-status-badge.confirmed{background:rgba(16,185,129,.22);color:#6ee7b7}
+.req-status-badge.completed{background:rgba(59,130,246,.22);color:#93c5fd}
+.req-status-badge.declined{background:rgba(220,38,38,.22);color:#fca5a5}
+
+.req-progress{
+  display:flex;gap:3px;margin-top:4px;position:relative;z-index:1;
+}
+.req-progress-step{
+  flex:1;height:3px;border-radius:2px;
+  background:rgba(255,255,255,.15);transition:background .3s;
+}
+.req-progress-step.done{background:var(--lime)}
+.req-progress-step.current{background:var(--lime);box-shadow:0 0 8px rgba(192,200,0,.5)}
+
+.req-section{
+  padding:16px 18px;border:1px solid var(--border);
+  border-radius:var(--radius-lg);margin-bottom:14px;
+}
+.req-section-head{
+  display:flex;align-items:center;gap:9px;
+  font-size:11.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:14px;
+}
+.req-section-head i{font-size:13px;color:var(--navy)}
+.req-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;
+}
+.req-grid.three{grid-template-columns:1fr 1fr 1fr}
+.req-grid.one{grid-template-columns:1fr}
+.req-cell small{
+  display:block;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text-3);margin-bottom:3px;
+}
+.req-cell strong{
+  display:block;font-size:13.5px;font-weight:700;color:var(--text);
+  word-break:break-word;line-height:1.35;
+}
+.req-cell .muted{color:var(--text-3);font-weight:500;font-size:12.5px}
+
+.req-notes{
+  margin-top:8px;padding:12px 14px;
+  background:var(--surface-2);border-radius:9px;
+  font-size:13px;line-height:1.6;white-space:pre-wrap;
+  color:var(--text-2);border-left:3px solid var(--border-2);
+}
+
+.req-reqchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.req-reqchip{
+  padding:5px 11px;border-radius:100px;
+  font-size:11.5px;font-weight:700;
+  background:#eff6ff;color:#1e40af;
+  border:1px solid #bfdbfe;
+}
+.req-reqchip.empty{
+  background:var(--surface-2);color:var(--text-3);border-color:var(--border);
+}
+
+.req-assigned{
+  display:flex;align-items:center;gap:14px;
+  padding:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+  border:1px solid #86efac;border-radius:var(--radius-lg);
+  margin-bottom:14px;
+}
+.req-assigned img{
+  width:56px;height:56px;border-radius:12px;object-fit:cover;flex-shrink:0;
+  background:var(--border);
+}
+.req-assigned-body{flex:1;min-width:0}
+.req-assigned-body small{
+  display:block;font-size:10.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#047857;margin-bottom:3px;
+}
+.req-assigned-body strong{display:block;font-size:15px;font-weight:800;color:#065f46}
+.req-assigned-body span{display:block;font-size:12px;color:#047857;margin-top:2px}
+
+.req-quote{
+  padding:16px 18px;background:linear-gradient(135deg,#ecfeff,#cffafe);
+  border:1px solid #67e8f9;border-radius:var(--radius-lg);
+  margin-bottom:14px;
+}
+.req-quote small{
+  display:block;font-size:10.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#155e75;margin-bottom:5px;
+}
+.req-quote strong{
+  display:block;font-size:24px;font-weight:900;color:#0e7490;
+  letter-spacing:-.02em;margin-bottom:4px;
+}
+.req-quote span{font-size:12.5px;color:#155e75;line-height:1.5}
+
+/* MESSAGES */
 .messages-layout{
   display:grid;grid-template-columns:minmax(300px,380px) 1fr;
   gap:16px;height:calc(100vh - 285px);min-height:480px;
@@ -715,6 +863,21 @@ tbody tr.clickable{cursor:pointer}
 .reply-send:hover:not(:disabled){background:var(--navy-2)}
 .reply-send:disabled{opacity:.4;cursor:not-allowed}
 
+/* QUICK REPLY CHIPS */
+.reply-quick{
+  display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;
+}
+.reply-quick-chip{
+  padding:6px 12px;border-radius:100px;
+  background:var(--surface);border:1.5px solid var(--border);
+  font-size:11.5px;font-weight:700;color:var(--text-2);
+  transition:all .15s;white-space:nowrap;
+}
+.reply-quick-chip:hover{
+  border-color:var(--navy);color:var(--navy);
+  background:#eff6ff;
+}
+
 /* TOAST */
 .toast-wrap{
   position:fixed;top:20px;right:20px;z-index:200;
@@ -755,6 +918,7 @@ tbody tr.clickable{cursor:pointer}
   .thread-detail-head{padding-top:calc(16px + env(safe-area-inset-top,0px))}
   .form-grid{grid-template-columns:1fr;gap:0}
   .field.full{grid-column:auto}
+  .req-grid,.req-grid.three{grid-template-columns:1fr}
 }
 @media(max-width:700px){
   .nav-cards{grid-template-columns:1fr;gap:10px}
@@ -783,7 +947,7 @@ tbody tr.clickable{cursor:pointer}
 
 <div class="app" id="app" style="display:none">
 
-  <!-- ═════════ TOPBAR ═════════ -->
+  <!-- TOPBAR -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark">Z</div>
@@ -810,11 +974,10 @@ tbody tr.clickable{cursor:pointer}
     </div>
   </header>
 
-  <!-- ═════════ MAIN ═════════ -->
   <main class="main">
     <div class="content">
 
-      <!-- ═════════ DYNAMIC NAV CARDS ═════════ -->
+      <!-- NAV CARDS -->
       <div class="nav-cards">
         <button class="nav-card active" data-section="artists">
           <div class="nav-card-icon"><i class="fas fa-microphone"></i></div>
@@ -831,8 +994,8 @@ tbody tr.clickable{cursor:pointer}
             <span class="nav-dot" id="dotBookings" style="display:none"></span>
           </div>
           <div class="nav-card-body">
-            <div class="nav-card-label">Bookings</div>
-            <div class="nav-card-sub" id="navSubBookings">Review requests</div>
+            <div class="nav-card-label">Event Requests</div>
+            <div class="nav-card-sub" id="navSubBookings">Source & book artists</div>
           </div>
           <div class="nav-card-count" id="navCountBookings">0</div>
         </button>
@@ -880,7 +1043,7 @@ tbody tr.clickable{cursor:pointer}
                   <th>Artist</th>
                   <th>Genre</th>
                   <th>Location</th>
-                  <th>Price From</th>
+                  <th>Availability</th>
                   <th>Status</th>
                   <th style="text-align:right">Actions</th>
                 </tr>
@@ -894,40 +1057,82 @@ tbody tr.clickable{cursor:pointer}
 
       </section>
 
-      <!-- ═════════ SECTION: BOOKINGS ═════════ -->
+      <!-- ═════════ SECTION: EVENT REQUESTS ═════════ -->
       <section class="section" id="section-bookings">
+
+        <!-- Pipeline stats -->
+        <div class="stats-row">
+          <div class="stat-mini">
+            <div class="stat-mini-icon"><i class="fas fa-inbox"></i></div>
+            <div>
+              <div class="stat-mini-value" id="statTotalRequests">0</div>
+              <div class="stat-mini-label">Total Requests</div>
+            </div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-icon warn"><i class="fas fa-hourglass-half"></i></div>
+            <div>
+              <div class="stat-mini-value" id="statPending">0</div>
+              <div class="stat-mini-label">Needs Review</div>
+            </div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-icon purple"><i class="fas fa-magnifying-glass-dollar"></i></div>
+            <div>
+              <div class="stat-mini-value" id="statSourcing">0</div>
+              <div class="stat-mini-label">Sourcing</div>
+            </div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-icon cyan"><i class="fas fa-file-invoice-dollar"></i></div>
+            <div>
+              <div class="stat-mini-value" id="statQuoted">0</div>
+              <div class="stat-mini-label">Quoted</div>
+            </div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-icon success"><i class="fas fa-circle-check"></i></div>
+            <div>
+              <div class="stat-mini-value" id="statConfirmedReq">0</div>
+              <div class="stat-mini-label">Confirmed</div>
+            </div>
+          </div>
+        </div>
 
         <div class="toolbar">
           <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" id="bookingSearch" placeholder="Search by ref, artist, student, venue…">
+            <input type="text" id="bookingSearch" placeholder="Search by ref, event name, venue, organiser…">
           </div>
         </div>
 
         <div class="filter-chips" id="bookingFilters" style="margin-bottom:14px">
           <button class="filter-chip active" data-status="all">
-            <span class="chip-dot dot-all"></span>
-            <span>All</span>
+            <span class="chip-dot dot-all"></span><span>All</span>
             <span class="chip-count" id="cAll">0</span>
           </button>
           <button class="filter-chip" data-status="pending">
-            <span class="chip-dot dot-pending"></span>
-            <span>Pending</span>
+            <span class="chip-dot dot-pending"></span><span>Pending</span>
             <span class="chip-count" id="cPending">0</span>
           </button>
+          <button class="filter-chip" data-status="sourcing">
+            <span class="chip-dot dot-sourcing"></span><span>Sourcing</span>
+            <span class="chip-count" id="cSourcing">0</span>
+          </button>
+          <button class="filter-chip" data-status="quoted">
+            <span class="chip-dot dot-quoted"></span><span>Quoted</span>
+            <span class="chip-count" id="cQuoted">0</span>
+          </button>
           <button class="filter-chip" data-status="confirmed">
-            <span class="chip-dot dot-confirmed"></span>
-            <span>Confirmed</span>
+            <span class="chip-dot dot-confirmed"></span><span>Confirmed</span>
             <span class="chip-count" id="cConfirmed">0</span>
           </button>
           <button class="filter-chip" data-status="completed">
-            <span class="chip-dot dot-completed"></span>
-            <span>Completed</span>
+            <span class="chip-dot dot-completed"></span><span>Completed</span>
             <span class="chip-count" id="cCompleted">0</span>
           </button>
           <button class="filter-chip" data-status="declined">
-            <span class="chip-dot dot-declined"></span>
-            <span>Declined</span>
+            <span class="chip-dot dot-declined"></span><span>Declined</span>
             <span class="chip-count" id="cDeclined">0</span>
           </button>
         </div>
@@ -938,16 +1143,17 @@ tbody tr.clickable{cursor:pointer}
               <thead>
                 <tr>
                   <th>Ref</th>
+                  <th>Event</th>
+                  <th>Organiser</th>
+                  <th>Date</th>
+                  <th>Budget</th>
                   <th>Artist</th>
-                  <th>Student</th>
-                  <th>Event Date</th>
-                  <th>Venue</th>
                   <th>Status</th>
                   <th style="text-align:right">Actions</th>
                 </tr>
               </thead>
               <tbody id="bookingsTbody">
-                <tr><td colspan="7"><div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading bookings…</div></td></tr>
+                <tr><td colspan="8"><div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading requests…</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -967,28 +1173,23 @@ tbody tr.clickable{cursor:pointer}
 
         <div class="filter-chips" id="messageFilters" style="margin-bottom:14px">
           <button class="filter-chip active" data-type="all">
-            <span class="chip-dot dot-all"></span>
-            <span>All</span>
+            <span class="chip-dot dot-all"></span><span>All</span>
             <span class="chip-count" id="mAll">0</span>
           </button>
           <button class="filter-chip" data-type="booking">
-            <span class="chip-dot dot-booking"></span>
-            <span>Bookings</span>
+            <span class="chip-dot dot-booking"></span><span>Event Requests</span>
             <span class="chip-count" id="mBooking">0</span>
           </button>
           <button class="filter-chip" data-type="subscription">
-            <span class="chip-dot dot-subscription"></span>
-            <span>Subscriptions</span>
+            <span class="chip-dot dot-subscription"></span><span>Subscriptions</span>
             <span class="chip-count" id="mSub">0</span>
           </button>
           <button class="filter-chip" data-type="support">
-            <span class="chip-dot dot-support"></span>
-            <span>Support</span>
+            <span class="chip-dot dot-support"></span><span>Support</span>
             <span class="chip-count" id="mSupport">0</span>
           </button>
           <button class="filter-chip" data-type="unread">
-            <span class="chip-dot dot-unread"></span>
-            <span>Unread</span>
+            <span class="chip-dot dot-unread"></span><span>Unread</span>
             <span class="chip-count" id="mUnread">0</span>
           </button>
         </div>
@@ -1010,7 +1211,7 @@ tbody tr.clickable{cursor:pointer}
             <div class="empty">
               <div class="empty-icon"><i class="fas fa-inbox"></i></div>
               <h3>Select a conversation</h3>
-              <p>Student messages, booking requests, and subscription enquiries will appear here.</p>
+              <p>Event requests, student messages and subscription enquiries will appear here.</p>
             </div>
           </div>
         </div>
@@ -1020,7 +1221,6 @@ tbody tr.clickable{cursor:pointer}
       <!-- ═════════ SECTION: SCHOOLS ═════════ -->
       <section class="section" id="section-schools">
 
-        <!-- Stats -->
         <div class="stats-row">
           <div class="stat-mini">
             <div class="stat-mini-icon"><i class="fas fa-university"></i></div>
@@ -1149,30 +1349,20 @@ tbody tr.clickable{cursor:pointer}
           </div>
 
           <div class="field">
-            <label>Rate Type <span class="req">*</span></label>
-            <select id="fRateType" required>
-              <option value="per_event">Per Event</option>
-              <option value="per_hour">Per Hour</option>
-              <option value="per_day">Per Day</option>
+            <label>Country</label>
+            <select id="fCountry">
+              <option value="ZW">🇿🇼 Zimbabwe</option>
+              <option value="ZA">🇿🇦 South Africa</option>
+              <option value="NA">🇳🇦 Namibia</option>
+              <option value="LS">🇱🇸 Lesotho</option>
+              <option value="SZ">🇸🇿 Eswatini</option>
+              <option value="BW">🇧🇼 Botswana</option>
+              <option value="ZM">🇿🇲 Zambia</option>
+              <option value="MW">🇲🇼 Malawi</option>
+              <option value="MZ">🇲🇿 Mozambique</option>
+              <option value="GB">🇬🇧 United Kingdom</option>
+              <option value="US">🇺🇸 United States</option>
             </select>
-          </div>
-
-          <div class="field">
-            <label>Currency</label>
-            <select id="fCurrency">
-              <option value="USD" selected>USD ($)</option>
-              <option value="ZWL">ZWL</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Price From <span class="req">*</span></label>
-            <input type="number" id="fPriceFrom" required min="0" placeholder="e.g. 250">
-          </div>
-
-          <div class="field">
-            <label>Price To <span class="opt">(optional)</span></label>
-            <input type="number" id="fPriceTo" min="0" placeholder="e.g. 600">
           </div>
 
           <div class="field">
@@ -1184,7 +1374,7 @@ tbody tr.clickable{cursor:pointer}
             </select>
           </div>
 
-          <div class="field">
+          <div class="field full">
             <label>Featured Artist</label>
             <div class="toggle-wrap">
               <label class="toggle">
@@ -1220,12 +1410,12 @@ tbody tr.clickable{cursor:pointer}
   </div>
 </div>
 
-<!-- ═════════ BOOKING DETAIL MODAL ═════════ -->
+<!-- ═════════ EVENT REQUEST DETAIL MODAL ═════════ -->
 <div class="modal" id="bookingModal">
-  <div class="modal-panel">
+  <div class="modal-panel xl">
     <div class="modal-head">
       <div>
-        <h2>Booking Details</h2>
+        <h2>Event Request</h2>
         <p id="bookingModalRef">—</p>
       </div>
       <button class="modal-close" data-close="bookingModal"><i class="fas fa-times"></i></button>
@@ -1235,6 +1425,111 @@ tbody tr.clickable{cursor:pointer}
     </div>
     <div class="modal-foot" id="bookingModalFoot">
       <button class="btn btn-outline" data-close="bookingModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ ASSIGN ARTIST MODAL ═════════ -->
+<div class="modal" id="assignArtistModal">
+  <div class="modal-panel md">
+    <div class="modal-head">
+      <div>
+        <h2>Assign Artist</h2>
+        <p>Pick the artist you've sourced for this event. The organiser will see this as part of the quote.</p>
+      </div>
+      <button class="modal-close" data-close="assignArtistModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Artist <span class="req">*</span></label>
+        <select id="assignArtistSelect">
+          <option value="">Select an artist…</option>
+        </select>
+        <div class="field-hint">Only artists in your roster appear here.</div>
+      </div>
+      <div class="field">
+        <label>Note to organiser <span class="opt">(optional)</span></label>
+        <textarea id="assignArtistNote" placeholder="Why this artist is a great fit for the event…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close="assignArtistModal">Cancel</button>
+      <button class="btn btn-primary" id="assignArtistSaveBtn">
+        <i class="fas fa-user-check"></i> <span>Assign Artist</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ SEND QUOTE MODAL ═════════ -->
+<div class="modal" id="quoteModal">
+  <div class="modal-panel md">
+    <div class="modal-head">
+      <div>
+        <h2>Send Quote to Organiser</h2>
+        <p>This will be delivered to their inbox as a professional quote.</p>
+      </div>
+      <button class="modal-close" data-close="quoteModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+
+      <div id="quoteArtistCard" style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
+        <img id="quoteArtistImg" src="" alt="" style="width:54px;height:54px;border-radius:10px;object-fit:cover;background:var(--border)">
+        <div>
+          <small style="display:block;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:3px">Artist</small>
+          <strong id="quoteArtistName" style="font-size:15px;font-weight:800">—</strong>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1">
+          <label>Quoted Amount <span class="req">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 130px;gap:10px">
+            <input type="number" id="quoteAmount" min="0" step="10" placeholder="e.g. 5000">
+            <select id="quoteCurrency">
+              <option value="USD">USD</option>
+              <option value="ZAR">ZAR</option>
+              <option value="GBP">GBP</option>
+              <option value="EUR">EUR</option>
+              <option value="NAD">NAD</option>
+              <option value="BWP">BWP</option>
+              <option value="ZMW">ZMW</option>
+              <option value="MWK">MWK</option>
+              <option value="MZN">MZN</option>
+              <option value="LSL">LSL</option>
+              <option value="SZL">SZL</option>
+            </select>
+          </div>
+          <div class="field-hint">This amount is what the organiser will be asked to confirm.</div>
+        </div>
+
+        <div class="field" style="grid-column:1/-1">
+          <label>Payment Terms <span class="opt">(optional)</span></label>
+          <input type="text" id="quoteTerms" placeholder="e.g. 50% deposit to confirm, balance on the day">
+        </div>
+
+        <div class="field" style="grid-column:1/-1">
+          <label>Message to Organiser <span class="req">*</span></label>
+          <textarea id="quoteMessage" style="min-height:120px"></textarea>
+          <div class="field-hint">A professional, personalised message is auto-drafted. Edit freely before sending.</div>
+        </div>
+
+        <div class="field" style="grid-column:1/-1">
+          <label>Quote Validity</label>
+          <select id="quoteValidity">
+            <option value="48 hours">48 hours</option>
+            <option value="72 hours" selected>72 hours</option>
+            <option value="1 week">1 week</option>
+            <option value="2 weeks">2 weeks</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close="quoteModal">Cancel</button>
+      <button class="btn btn-primary" id="quoteSendBtn">
+        <i class="fas fa-paper-plane"></i> <span>Send Quote</span>
+      </button>
     </div>
   </div>
 </div>
@@ -1316,6 +1611,9 @@ const ZIM_LOCATIONS = [
 
 const VALID_SECTIONS = ['artists', 'bookings', 'messages', 'schools'];
 
+/* Request lifecycle — order matters, drives the progress bar */
+const REQUEST_FLOW = ['pending', 'sourcing', 'quoted', 'confirmed', 'completed'];
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -1339,6 +1637,8 @@ let pendingPhotoExistingUrl = null;
 let currentBookingFilter = 'all';
 let currentMessageFilter = 'all';
 let currentSchoolKey = null;
+let currentQuoteBookingId = null;
+let currentAssignBookingId = null;
 let unsubs = [];
 let currentSection = 'artists';
 
@@ -1384,6 +1684,31 @@ function initialsFromName(name){
   if(parts.length === 0) return '?';
   if(parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+function money(amount, currency){
+  const cur = currency || 'USD';
+  try{
+    return new Intl.NumberFormat('en', {
+      style:'currency', currency: cur, maximumFractionDigits: 0
+    }).format(amount);
+  }catch(_){
+    return `${cur} ${amount}`;
+  }
+}
+function fmtEventDate(iso){
+  if(!iso) return '—';
+  try{
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  }catch(_){ return iso; }
+}
+function fmtTime(t){
+  if(!t) return '—';
+  try{
+    const [h,m] = t.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+  }catch(_){ return t; }
 }
 function showToast(msg, type='info'){
   const wrap = $('toastWrap');
@@ -1574,6 +1899,7 @@ function startListeners(){
       renderBookings();
       updateNavCounts();
       updateBookingCounts();
+      updateRequestStats();
     },
     (err) => console.warn('Bookings listener error:', err)
   ));
@@ -1591,8 +1917,6 @@ function startListeners(){
     (err) => console.warn('Messages listener error:', err)
   ));
 
-  /* ── Users listener — powers the Schools aggregation ──
-     Real sign-up data: student university field written at signup. */
   unsubs.push(onSnapshot(
     query(collection(db, 'users'), orderBy('createdAt', 'desc')),
     (snap) => {
@@ -1617,7 +1941,9 @@ function startListeners(){
    NAV COUNTS
    ═══════════════════════════════════════════════════════════ */
 function updateNavCounts(){
-  const pending = allBookings.filter(b => (b.status||'pending') === 'pending').length;
+  const needsAction = allBookings.filter(b =>
+    ['pending','sourcing'].includes(b.status || 'pending')
+  ).length;
   const unread = allMessages.filter(m =>
     m.recipientId === 'admin' &&
     (m.status === 'unread' || m.status === 'pending')
@@ -1629,16 +1955,16 @@ function updateNavCounts(){
     : `${allArtists.length} artists in roster`;
 
   $('navCountBookings').textContent = allBookings.length;
-  $('navSubBookings').textContent = pending > 0
-    ? `${pending} pending review`
-    : 'No pending requests';
+  $('navSubBookings').textContent = needsAction > 0
+    ? `${needsAction} need your attention`
+    : 'All caught up';
 
   $('navCountMessages').textContent = unread > 0 ? unread : threads.length;
   $('navSubMessages').textContent = unread > 0
     ? `${unread} unread`
     : (threads.length > 0 ? `${threads.length} conversations` : 'Student inbox');
 
-  $('dotBookings').style.display = pending > 0 ? '' : 'none';
+  $('dotBookings').style.display = needsAction > 0 ? '' : 'none';
   $('dotMessages').style.display = unread > 0 ? '' : 'none';
 
   $('navCountSchools').textContent = schools.length;
@@ -1691,8 +2017,6 @@ function renderArtists(){
     const locChips = locations.slice(0, 2).map(l => `<span class="chip">${esc(l)}</span>`).join('') +
       (locations.length > 2 ? `<span class="chip more">+${locations.length-2}</span>` : '');
 
-    const price = a.priceFrom != null ? `$${a.priceFrom}` : '—';
-
     return `
       <tr>
         <td>
@@ -1709,8 +2033,8 @@ function renderArtists(){
         </td>
         <td>${genreChips || '<span style="color:var(--text-3)">—</span>'}</td>
         <td>${locChips || '<span style="color:var(--text-3)">—</span>'}</td>
-        <td><strong>${price}</strong>${a.priceTo ? ` <small style="color:var(--text-3)">to $${a.priceTo}</small>` : ''}</td>
         <td><span class="pill ${esc(a.availabilityStatus||'available')}">${esc((a.availabilityStatus||'available').replace('_',' '))}</span></td>
+        <td><span style="font-size:12px;color:var(--text-3)">Rates private</span></td>
         <td>
           <div class="cell-actions">
             <button class="btn btn-outline btn-sm" onclick="window.zone21EditArtist('${escAttr(a.id)}')" title="Edit">
@@ -1727,7 +2051,6 @@ function renderArtists(){
 
 $('artistSearch').addEventListener('input', renderArtists);
 
-/* ── LOCATION GRID ── */
 function buildLocationGrid(selected = []){
   const grid = $('locationGrid');
   const selectedSet = new Set(selected.map(s => String(s).toLowerCase()));
@@ -1742,7 +2065,6 @@ function getSelectedLocations(){
   return Array.from($('locationGrid').querySelectorAll('input:checked')).map(i => i.value);
 }
 
-/* ── ADD/EDIT ARTIST MODAL ── */
 $('addArtistBtn').addEventListener('click', () => openArtistModal(null));
 
 window.zone21EditArtist = (id) => {
@@ -1778,10 +2100,7 @@ function openArtistModal(artist){
   $('fName').value = artist?.name || '';
   $('fBio').value = artist?.bio || '';
   $('fGenres').value = Array.isArray(artist?.genres) ? artist.genres.join(', ') : '';
-  $('fRateType').value = artist?.rateType || 'per_event';
-  $('fCurrency').value = artist?.currency || 'USD';
-  $('fPriceFrom').value = artist?.priceFrom ?? '';
-  $('fPriceTo').value = artist?.priceTo ?? '';
+  $('fCountry').value = artist?.country || 'ZW';
   $('fAvailability').value = artist?.availabilityStatus || 'available';
   $('fFeatured').checked = !!artist?.featured;
 
@@ -1850,7 +2169,6 @@ $('artistPhotoInput').addEventListener('change', (e) => {
     });
 });
 
-/* ── IMAGE COMPRESSION ── */
 function compressImageToBase64(file, maxDim = 500, quality = 0.6){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1858,23 +2176,18 @@ function compressImageToBase64(file, maxDim = 500, quality = 0.6){
       const img = new Image();
       img.onload = () => {
         let { width: w, height: h } = img;
-
         if(w > maxDim || h > maxDim){
           if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
           else { w = Math.round(w * maxDim / h); h = maxDim; }
         }
-
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
-
         const ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
-
         const base64 = canvas.toDataURL('image/jpeg', quality);
-
         if(base64.length > 900000){
           resolve(canvas.toDataURL('image/jpeg', 0.4));
           return;
@@ -1889,18 +2202,15 @@ function compressImageToBase64(file, maxDim = 500, quality = 0.6){
   });
 }
 
-/* ── SAVE ARTIST ── */
 $('artistSaveBtn').addEventListener('click', async () => {
   const btn = $('artistSaveBtn');
   const orig = btn.innerHTML;
 
   const name = $('fName').value.trim();
-  const priceFrom = $('fPriceFrom').value.trim();
   const locations = getSelectedLocations();
   const genres = $('fGenres').value.split(',').map(g => g.trim()).filter(Boolean);
 
   if(!name){ showToast('Artist name is required.', 'error'); $('fName').focus(); return; }
-  if(!priceFrom){ showToast('Price From is required.', 'error'); $('fPriceFrom').focus(); return; }
   if(locations.length === 0){ showToast('Select at least one location.', 'error'); return; }
 
   btn.disabled = true;
@@ -1923,10 +2233,7 @@ $('artistSaveBtn').addEventListener('click', async () => {
       bio: $('fBio').value.trim(),
       genres,
       locations,
-      rateType: $('fRateType').value,
-      currency: $('fCurrency').value,
-      priceFrom: Number(priceFrom),
-      priceTo: $('fPriceTo').value ? Number($('fPriceTo').value) : null,
+      country: $('fCountry').value || 'ZW',
       availabilityStatus: $('fAvailability').value,
       featured: $('fFeatured').checked,
       socials: {
@@ -1961,18 +2268,36 @@ $('artistSaveBtn').addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   BOOKINGS
+   EVENT REQUESTS (Bookings)
    ═══════════════════════════════════════════════════════════ */
+function updateRequestStats(){
+  const reqs = allBookings;
+  const pending   = reqs.filter(b => (b.status||'pending') === 'pending').length;
+  const sourcing  = reqs.filter(b => b.status === 'sourcing').length;
+  const quoted    = reqs.filter(b => b.status === 'quoted').length;
+  const confirmed = reqs.filter(b => b.status === 'confirmed').length;
+
+  $('statTotalRequests').textContent = reqs.length;
+  $('statPending').textContent   = pending;
+  $('statSourcing').textContent  = sourcing;
+  $('statQuoted').textContent    = quoted;
+  $('statConfirmedReq').textContent = confirmed;
+}
+
 function updateBookingCounts(){
   const counts = {
-    all: allBookings.length,
-    pending: allBookings.filter(b => (b.status||'pending') === 'pending').length,
+    all:       allBookings.length,
+    pending:   allBookings.filter(b => (b.status||'pending') === 'pending').length,
+    sourcing:  allBookings.filter(b => b.status === 'sourcing').length,
+    quoted:    allBookings.filter(b => b.status === 'quoted').length,
     confirmed: allBookings.filter(b => b.status === 'confirmed').length,
     completed: allBookings.filter(b => b.status === 'completed').length,
-    declined: allBookings.filter(b => b.status === 'declined').length
+    declined:  allBookings.filter(b => b.status === 'declined').length
   };
   $('cAll').textContent = counts.all;
   $('cPending').textContent = counts.pending;
+  $('cSourcing').textContent = counts.sourcing;
+  $('cQuoted').textContent = counts.quoted;
   $('cConfirmed').textContent = counts.confirmed;
   $('cCompleted').textContent = counts.completed;
   $('cDeclined').textContent = counts.declined;
@@ -2005,122 +2330,268 @@ function renderBookings(){
   }
   if(q){
     list = list.filter(b => {
-      const hay = [b.ref, b.artistName, b.userName, b.venue, b.eventType, b.userEmail]
-        .filter(Boolean).join(' ').toLowerCase();
+      const hay = [
+        b.ref, b.eventName, b.eventType, b.artistName, b.preferredArtistName,
+        b.userName, b.contactName, b.venue, b.city, b.countryName,
+        b.userEmail, b.contactEmail, b.organization
+      ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
   }
 
   if(list.length === 0){
-    tbody.innerHTML = `<tr><td colspan="7">
+    tbody.innerHTML = `<tr><td colspan="8">
       <div class="empty">
         <div class="empty-icon"><i class="fas fa-calendar"></i></div>
-        <h3>${q || currentBookingFilter !== 'all' ? 'No matches' : 'No bookings yet'}</h3>
-        <p>${q || currentBookingFilter !== 'all' ? 'Try a different filter or search.' : 'Student booking requests will appear here.'}</p>
+        <h3>${q || currentBookingFilter !== 'all' ? 'No matches' : 'No event requests yet'}</h3>
+        <p>${q || currentBookingFilter !== 'all'
+          ? 'Try a different filter or search.'
+          : 'When organisers post event requests on Discover, they will appear here for you to source and quote.'}</p>
       </div>
     </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = list.map(b => `
-    <tr class="clickable" onclick="window.zone21OpenBooking('${escAttr(b.id)}')">
-      <td><code style="font-size:11.5px;color:var(--pink)">${esc(b.ref||'—')}</code></td>
-      <td><strong>${esc(b.artistName||'—')}</strong></td>
-      <td>
-        <div>${esc(b.userName||'—')}</div>
-        <small style="color:var(--text-3);font-size:11.5px">${esc(b.userEmail||'')}</small>
-      </td>
-      <td>${esc(b.eventDate||'—')}${b.eventTime ? ` <small style="color:var(--text-3)">${esc(b.eventTime)}</small>` : ''}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.venue||'—')}</td>
-      <td><span class="pill ${esc(b.status||'pending')}">${esc(b.status||'pending')}</span></td>
-      <td onclick="event.stopPropagation()">
-        <div class="cell-actions">
-          <button class="btn btn-outline btn-sm" onclick="window.zone21OpenBooking('${escAttr(b.id)}')">View</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = list.map(b => {
+    const status = b.status || 'pending';
+    const eventName = b.eventName || b.eventType || 'Event';
+    const eventInitial = eventName.charAt(0).toUpperCase();
+    const organizer = b.contactName || b.userName || '—';
+    const eventDate = b.eventDate ? fmtEventDate(b.eventDate) : '—';
+    const budget = b.budget
+      ? money(b.budget, b.currency || 'USD') + (b.budgetFlexible ? ' <span style="color:var(--text-3);font-weight:500">· flexible</span>' : '')
+      : '<span style="color:var(--text-3)">—</span>';
+
+    const artistLine = b.artistName
+      ? `<strong>${esc(b.artistName)}</strong><small style="color:#059669;font-weight:600">assigned</small>`
+      : (b.preferredArtistName
+          ? `<span style="color:var(--text-2)">${esc(b.preferredArtistName)}</span><small style="color:var(--text-3)">preferred</small>`
+          : `<span style="color:var(--text-3);font-style:italic">No preference</span>`);
+
+    return `
+      <tr class="clickable" onclick="window.zone21OpenBooking('${escAttr(b.id)}')">
+        <td><code style="font-size:11.5px;color:var(--pink)">${esc(b.ref||'—')}</code></td>
+        <td>
+          <div class="artist-cell">
+            <div class="artist-thumb event">${esc(eventInitial)}</div>
+            <div class="artist-cell-info">
+              <strong>${esc(eventName)}</strong>
+              <small>${esc(b.eventType||'')}${b.attendance ? ` · ${b.attendance} people` : ''}</small>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="font-weight:600;font-size:13px">${esc(organizer)}</div>
+          ${b.organization ? `<small style="color:var(--text-3);font-size:11.5px">${esc(b.organization)}</small>` : ''}
+        </td>
+        <td><span style="font-size:12.5px;font-weight:600">${esc(eventDate)}</span></td>
+        <td><span style="font-size:12.5px;font-weight:700">${budget}</span></td>
+        <td>${artistLine}</td>
+        <td><span class="pill ${esc(status)}">${esc(status)}</span></td>
+        <td onclick="event.stopPropagation()">
+          <div class="cell-actions">
+            <button class="btn btn-outline btn-sm" onclick="window.zone21OpenBooking('${escAttr(b.id)}')">
+              <i class="fas fa-arrow-right"></i> Open
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
 }
 
+/* ── EVENT REQUEST DETAIL MODAL ── */
 window.zone21OpenBooking = (id) => {
   const b = allBookings.find(x => x.id === id);
   if(!b) return;
-  const d = toDate(b.createdAt);
-  const status = b.status || 'pending';
 
-  $('bookingModalRef').textContent = `Reference ${b.ref || '—'} · Submitted ${fmtDT(d)}`;
+  const status = b.status || 'pending';
+  const created = toDate(b.createdAt);
+  const eventName = b.eventName || b.eventType || 'Event Request';
+
+  $('bookingModalRef').textContent = `Reference ${b.ref || '—'} · Submitted ${fmtDT(created)}`;
+
+  /* Progress bar */
+  const currentIdx = REQUEST_FLOW.indexOf(status);
+  const isDeclined = status === 'declined';
+  const progressHtml = isDeclined
+    ? `<div class="req-progress">
+         ${REQUEST_FLOW.map((_, i) => `<div class="req-progress-step" style="background:rgba(220,38,38,.5)"></div>`).join('')}
+       </div>`
+    : `<div class="req-progress">
+         ${REQUEST_FLOW.map((step, i) => {
+            const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : '';
+            return `<div class="req-progress-step ${cls}"></div>`;
+         }).join('')}
+       </div>`;
+
+  /* Status labels */
+  const statusLabels = {
+    pending: 'Awaiting Review',
+    sourcing: 'Sourcing Artist',
+    quoted: 'Quote Sent',
+    confirmed: 'Confirmed',
+    completed: 'Completed',
+    declined: 'Declined'
+  };
+
+  /* Assigned artist card (if any) */
+  const assignedHtml = b.artistName
+    ? `<div class="req-assigned">
+        <img src="${escAttr(b.artistPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.artistName)}&background=102838&color=C0C800&size=200&bold=true`)}" alt="">
+        <div class="req-assigned-body">
+          <small>Assigned Artist</small>
+          <strong>${esc(b.artistName)}</strong>
+          <span>Sourced by Zone21 for this event</span>
+        </div>
+      </div>`
+    : '';
+
+  /* Quote card (if any) */
+  const quoteHtml = b.quoteAmount
+    ? `<div class="req-quote">
+        <small>Sent Quote</small>
+        <strong>${money(b.quoteAmount, b.quoteCurrency || b.currency || 'USD')}</strong>
+        ${b.quoteTerms ? `<span>${esc(b.quoteTerms)}</span>` : ''}
+        ${b.quoteSentAt ? `<span style="display:block;margin-top:4px;font-size:11.5px;opacity:.75">Sent ${fmtDT(toDate(b.quoteSentAt))}</span>` : ''}
+      </div>`
+    : '';
+
+  /* Requirements chips */
+  const reqs = Array.isArray(b.requirements) ? b.requirements : [];
+  const reqsHtml = reqs.length
+    ? reqs.map(r => `<span class="req-reqchip">${esc(r)}</span>`).join('')
+    : `<span class="req-reqchip empty">No extras requested</span>`;
+
+  const phone = b.contactPhone || b.userPhone || '';
+  const email = b.contactEmail || b.userEmail || '';
+  const waLink = phone ? `https://wa.me/${String(phone).replace(/[^0-9]/g,'')}` : '';
 
   $('bookingModalBody').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Artist</div>
-        <div style="font-weight:700">${esc(b.artistName||'—')}</div>
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Status</div>
-        <span class="pill ${esc(status)}">${esc(status)}</span>
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Student</div>
-        <div style="font-weight:700">${esc(b.userName||'—')}</div>
-        <div style="font-size:12.5px;color:var(--text-3)">${esc(b.userEmail||'')}</div>
-        ${b.userPhone ? `<div style="font-size:12.5px;color:var(--text-3)">${esc(b.userPhone)}</div>` : ''}
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Event Date & Time</div>
-        <div style="font-weight:700">${esc(b.eventDate||'—')}${b.eventTime ? ` · ${esc(b.eventTime)}` : ''}</div>
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Event Type</div>
-        <div style="font-weight:700">${esc(b.eventType||'—')}</div>
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Budget</div>
-        <div style="font-weight:700">${b.budget ? '$'+esc(b.budget) : '—'}</div>
-      </div>
-      <div style="grid-column:1/-1">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Venue</div>
-        <div style="font-weight:600">${esc(b.venue||'—')}</div>
-      </div>
-      ${b.description ? `
-        <div style="grid-column:1/-1">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px">Additional Details</div>
-          <div style="padding:12px 14px;background:var(--surface-2);border-radius:9px;font-size:13.5px;line-height:1.55;white-space:pre-wrap">${esc(b.description)}</div>
+    <!-- HERO -->
+    <div class="req-hero">
+      <div class="req-hero-top">
+        <div style="min-width:0">
+          <div class="req-hero-title">${esc(eventName)}</div>
+          <div class="req-hero-sub">
+            <code>${esc(b.ref||'—')}</code>
+            ${b.eventType ? `<span>${esc(b.eventType)}</span>` : ''}
+            ${b.city ? `<span>· ${esc(b.city)}</span>` : ''}
+            ${b.countryName ? `<span>· ${esc(b.countryName)}</span>` : ''}
+          </div>
         </div>
-      ` : ''}
-      <div style="grid-column:1/-1;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
-        <span style="font-size:11.5px;color:var(--text-3)">
-          <i class="fas fa-info-circle"></i>
-          Source: <strong>${esc(b.source||'web')}</strong>
-        </span>
+        <span class="req-status-badge ${esc(status)}">${esc(statusLabels[status] || status)}</span>
+      </div>
+      ${progressHtml}
+    </div>
+
+    ${assignedHtml}
+    ${quoteHtml}
+
+    <!-- EVENT DETAILS -->
+    <div class="req-section">
+      <div class="req-section-head"><i class="fas fa-calendar-day"></i> Event Details</div>
+      <div class="req-grid three">
+        <div class="req-cell"><small>Date</small><strong>${esc(fmtEventDate(b.eventDate))}</strong></div>
+        <div class="req-cell"><small>Start Time</small><strong>${esc(fmtTime(b.eventTime))}</strong></div>
+        <div class="req-cell"><small>Duration</small><strong>${esc(b.duration || '—')}</strong></div>
+        <div class="req-cell"><small>Venue</small><strong>${esc(b.venue || '—')}</strong></div>
+        <div class="req-cell"><small>City</small><strong>${esc(b.city || '—')}</strong></div>
+        <div class="req-cell"><small>Attendance</small><strong>${b.attendance ? b.attendance.toLocaleString() + ' people' : '—'}</strong></div>
       </div>
     </div>
+
+    <!-- ARTIST PREFERENCE -->
+    <div class="req-section">
+      <div class="req-section-head"><i class="fas fa-microphone"></i> Artist Preference</div>
+      <div class="req-grid">
+        <div class="req-cell">
+          <small>Preferred Artist</small>
+          <strong>${b.preferredArtistName ? esc(b.preferredArtistName) : '<span class="muted">No preference — recommend the best fit</span>'}</strong>
+        </div>
+        <div class="req-cell"><small>Performance Type</small><strong>${esc(b.performanceType || '—')}</strong></div>
+        <div class="req-cell"><small>Genre Preference</small><strong>${esc(b.genrePreference || '—')}</strong></div>
+        <div class="req-cell"><small>Organisation</small><strong>${esc(b.organization || '—')}</strong></div>
+      </div>
+      ${b.artistNotes ? `<div class="req-notes"><strong style="display:block;font-size:11.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Notes for the artist</strong>${esc(b.artistNotes)}</div>` : ''}
+    </div>
+
+    <!-- BUDGET -->
+    <div class="req-section">
+      <div class="req-section-head"><i class="fas fa-wallet"></i> Budget &amp; Requirements</div>
+      <div class="req-grid three">
+        <div class="req-cell">
+          <small>Budget</small>
+          <strong>${b.budget ? money(b.budget, b.currency || 'USD') : '—'}</strong>
+          ${b.budgetFlexible ? '<span class="muted" style="font-size:11.5px">Flexible</span>' : ''}
+        </div>
+        <div class="req-cell"><small>Currency</small><strong>${esc(b.currency || 'USD')}</strong></div>
+        <div class="req-cell"><small>Payment Method</small><strong>${esc(b.paymentMethod || '—')}</strong></div>
+      </div>
+      <div style="margin-top:14px">
+        <small style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:8px">What Zone21 should arrange</small>
+        <div class="req-reqchips">${reqsHtml}</div>
+      </div>
+    </div>
+
+    <!-- ORGANISER -->
+    <div class="req-section">
+      <div class="req-section-head"><i class="fas fa-user"></i> Organiser Contact</div>
+      <div class="req-grid">
+        <div class="req-cell"><small>Name</small><strong>${esc(b.contactName || b.userName || '—')}</strong></div>
+        <div class="req-cell"><small>Phone</small><strong>${phone ? esc(phone) : '<span class="muted">—</span>'}</strong></div>
+        <div class="req-cell" style="grid-column:1/-1"><small>Email</small><strong>${email ? esc(email) : '<span class="muted">—</span>'}</strong></div>
+      </div>
+    </div>
+
+    ${b.description ? `
+      <div class="req-section">
+        <div class="req-section-head"><i class="fas fa-file-lines"></i> Additional Details</div>
+        <div class="req-notes" style="margin-top:0">${esc(b.description)}</div>
+      </div>
+    ` : ''}
   `;
 
-  const statusButtons = {
-    pending: [
-      { label: 'Confirm', icon: 'fa-check', status: 'confirmed', style: 'btn-lime' },
-      { label: 'Decline', icon: 'fa-times', status: 'declined', style: 'btn-outline', danger: true }
-    ],
-    confirmed: [
-      { label: 'Mark Completed', icon: 'fa-check-double', status: 'completed', style: 'btn-lime' }
-    ],
-    completed: [],
-    declined: [
-      { label: 'Reopen as Pending', icon: 'fa-rotate-left', status: 'pending', style: 'btn-outline' }
-    ]
-  };
-  const buttons = statusButtons[status] || [];
-  $('bookingModalFoot').innerHTML = `
-    <button class="btn btn-outline" data-close="bookingModal">Close</button>
-    ${b.userId ? `<button class="btn btn-outline" onclick="window.zone21MessageUser('${escAttr(b.userId)}','${escAttr(b.ref||'')}')"><i class="fas fa-comment"></i> Message Student</button>` : ''}
-    ${buttons.map(btn => `
-      <button class="btn ${btn.style}" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','${btn.status}')" ${btn.danger ? 'style="color:var(--danger);border-color:#fecaca"' : ''}>
-        <i class="fas ${btn.icon}"></i> ${btn.label}
-      </button>
-    `).join('')}
-  `;
+  /* ── Footer actions based on status ── */
+  const actions = [];
 
+  actions.push(`<button class="btn btn-outline" data-close="bookingModal">Close</button>`);
+
+  if(b.userId){
+    actions.push(`<button class="btn btn-outline" onclick="window.zone21MessageUser('${escAttr(b.userId)}','${escAttr(b.ref||'')}')"><i class="fas fa-comment"></i> Message</button>`);
+  }
+
+  if(waLink){
+    actions.push(`<a class="btn btn-outline" href="${escAttr(waLink)}" target="_blank" rel="noopener"><i class="fab fa-whatsapp" style="color:#25d366"></i> WhatsApp</a>`);
+  }
+
+  if(status === 'pending'){
+    actions.push(`<button class="btn btn-primary" onclick="window.zone21StartSourcing('${escAttr(b.id)}')"><i class="fas fa-magnifying-glass"></i> Start Sourcing</button>`);
+    actions.push(`<button class="btn btn-outline" style="color:var(--danger);border-color:#fecaca" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','declined')"><i class="fas fa-times"></i> Decline</button>`);
+  }
+
+  if(status === 'sourcing'){
+    actions.push(`<button class="btn btn-primary" onclick="window.zone21OpenAssignArtist('${escAttr(b.id)}')"><i class="fas fa-user-check"></i> ${b.artistName ? 'Change Artist' : 'Assign Artist'}</button>`);
+    if(b.artistName){
+      actions.push(`<button class="btn btn-lime" onclick="window.zone21OpenQuote('${escAttr(b.id)}')"><i class="fas fa-file-invoice-dollar"></i> Send Quote</button>`);
+    }
+    actions.push(`<button class="btn btn-outline" style="color:var(--danger);border-color:#fecaca" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','declined')"><i class="fas fa-times"></i> Decline</button>`);
+  }
+
+  if(status === 'quoted'){
+    actions.push(`<button class="btn btn-lime" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','confirmed')"><i class="fas fa-circle-check"></i> Mark Confirmed</button>`);
+    actions.push(`<button class="btn btn-outline" onclick="window.zone21OpenQuote('${escAttr(b.id)}')"><i class="fas fa-edit"></i> Revise Quote</button>`);
+    actions.push(`<button class="btn btn-outline" style="color:var(--danger);border-color:#fecaca" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','declined')"><i class="fas fa-times"></i> Decline</button>`);
+  }
+
+  if(status === 'confirmed'){
+    actions.push(`<button class="btn btn-lime" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','completed')"><i class="fas fa-check-double"></i> Mark Completed</button>`);
+  }
+
+  if(status === 'completed' || status === 'declined'){
+    actions.push(`<button class="btn btn-outline" onclick="window.zone21UpdateBookingStatus('${escAttr(b.id)}','pending')"><i class="fas fa-rotate-left"></i> Reopen</button>`);
+  }
+
+  $('bookingModalFoot').innerHTML = actions.join('');
   document.querySelectorAll('#bookingModalFoot [data-close]').forEach(x => {
     x.addEventListener('click', () => closeModal(x.dataset.close));
   });
@@ -2128,45 +2599,65 @@ window.zone21OpenBooking = (id) => {
   openModal('bookingModal');
 };
 
+/* ── STATUS TRANSITION ── */
 window.zone21UpdateBookingStatus = async (id, newStatus) => {
   const b = allBookings.find(x => x.id === id);
   if(!b) return;
+
+  const verb = {
+    pending: 'reopen this request',
+    sourcing: 'start sourcing',
+    quoted: 'mark as quoted',
+    confirmed: 'mark this as confirmed',
+    completed: 'mark this as completed',
+    declined: 'decline this request'
+  }[newStatus] || `update to ${newStatus}`;
+
   const ok = await confirmDialog(
-    `Update to ${newStatus}?`,
-    `This will notify the student in their inbox and update their booking reference ${b.ref || ''}.`
+    `Confirm action`,
+    `This will ${verb} and notify the organiser via their inbox.`
   );
   if(!ok) return;
 
   try{
-    await updateDoc(doc(db, 'bookings', id), {
+    const updates = {
       status: newStatus,
       updatedAt: serverTimestamp()
-    });
+    };
 
+    if(newStatus === 'completed'){
+      updates.completedAt = serverTimestamp();
+    }
+    if(newStatus === 'confirmed'){
+      updates.confirmedAt = serverTimestamp();
+    }
+    if(newStatus === 'declined'){
+      updates.declinedAt = serverTimestamp();
+    }
+
+    await updateDoc(doc(db, 'bookings', id), updates);
+
+    /* Notify organiser */
     if(b.userId){
-      const rootMsg = allMessages.find(m =>
-        m.bookingId === id ||
-        m.bookingRef === b.ref
-      );
-
+      const rootMsg = allMessages.find(m => m.bookingId === id || m.bookingRef === b.ref);
       await addDoc(collection(db, 'messages'), {
         sender: 'admin',
         senderType: 'admin',
         senderId: currentAdmin.uid,
         senderName: 'Zone21 Team',
         recipientId: b.userId,
-        type: 'booking_update',
+        type: 'event_request_update',
         threadId: rootMsg ? (rootMsg.threadId || rootMsg.id) : null,
         bookingId: id,
         bookingRef: b.ref || null,
-        subject: `Booking ${b.ref} — ${newStatus}`,
+        subject: `Event request ${b.ref || ''} — ${newStatus}`,
         message: buildStatusMessage(b, newStatus),
         status: 'unread',
         createdAt: serverTimestamp()
       });
     }
 
-    showToast(`Booking marked ${newStatus}.`, 'success');
+    showToast(`Request marked ${newStatus}.`, 'success');
     closeModal('bookingModal');
   }catch(e){
     console.error(e);
@@ -2174,14 +2665,267 @@ window.zone21UpdateBookingStatus = async (id, newStatus) => {
   }
 };
 
+/* ── START SOURCING (quick shortcut) ── */
+window.zone21StartSourcing = async (id) => {
+  const b = allBookings.find(x => x.id === id);
+  if(!b) return;
+
+  try{
+    await updateDoc(doc(db, 'bookings', id), {
+      status: 'sourcing',
+      sourcingStartedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    if(b.userId){
+      const rootMsg = allMessages.find(m => m.bookingId === id || m.bookingRef === b.ref);
+      await addDoc(collection(db, 'messages'), {
+        sender: 'admin',
+        senderType: 'admin',
+        senderId: currentAdmin.uid,
+        senderName: 'Zone21 Team',
+        recipientId: b.userId,
+        type: 'event_request_update',
+        threadId: rootMsg ? (rootMsg.threadId || rootMsg.id) : null,
+        bookingId: id,
+        bookingRef: b.ref || null,
+        subject: `We're on it — sourcing your artist`,
+        message: `Hi ${b.contactName || b.userName || 'there'},\n\nThanks for posting your event request${b.eventName ? ` for "${b.eventName}"` : ''}. Our team is now sourcing the perfect artist for your date and budget.\n\nYou'll hear back from us within 24 hours with a suggested act and a final quote.\n\n— Zone21 Team`,
+        status: 'unread',
+        createdAt: serverTimestamp()
+      });
+    }
+
+    showToast('Sourcing started — organiser notified.', 'success');
+    closeModal('bookingModal');
+  }catch(e){
+    console.error(e);
+    showToast('Could not start sourcing: ' + e.message, 'error');
+  }
+};
+
+/* ── ASSIGN ARTIST ── */
+window.zone21OpenAssignArtist = (bookingId) => {
+  const b = allBookings.find(x => x.id === bookingId);
+  if(!b) return;
+
+  currentAssignBookingId = bookingId;
+
+  const sel = $('assignArtistSelect');
+  sel.innerHTML = `<option value="">Select an artist…</option>` +
+    allArtists
+      .slice()
+      .sort((a, c) => (a.name||'').localeCompare(c.name||''))
+      .map(a => {
+        const g = Array.isArray(a.genres) && a.genres.length ? ` · ${a.genres.slice(0,2).join(', ')}` : '';
+        return `<option value="${escAttr(a.id)}"${a.id === b.artistId ? ' selected' : ''}>${esc(a.name || 'Artist')}${esc(g)}</option>`;
+      }).join('');
+
+  $('assignArtistNote').value = '';
+
+  closeModal('bookingModal');
+  openModal('assignArtistModal');
+};
+
+$('assignArtistSaveBtn').addEventListener('click', async () => {
+  const artistId = $('assignArtistSelect').value;
+  if(!artistId){
+    showToast('Please select an artist.', 'error');
+    return;
+  }
+  const b = allBookings.find(x => x.id === currentAssignBookingId);
+  if(!b) return;
+  const artist = allArtists.find(a => a.id === artistId);
+  if(!artist) return;
+
+  const btn = $('assignArtistSaveBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning…';
+
+  try{
+    await updateDoc(doc(db, 'bookings', currentAssignBookingId), {
+      artistId: artist.id,
+      artistName: artist.name || '',
+      artistPhoto: artist.photoUrl || '',
+      status: 'sourcing',
+      assignedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    showToast(`${artist.name} assigned to this request.`, 'success');
+    closeModal('assignArtistModal');
+    setTimeout(() => window.zone21OpenBooking(currentAssignBookingId), 200);
+  }catch(e){
+    console.error(e);
+    showToast('Assign failed: ' + e.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ── SEND QUOTE ── */
+window.zone21OpenQuote = (bookingId) => {
+  const b = allBookings.find(x => x.id === bookingId);
+  if(!b) return;
+
+  if(!b.artistName){
+    showToast('Assign an artist first before sending a quote.', 'error');
+    return;
+  }
+
+  currentQuoteBookingId = bookingId;
+
+  $('quoteArtistImg').src = b.artistPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.artistName)}&background=102838&color=C0C800&size=200&bold=true`;
+  $('quoteArtistName').textContent = b.artistName;
+
+  $('quoteAmount').value = b.quoteAmount || '';
+  $('quoteCurrency').value = b.quoteCurrency || b.currency || 'USD';
+  $('quoteTerms').value = b.quoteTerms || '50% deposit to confirm, balance on the day.';
+
+  /* Auto-draft a professional message */
+  const organizerName = (b.contactName || b.userName || '').split(' ')[0] || 'there';
+  const eventName = b.eventName || 'your event';
+  const dateStr = b.eventDate ? fmtEventDate(b.eventDate) : '';
+  const timeStr = b.eventTime ? ' at ' + fmtTime(b.eventTime) : '';
+  const venueStr = b.venue ? ` at ${b.venue}` : '';
+  const amountStr = b.quoteAmount
+    ? money(b.quoteAmount, $('quoteCurrency').value)
+    : '[amount]';
+
+  $('quoteMessage').value =
+`Hi ${organizerName},
+
+Great news — we've sourced an artist for ${eventName}${venueStr ? venueStr : ''}.
+
+Artist: ${b.artistName}
+Event date: ${dateStr}${timeStr}
+${b.duration ? 'Performance duration: ' + b.duration + '\n' : ''}
+Quote: ${amountStr}
+${b.requirements && b.requirements.length ? 'Included extras: ' + b.requirements.join(', ') + '\n' : ''}
+To confirm this booking, please reply to this message and we'll send you the payment details.
+
+— Zone21 Team`;
+
+  closeModal('bookingModal');
+  openModal('quoteModal');
+};
+
+$('quoteSendBtn').addEventListener('click', async () => {
+  const amount = Number($('quoteAmount').value);
+  const currency = $('quoteCurrency').value;
+  const terms = $('quoteTerms').value.trim();
+  const message = $('quoteMessage').value.trim();
+  const validity = $('quoteValidity').value;
+
+  if(!amount || amount <= 0){
+    showToast('Please enter a valid quote amount.', 'error');
+    $('quoteAmount').focus();
+    return;
+  }
+  if(!message){
+    showToast('Please write a message to the organiser.', 'error');
+    return;
+  }
+
+  const b = allBookings.find(x => x.id === currentQuoteBookingId);
+  if(!b) return;
+
+  const btn = $('quoteSendBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+
+  try{
+    await updateDoc(doc(db, 'bookings', currentQuoteBookingId), {
+      quoteAmount: amount,
+      quoteCurrency: currency,
+      quoteTerms: terms,
+      quoteValidity: validity,
+      quoteSentAt: serverTimestamp(),
+      status: 'quoted',
+      updatedAt: serverTimestamp()
+    });
+
+    if(b.userId){
+      const rootMsg = allMessages.find(m => m.bookingId === currentQuoteBookingId || m.bookingRef === b.ref);
+      await addDoc(collection(db, 'messages'), {
+        sender: 'admin',
+        senderType: 'admin',
+        senderId: currentAdmin.uid,
+        senderName: 'Zone21 Team',
+        recipientId: b.userId,
+        type: 'event_request_quote',
+        threadId: rootMsg ? (rootMsg.threadId || rootMsg.id) : null,
+        bookingId: currentQuoteBookingId,
+        bookingRef: b.ref || null,
+        quoteAmount: amount,
+        quoteCurrency: currency,
+        subject: `Quote for ${b.eventName || 'your event'} — ${money(amount, currency)}`,
+        message: message + `\n\n(This quote is valid for ${validity}.)`,
+        status: 'unread',
+        createdAt: serverTimestamp()
+      });
+    }
+
+    showToast(`Quote sent to ${b.contactName || b.userName || 'organiser'}.`, 'success');
+    closeModal('quoteModal');
+    setTimeout(() => window.zone21OpenBooking(currentQuoteBookingId), 200);
+  }catch(e){
+    console.error(e);
+    showToast('Send failed: ' + e.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* ── Status message builder ── */
 function buildStatusMessage(b, status){
+  const eventName = b.eventName || 'your event';
+  const dateStr = b.eventDate ? fmtEventDate(b.eventDate) : '';
+  const venueStr = b.venue ? ` at ${b.venue}` : '';
+  const artistStr = b.artistName ? ` with ${b.artistName}` : '';
+
   const map = {
-    confirmed: `Good news — your booking request for ${b.artistName||'the artist'} has been CONFIRMED.\n\nEvent: ${b.eventDate||''} at ${b.eventTime||''}\nVenue: ${b.venue||''}\n\nWe'll be in touch with next steps.`,
-    declined: `Unfortunately your booking request for ${b.artistName||'the artist'} could not be accommodated at this time.\n\nYou're welcome to try a different date or explore other artists on Discover.`,
-    completed: `Your booking for ${b.artistName||'the artist'} is now marked as COMPLETED.\n\nThanks for using Zone21! We'd love a review if you enjoyed the performance.`,
-    pending: `Your booking request for ${b.artistName||'the artist'} has been reopened and is back under review.`
+    confirmed:
+`Hi ${(b.contactName || b.userName || '').split(' ')[0] || 'there'},
+
+Your booking for ${eventName}${artistStr} is now CONFIRMED.
+
+Event: ${dateStr}${venueStr}
+${b.quoteAmount ? `Confirmed quote: ${money(b.quoteAmount, b.quoteCurrency || b.currency || 'USD')}\n` : ''}
+We'll be in touch with next steps and any final logistics. Thank you for choosing Zone21!
+
+— Zone21 Team`,
+
+    declined:
+`Hi ${(b.contactName || b.userName || '').split(' ')[0] || 'there'},
+
+Unfortunately we aren't able to fulfill your event request for ${eventName}${dateStr ? ` on ${dateStr}` : ''} at this time.
+
+You're welcome to post a new request with different dates, budget, or a broader artist preference — we'll do our best to help.
+
+— Zone21 Team`,
+
+    completed:
+`Hi ${(b.contactName || b.userName || '').split(' ')[0] || 'there'},
+
+Your event for ${eventName}${artistStr} is now marked as COMPLETED.
+
+Thanks for using Zone21! We'd love to hear how it went — feel free to reply with any feedback.
+
+— Zone21 Team`,
+
+    pending:
+`Hi ${(b.contactName || b.userName || '').split(' ')[0] || 'there'},
+
+Your event request for ${eventName} has been reopened and is back under review. We'll be in touch shortly.
+
+— Zone21 Team`
   };
-  return map[status] || `Booking status updated to: ${status}`;
+  return map[status] || `Your event request status is now: ${status}`;
 }
 
 window.zone21MessageUser = (userId, ref) => {
@@ -2192,7 +2936,7 @@ window.zone21MessageUser = (userId, ref) => {
     if(t){
       openThread(t.threadId);
     } else {
-      showToast('No existing thread — student must message first.', 'info');
+      showToast('No existing thread — the organiser must message first.', 'info');
     }
   }, 200);
 };
@@ -2201,7 +2945,14 @@ window.zone21MessageUser = (userId, ref) => {
    MESSAGES / THREADS
    ═══════════════════════════════════════════════════════════ */
 function detectType(m){
-  if(m.type === 'artist_booking' || m.bookingRef || m.bookingId) return 'booking';
+  if(
+    m.type === 'event_request' ||
+    m.type === 'event_request_update' ||
+    m.type === 'event_request_quote' ||
+    m.type === 'artist_booking' ||
+    m.bookingRef ||
+    m.bookingId
+  ) return 'booking';
   if(m.type === 'subscription_invoice' || m.invoiceNumber) return 'subscription';
   if(m.type === 'payment_proof') return 'payment';
   return 'support';
@@ -2309,7 +3060,7 @@ function renderThreadList(){
     wrap.innerHTML = `<div class="empty">
       <div class="empty-icon"><i class="fas fa-inbox"></i></div>
       <h3>No conversations</h3>
-      <p>${allMessages.length === 0 ? 'Student messages will appear here.' : 'Try a different filter or search.'}</p>
+      <p>${allMessages.length === 0 ? 'Organiser messages will appear here.' : 'Try a different filter or search.'}</p>
     </div>`;
     return;
   }
@@ -2353,7 +3104,11 @@ function threadIcon(type){
   return type==='booking'?'fa-music':type==='subscription'?'fa-crown':type==='payment'?'fa-file-invoice-dollar':'fa-comment-dots';
 }
 function getThreadTitle(t){
-  if(t.type === 'booking') return `Booking · ${t.root?.artistName || t.root?.senderName || 'Enquiry'}`;
+  if(t.type === 'booking'){
+    const b = allBookings.find(x => x.id === t.root?.bookingId);
+    if(b) return b.eventName || `Event · ${b.eventType || t.root?.artistName || 'Request'}`;
+    return `Event · ${t.root?.artistName || t.root?.senderName || 'Request'}`;
+  }
   if(t.type === 'subscription') return `Subscription · ${t.root?.senderName || 'Student'}`;
   if(t.type === 'payment') return `Payment · ${t.root?.senderName || 'Student'}`;
   return t.root?.subject || t.root?.senderName || 'Support';
@@ -2394,7 +3149,27 @@ function renderThreadDetail(threadId){
     return;
   }
 
-  const studentName = t.root?.senderName || 'Student';
+  const studentName = t.root?.senderName || 'Organiser';
+
+  /* Quick reply chips based on thread type */
+  const quickReplies = t.type === 'booking'
+    ? [
+        'Thanks for your request — we\'re sourcing an artist now.',
+        'Could you confirm the exact venue address?',
+        'We\'ve sent you a quote — let us know if you have any questions.',
+        'Confirmed! We\'ll follow up with logistics shortly.'
+      ]
+    : t.type === 'subscription'
+    ? [
+        'Your subscription is now active. Welcome to Zone21!',
+        'Please send proof of payment and we\'ll activate your account.',
+        'Let us know if you need help with anything else.'
+      ]
+    : [
+        'Thanks for reaching out — how can we help?',
+        'We\'re looking into this and will get back to you shortly.',
+        'All sorted! Let us know if there\'s anything else.'
+      ];
 
   pane.innerHTML = `
     <div class="thread-detail-head">
@@ -2415,6 +3190,9 @@ function renderThreadDetail(threadId){
       ${t.messages.map(m => renderMessage(m)).join('')}
     </div>
     <div class="thread-reply">
+      <div class="reply-quick">
+        ${quickReplies.map(q => `<button class="reply-quick-chip" data-quick="${escAttr(q)}">${esc(q.slice(0,45))}${q.length>45?'…':''}</button>`).join('')}
+      </div>
       <div class="reply-bar">
         <textarea id="replyInput" placeholder="Type your reply…" rows="1" maxlength="2000"></textarea>
         <button class="reply-send" id="replySend" disabled>
@@ -2447,6 +3225,17 @@ function renderThreadDetail(threadId){
     });
     send.addEventListener('click', () => submitAdminReply(t));
   }
+
+  /* Wire quick-reply chips */
+  pane.querySelectorAll('[data-quick]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const inp = $('replyInput');
+      if(!inp) return;
+      inp.value = chip.dataset.quick;
+      inp.dispatchEvent(new Event('input'));
+      inp.focus();
+    });
+  });
 }
 
 window.zone21CloseThread = () => {
@@ -2459,11 +3248,13 @@ function renderContextBlock(t){
   if(t.type === 'booking'){
     const b = allBookings.find(x => x.id === t.root?.bookingId);
     if(!b) return '';
+    const organizer = b.contactName || b.userName || '—';
+    const eventName = b.eventName || b.eventType || '—';
     return `
       <div class="thread-context">
-        <div class="thread-context-item"><small>Artist</small><strong>${esc(b.artistName||'—')}</strong></div>
-        <div class="thread-context-item"><small>Date</small><strong>${esc(b.eventDate||'—')}</strong></div>
-        <div class="thread-context-item"><small>Venue</small><strong>${esc(b.venue||'—')}</strong></div>
+        <div class="thread-context-item"><small>Event</small><strong>${esc(eventName)}</strong></div>
+        <div class="thread-context-item"><small>Date</small><strong>${esc(b.eventDate ? fmtEventDate(b.eventDate) : '—')}</strong></div>
+        <div class="thread-context-item"><small>Organiser</small><strong>${esc(organizer)}</strong></div>
         <div class="thread-context-item"><small>Status</small><strong><span class="pill ${esc(b.status||'pending')}">${esc(b.status||'pending')}</span></strong></div>
       </div>`;
   }
@@ -2552,7 +3343,6 @@ async function submitAdminReply(thread){
   }
 }
 
-/* ── MARK ALL READ ── */
 $('markAllReadBtn').addEventListener('click', async () => {
   const unread = allMessages.filter(m =>
     m.recipientId === 'admin' &&
@@ -2574,20 +3364,14 @@ $('markAllReadBtn').addEventListener('click', async () => {
 
 /* ═══════════════════════════════════════════════════════════
    SCHOOLS  —  Aggregated from real student sign-ups
-   Source of truth: users/{uid}.university  (written at sign-up
-   on discover.html / account.html). The admin does NOT create
-   schools — only schools that real students actually signed
-   up under will appear here.
    ═══════════════════════════════════════════════════════════ */
 function buildSchools(){
   const map = new Map();
 
   allUsers.forEach(u => {
-    // Skip admins — they aren't "students at a school"
     if(u.role === 'admin') return;
 
     const raw = String(u.university || '').trim();
-    // Only real sign-ups count — no empty buckets, no fabricated rows
     if(!raw) return;
 
     const key = raw.toLowerCase();
@@ -2599,7 +3383,7 @@ function buildSchools(){
         subscribedCount: 0,
         latestSignup: null,
         earliestSignup: null,
-        students: []       // used only internally for rename/unlink
+        students: []
       });
     }
 
@@ -2637,7 +3421,6 @@ function renderSchools(){
   const tbody = $('schoolsTbody');
   if(!tbody) return;
 
-  // Real statistics — only counting students who actually signed up with a school
   const studentsWithSchool = allUsers.filter(u =>
     u.role !== 'admin' && String(u.university || '').trim() !== ''
   );
@@ -2654,15 +3437,12 @@ function renderSchools(){
     ? top.name.slice(0, 26) + (top.name.length > 26 ? '…' : '')
     : '—';
 
-  // Filter + sort
   const q = ($('schoolSearch').value || '').toLowerCase().trim();
   let list = schools;
   if(q) list = list.filter(s => s.name.toLowerCase().includes(q));
   list = applySchoolSort(list);
 
-  // Empty states
   if(allUsers.length === 0){
-    // Still loading users for the first time
     tbody.innerHTML = `<tr><td colspan="5">
       <div class="loading"><i class="fas fa-spinner fa-spin"></i> Waiting for sign-up data…</div>
     </td></tr>`;
@@ -2674,7 +3454,7 @@ function renderSchools(){
       <div class="empty">
         <div class="empty-icon"><i class="fas fa-university"></i></div>
         <h3>No schools yet</h3>
-        <p>Schools appear automatically when students sign up and enter their university name. Nothing to show right now.</p>
+        <p>Schools appear automatically when students sign up and enter their university name.</p>
       </div>
     </td></tr>`;
     return;
@@ -2724,7 +3504,6 @@ function renderSchools(){
       </tr>`;
   }).join('');
 
-  // Wire actions
   tbody.querySelectorAll('[data-school-rename]').forEach(b => {
     b.addEventListener('click', (e) => { e.stopPropagation(); openEditSchoolModal(b.dataset.schoolRename); });
   });
@@ -2736,7 +3515,6 @@ function renderSchools(){
 $('schoolSearch').addEventListener('input', renderSchools);
 $('schoolSort').addEventListener('change', renderSchools);
 
-/* ── RENAME SCHOOL ── */
 function openEditSchoolModal(schoolKey){
   const s = schools.find(x => x.key === schoolKey);
   if(!s) return;
@@ -2763,7 +3541,6 @@ $('editSchoolSaveBtn').addEventListener('click', async () => {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
 
   try{
-    // Bulk update every student who signed up under this school
     await Promise.all(s.students.map(st =>
       updateDoc(doc(db, 'users', st.id), {
         university: newName,
@@ -2782,7 +3559,6 @@ $('editSchoolSaveBtn').addEventListener('click', async () => {
   }
 });
 
-/* ── UNLINK SCHOOL ── */
 async function unlinkSchoolFlow(schoolKey){
   const s = schools.find(x => x.key === schoolKey);
   if(!s) return;
@@ -2822,7 +3598,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-console.log('✅ Zone21 Admin — Artists · Bookings · Messages · Schools (from sign-ups)');
+console.log('✅ Zone21 Admin v2 — Event-request pipeline: pending → sourcing → quoted → confirmed → completed');
 </script>
 </body>
-      </html>
+</html>

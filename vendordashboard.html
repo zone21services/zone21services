@@ -299,7 +299,7 @@ img{max-width:100%;display:block}
 .sub-status.expired .sub-status__badge{background:var(--danger);color:#fff}
 .sub-status.trial .sub-status__badge{background:var(--purple);color:#fff}
 
-/* ═══════════ ACCOUNT SETTINGS ═══════════ */
+/* ACCOUNT SETTINGS */
 .settings-grid{display:grid;grid-template-columns:1fr;gap:14px}
 .settings-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:22px 24px;transition:var(--t)}
 .settings-card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
@@ -325,10 +325,6 @@ img{max-width:100%;display:block}
 .account-info-row .ail{font-size:.74rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .account-info-row .aiv{font-size:.85rem;font-weight:700;color:var(--navy);word-break:break-all;text-align:right;max-width:60%}
 .account-info-row .aiv.mono{font-family:'SF Mono',Monaco,'Courier New',monospace;font-size:.78rem;letter-spacing:.02em}
-
-.settings-badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 10px;border-radius:999px}
-.settings-badge.verified{background:var(--green-soft);color:var(--green)}
-.settings-badge.warning{background:var(--amber-soft);color:#9A6E00}
 
 /* TOAST */
 #toast{position:fixed;top:82px;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;max-width:340px;width:calc(100% - 2rem)}
@@ -473,7 +469,7 @@ img{max-width:100%;display:block}
     <a href="manageprofile.html"><i class="fas fa-user"></i> My Profile</a>
     <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
   </nav>
-  <div class="sidebar__foot">Zone21 · Vendor Hub v5.3</div>
+  <div class="sidebar__foot">Zone21 · Vendor Hub v5.4</div>
 </aside>
 
 <!-- MAIN -->
@@ -642,7 +638,7 @@ img{max-width:100%;display:block}
       <div id="subWrap"></div>
     </section>
 
-    <!-- ══════════ ACCOUNT ══════════ -->
+    <!-- ACCOUNT -->
     <section class="view" id="view-account">
       <div class="page-head">
         <h1>Account Settings</h1>
@@ -672,10 +668,6 @@ img{max-width:100%;display:block}
             <div class="account-info-row">
               <span class="ail">User ID</span>
               <span class="aiv mono" id="acctUid">—</span>
-            </div>
-            <div class="account-info-row">
-              <span class="ail">Email Verified</span>
-              <span class="aiv" id="acctVerified">—</span>
             </div>
             <div class="account-info-row">
               <span class="ail">Last Sign-in</span>
@@ -858,7 +850,7 @@ img{max-width:100%;display:block}
   </div>
 </div>
 
-<!-- ═══════════ DELETE ACCOUNT MODAL ═══════════ -->
+<!-- DELETE ACCOUNT MODAL -->
 <div class="modal-overlay" id="deleteAccountModal">
   <div class="modal" style="max-width:480px">
     <div class="modal__head">
@@ -1078,12 +1070,6 @@ function timeAgo(t){
   if(s < 3600) return Math.floor(s/60)+'m ago';
   if(s < 86400) return Math.floor(s/3600)+'h ago';
   return Math.floor(s/86400)+'d ago';
-}
-function friendlyDate(d){
-  if(!d) return '—';
-  try {
-    return new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
-  } catch(e){ return '—'; }
 }
 function friendlyDateTime(d){
   if(!d) return '—';
@@ -2144,20 +2130,13 @@ $('confirmTrialBtn').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   ⭐ ACCOUNT SETTINGS
+   ACCOUNT SETTINGS
 ============================================================ */
 function renderAccountInfo(){
   if(!currentUser) return;
   $('acctEmail').textContent = currentUser.email || '—';
   $('acctType').textContent = providerType === 'venue' ? 'Venue Account' : 'Service Provider Account';
   $('acctUid').textContent = currentUser.uid || '—';
-
-  const verifiedEl = $('acctVerified');
-  if(currentUser.emailVerified){
-    verifiedEl.innerHTML = '<span class="settings-badge verified"><i class="fas fa-circle-check"></i> Verified</span>';
-  } else {
-    verifiedEl.innerHTML = '<span class="settings-badge warning"><i class="fas fa-circle-exclamation"></i> Not verified</span>';
-  }
 
   const last = currentUser.metadata?.lastSignInTime;
   $('acctLastSignin').textContent = last ? friendlyDateTime(new Date(last)) : '—';
@@ -2166,7 +2145,6 @@ function renderAccountInfo(){
   $('acctCreated').textContent = created ? friendlyDateTime(new Date(created)) : '—';
 }
 
-/* Update password strength indicator */
 function updatePasswordStrength(){
   const pwd = $('newPassword').value || '';
   const fill = $('pwdStrengthFill');
@@ -2187,7 +2165,6 @@ function updatePasswordStrength(){
 }
 window.updatePasswordStrength = updatePasswordStrength;
 
-/* Change Email */
 async function changeEmail(){
   const newEmail = $('newEmail').value.trim();
   const password = $('emailPassword').value;
@@ -2208,7 +2185,6 @@ async function changeEmail(){
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
     await currentUser.updateEmail(newEmail);
 
-    // Also update Firestore docs
     try {
       await db.collection('users').doc(currentUser.uid).set({ email: newEmail }, { merge: true });
       if(providerDocId){
@@ -2221,8 +2197,6 @@ async function changeEmail(){
     $('newEmail').value = '';
     $('emailPassword').value = '';
     renderAccountInfo();
-
-    // Optionally send a verification email to new address
     try { await currentUser.sendEmailVerification(); } catch(e){}
   } catch(e){
     console.error('changeEmail:', e);
@@ -2237,7 +2211,6 @@ async function changeEmail(){
 }
 window.changeEmail = changeEmail;
 
-/* Change Password */
 async function changePassword(){
   const cur = $('currentPassword').value;
   const np = $('newPassword').value;
@@ -2279,7 +2252,6 @@ async function changePassword(){
 }
 window.changePassword = changePassword;
 
-/* Sign out from all devices */
 async function signOutAll(){
   if(!confirm('This will sign you out on every device. Continue?')) return;
   const btn = $('btnSignOutAll');
@@ -2287,8 +2259,6 @@ async function signOutAll(){
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing out…';
   try {
-    // Best-effort: revoke refresh tokens via reauthentication is required for real revocation.
-    // Firebase JS SDK doesn't expose revoke directly; signOut is the fallback.
     await auth.signOut();
     toast('Signed out of all sessions.', 'success');
     setTimeout(() => window.location.href = 'index.html', 600);
@@ -2301,7 +2271,6 @@ async function signOutAll(){
 }
 window.signOutAll = signOutAll;
 
-/* Delete Account */
 function openDeleteModal(){
   $('deleteConfirmInput').value = '';
   $('deletePasswordInput').value = '';
@@ -2337,7 +2306,6 @@ async function deleteAccount(){
 
     const uid = currentUser.uid;
 
-    // Mark docs as deleted (soft delete) then remove user doc
     try {
       await db.collection('users').doc(uid).set({
         deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2346,7 +2314,6 @@ async function deleteAccount(){
       }, { merge: true });
     } catch(e){ console.warn('user delete flag:', e); }
 
-    // Try to flag provider doc as deleted
     try {
       const col = providerType === 'venue' ? 'venues' : 'serviceProviders';
       await db.collection(col).doc(uid).set({
@@ -2355,7 +2322,6 @@ async function deleteAccount(){
       }, { merge: true });
     } catch(e){ console.warn('provider delete flag:', e); }
 
-    // Cleanup local storage
     try {
       localStorage.removeItem('zone21_provider_plan_id');
       localStorage.removeItem('zone21_provider_plan_name');
@@ -2364,7 +2330,6 @@ async function deleteAccount(){
       localStorage.removeItem('zone21_currency');
     } catch(e){}
 
-    // Sign out and delete auth account
     await currentUser.delete();
     toast('Account deleted. Goodbye.', 'success');
     setTimeout(() => window.location.href = 'index.html', 800);

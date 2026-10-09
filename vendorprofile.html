@@ -9,244 +9,182 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <style>
-:root{
-  --navy:#102838;--lime:#C0C800;--pink:#F80070;--bg:#f5f7fa;--card:#ffffff;
-  --text:#1a1a2e;--muted:#6c757d;--border:#e0e0e8;--radius:20px;
-  --shadow:0 12px 40px rgba(16,40,56,0.1);
-}
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
-body{background:var(--bg);color:var(--text);min-height:100vh;padding:20px;}
-.container{max-width:1000px;margin:0 auto;}
-.header{text-align:center;margin-bottom:30px;position:relative;}
-.header .logo{font-size:1.8rem;font-weight:800;color:var(--navy);}
-.header .logo span{color:var(--pink);}
-.back-btn{position:absolute;left:0;top:0;background:var(--navy);color:white;border:none;padding:8px 15px;
-  border-radius:20px;cursor:pointer;text-decoration:none;font-size:0.9rem;font-weight:600;transition:0.2s;}
-.back-btn:hover{background:var(--lime);color:var(--navy);}
-
-/* ⭐ DETECT BAR */
-.detect-bar{display:flex;align-items:stretch;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
-.detect-chip{flex:1 1 260px;min-width:0;display:flex;align-items:center;gap:10px;
-  padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);transition:.25s;
-  background:var(--card);box-shadow:0 4px 16px rgba(16,40,56,.08);}
-.detect-chip.country{background:linear-gradient(135deg,#f0f7f9,#fff);}
-.detect-chip.country.ok{border-color:var(--lime);box-shadow:0 0 0 3px rgba(192,200,0,.18);}
-.detect-chip.country.err{border-color:var(--pink);background:linear-gradient(135deg,#fdf2f5,#fff);
-  box-shadow:0 0 0 3px rgba(248,0,112,.12);}
-.detect-chip.country.hidden-chip{display:none;}
-.detect-chip.country .dc-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:1.05rem;flex-shrink:0;background:#f0f4f8;border:1px solid var(--border);}
-.detect-chip.country.ok .dc-icon{background:rgba(192,200,0,.15);color:#7a8200;border-color:var(--lime);}
-.detect-chip.country.err .dc-icon{background:rgba(248,0,112,.12);color:var(--pink);border-color:var(--pink);}
-.detect-chip.country .dc-text{flex:1;min-width:0;}
-.detect-chip.country .dc-label{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:3px;}
-.detect-chip.country .dc-value{font-size:.92rem;font-weight:800;color:var(--navy);line-height:1.2;}
-.detect-chip.country.err .dc-value{color:var(--pink);}
-.detect-chip.country .dc-sub{font-size:.7rem;color:var(--muted);font-weight:500;margin-top:3px;line-height:1.4;}
-
-/* ⭐ COMPACT CURRENCY CHIP */
-.detect-chip.currency{
-  flex:1 1 auto !important;min-width:0 !important;
-  display:flex !important;align-items:center !important;gap:8px !important;
-  padding:6px 8px 6px 10px !important;
-  height:52px !important;min-height:52px !important;max-height:52px !important;
-  border-radius:12px !important;border:1.5px solid var(--border);
-  background:linear-gradient(135deg,#f5f7f9,#fff);
-  box-shadow:0 4px 16px rgba(16,40,56,.08);
-  overflow:hidden;box-sizing:border-box;transition:.25s;}
-.detect-chip.currency.zar{background:linear-gradient(135deg,#fff9e6,#fff);border-color:#f5b400;}
-.detect-chip.currency.usd{background:linear-gradient(135deg,#f0f6ff,#fff);border-color:#6b9f9f;}
-.detect-chip.currency .dc-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:.9rem;flex-shrink:0;border:none;color:#fff;background:var(--navy);}
-.detect-chip.currency.zar .dc-icon{background:#007A4D;color:#FFB612;}
-.detect-chip.currency.usd .dc-icon{background:#B22234;color:#fff;}
-.detect-chip.currency .dc-text{flex:1;min-width:0;display:flex;flex-direction:column;
-  justify-content:center;overflow:hidden;}
-.detect-chip.currency .dc-value{font-size:.85rem;font-weight:800;color:var(--navy);line-height:1.15;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.detect-chip.currency .dc-sub{font-size:.62rem;color:var(--muted);font-weight:600;line-height:1.15;
-  margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.currency-switch{display:flex;gap:2px;background:#e8ecf0;border:1px solid var(--border);
-  border-radius:30px;padding:3px;flex-shrink:0;height:32px;align-items:center;}
-.currency-switch button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;
-  font-family:inherit;font-size:.68rem;font-weight:700;color:var(--muted);padding:5px 10px;
-  border-radius:30px;cursor:pointer;white-space:nowrap;line-height:1;height:26px;transition:.2s;}
-.currency-switch button:hover{color:var(--navy);}
-.currency-switch button.active{background:var(--navy);color:#fff;}
-.currency-switch button.active[data-currency="ZAR"]{background:linear-gradient(135deg,#007A4D,#007A4D);color:#FFB612;}
-
-/* Profile card + shared (unchanged) */
-.profile-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
-  overflow:hidden;margin-bottom:20px;animation:fadeIn 0.4s ease-out;}
-.profile-cover{height:180px;background:linear-gradient(135deg,var(--navy) 0%,#1a3a4a 100%);position:relative;}
-.profile-avatar{width:120px;height:120px;border-radius:50%;background:var(--lime);display:flex;
-  align-items:center;justify-content:center;font-size:2.5rem;font-weight:800;color:var(--navy);
-  border:4px solid white;margin-top:-60px;margin-left:30px;position:relative;z-index:2;
-  box-shadow:0 4px 15px rgba(0,0,0,0.2);overflow:hidden;}
-.profile-avatar img{width:100%;height:100%;object-fit:cover;}
-.avatar-edit-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);color:white;display:flex;
-  align-items:center;justify-content:center;opacity:0;transition:0.3s;font-size:1.5rem;}
-.profile-avatar.editable:hover .avatar-edit-overlay{opacity:1;}
-.profile-info{padding:20px 30px 30px;position:relative;}
-.edit-toggle-btn{position:absolute;top:20px;right:30px;background:#f0f4f8;color:var(--navy);
-  border:1px solid var(--border);padding:8px 16px;border-radius:20px;font-weight:600;cursor:pointer;transition:0.2s;}
-.edit-toggle-btn:hover{background:var(--navy);color:white;}
-.name{font-size:1.8rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
-.category{color:var(--muted);font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;}
-.rating-summary{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:20px;}
-.stars{color:#ffb400;font-size:1.4rem;letter-spacing:2px;}
-.rating-number{font-weight:700;font-size:1.1rem;}
-.reviews-count{color:var(--muted);font-size:0.85rem;}
-.services-tags{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0;align-items:center;}
-.service-tag{background:#f0f4f8;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;color:var(--navy);}
-.description{margin:15px 0;line-height:1.6;color:#444;}
-.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:20px 0;}
-.detail-item{display:flex;align-items:flex-start;gap:10px;padding:12px 15px;background:#f8f9fa;
-  border-radius:10px;font-size:0.9rem;border:1px solid transparent;transition:0.2s;}
-.detail-item:hover{background:#e9ecef;border-color:var(--border);}
-.detail-item i{width:20px;text-align:center;font-size:1.1rem;margin-top:2px;color:var(--pink);flex-shrink:0;}
-.detail-item .label{font-weight:600;color:var(--navy);font-size:0.75rem;text-transform:uppercase;
-  letter-spacing:0.03em;display:block;}
-.detail-item .value{color:var(--text);word-break:break-word;}
-.detail-item .value.secondary-svc{font-size:0.85rem;line-height:1.5;}
-.social-links{display:flex;gap:12px;margin:15px 0;flex-wrap:wrap;}
-.social-link{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  color:white;font-size:1.2rem;text-decoration:none;transition:0.2s;}
-.social-link:hover{transform:scale(1.1);}
-.social-facebook{background:#1877F2;}
-.social-instagram{background:#E4405F;}
-.social-tiktok{background:#000;}
-.social-youtube{background:#FF0000;}
-.social-website{background:var(--navy);}
-.share-btn{background:var(--lime);color:var(--navy);padding:10px 20px;border-radius:30px;
-  display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;border:none;transition:0.2s;}
-.share-btn:hover{background:#d4dc00;}
-.gallery-section{margin:25px 0;}
-.standard-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:15px;}
-.standard-gallery .gallery-item{border-radius:12px;overflow:hidden;aspect-ratio:1/1;background:#e9ecef;
-  cursor:pointer;transition:0.3s;position:relative;box-shadow:0 4px 10px rgba(0,0,0,0.05);}
-.standard-gallery .gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform 0.3s;}
-.standard-gallery .gallery-item:hover img{transform:scale(1.05);}
-.review-section{margin:25px 0;}
-.review-form{background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:20px;}
-.review-form h3{margin-bottom:10px;}
-.star-rating-input{display:flex;gap:5px;margin-bottom:10px;font-size:1.5rem;}
-.star-rating-input i{cursor:pointer;color:#ccc;}
-.star-rating-input i.active{color:#ffb400;}
-.review-form input,.review-form textarea{width:100%;padding:10px;margin-bottom:10px;
-  border:1px solid var(--border);border-radius:8px;font-size:0.9rem;}
-.review-list{display:flex;flex-direction:column;gap:15px;}
-.review-item{padding:15px;background:#fff;border-radius:10px;border:1px solid var(--border);
-  animation:fadeIn 0.4s ease-out;}
-.review-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-.reviewer-name{font-weight:700;}
-.review-date{font-size:0.75rem;color:var(--muted);}
-.review-stars{color:#ffb400;}
-.review-comment{font-size:0.9rem;line-height:1.5;}
-.loading,.error{text-align:center;padding:60px 20px;font-size:1.1rem;color:var(--muted);
-  display:flex;flex-direction:column;align-items:center;gap:15px;}
-.btn-create{display:inline-block;padding:12px 30px;background:var(--navy);color:var(--lime);
-  border-radius:30px;font-weight:600;text-decoration:none;margin-top:15px;cursor:pointer;
-  border:none;font-size:1rem;transition:0.2s;}
-.btn-create:hover{background:#1a3a4a;}
-.submit-review-btn{background:var(--navy);color:var(--lime);border:none;padding:12px 24px;
-  border-radius:30px;font-weight:700;font-size:1rem;cursor:pointer;transition:0.2s;}
-.submit-review-btn:hover{background:#1a3a4a;transform:translateY(-2px);}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;}
-.input-group{display:flex;flex-direction:column;gap:5px;}
-.input-group label{font-size:0.85rem;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.input-group .hint{font-size:.7rem;color:var(--muted);font-weight:500;margin-top:2px;}
-.input-group input,.input-group textarea,.input-group select{padding:10px;border:1px solid var(--border);
-  border-radius:8px;font-size:0.9rem;background:#f9fafb;outline:none;transition:0.3s;}
-.input-group input:focus,.input-group textarea:focus{border-color:var(--navy);background:white;}
-.full-width{grid-column:1/-1;}
-.services-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:20px;}
-.service-checkbox{background:#f0f4f8;padding:8px 12px;border-radius:8px;font-size:0.85rem;display:flex;
-  align-items:center;gap:8px;cursor:pointer;transition:0.2s;}
-.service-checkbox:hover{background:#e0e8f0;}
-.service-checkbox input{accent-color:var(--pink);}
-.upload-area{border:2px dashed var(--border);border-radius:12px;padding:30px;text-align:center;
-  cursor:pointer;background:#f9fafb;margin-bottom:15px;transition:0.3s;}
-.upload-area:hover{border-color:var(--navy);background:#f0f4f8;}
-.delete-img-btn{position:absolute;top:8px;right:8px;background:var(--pink);color:white;border:none;
-  border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,0.2);transition:0.2s;}
-.delete-img-btn:hover{transform:scale(1.1);}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-.spinner{width:40px;height:40px;border:4px solid rgba(16,40,56,0.1);border-left-color:var(--pink);
-  border-radius:50%;animation:spin 1s linear infinite;}
-.spinner-sm{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-left-color:#fff;
-  border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;}
-@keyframes spin{to{transform:rotate(360deg);}}
-
-/* ⭐ Currency prefix + badge */
-.budget-input-wrap{position:relative;display:flex;align-items:stretch;width:100%;}
-.budget-input-wrap .currency-prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);
-  font-weight:800;color:var(--muted);font-size:.95rem;pointer-events:none;transition:.2s;z-index:1;}
-.budget-input-wrap input{padding-left:32px !important;}
-.currency-mini-badge{display:inline-block;font-size:.62rem;background:rgba(16,40,56,.1);color:var(--navy);
-  padding:2px 8px;border-radius:10px;font-weight:700;border:1px solid var(--border);
-  text-transform:uppercase;letter-spacing:.06em;}
-.currency-mini-badge.zar{background:rgba(0,122,77,.12);color:#007A4D;border-color:rgba(0,122,77,.35);}
-
-/* ⭐ TOAST */
-.z21-toast-wrap{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:9998;
-  display:flex;flex-direction:column;gap:8px;max-width:92vw;pointer-events:none;}
-.z21-toast{padding:12px 20px;background:var(--navy);color:#fff;border-radius:30px;
-  font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:10px;
-  box-shadow:0 12px 32px rgba(16,40,56,.35);pointer-events:auto;animation:toastIn .3s ease;max-width:100%;}
-@keyframes toastIn{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
-.z21-toast.success{background:var(--lime);color:var(--navy);}
-.z21-toast.error{background:var(--pink);color:#fff;}
-
-@media (max-width:600px){
-  .profile-info{padding:15px;}
-  .profile-avatar{margin-left:20px;width:90px;height:90px;font-size:1.8rem;margin-top:-45px;}
-  .detail-grid{grid-template-columns:1fr;}
-  .form-grid{grid-template-columns:1fr;}
-  .edit-toggle-btn{top:10px;right:10px;font-size:0.8rem;padding:6px 12px;}
-  .detect-bar{flex-direction:column;}
-  .detect-chip{min-width:100%;}
-  .detect-chip.currency{height:48px !important;min-height:48px !important;max-height:48px !important;
-    padding:4px 6px 4px 8px !important;gap:6px !important;}
-  .detect-chip.currency .dc-icon{width:28px;height:28px;font-size:.8rem;}
-  .detect-chip.currency .dc-value{font-size:.78rem;}
-  .detect-chip.currency .dc-sub{display:none;}
-  .currency-switch{height:28px;}
-  .currency-switch button{padding:4px 8px;font-size:.62rem;height:22px;}
-}
+:root{--navy:#102838;--navy-2:#0A1E2C;--lime:#C0C800;--lime-deep:#8A9000;--gold:#C9A961;--gold-deep:#9C7F3F;--pink:#F80070;--bg:#F6F7F9;--card:#fff;--text:#0F172A;--body:#475569;--muted:#7A8899;--border:#E6EAF0;--border-strong:#D3DAE3;--radius:18px;--shadow-sm:0 1px 3px rgba(10,30,44,.05);--shadow:0 12px 40px rgba(10,30,44,.10);--success:#0F9D6E;--danger:#D92D20;--amber:#F5B400}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding:20px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.container{max-width:1000px;margin:0 auto}
+.header{text-align:center;margin-bottom:24px;position:relative}
+.header .logo{font-family:'Fraunces',Georgia,serif;font-size:1.8rem;font-weight:700;color:var(--navy);letter-spacing:-.02em}
+.header .logo span{color:var(--lime-deep);font-style:italic}
+.back-btn{position:absolute;left:0;top:0;background:var(--navy);color:#fff;border:none;padding:8px 15px;border-radius:20px;cursor:pointer;text-decoration:none;font-size:.85rem;font-weight:700;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.back-btn:hover{background:var(--lime);color:var(--navy)}
+.detect-bar{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+@media(max-width:640px){.detect-bar{grid-template-columns:1fr}}
+.detect-chip{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-sm);transition:.25s}
+.detect-chip.ok{border-color:var(--lime);background:linear-gradient(135deg,#FAFFEC,#fff);box-shadow:0 0 0 3px rgba(192,200,0,.12)}
+.detect-chip.err{border-color:var(--danger);background:linear-gradient(135deg,#FEF2F2,#fff);box-shadow:0 0 0 3px rgba(217,45,32,.10)}
+.detect-chip .dc-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:1rem;background:#F0F4F8;color:var(--muted);flex-shrink:0}
+.detect-chip.ok .dc-icon{background:rgba(192,200,0,.15);color:var(--lime-deep)}
+.detect-chip.err .dc-icon{background:rgba(217,45,32,.10);color:var(--danger)}
+.detect-chip .dc-label{font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.detect-chip .dc-value{font-size:.88rem;font-weight:800;color:var(--navy);line-height:1.2}
+.detect-chip.err .dc-value{color:var(--danger)}
+.detect-chip .dc-sub{font-size:.68rem;color:var(--muted);font-weight:500;margin-top:2px}
+.curr-switch{display:flex;gap:2px;background:#F0F4F8;border:1px solid var(--border);border-radius:999px;padding:3px;flex-shrink:0}
+.curr-switch button{border:0;background:transparent;font-family:inherit;font-size:.7rem;font-weight:800;color:var(--muted);padding:5px 11px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:.2s}
+.curr-switch button.active{background:var(--navy);color:#fff}
+.curr-switch button.active[data-curr="ZAR"]{background:#007A4D;color:#FFB612}
+.profile-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px;border:1px solid var(--border);animation:fadeIn .4s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.profile-cover{height:160px;background:linear-gradient(135deg,var(--navy) 0%,#1A3A4A 100%)}
+.profile-avatar{width:120px;height:120px;border-radius:50%;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:800;color:var(--navy);border:4px solid #fff;margin-top:-60px;margin-left:30px;position:relative;z-index:2;box-shadow:0 4px 15px rgba(0,0,0,.18);overflow:hidden;cursor:pointer}
+.profile-avatar img{width:100%;height:100%;object-fit:cover}
+.avatar-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;opacity:0;transition:.3s;font-size:1.4rem}
+.profile-avatar:hover .avatar-overlay{opacity:1}
+.profile-info{padding:20px 30px 30px;position:relative}
+.edit-toggle-btn{position:absolute;top:18px;right:30px;background:#F0F4F8;color:var(--navy);border:1px solid var(--border);padding:8px 16px;border-radius:20px;font-weight:700;font-size:.78rem;cursor:pointer;transition:.2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.edit-toggle-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.name{font-family:'Fraunces',Georgia,serif;font-size:1.7rem;font-weight:700;color:var(--navy);letter-spacing:-.02em;margin-bottom:4px}
+.category{color:var(--muted);font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:700}
+.rating-summary{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.stars{color:var(--amber);font-size:1.2rem;letter-spacing:2px}
+.rating-number{font-weight:800;font-size:1.05rem}
+.reviews-count{color:var(--muted);font-size:.82rem;font-weight:500}
+.services-tags{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.service-tag{background:#F0F4F8;padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:700;color:var(--navy)}
+.description{margin:14px 0;line-height:1.65;color:var(--body);font-size:.9rem}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+.detail-item{display:flex;align-items:flex-start;gap:10px;padding:12px 15px;background:#F8F9FA;border-radius:10px;font-size:.88rem;border:1px solid transparent;transition:.2s}
+.detail-item:hover{background:#E9ECEF;border-color:var(--border)}
+.detail-item i{width:20px;text-align:center;font-size:1rem;margin-top:2px;color:var(--gold-deep);flex-shrink:0}
+.detail-item .label{font-weight:800;color:var(--navy);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+.detail-item .value{color:var(--text);word-break:break-word;font-weight:600}
+.social-links{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
+.social-link{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.05rem;text-decoration:none;transition:.2s}
+.social-link:hover{transform:scale(1.1)}
+.social-facebook{background:#1877F2}
+.social-instagram{background:#E4405F}
+.social-tiktok{background:#000}
+.social-youtube{background:#FF0000}
+.social-website{background:var(--navy)}
+.tiers-section{margin:18px 0}
+.tier-card{background:linear-gradient(135deg,#FAFBFC,#fff);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:10px;position:relative;overflow:hidden;transition:.25s}
+.tier-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(201,169,97,.15)}
+.tier-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--gold),var(--gold-deep))}
+.tier-name{font-size:.92rem;font-weight:800;color:var(--navy);letter-spacing:-.01em;margin-bottom:4px}
+.tier-desc{font-size:.78rem;color:var(--body);margin-bottom:8px;line-height:1.5}
+.tier-price{font-family:'Fraunces',Georgia,serif;font-size:1.35rem;font-weight:700;color:var(--gold-deep);letter-spacing:-.02em}
+.tier-price small{font-size:.72rem;color:var(--muted);font-weight:600;font-family:inherit;margin-left:4px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 22px;border-radius:11px;font-family:inherit;font-weight:700;font-size:.85rem;cursor:pointer;transition:.25s;border:1px solid transparent;text-decoration:none;letter-spacing:-.005em;white-space:nowrap}
+.btn i{font-size:.85em}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--navy-2);transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn-lime{background:var(--lime);color:var(--navy)}
+.btn-lime:hover{background:#D4DC00;transform:translateY(-1px)}
+.btn-outline{background:#fff;border-color:var(--border-strong);color:var(--navy)}
+.btn-outline:hover{background:#F8F9FA;border-color:var(--navy)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:6px 14px;font-size:.75rem}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+.gallery-section{margin:22px 0}
+.standard-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.gallery-item{border-radius:12px;overflow:hidden;aspect-ratio:1;background:#E9ECEF;cursor:pointer;transition:.3s;position:relative;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+.gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.gallery-item:hover img{transform:scale(1.05)}
+.delete-img-btn{position:absolute;top:8px;right:8px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.2);font-size:.75rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.input-group{display:flex;flex-direction:column;gap:6px;min-width:0}
+.input-group label{font-size:.72rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.input-group label .req{color:var(--danger);font-weight:900}
+.input-group .hint{font-size:.68rem;color:var(--muted);font-weight:500}
+.input-group input,.input-group textarea,.input-group select{padding:11px 13px;border:1.5px solid var(--border-strong);border-radius:10px;font-size:.88rem;font-family:inherit;background:#F9FAFB;outline:none;transition:.2s;width:100%}
+.input-group input:focus,.input-group textarea:focus,.input-group select:focus{border-color:var(--navy);background:#fff;box-shadow:0 0 0 3px rgba(16,40,56,.08)}
+.input-group input.invalid{border-color:var(--danger);background:#FEF2F2}
+.input-group textarea{resize:vertical;min-height:70px}
+.full-width{grid-column:1/-1}
+.field-error{font-size:.7rem;color:var(--danger);font-weight:700;margin-top:2px;display:none}
+.field-error.visible{display:block}
+.price-input-wrap{position:relative}
+.price-input-wrap .cur-prefix{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;color:var(--muted);font-size:.9rem;pointer-events:none}
+.price-input-wrap input{padding-left:32px}
+.tier-builder{background:#F8FAFC;border:1.5px dashed var(--border-strong);border-radius:12px;padding:14px;margin-bottom:12px}
+.tier-builder-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+.tier-builder-head strong{font-size:.82rem;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.05em}
+.tier-builder-row{display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:8px;margin-bottom:8px;align-items:start}
+@media(max-width:640px){.tier-builder-row{grid-template-columns:1fr}}
+.tier-builder-row input,.tier-builder-row textarea{padding:9px 11px;border:1px solid var(--border-strong);border-radius:8px;font-size:.82rem;font-family:inherit;background:#fff;outline:none}
+.tier-builder-row input:focus,.tier-builder-row textarea:focus{border-color:var(--navy)}
+.tier-builder-row .tier-price-wrap{position:relative}
+.tier-builder-row .tier-price-wrap .cur-prefix{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-weight:800;color:var(--muted);font-size:.82rem;pointer-events:none}
+.tier-builder-row .tier-price-wrap input{padding-left:28px}
+.btn-remove-tier{background:rgba(217,45,32,.10);color:var(--danger);border:none;border-radius:8px;padding:9px 12px;cursor:pointer;font-size:.85rem;font-weight:700;transition:.2s}
+.btn-remove-tier:hover{background:var(--danger);color:#fff}
+.services-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:18px}
+.service-checkbox{background:#F0F4F8;padding:8px 14px;border-radius:8px;font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;transition:.2s;color:var(--navy)}
+.service-checkbox:hover{background:#E0E8F0}
+.service-checkbox.checked{background:rgba(192,200,0,.14);color:var(--lime-deep)}
+.service-checkbox input{accent-color:var(--navy)}
+.upload-area{border:2px dashed var(--border-strong);border-radius:12px;padding:26px;text-align:center;cursor:pointer;background:#F9FAFB;margin-bottom:14px;transition:.3s}
+.upload-area:hover{border-color:var(--navy);background:#F0F4F8}
+.review-section{margin:22px 0}
+.review-form{background:#F8F9FA;padding:18px;border-radius:12px;margin-bottom:18px}
+.review-form h3{margin-bottom:10px;font-size:1rem;color:var(--navy)}
+.star-rating-input{display:flex;gap:5px;margin-bottom:10px;font-size:1.4rem}
+.star-rating-input i{cursor:pointer;color:#ccc;transition:.15s}
+.star-rating-input i:hover{transform:scale(1.15)}
+.star-rating-input i.active{color:var(--amber)}
+.review-form input,.review-form textarea{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--border-strong);border-radius:8px;font-size:.86rem;font-family:inherit;outline:none}
+.review-list{display:flex;flex-direction:column;gap:12px}
+.review-item{padding:14px 16px;background:#fff;border-radius:10px;border:1px solid var(--border)}
+.review-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.reviewer-name{font-weight:800;font-size:.85rem;color:var(--navy)}
+.review-date{font-size:.72rem;color:var(--muted);font-weight:600}
+.review-stars{color:var(--amber);font-size:.85rem;margin-bottom:4px}
+.review-comment{font-size:.86rem;line-height:1.55;color:var(--body)}
+.toast-wrap{position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:92vw;pointer-events:none}
+.toast{padding:12px 20px;background:var(--navy);color:#fff;border-radius:30px;font-size:.85rem;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 12px 32px rgba(16,40,56,.35);pointer-events:auto;animation:toastIn .3s ease;max-width:100%}
+@keyframes toastIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+.toast.success{background:var(--lime);color:var(--navy)}
+.toast.error{background:var(--danger);color:#fff}
+.toast.warn{background:var(--amber);color:#4a3500}
+.save-status{position:fixed;bottom:24px;right:24px;background:var(--navy);color:var(--lime);padding:10px 18px;border-radius:30px;font-size:.78rem;font-weight:700;box-shadow:0 8px 24px rgba(16,40,56,.25);display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(20px);transition:opacity .3s,transform .3s;pointer-events:none;z-index:9999;max-width:calc(100% - 48px)}
+.save-status.visible{opacity:1;transform:translateY(0)}
+.loading,.error{text-align:center;padding:60px 20px;font-size:1rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:14px}
+.spinner{width:38px;height:38px;border:4px solid rgba(16,40,56,.1);border-left-color:var(--pink);border-radius:50%;animation:spin 1s linear infinite}
+.spinner-sm{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-left-color:#fff;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-create{display:inline-block;padding:12px 30px;background:var(--navy);color:var(--lime);border-radius:30px;font-weight:700;text-decoration:none;margin-top:15px;cursor:pointer;border:none;font-size:.95rem;font-family:inherit}
+.btn-create:hover{background:var(--navy-2)}
+.submit-review-btn{background:var(--navy);color:var(--lime);border:none;padding:11px 24px;border-radius:30px;font-weight:700;font-size:.88rem;cursor:pointer;transition:.2s;font-family:inherit}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <a href="vendordashboard.html" class="back-btn" id="dash-btn" style="display:none;">
-      <i class="fas fa-arrow-left"></i> Dashboard
-    </a>
+    <a href="vendordashboard.html" class="back-btn" id="dash-btn" style="display:none"><i class="fas fa-arrow-left"></i> Dashboard</a>
     <div class="logo">Zone<span>21</span> Provider</div>
   </div>
 
-  <!-- DETECT BAR -->
   <div class="detect-bar" id="detectBar">
-    <div class="detect-chip country hidden-chip" id="countryChip" style="display:none;">
+    <div class="detect-chip" id="countryChip">
       <div class="dc-icon"><i class="fas fa-globe-africa" id="countryChipIcon"></i></div>
-      <div class="dc-text">
+      <div style="flex:1;min-width:0">
         <div class="dc-label">Provider Country</div>
-        <div class="dc-value" id="countryChipValue">Waiting for location…</div>
-        <div class="dc-sub" id="countryChipSub">Include city &amp; country in the location field</div>
+        <div class="dc-value" id="countryChipValue">Add your location below</div>
+        <div class="dc-sub" id="countryChipSub">Include city & country — e.g. "Harare, Zimbabwe"</div>
       </div>
     </div>
-
-    <div class="detect-chip currency" id="currencyChip">
-      <div class="dc-icon"><i class="fas fa-coins" id="currencyChipIcon"></i></div>
-      <div class="dc-text">
+    <div class="detect-chip" id="currencyChip">
+      <div class="dc-icon"><i class="fas fa-coins"></i></div>
+      <div style="flex:1;min-width:0">
+        <div class="dc-label">Pricing Currency</div>
         <div class="dc-value" id="currencyChipValue">USD $</div>
-        <div class="dc-sub" id="currencyChipSub">Auto-detected from your location</div>
+        <div class="dc-sub" id="currencyChipSub">Auto-matched to your country</div>
       </div>
-      <div class="currency-switch" id="currencySwitch">
-        <button type="button" data-currency="USD" onclick="setCurrency('USD', true)">🇺🇸 USD $</button>
-        <button type="button" data-currency="ZAR" onclick="setCurrency('ZAR', true)">🇿🇦 ZAR R</button>
+      <div class="curr-switch" id="currSwitch">
+        <button type="button" data-curr="USD" onclick="setCurrency('USD',true)">🇺🇸 USD</button>
+        <button type="button" data-curr="ZAR" onclick="setCurrency('ZAR',true)">🇿🇦 ZAR</button>
       </div>
     </div>
   </div>
@@ -256,23 +194,21 @@ body{background:var(--bg);color:var(--text);min-height:100vh;padding:20px;}
   </div>
 </div>
 
-<div class="z21-toast-wrap" id="toastWrap"></div>
+<div class="save-status" id="saveStatus"><i class="fas fa-cloud-arrow-up"></i> <span id="saveStatusText">Saved</span></div>
+<div class="toast-wrap" id="toastWrap"></div>
 
 <template id="review-template">
   <div class="review-item">
-    <div class="review-header">
-      <span class="reviewer-name"></span>
-      <span class="review-date"></span>
-    </div>
+    <div class="review-header"><span class="reviewer-name"></span><span class="review-date"></span></div>
     <div class="review-stars"></div>
     <div class="review-comment"></div>
   </div>
 </template>
 
 <script>
-/* ═══════════════════════════════════════════════════════════
+/* ============================================================
    FIREBASE
-   ═══════════════════════════════════════════════════════════ */
+============================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
   authDomain: "zone21.firebaseapp.com",
@@ -280,829 +216,672 @@ const firebaseConfig = {
   storageBucket: "zone21.firebasestorage.app",
   messagingSenderId: "405963057292",
   appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-  measurementKind: "G-KE007Y89F1"
+  measurementId: "G-KE007Y89F1"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-/* ═══════════════════════════════════════════════════════════
-   CURRENCY
-   ═══════════════════════════════════════════════════════════ */
-const CURRENCIES = {
-  USD: { symbol: '$', code: 'USD', label: 'US Dollar' },
-  ZAR: { symbol: 'R', code: 'ZAR', label: 'South African Rand' }
-};
+const CURRENCIES = { USD:{sym:'$',code:'USD'}, ZAR:{sym:'R',code:'ZAR'} };
 const USD_TO_ZAR = 19;
-const ZAR_NATIVE_COUNTRIES = new Set(['south africa', 'lesotho', 'eswatini', 'namibia']);
+const ZAR_COUNTRIES = new Set(['south africa','lesotho','eswatini','namibia']);
 
-/* ═══════════════════════════════════════════════════════════
-   COUNTRY DATABASE
-   ═══════════════════════════════════════════════════════════ */
 const COUNTRY_DB = {
-  'zimbabwe': {
-    name:'Zimbabwe', display:'Zimbabwe', flag:'🇿🇼', code:'ZW',
+  'zimbabwe':{ name:'Zimbabwe', flag:'🇿🇼', display:'Zimbabwe',
     aliases:['zimbabwe','zim','zw','republic of zimbabwe'],
     cities:['harare','bulawayo','mutare','gweru','kwekwe','masvingo','chinhoyi','victoria falls','kadoma','chitungwiza','marondera','hwange','chegutu','bindura','zvishavane','beitbridge','kariba','chiredzi','rusape','chipinge','shurugwi','plumtree','gwanda','lupane','esigodini','nyanga','chimanimani','chivhu','murehwa','ruwa','epworth','norton','banket','glendale','centenary','mazowe','shamva','concession','mount darwin','karoi','chirundu'],
-    regions:['mashonaland','matabeleland','midlands','manicaland','masvingo province','harare province','bulawayo province']
-  },
-  'south africa': {
-    name:'South Africa', display:'South Africa', flag:'🇿🇦', code:'ZA',
+    regions:['mashonaland','matabeleland','midlands','manicaland','masvingo province','harare province','bulawayo province'] },
+  'south africa':{ name:'South Africa', flag:'🇿🇦', display:'South Africa',
     aliases:['south africa','sa','rsa','za','republic of south africa','s. africa','s africa'],
     cities:['johannesburg','joburg','jhb','jozi','sandton','soweto','roodepoort','randburg','midrand','centurion','pretoria','tshwane','germiston','boksburg','benoni','brakpan','springs','kempton park','edenvale','alberton','vereeniging','vanderbijlpark','krugersdorp','lenasia','cape town','capetown','stellenbosch','paarl','somerset west','george','knysna','mossel bay','hermanus','worcester','oudtshoorn','durban','umhlanga','pinetown','pietermaritzburg','pmb','richards bay','newcastle','ladysmith','port elizabeth','gqeberha','east london','mthatha','queenstown','king williams town','bloemfontein','welkom','bethlehem','kimberley','polokwane','pietersburg','tzaneen','thohoyandou','musina','messina','nelspruit','mbombela','secunda','ermelo','witbank','emalahleni','middelburg','rustenburg','potchefstroom','klerksdorp','mahikeng','mafikeng','mmabatho','upington','springbok','mitchells plain','khayelitsha','gugulethu','langa','mamelodi','soshanguve','ga-rankuwa','tembisa','katlehong','thokoza','vosloorus','alexandra','hillbrow','bryanston','rosebank','fourways'],
-    regions:['gauteng','western cape','eastern cape','kwazulu-natal','kzn','free state','limpopo','mpumalanga','north west','northern cape']
-  },
-  'zambia': {
-    name:'Zambia', display:'Zambia', flag:'🇿🇲', code:'ZM',
+    regions:['gauteng','western cape','eastern cape','kwazulu-natal','kzn','free state','limpopo','mpumalanga','north west','northern cape'] },
+  'zambia':{ name:'Zambia', flag:'🇿🇲', display:'Zambia',
     aliases:['zambia','zm','republic of zambia'],
     cities:['lusaka','kitwe','ndola','kabwe','chingola','mufulira','livingstone','luanshya','chipata','kasama','solwezi','mongu','mazabuka','choma','kafue'],
-    regions:['lusaka province','copperbelt','southern province','northern province','eastern province','western province']
-  },
-  'botswana': {
-    name:'Botswana', display:'Botswana', flag:'🇧🇼', code:'BW',
+    regions:['lusaka province','copperbelt','southern province','northern province','eastern province','western province'] },
+  'botswana':{ name:'Botswana', flag:'🇧🇼', display:'Botswana',
     aliases:['botswana','bw','republic of botswana'],
     cities:['gaborone','francistown','maun','serowe','selebi-phikwe','molepolole','kanye','mogoditshane','palapye','lobatse'],
-    regions:['central district','southern district','northern district','kgatleng','south east district']
-  },
-  'mozambique': {
-    name:'Mozambique', display:'Mozambique', flag:'🇲🇿', code:'MZ',
+    regions:['central district','southern district','northern district','kgatleng','south east district'] },
+  'mozambique':{ name:'Mozambique', flag:'🇲🇿', display:'Mozambique',
     aliases:['mozambique','mz','republic of mozambique','mocambique'],
     cities:['maputo','matola','beira','nampula','chimoio','nacala','quelimane','tete','pemba','inhambane','xai-xai','lichinga'],
-    regions:['maputo province','sofala','zambezia','cabo delgado','inhambane province','gaza province']
-  },
-  'namibia': {
-    name:'Namibia', display:'Namibia', flag:'🇳🇦', code:'NA',
+    regions:['maputo province','sofala','zambezia','cabo delgado','inhambane province','gaza province'] },
+  'namibia':{ name:'Namibia', flag:'🇳🇦', display:'Namibia',
     aliases:['namibia','na','republic of namibia'],
     cities:['windhoek','walvis bay','swakopmund','oshakati','rundu','katima mulilo','keetmanshoop','otjiwarongo','gobabis','tsumeb'],
-    regions:['khomas','erongo','oshana','kavango','caprivi','zambezi','hardap','karas']
-  },
-  'lesotho': {
-    name:'Lesotho', display:'Lesotho', flag:'🇱🇸', code:'LS',
+    regions:['khomas','erongo','oshana','kavango','caprivi','zambezi','hardap','karas'] },
+  'lesotho':{ name:'Lesotho', flag:'🇱🇸', display:'Lesotho',
     aliases:['lesotho','ls'],
-    cities:['maseru','teyateyaneng','mafeteng','hlotse','mohale\'s hoek','qacha\'s nek'],
-    regions:[]
-  },
-  'eswatini': {
-    name:'Eswatini', display:'Eswatini', flag:'🇸🇿', code:'SZ',
+    cities:['maseru','teyateyaneng','mafeteng','hlotse','mohale\'s hoek','qacha\'s nek'], regions:[] },
+  'eswatini':{ name:'Eswatini', flag:'🇸🇿', display:'Eswatini',
     aliases:['eswatini','swaziland','sz'],
-    cities:['mbabane','manzini','lobamba','siteki','nhlangano','piggs peak'],
-    regions:[]
-  }
+    cities:['mbabane','manzini','lobamba','siteki','nhlangano','piggs peak'], regions:[] }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   SERVICES LIST
-   ═══════════════════════════════════════════════════════════ */
-const servicesList = [
-  "Marquee / Tents & Chairs","PA System & Basic Sound","DJ Services",
-  "Stage & Decorative Lighting","Event Décor & Draping","Catering (Food & Buffet)",
-  "Beverages & Mobile Bar","Cake Designer / Baker","Photographer","Videographer",
-  "MC (Master of Ceremonies)","Makeup Artist","Hairstylist",
-  "Transport / Car Hire","Cleaning Services","Ushers & Hostesses"
-];
+const SERVICES = ['Marquee / Tents & Chairs','PA System & Basic Sound','DJ Services','Stage & Decorative Lighting','Event Décor & Draping','Catering (Food & Buffet)','Beverages & Mobile Bar','Cake Designer / Baker','Photographer','Videographer','MC (Master of Ceremonies)','Makeup Artist','Hairstylist','Transport / Car Hire','Cleaning Services','Ushers & Hostesses'];
 
-/* ═══════════════════════════════════════════════════════════
-   LINK FIX
-   ═══════════════════════════════════════════════════════════ */
-function fixLink(value, base) {
-  if (!value) return '';
-  let v = String(value).trim();
-  if (!v) return '';
-  if (v.startsWith('http://') || v.startsWith('https://')) return v;
-  if (v.startsWith('@')) v = v.slice(1);
-  return base + v.replace(/^\/+/, '');
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CURRENCY STATE
-   ═══════════════════════════════════════════════════════════ */
 let activeCurrency = 'USD';
-let currencyManuallySet = false;
-try {
-  currencyManuallySet = localStorage.getItem('zone21_currency_manual') === '1';
-  const stored = localStorage.getItem('zone21_currency');
-  if (currencyManuallySet && CURRENCIES[stored]) activeCurrency = stored;
-} catch (e) {}
-
-/* ═══════════════════════════════════════════════════════════
-   COUNTRY DETECTION HELPERS
-   ═══════════════════════════════════════════════════════════ */
-function normalizeLocation(str) {
-  if (!str) return '';
-  return String(str).toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w\s,]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-}
-function escapeRegex(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
-
-function detectCountryFromLocation(locationStr){
-  const norm = normalizeLocation(locationStr);
-  if (!norm) return null;
-
-  for (const [key, meta] of Object.entries(COUNTRY_DB)) {
-    for (const alias of meta.aliases) {
-      const a = normalizeLocation(alias);
-      if (!a) continue;
-      const re = new RegExp(`(^|[\\s,])${escapeRegex(a)}($|[\\s,])`,'i');
-      if (re.test(norm)) return key;
-    }
-  }
-  const allCities = [];
-  for (const [key, meta] of Object.entries(COUNTRY_DB)) {
-    for (const city of meta.cities) {
-      const c = normalizeLocation(city);
-      if (c) allCities.push({ key, city: c });
-    }
-  }
-  allCities.sort((a,b) => b.city.length - a.city.length);
-  for (const { key, city } of allCities) {
-    const re = new RegExp(`(^|[\\s,])${escapeRegex(city)}($|[\\s,])`,'i');
-    if (re.test(norm)) return key;
-  }
-  for (const [key, meta] of Object.entries(COUNTRY_DB)) {
-    for (const region of meta.regions) {
-      const r = normalizeLocation(region);
-      if (!r) continue;
-      const re = new RegExp(`(^|[\\s,])${escapeRegex(r)}($|[\\s,])`,'i');
-      if (re.test(norm)) return key;
-    }
-  }
-  return null;
-}
-function getCountryMeta(key){ return key ? (COUNTRY_DB[key] || null) : null; }
-function getCurrencyForCountry(countryKey){
-  if (!countryKey) return 'USD';
-  return ZAR_NATIVE_COUNTRIES.has(countryKey) ? 'ZAR' : 'USD';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CURRENCY HELPERS
-   ═══════════════════════════════════════════════════════════ */
-function currencySymbol(c = activeCurrency){ return (CURRENCIES[c] && CURRENCIES[c].symbol) || '$'; }
-function convertAmount(usdAmount, currency = activeCurrency){
-  const n = Number(usdAmount) || 0;
-  return currency === 'ZAR' ? n * USD_TO_ZAR : n;
-}
-function formatMoney(amount, currency = activeCurrency){
-  const n = Math.round(Number(amount) || 0);
-  return `${currencySymbol(currency)}${n.toLocaleString('en-US')}`;
-}
-function formatFromUSD(usdAmount, currency = activeCurrency){
-  return formatMoney(convertAmount(usdAmount, currency), currency);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   DOM REFS
-   ═══════════════════════════════════════════════════════════ */
-const $ = (id) => document.getElementById(id);
-const countryChip       = $('countryChip');
-const countryChipIcon   = $('countryChipIcon');
-const countryChipValue  = $('countryChipValue');
-const countryChipSub    = $('countryChipSub');
-const currencyChip      = $('currencyChip');
-const currencyChipIcon  = $('currencyChipIcon');
-const currencyChipValue = $('currencyChipValue');
-const currencyChipSub   = $('currencyChipSub');
-
-/* ═══════════════════════════════════════════════════════════
-   STATE
-   ═══════════════════════════════════════════════════════════ */
-let currentProviderId = null;
+let currencyManual = false;
+let providerId = null;
 let providerData = null;
 let isOwner = false;
 let viewMode = 'public';
-let uploadedImages = [];
 let currentUser = null;
+let uploadedImages = [];
+let priceTiers = [];
 let selectedRating = 0;
+let draftTimer = null;
 
-/* ⬇⬇⬇  PART B CONTINUES HERE  ⬇⬇⬇ *//* ═══════════════════════════════════════════════════════════
-   TOAST
-   ═══════════════════════════════════════════════════════════ */
-function showToast(msg, type = 'info') {
-  const c = $('toastWrap');
-  if (!c) { alert(msg); return; }
-  const t = document.createElement('div');
-  t.className = `z21-toast ${type}`;
-  const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', info: 'fa-circle-info' };
-  t.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${msg}</span>`;
-  c.appendChild(t);
-  setTimeout(() => {
-    t.style.opacity = '0'; t.style.transition = 'opacity .3s';
-    setTimeout(() => t.remove(), 300);
-  }, 4000);
-}
+const $ = id => document.getElementById(id);
 
-/* ═══════════════════════════════════════════════════════════
-   DETECTION UI
-   ═══════════════════════════════════════════════════════════ */
-function updateCountryChip() {
-  if (!countryChip) return;
-  let key = null, locText = '';
+try {
+  currencyManual = localStorage.getItem('zone21_currency_manual') === '1';
+  const stored = localStorage.getItem('zone21_currency');
+  if(currencyManual && CURRENCIES[stored]) activeCurrency = stored;
+} catch(e){}
 
-  if (viewMode === 'edit') {
-    const el = $('e-loc');
-    locText = el ? el.value : '';
-    if (!locText.trim()) {
-      countryChip.classList.add('hidden-chip');
-      countryChip.style.display = 'none';
-      return;
-    }
-    key = detectCountryFromLocation(locText);
-  } else {
-    key = providerData?.country || detectCountryFromLocation(providerData?.location || '');
-    locText = providerData?.location || '';
-    if (!locText) {
-      countryChip.classList.add('hidden-chip');
-      countryChip.style.display = 'none';
-      return;
+function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s,]/g,' ').replace(/\s+/g,' ').trim(); }
+function escRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function detectCountry(loc){
+  const n = norm(loc); if(!n) return null;
+  for(const [k,m] of Object.entries(COUNTRY_DB)){
+    for(const a of m.aliases){
+      const an = norm(a); if(!an) continue;
+      if(new RegExp(`(^|[\\s,])${escRe(an)}($|[\\s,])`,'i').test(n)) return k;
     }
   }
-
-  countryChip.classList.remove('hidden-chip');
-  countryChip.style.display = 'flex';
-
-  if (key) {
-    const meta = getCountryMeta(key);
-    countryChip.className = 'detect-chip country ok';
-    countryChipIcon.className = 'fas fa-check-circle';
-    countryChipValue.textContent = `${meta.flag}  ${meta.display}`;
-    countryChipSub.textContent = `Customers will only see you in ${meta.display}`;
-  } else {
-    countryChip.className = 'detect-chip country err';
-    countryChipIcon.className = 'fas fa-exclamation-triangle';
-    countryChipValue.textContent = 'Country not recognised';
-    countryChipSub.textContent = 'Try "Harare, Zimbabwe" or "Pretoria, South Africa"';
-  }
-}
-
-function updateCurrencyChip() {
-  if (!currencyChip) return;
-  const cur = CURRENCIES[activeCurrency];
-  const flag = activeCurrency === 'ZAR' ? '🇿🇦' : '🇺🇸';
-  currencyChip.className = `detect-chip currency ${activeCurrency === 'ZAR' ? 'zar' : 'usd'}`;
-  currencyChipIcon.className = 'fas fa-coins';
-  currencyChipValue.textContent = `${flag}  ${cur.code} ${cur.symbol}`;
-  currencyChipSub.textContent = currencyManuallySet
-    ? 'Manually selected'
-    : 'Auto-detected from your location';
-}
-
-function applyCurrencyUI() {
-  document.querySelectorAll('#currencySwitch button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
-  });
-
-  const prefix = document.querySelector('.budget-input-wrap .currency-prefix');
-  const badge  = document.querySelector('.currency-mini-badge');
-  if (prefix) prefix.textContent = currencySymbol();
-  if (badge) {
-    badge.textContent = activeCurrency;
-    badge.className = 'currency-mini-badge' + (activeCurrency === 'ZAR' ? ' zar' : '');
-  }
-
-  if (viewMode === 'edit' && providerData) {
-    const priceInput = $('e-price');
-    if (priceInput && providerData.basePrice) {
-      priceInput.value = Math.round(convertAmount(providerData.basePrice, activeCurrency)) || '';
+  const cities = [];
+  for(const [k,m] of Object.entries(COUNTRY_DB)){
+    for(const c of m.cities){
+      const cn = norm(c); if(cn) cities.push({k,city:cn});
     }
   }
-
-  updateCurrencyChip();
-}
-
-function setCurrency(currency, isManual) {
-  if (!CURRENCIES[currency]) return;
-  activeCurrency = currency;
-  if (isManual) {
-    currencyManuallySet = true;
-    try {
-      localStorage.setItem('zone21_currency_manual', '1');
-      localStorage.setItem('zone21_currency', currency);
-    } catch (e) {}
-  } else {
-    try { localStorage.setItem('zone21_currency', currency); } catch (e) {}
+  cities.sort((a,b)=>b.city.length-a.city.length);
+  for(const {k,city} of cities){
+    if(new RegExp(`(^|[\\s,])${escRe(city)}($|[\\s,])`,'i').test(n)) return k;
   }
-  applyCurrencyUI();
-
-  if (viewMode === 'public' && providerData) {
-    document.querySelectorAll('[data-price-usd]').forEach(el => {
-      const usd = Number(el.getAttribute('data-price-usd')) || 0;
-      el.textContent = formatFromUSD(usd, activeCurrency);
-    });
-  }
-}
-
-function autoDetectCurrencyFromLocation() {
-  if (currencyManuallySet) return;
-  const loc = viewMode === 'edit' ? ($('e-loc')?.value || '') : (providerData?.location || '');
-  const key = detectCountryFromLocation(loc);
-  if (!key) return;
-  const next = getCurrencyForCountry(key);
-  if (next !== activeCurrency) {
-    activeCurrency = next;
-    try { localStorage.setItem('zone21_currency', next); } catch (e) {}
-    applyCurrencyUI();
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   IMAGE COMPRESSION
-   ═══════════════════════════════════════════════════════════ */
-function compressToBase64(file, maxWidth, quality, callback) {
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = function(event) {
-    const img = new Image();
-    img.src = event.target.result;
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-      if (width > maxWidth) {
-        height = Math.round((height * maxWidth) / width);
-        width = maxWidth;
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      callback(canvas.toDataURL('image/jpeg', quality));
-    };
-  };
-}
-
-/* ═══════════════════════════════════════════════════════════
-   RESOLVE PROVIDER ID & AUTH
-   ═══════════════════════════════════════════════════════════ */
-async function resolveProviderId(user) {
-  const urlParams = new URLSearchParams(window.location.search);
-  const idFromUrl = urlParams.get('id');
-  if (idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined') return idFromUrl;
-  if (user) {
-    try {
-      const doc = await db.collection('serviceProviders').doc(user.uid).get();
-      if (doc.exists) return user.uid;
-      if (user.email) {
-        const snap = await db.collection('serviceProviders').where('email','==',user.email).limit(1).get();
-        if (!snap.empty) return snap.docs[0].id;
-      }
-    } catch (error) { console.error("Error resolving provider ID:", error); }
+  for(const [k,m] of Object.entries(COUNTRY_DB)){
+    for(const r of (m.regions||[])){
+      const rn = norm(r); if(!rn) continue;
+      if(new RegExp(`(^|[\\s,])${escRe(rn)}($|[\\s,])`,'i').test(n)) return k;
+    }
   }
   return null;
 }
+function metaOf(k){ return k ? COUNTRY_DB[k] : null; }
+function currencyForCountry(k){ return ZAR_COUNTRIES.has(k) ? 'ZAR' : 'USD'; }
+function curSym(c){ c = c || activeCurrency; return CURRENCIES[c].sym; }
+function convertAmount(usd, curr){ return curr === 'ZAR' ? (Number(usd)||0) * USD_TO_ZAR : (Number(usd)||0); }
+function fmtMoney(amount, curr){ curr = curr||activeCurrency; const n = Math.round(Number(amount)||0); return `${curSym(curr)}${n.toLocaleString('en-US')}`; }
+function fmtFromUSD(usd, curr){ return fmtMoney(convertAmount(usd,curr), curr); }
 
-auth.onAuthStateChanged(async (user) => {
-  currentUser = user;
-  currentProviderId = await resolveProviderId(user);
-  if (currentProviderId) {
-    isOwner = !!(user && (user.uid === currentProviderId));
-    if (isOwner) $('dash-btn').style.display = 'block';
-    loadProviderProfile();
-  } else if (user) {
-    showProfileNotFound(true);
+function toast(msg, type='info'){
+  const c = $('toastWrap'); if(!c) return;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success:'fa-circle-check', error:'fa-circle-exclamation', warn:'fa-triangle-exclamation', info:'fa-circle-info' };
+  t.innerHTML = `<i class="fas ${icons[type]||icons.info}"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 4000);
+}
+function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function fixLink(v, base){ if(!v) return ''; let s = String(v).trim(); if(!s) return ''; if(s.startsWith('http')) return s; if(s.startsWith('@')) s = s.slice(1); return base + s.replace(/^\/+/,''); }
+
+/* Detection UI */
+function updateDetectionUI(){
+  const loc = viewMode === 'edit' ? ($('e-loc')?.value || '') : (providerData?.location || '');
+  const cc = $('countryChip'), ccIcon = $('countryChipIcon'), ccVal = $('countryChipValue'), ccSub = $('countryChipSub');
+  if(!loc.trim()){
+    cc.className = 'detect-chip';
+    ccIcon.className = 'fas fa-globe-africa';
+    ccVal.textContent = 'Add your location below';
+    ccSub.textContent = 'Include city & country — e.g. "Harare, Zimbabwe"';
   } else {
-    showProfileNotFound(false);
+    const k = detectCountry(loc);
+    if(k){
+      const m = metaOf(k);
+      cc.className = 'detect-chip ok';
+      ccIcon.className = 'fas fa-check-circle';
+      ccVal.textContent = `${m.flag}  ${m.display}`;
+      ccSub.textContent = `You'll appear in ${m.display} searches only`;
+    } else {
+      cc.className = 'detect-chip err';
+      ccIcon.className = 'fas fa-exclamation-triangle';
+      ccVal.textContent = 'Country not recognised';
+      ccSub.textContent = 'Try "Harare, Zimbabwe" or "Pretoria, South Africa"';
+    }
   }
+  const cur = CURRENCIES[activeCurrency];
+  const flag = activeCurrency === 'ZAR' ? '🇿🇦' : '🇺🇸';
+  $('currencyChipValue').textContent = `${flag}  ${cur.code} ${cur.sym}`;
+  $('currencyChipSub').textContent = currencyManual ? 'Manually selected' : 'Auto-matched to country';
+  document.querySelectorAll('#currSwitch button').forEach(b => b.classList.toggle('active', b.dataset.curr === activeCurrency));
+}
+
+function setCurrency(curr, isManual){
+  if(!CURRENCIES[curr]) return;
+  activeCurrency = curr;
+  if(isManual){
+    currencyManual = true;
+    try { localStorage.setItem('zone21_currency_manual','1'); localStorage.setItem('zone21_currency',curr); } catch(e){}
+  }
+  if(viewMode === 'public' && providerData) renderPublic();
+  else if(viewMode === 'edit') applyCurrencyToForm();
+  updateDetectionUI();
+}
+
+function autoDetectCurrency(){
+  if(currencyManual) return;
+  const loc = viewMode === 'edit' ? ($('e-loc')?.value || '') : (providerData?.location || '');
+  const k = detectCountry(loc);
+  if(!k) return;
+  const next = currencyForCountry(k);
+  if(next !== activeCurrency){
+    activeCurrency = next;
+    try { localStorage.setItem('zone21_currency', next); } catch(e){}
+    updateDetectionUI();
+    if(viewMode === 'edit') applyCurrencyToForm();
+  }
+}
+
+/* AUTH */
+auth.onAuthStateChanged(async user => {
+  currentUser = user;
+  const params = new URLSearchParams(window.location.search);
+  const idFromUrl = params.get('id');
+  if(idFromUrl && idFromUrl !== 'null' && idFromUrl !== 'undefined'){
+    providerId = idFromUrl;
+  } else if(user){
+    try {
+      const doc = await db.collection('serviceProviders').doc(user.uid).get();
+      if(doc.exists) providerId = user.uid;
+      else if(user.email){
+        const snap = await db.collection('serviceProviders').where('email','==',user.email).limit(1).get();
+        if(!snap.empty) providerId = snap.docs[0].id;
+      }
+    } catch(e){}
+  }
+  if(!providerId){ showNotFound(!!user); return; }
+  isOwner = user && user.uid === providerId;
+  if(isOwner) $('dash-btn').style.display = 'inline-flex';
+  await loadProvider();
 });
 
-function showProfileNotFound(isLoggedIn) {
-  const content = $('profile-content');
-  if (isLoggedIn) {
-    content.innerHTML = `
-      <div class="error">
-        <i class="fas fa-user-plus" style="font-size:3rem; color:var(--navy);"></i>
-        <h3>No Service Provider Profile Found</h3>
-        <p style="margin:10px 0;">You don't have a service provider profile yet.</p>
-        <button class="btn-create" onclick="createProviderProfile()"><i class="fas fa-plus"></i> Create My Profile</button>
-      </div>`;
-  } else {
-    content.innerHTML = `
-      <div class="error">
-        <i class="fas fa-lock" style="font-size:3rem; color:var(--navy);"></i>
-        <h3>Please Sign In</h3>
-        <p style="margin:10px 0;">Log in to view or create your provider profile.</p>
-        <a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
-      </div>`;
-  }
-}
-
-async function createProviderProfile() {
-  if (!auth.currentUser) return;
-  const uid = auth.currentUser.uid;
-  const email = auth.currentUser.email || '';
-  const defaultData = {
-    name: email.split('@')[0] || 'My Business',
-    category: '', services: [], secondaryServices: '',
-    businessHours: '', yearsExperience: 0, serviceAreas: '',
-    languages: '', paymentMethods: '', cancellationPolicy: '',
-    description: '', location: '', basePrice: 0,
-    country: null, currency: 'USD',
-    rating: 0, reviewsCount: 0, status: 'pending',
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-  await db.collection('serviceProviders').doc(uid).set(defaultData);
-  window.location.reload();
-}
-
-async function loadProviderProfile() {
+async function loadProvider(){
   try {
-    const doc = await db.collection('serviceProviders').doc(currentProviderId).get();
-    if (!doc.exists) { showProfileNotFound(!!auth.currentUser); return; }
+    const doc = await db.collection('serviceProviders').doc(providerId).get();
+    if(!doc.exists){ showNotFound(!!currentUser); return; }
     providerData = doc.data();
     uploadedImages = providerData.images || [];
+    priceTiers = providerData.priceTiers || [];
 
-    if (currentUser) {
-      isOwner = currentUser.uid === currentProviderId ||
-               (providerData.email && providerData.email === currentUser.email);
-      $('dash-btn').style.display = isOwner ? 'block' : 'none';
-    } else { isOwner = false; }
-
-    if (!currencyManuallySet && providerData.country) {
-      const next = getCurrencyForCountry(providerData.country);
-      if (next !== activeCurrency) {
-        activeCurrency = next;
-        try { localStorage.setItem('zone21_currency', next); } catch (e) {}
-      }
+    if(!currencyManual && providerData.country){
+      const next = currencyForCountry(providerData.country);
+      if(next !== activeCurrency) activeCurrency = next;
     }
 
-    if (viewMode === 'public') { renderPublicView(); loadReviews(currentProviderId); }
-    else renderEditView();
-  } catch (error) {
+    if(viewMode === 'edit') renderEdit();
+    else { renderPublic(); loadReviews(); }
+    updateDetectionUI();
+  } catch(e){
+    console.error(e);
     $('profile-content').innerHTML = '<div class="error">Failed to load profile.</div>';
   }
 }
 
-function toggleMode() {
-  viewMode = viewMode === 'public' ? 'edit' : 'public';
-  loadProviderProfile();
+function showNotFound(isLoggedIn){
+  $('profile-content').innerHTML = isLoggedIn
+    ? `<div class="error"><i class="fas fa-user-plus" style="font-size:3rem;color:var(--navy)"></i><h3>No Provider Profile Found</h3><p>You don't have a service provider profile yet.</p><button class="btn-create" onclick="createProvider()"><i class="fas fa-plus"></i> Create Profile</button></div>`
+    : `<div class="error"><i class="fas fa-lock" style="font-size:3rem;color:var(--navy)"></i><h3>Please Sign In</h3><a href="login.html" class="btn-create"><i class="fas fa-sign-in-alt"></i> Go to Login</a></div>`;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PUBLIC VIEW
-   ═══════════════════════════════════════════════════════════ */
-function renderPublicView() {
-  const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-  const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
+async function createProvider(){
+  if(!auth.currentUser) return;
+  const uid = auth.currentUser.uid;
+  await db.collection('serviceProviders').doc(uid).set({
+    name: auth.currentUser.email.split('@')[0] || 'My Business',
+    category:'', services:[], secondaryServices:'',
+    location:'', country:null, basePrice:0, currency:'USD',
+    priceTiers:[],
+    businessHours:'', yearsExperience:0, serviceAreas:'',
+    languages:'', paymentMethods:'', cancellationPolicy:'',
+    description:'', images:[], avatar:null,
+    rating:0, reviewsCount:0, status:'pending',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  window.location.reload();
+}
 
-  const socialLinks = [];
-  if (providerData.facebook) socialLinks.push({ class:'social-facebook', icon:'fab fa-facebook-f', url:fixLink(providerData.facebook,'https://facebook.com/'), label:'Facebook' });
-  if (providerData.instagram) socialLinks.push({ class:'social-instagram', icon:'fab fa-instagram', url:fixLink(providerData.instagram,'https://instagram.com/'), label:'Instagram' });
-  if (providerData.tiktok) socialLinks.push({ class:'social-tiktok', icon:'fab fa-tiktok', url:fixLink(providerData.tiktok,'https://tiktok.com/@'), label:'TikTok' });
-  if (providerData.youtube) socialLinks.push({ class:'social-youtube', icon:'fab fa-youtube', url:fixLink(providerData.youtube,'https://youtube.com/@'), label:'YouTube' });
-  if (providerData.website) socialLinks.push({ class:'social-website', icon:'fas fa-globe', url:fixLink(providerData.website,'https://'), label:'Website' });
+function toggleMode(){
+  viewMode = viewMode === 'public' ? 'edit' : 'public';
+  if(viewMode === 'edit') renderEdit();
+  else loadProvider();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
-  const servicesHtml = (providerData.services || []).map(s => `<span class="service-tag">${s}</span>`).join('');
+/* PUBLIC VIEW */
+function renderPublic(){
+  if(!providerData) return;
+  const initials = (providerData.name||'?').split(' ').map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase();
+  const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="">` : initials;
 
-  const galleryHtml = (providerData.images || []).length > 0 ?
-    providerData.images.map(img => `<div class="gallery-item" onclick="window.open('${img}', '_blank')"><img src="${img}" alt="Gallery"></div>`).join('') :
-    '<p style="color:var(--muted); grid-column: 1/-1;">No images available</p>';
+  const socials = [];
+  if(providerData.facebook) socials.push({c:'social-facebook',i:'fab fa-facebook-f',u:fixLink(providerData.facebook,'https://facebook.com/'),l:'Facebook'});
+  if(providerData.instagram) socials.push({c:'social-instagram',i:'fab fa-instagram',u:fixLink(providerData.instagram,'https://instagram.com/'),l:'Instagram'});
+  if(providerData.tiktok) socials.push({c:'social-tiktok',i:'fab fa-tiktok',u:fixLink(providerData.tiktok,'https://tiktok.com/@'),l:'TikTok'});
+  if(providerData.youtube) socials.push({c:'social-youtube',i:'fab fa-youtube',u:fixLink(providerData.youtube,'https://youtube.com/@'),l:'YouTube'});
+  if(providerData.website) socials.push({c:'social-website',i:'fas fa-globe',u:fixLink(providerData.website,'https://'),l:'Website'});
 
-  const rating = providerData.rating || 0;
+  const servicesHtml = (providerData.services||[]).map(s=>`<span class="service-tag">${escapeHtml(s)}</span>`).join('');
+  const galleryHtml = (providerData.images||[]).length
+    ? providerData.images.map(img=>`<div class="gallery-item" onclick="window.open('${img}','_blank')"><img src="${img}" alt=""></div>`).join('')
+    : '<p style="color:var(--muted);grid-column:1/-1;font-size:.85rem">No images uploaded yet.</p>';
+
+  const rating = providerData.rating||0;
   const fullStars = Math.floor(rating);
-  const halfStar = rating % 1 >= 0.5;
+  const hasHalf = rating%1 >= 0.5;
   let starsHtml = '';
-  for (let i = 1; i <= 5; i++) {
-    if (i <= fullStars) starsHtml += '<i class="fas fa-star"></i>';
-    else if (i === fullStars + 1 && halfStar) starsHtml += '<i class="fas fa-star-half-alt"></i>';
+  for(let i=1;i<=5;i++){
+    if(i<=fullStars) starsHtml += '<i class="fas fa-star"></i>';
+    else if(i===fullStars+1 && hasHalf) starsHtml += '<i class="fas fa-star-half-alt"></i>';
     else starsHtml += '<i class="far fa-star"></i>';
   }
 
-  // ⭐ Price displayed in active currency with data-price-usd for live swap
-  const priceHtml = providerData.basePrice
-    ? ` • Starts at <span data-price-usd="${providerData.basePrice}">${formatFromUSD(providerData.basePrice, activeCurrency)}</span>`
-    : '';
+  const details = [];
+  if(providerData.basePrice) details.push({i:'fa-tag',l:'Starting From',v:`<span data-usd="${providerData.basePrice}">${fmtFromUSD(providerData.basePrice)}</span>`});
+  if(providerData.businessHours) details.push({i:'fa-clock',l:'Business Hours',v:providerData.businessHours});
+  if(providerData.yearsExperience) details.push({i:'fa-award',l:'Experience',v:providerData.yearsExperience + ' years'});
+  if(providerData.serviceAreas) details.push({i:'fa-map-pin',l:'Service Areas',v:providerData.serviceAreas});
+  if(providerData.languages) details.push({i:'fa-language',l:'Languages',v:providerData.languages});
+  if(providerData.paymentMethods) details.push({i:'fa-credit-card',l:'Payment Methods',v:providerData.paymentMethods});
+  if(providerData.cancellationPolicy) details.push({i:'fa-file-contract',l:'Cancellation Policy',v:providerData.cancellationPolicy});
+  if(providerData.location) details.push({i:'fa-map-marker-alt',l:'Location',v:providerData.location});
 
-  const detailItems = [];
-  if (providerData.secondaryServices) detailItems.push({ icon:'fa-chevron-circle-right', label:'Secondary Services', value:providerData.secondaryServices, cls:'secondary-svc' });
-  if (providerData.businessHours) detailItems.push({ icon:'fa-clock', label:'Business Hours', value:providerData.businessHours });
-  if (providerData.yearsExperience) detailItems.push({ icon:'fa-award', label:'Years of Experience', value:providerData.yearsExperience + ' years' });
-  if (providerData.serviceAreas) detailItems.push({ icon:'fa-map-pin', label:'Service Areas', value:providerData.serviceAreas });
-  if (providerData.languages) detailItems.push({ icon:'fa-language', label:'Languages Spoken', value:providerData.languages });
-  if (providerData.paymentMethods) detailItems.push({ icon:'fa-credit-card', label:'Payment Methods', value:providerData.paymentMethods });
-  if (providerData.cancellationPolicy) detailItems.push({ icon:'fa-file-contract', label:'Cancellation Policy', value:providerData.cancellationPolicy, cls:'secondary-svc' });
-  if (providerData.location) detailItems.push({ icon:'fa-map-marker-alt', label:'Location', value:providerData.location });
+  const detailHtml = details.length ? details.map(d=>`<div class="detail-item"><i class="fas ${d.i}"></i><div><span class="label">${d.l}</span><div class="value">${d.v}</div></div></div>`).join('')
+    : '<p style="color:var(--muted);grid-column:1/-1;font-size:.85rem">No details provided.</p>';
 
-  const detailHtml = detailItems.length > 0 ?
-    detailItems.map(item => `
-      <div class="detail-item">
-        <i class="fas ${item.icon}"></i>
-        <div>
-          <span class="label">${item.label}</span>
-          <div class="value ${item.cls || ''}">${item.value}</div>
-        </div>
-      </div>`).join('') :
-    '<p style="color:var(--muted); grid-column:1/-1; padding:8px 0;">No additional details provided.</p>';
+  const tiersHtml = priceTiers.length ? `
+    <div class="tiers-section">
+      <h3 style="font-size:.95rem;color:var(--navy);margin-bottom:10px;font-weight:800"><i class="fas fa-layer-group" style="color:var(--gold-deep)"></i> Rates & Packages</h3>
+      ${priceTiers.map(t=>`
+        <div class="tier-card">
+          <div class="tier-name">${escapeHtml(t.name)}</div>
+          ${t.desc ? `<div class="tier-desc">${escapeHtml(t.desc)}</div>` : ''}
+          <div class="tier-price">${fmtFromUSD(t.priceUsd)} <small>/ package</small></div>
+        </div>`).join('')}
+    </div>` : '';
 
   let reviewFormHtml = '';
-  if (!isOwner && currentUser) {
+  if(!isOwner && currentUser){
     reviewFormHtml = `
-      <div class="review-form" id="review-form-container">
+      <div class="review-form">
         <h3>Rate this provider</h3>
-        <div class="star-rating-input" id="star-input">
-          <i class="far fa-star" data-value="1"></i><i class="far fa-star" data-value="2"></i>
-          <i class="far fa-star" data-value="3"></i><i class="far fa-star" data-value="4"></i>
-          <i class="far fa-star" data-value="5"></i>
+        <div class="star-rating-input" id="starInput">
+          <i class="far fa-star" data-v="1"></i><i class="far fa-star" data-v="2"></i>
+          <i class="far fa-star" data-v="3"></i><i class="far fa-star" data-v="4"></i>
+          <i class="far fa-star" data-v="5"></i>
         </div>
-        <input type="text" id="reviewer-name" placeholder="Your name (optional)">
-        <textarea id="review-comment" placeholder="Write your review..."></textarea>
-        <button class="submit-review-btn" id="submit-review-btn"><i class="fas fa-paper-plane"></i> Submit Review</button>
-        <div id="review-status" style="margin-top:8px; font-size:0.85rem; color:var(--muted);"></div>
+        <input type="text" id="reviewerName" placeholder="Your name (optional)">
+        <textarea id="reviewComment" placeholder="Write your review..."></textarea>
+        <button class="submit-review-btn" id="submitReviewBtn"><i class="fas fa-paper-plane"></i> Submit Review</button>
+        <div id="reviewStatus" style="margin-top:8px;font-size:.82rem;color:var(--muted)"></div>
       </div>`;
-  } else if (isOwner) {
-    reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">You cannot review your own profile.</p>`;
+  } else if(isOwner){
+    reviewFormHtml = `<p style="color:var(--muted);padding:10px 0;font-size:.85rem">You cannot review your own profile.</p>`;
   } else {
-    reviewFormHtml = `<p style="color:var(--muted); padding:10px 0;">Please <a href="login.html" style="color:var(--pink);">sign in</a> to leave a review.</p>`;
+    reviewFormHtml = `<p style="color:var(--muted);padding:10px 0;font-size:.85rem">Please <a href="login.html" style="color:var(--pink);font-weight:700">sign in</a> to review.</p>`;
   }
 
-  const html = `
+  $('profile-content').innerHTML = `
     <div class="profile-card">
       <div class="profile-cover"></div>
       <div class="profile-avatar">${avatarHtml}</div>
       <div class="profile-info">
         ${isOwner ? `<button class="edit-toggle-btn" onclick="toggleMode()"><i class="fas fa-pen"></i> Edit Profile</button>` : ''}
-
-        <div class="name">${providerData.name || 'Unnamed Provider'}</div>
-        <div class="category">${providerData.category || 'General Service'}${priceHtml}</div>
-
+        <div class="name">${escapeHtml(providerData.name||'Unnamed Provider')}</div>
+        <div class="category">${escapeHtml(providerData.category||'Service Provider')}</div>
         <div class="rating-summary">
           <span class="stars">${starsHtml}</span>
           <span class="rating-number">${rating.toFixed(1)}</span>
-          <span class="reviews-count">(${providerData.reviewsCount || 0} reviews)</span>
+          <span class="reviews-count">(${providerData.reviewsCount||0} reviews)</span>
         </div>
-
         ${servicesHtml ? `<div class="services-tags">${servicesHtml}</div>` : ''}
-        ${providerData.description ? `<div class="description">${providerData.description}</div>` : ''}
+        ${providerData.secondaryServices ? `<div class="description"><strong style="font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Also offers:</strong> ${escapeHtml(providerData.secondaryServices)}</div>` : ''}
+        ${providerData.description ? `<div class="description">${escapeHtml(providerData.description)}</div>` : ''}
+        ${tiersHtml}
         <div class="detail-grid">${detailHtml}</div>
-        ${socialLinks.length ? `<div class="social-links">${socialLinks.map(link => `<a href="${link.url}" target="_blank" rel="noopener" class="social-link ${link.class}" title="${link.label}"><i class="${link.icon}"></i></a>`).join('')}</div>` : ''}
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <button class="share-btn" onclick="copyProfileLink('${currentProviderId}')"><i class="fas fa-share-alt"></i> Share Profile</button>
-        </div>
+        ${socials.length ? `<div class="social-links">${socials.map(s=>`<a href="${s.u}" target="_blank" rel="noopener" class="social-link ${s.c}" title="${s.l}"><i class="${s.i}"></i></a>`).join('')}</div>` : ''}
+        <button class="btn btn-lime" onclick="copyLink()" style="margin-top:8px"><i class="fas fa-share-alt"></i> Share Profile</button>
       </div>
     </div>
 
-    <div class="profile-card" style="padding:20px;">
+    <div class="profile-card" style="padding:22px 30px">
       <div class="gallery-section">
-        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-images" style="color:var(--pink);"></i> Gallery</h2>
+        <h2 style="font-size:1.05rem;color:var(--navy);margin-bottom:14px;font-weight:800"><i class="fas fa-images" style="color:var(--gold-deep)"></i> Gallery</h2>
         <div class="standard-gallery">${galleryHtml}</div>
       </div>
     </div>
 
-    <div class="profile-card" style="padding:20px;">
+    <div class="profile-card" style="padding:22px 30px">
       <div class="review-section">
-        <h2 style="font-size:1.2rem; color:var(--navy); margin-bottom:15px;"><i class="fas fa-star" style="color:var(--pink);"></i> Ratings & Reviews</h2>
+        <h2 style="font-size:1.05rem;color:var(--navy);margin-bottom:14px;font-weight:800"><i class="fas fa-star" style="color:var(--gold-deep)"></i> Ratings & Reviews</h2>
         ${reviewFormHtml}
-        <div class="review-list" id="review-list"></div>
+        <div class="review-list" id="reviewList"></div>
       </div>
-    </div>`;
-  $('profile-content').innerHTML = html;
-
-  updateCountryChip();
-  updateCurrencyChip();
-
-  if (!isOwner && currentUser) {
-    setupStarRating();
-    checkExistingReview(currentProviderId, 'serviceProviders').then(existing => {
-      if (existing) {
-        $('review-status').textContent = 'You have already reviewed. Edit below.';
-        $('submit-review-btn').textContent = 'Update Review';
-        $('reviewer-name').value = existing.reviewerName || '';
-        $('review-comment').value = existing.comment || '';
-        selectedRating = existing.rating;
-        updateStarInputUI(selectedRating);
-        $('submit-review-btn').dataset.reviewId = existing.id;
-      } else {
-        $('submit-review-btn').dataset.reviewId = '';
-      }
-    });
-    $('submit-review-btn').addEventListener('click', () => submitReview(currentProviderId, 'serviceProviders'));
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   EDIT VIEW
-   ═══════════════════════════════════════════════════════════ */
-function renderEditView() {
-  let checkboxesHtml = servicesList.map(svc => `
-    <label class="service-checkbox">
-      <input type="checkbox" class="edit-svc-chk" value="${svc}" ${(providerData.services || []).includes(svc) ? 'checked' : ''}>
-      ${svc}
-    </label>
-  `).join('');
-
-  let imagesHtml = uploadedImages.map((url, i) => `
-    <div class="gallery-item">
-      <img src="${url}">
-      <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
     </div>
-  `).join('');
+  `;
 
-  const initials = (providerData.name || '?').split(' ').map(w => w.charAt(0)).join('').substring(0, 2).toUpperCase();
-  const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="Avatar">` : initials;
+  if(!isOwner && currentUser) setupReviews();
+}
 
-  const displayPrice = providerData.basePrice
-    ? Math.round(convertAmount(providerData.basePrice, activeCurrency))
-    : '';
+/* EDIT VIEW */
+function renderEdit(){
+  if(!providerData) return;
+  const initials = (providerData.name||'?').split(' ').map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase();
+  const avatarHtml = providerData.avatar ? `<img src="${providerData.avatar}" alt="">` : initials;
 
-  const html = `
-    <div class="profile-card" style="padding:30px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; border-bottom:2px solid var(--lime); padding-bottom:10px;">
-        <h2 style="color:var(--navy);"><i class="fas fa-edit"></i> Edit Profile</h2>
-        <button class="edit-toggle-btn" style="position:relative; top:0; right:0;" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
+  const servicesHtml = SERVICES.map(s => `
+    <label class="service-checkbox ${(providerData.services||[]).includes(s)?'checked':''}">
+      <input type="checkbox" class="svc-chk" value="${s}" ${(providerData.services||[]).includes(s)?'checked':''}> ${s}
+    </label>`).join('');
+
+  const imagesHtml = uploadedImages.map((url,i) => `
+    <div class="gallery-item">
+      <img src="${url}" alt="">
+      <button class="delete-img-btn" onclick="removeImage(${i})"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+
+  const tiersHtml = priceTiers.map((t,i) => `
+    <div class="tier-builder-row">
+      <input type="text" class="tier-name-input" placeholder="Tier name (e.g. Full Day)" value="${escapeHtml(t.name||'')}" data-i="${i}">
+      <textarea class="tier-desc-input" placeholder="Short description" rows="1" data-i="${i}">${escapeHtml(t.desc||'')}</textarea>
+      <div class="tier-price-wrap">
+        <span class="cur-prefix">${curSym()}</span>
+        <input type="number" class="tier-price-input" placeholder="0" value="${Math.round(convertAmount(t.priceUsd||0, activeCurrency))}" data-i="${i}">
+      </div>
+      <button class="btn-remove-tier" onclick="removeTier(${i})"><i class="fas fa-trash"></i></button>
+    </div>`).join('');
+
+  const displayBasePrice = providerData.basePrice ? Math.round(convertAmount(providerData.basePrice, activeCurrency)) : '';
+
+  $('profile-content').innerHTML = `
+    <div class="profile-card" style="padding:28px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:12px;border-bottom:2px solid var(--lime);flex-wrap:wrap;gap:12px">
+        <h2 style="color:var(--navy);font-size:1.15rem;font-weight:800"><i class="fas fa-edit"></i> Edit Profile</h2>
+        <button class="edit-toggle-btn" style="position:relative;top:0;right:0" onclick="toggleMode()"><i class="fas fa-eye"></i> View Public</button>
       </div>
 
-      <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px;">
-        <div class="profile-avatar editable" style="margin:0; cursor:pointer;" onclick="document.getElementById('avatar-upload').click()" id="avatar-preview-box">
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
+        <div class="profile-avatar" style="margin:0" onclick="document.getElementById('avatarUpload').click()">
           ${avatarHtml}
-          <div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>
+          <div class="avatar-overlay"><i class="fas fa-camera"></i></div>
         </div>
-        <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
-        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">Click to change profile picture</p>
+        <input type="file" id="avatarUpload" accept="image/*" style="display:none" onchange="handleAvatar(event)">
+        <p style="color:var(--muted);font-size:.78rem;margin-top:10px">Click to change profile picture</p>
       </div>
 
-      <h3 style="color:var(--navy); margin-bottom:15px; font-size:1.1rem;">Basic Information</h3>
+      <h3 style="color:var(--navy);margin-bottom:14px;font-size:1rem;font-weight:800"><i class="fas fa-info-circle" style="color:var(--gold-deep)"></i> Basic Information</h3>
       <div class="form-grid">
-        <div class="input-group"><label>Company Name</label><input type="text" id="e-name" value="${providerData.name || ''}"></div>
-        <div class="input-group">
-          <label>Location <span style="color:var(--pink);font-size:0.7rem;">(include city &amp; country)</span></label>
-          <input type="text" id="e-loc" value="${providerData.location || ''}" placeholder="e.g. Harare, Zimbabwe or Pretoria, South Africa">
-          <span class="hint">We strictly verify the country — customers will only see you in your own country.</span>
+        <div class="input-group full-width">
+          <label>Business / Your Name <span class="req">*</span></label>
+          <input type="text" id="e-name" value="${escapeHtml(providerData.name||'')}" placeholder="e.g. Studio 21 Photography" required>
         </div>
-        <div class="input-group"><label>Primary Category</label><input type="text" id="e-cat" value="${providerData.category || ''}" placeholder="e.g. Wedding DJ"></div>
+        <div class="input-group full-width">
+          <label>Location <span class="req">*</span></label>
+          <input type="text" id="e-loc" value="${escapeHtml(providerData.location||'')}" placeholder="e.g. Harare, Zimbabwe" autocomplete="off" required>
+          <span class="hint">Include city AND country. Blueprint matching strictly filters by country.</span>
+          <span class="field-error" id="err-loc">Please add a recognised country to your location.</span>
+        </div>
         <div class="input-group">
-          <label>Base Starting Price <span class="currency-mini-badge ${activeCurrency === 'ZAR' ? 'zar' : ''}">${activeCurrency}</span></label>
-          <div class="budget-input-wrap">
-            <span class="currency-prefix">${currencySymbol()}</span>
-            <input type="number" id="e-price" value="${displayPrice}" placeholder="e.g. 500">
+          <label>Primary Service Category</label>
+          <input type="text" id="e-cat" value="${escapeHtml(providerData.category||'')}" placeholder="e.g. Wedding Photographer">
+        </div>
+        <div class="input-group">
+          <label>Base Starting Price <span class="req">*</span> <span style="font-size:.65rem;color:var(--muted);font-weight:600">(${activeCurrency})</span></label>
+          <div class="price-input-wrap">
+            <span class="cur-prefix" id="pricePrefix">${curSym()}</span>
+            <input type="number" id="e-price" value="${displayBasePrice}" placeholder="0" min="1" required>
           </div>
-          <span class="hint">Toggle the currency above to enter prices in USD or ZAR.</span>
+          <span class="hint">Your cheapest option. Blueprint matching uses this figure.</span>
+          <span class="field-error" id="err-price">A starting price is required for blueprint matching.</span>
         </div>
-        <div class="input-group full-width"><label>Description</label><textarea id="e-desc" rows="3">${providerData.description || ''}</textarea></div>
+        <div class="input-group full-width">
+          <label>Description</label>
+          <textarea id="e-desc" placeholder="Tell organisers about your work, style, and specialties...">${escapeHtml(providerData.description||'')}</textarea>
+        </div>
       </div>
 
-      <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Primary Services</h3>
-      <div class="services-check-grid">${checkboxesHtml}</div>
+      <h3 style="color:var(--navy);margin:24px 0 12px;font-size:1rem;font-weight:800"><i class="fas fa-layer-group" style="color:var(--gold-deep)"></i> Pricing Tiers <span style="font-size:.65rem;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">(optional — Full Day, Half Day, Premium, VIP, level rates)</span></h3>
+      <div class="tier-builder">
+        <div class="tier-builder-head">
+          <strong>Your Rate Options</strong>
+          <button class="btn btn-sm btn-lime" onclick="addTier()"><i class="fas fa-plus"></i> Add Tier</button>
+        </div>
+        <div id="tierList">${tiersHtml || '<p style="font-size:.8rem;color:var(--muted);text-align:center;padding:12px">No tiers yet. Click "Add Tier" to create rate options.</p>'}</div>
+      </div>
 
-      <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Additional Details</h3>
+      <h3 style="color:var(--navy);margin:24px 0 12px;font-size:1rem;font-weight:800"><i class="fas fa-tools" style="color:var(--gold-deep)"></i> Primary Services</h3>
+      <div class="services-check-grid">${servicesHtml}</div>
+
+      <h3 style="color:var(--navy);margin:24px 0 12px;font-size:1rem;font-weight:800"><i class="fas fa-list" style="color:var(--gold-deep)"></i> Additional Details</h3>
       <div class="form-grid">
-        <div class="input-group full-width"><label>Secondary Services <span style="font-weight:400;color:var(--muted);">(list any additional services not shown above)</span></label>
-          <textarea id="e-secondary" rows="2">${providerData.secondaryServices || ''}</textarea>
-        </div>
-        <div class="input-group"><label>Business Hours</label>
-          <input type="text" id="e-hours" value="${providerData.businessHours || ''}" placeholder="e.g. Mon–Fri 9am–6pm">
-        </div>
-        <div class="input-group"><label>Years of Experience</label>
-          <input type="number" id="e-experience" value="${providerData.yearsExperience || ''}" placeholder="e.g. 5">
-        </div>
-        <div class="input-group"><label>Service Areas</label>
-          <input type="text" id="e-areas" value="${providerData.serviceAreas || ''}" placeholder="e.g. Harare, Bulawayo, Mutare">
-        </div>
-        <div class="input-group"><label>Languages Spoken</label>
-          <input type="text" id="e-languages" value="${providerData.languages || ''}" placeholder="e.g. English, Shona, Ndebele">
-        </div>
-        <div class="input-group"><label>Payment Methods</label>
-          <input type="text" id="e-payment" value="${providerData.paymentMethods || ''}" placeholder="e.g. Cash, Bank Transfer, Ecocash">
-        </div>
-        <div class="input-group full-width"><label>Cancellation Policy</label>
-          <textarea id="e-cancellation" rows="2">${providerData.cancellationPolicy || ''}</textarea>
-        </div>
+        <div class="input-group full-width"><label>Secondary Services (comma-separated)</label><textarea id="e-secondary" placeholder="Other services not listed above">${escapeHtml(providerData.secondaryServices||'')}</textarea></div>
+        <div class="input-group"><label>Business Hours</label><input type="text" id="e-hours" value="${escapeHtml(providerData.businessHours||'')}" placeholder="e.g. Mon–Fri 9am–6pm"></div>
+        <div class="input-group"><label>Years of Experience</label><input type="number" id="e-experience" value="${providerData.yearsExperience||''}" placeholder="e.g. 5"></div>
+        <div class="input-group"><label>Service Areas</label><input type="text" id="e-areas" value="${escapeHtml(providerData.serviceAreas||'')}" placeholder="e.g. Harare, Bulawayo"></div>
+        <div class="input-group"><label>Languages Spoken</label><input type="text" id="e-languages" value="${escapeHtml(providerData.languages||'')}" placeholder="e.g. English, Shona, Ndebele"></div>
+        <div class="input-group"><label>Payment Methods</label><input type="text" id="e-payment" value="${escapeHtml(providerData.paymentMethods||'')}" placeholder="e.g. Cash, EcoCash, Bank transfer"></div>
+        <div class="input-group full-width"><label>Cancellation Policy</label><textarea id="e-cancellation" placeholder="How you handle cancellations">${escapeHtml(providerData.cancellationPolicy||'')}</textarea></div>
       </div>
 
-      <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Social Media (no phone/email)</h3>
+      <h3 style="color:var(--navy);margin:24px 0 12px;font-size:1rem;font-weight:800"><i class="fas fa-share-nodes" style="color:var(--gold-deep)"></i> Social Media</h3>
       <div class="form-grid">
-        <div class="input-group"><label>TikTok Link</label><input type="text" id="e-tt" value="${providerData.tiktok || ''}" placeholder="@yourname or https://tiktok.com/@yourname"></div>
-        <div class="input-group"><label>Instagram Link</label><input type="text" id="e-ig" value="${providerData.instagram || ''}" placeholder="@yourname or https://instagram.com/yourname"></div>
-        <div class="input-group"><label>Facebook Link</label><input type="text" id="e-fb" value="${providerData.facebook || ''}" placeholder="yourpage or https://facebook.com/yourpage"></div>
-        <div class="input-group"><label>YouTube Link</label><input type="text" id="e-yt" value="${providerData.youtube || ''}" placeholder="@yourchannel or https://youtube.com/@yourchannel"></div>
-        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${providerData.website || ''}" placeholder="yourbusiness.com or https://yourbusiness.com"></div>
+        <div class="input-group"><label>TikTok</label><input type="text" id="e-tt" value="${escapeHtml(providerData.tiktok||'')}" placeholder="@yourname"></div>
+        <div class="input-group"><label>Instagram</label><input type="text" id="e-ig" value="${escapeHtml(providerData.instagram||'')}" placeholder="@yourname"></div>
+        <div class="input-group"><label>Facebook</label><input type="text" id="e-fb" value="${escapeHtml(providerData.facebook||'')}" placeholder="yourpage"></div>
+        <div class="input-group"><label>YouTube</label><input type="text" id="e-yt" value="${escapeHtml(providerData.youtube||'')}" placeholder="@yourchannel"></div>
+        <div class="input-group full-width"><label>Website</label><input type="text" id="e-web" value="${escapeHtml(providerData.website||'')}" placeholder="yourbusiness.com"></div>
       </div>
 
-      <h3 style="color:var(--navy); margin:25px 0 15px; font-size:1.1rem;">Gallery (Max 5 Images)</h3>
-      <div class="upload-area" onclick="document.getElementById('gallery-upload').click()" id="upload-box">
-        <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--navy); margin-bottom:10px;"></i>
-        <p id="upload-text">Click to add gallery images.</p>
-        <input type="file" id="gallery-upload" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(event)">
+      <h3 style="color:var(--navy);margin:24px 0 12px;font-size:1rem;font-weight:800"><i class="fas fa-images" style="color:var(--gold-deep)"></i> Gallery (max 5)</h3>
+      <div class="upload-area" onclick="document.getElementById('galleryUpload').click()" id="uploadBox">
+        <i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--navy);margin-bottom:8px"></i>
+        <p id="uploadText" style="font-size:.85rem;font-weight:600">Click to add gallery images.</p>
+        <input type="file" id="galleryUpload" accept="image/*" multiple style="display:none" onchange="handleGallery(event)">
       </div>
-      <div class="standard-gallery" id="edit-gallery">${imagesHtml}</div>
+      <div class="standard-gallery" id="editGallery">${imagesHtml}</div>
 
-      <button class="btn-create" style="width:100%; margin-top:30px;" id="save-btn" onclick="saveProfileData()"><i class="fas fa-save"></i> Save All Changes</button>
+      <div style="margin-top:28px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="saveBtn" onclick="saveProfile()" style="flex:1;min-width:220px"><i class="fas fa-save"></i> Save All Changes</button>
+        <button class="btn btn-outline" onclick="toggleMode()"><i class="fas fa-xmark"></i> Cancel</button>
+      </div>
     </div>`;
-  $('profile-content').innerHTML = html;
 
-  // ⭐ Wire the location input for live country + currency detection
-  const locInput = $('e-loc');
-  if (locInput) {
-    let debounceTimer = null;
-    locInput.addEventListener('input', () => {
-      updateCountryChip();
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        if (!currencyManuallySet) {
-          const key = detectCountryFromLocation(locInput.value);
-          if (key) {
-            const next = getCurrencyForCountry(key);
-            if (next !== activeCurrency) {
-              activeCurrency = next;
-              try { localStorage.setItem('zone21_currency', next); } catch (e) {}
-              applyCurrencyUI();
-            }
-          }
-        }
-      }, 200);
-    });
-    locInput.addEventListener('blur', () => {
-      updateCountryChip();
-      autoDetectCurrencyFromLocation();
-    });
+  attachFormListeners();
+  updateDetectionUI();
+}
+
+function attachFormListeners(){
+  const loc = $('e-loc');
+  if(loc){
+    let t;
+    loc.addEventListener('input', () => { updateDetectionUI(); clearTimeout(t); t = setTimeout(autoDetectCurrency, 250); scheduleDraft(); });
+    loc.addEventListener('blur', () => { updateDetectionUI(); autoDetectCurrency(); });
   }
-
-  updateCountryChip();
-  applyCurrencyUI();
-}
-
-/* ═══════════════════════════════════════════════════════════
-   EDIT HANDLERS
-   ═══════════════════════════════════════════════════════════ */
-function handleAvatarUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const box = $('avatar-preview-box');
-  box.innerHTML = '<div class="spinner-sm" style="border-left-color:var(--navy);"></div><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>';
-  compressToBase64(file, 400, 0.7, (base64) => {
-    providerData.avatar = base64;
-    box.innerHTML = `<img src="${base64}" alt="Avatar"><div class="avatar-edit-overlay"><i class="fas fa-camera"></i></div>`;
+  ['e-name','e-cat','e-price','e-desc','e-secondary','e-hours','e-experience','e-areas','e-languages','e-payment','e-cancellation','e-tt','e-ig','e-fb','e-yt','e-web'].forEach(id => {
+    const el = $(id); if(el){ el.addEventListener('input', scheduleDraft); el.addEventListener('change', scheduleDraft); }
   });
-}
-
-function handleGalleryUpload(event) {
-  const files = Array.from(event.target.files);
-  if (uploadedImages.length + files.length > 5) { alert("Maximum 5 images allowed in the gallery."); return; }
-  const txt = $('upload-text');
-  txt.innerHTML = '<span class="spinner-sm" style="border-left-color:var(--navy);"></span> Processing images...';
-  let processed = 0;
-  files.forEach(file => {
-    compressToBase64(file, 800, 0.6, (base64) => {
-      uploadedImages.push(base64);
-      processed++;
-      if (processed === files.length) renderEditView();
+  document.querySelectorAll('.svc-chk').forEach(cb => {
+    cb.addEventListener('change', e => {
+      e.target.closest('.service-checkbox').classList.toggle('checked', e.target.checked);
+      scheduleDraft();
+    });
+  });
+  document.querySelectorAll('.tier-name-input, .tier-desc-input, .tier-price-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const i = parseInt(inp.dataset.i,10);
+      if(!priceTiers[i]) return;
+      if(inp.classList.contains('tier-name-input')) priceTiers[i].name = inp.value;
+      else if(inp.classList.contains('tier-desc-input')) priceTiers[i].desc = inp.value;
+      else if(inp.classList.contains('tier-price-input')){
+        const d = Number(inp.value)||0;
+        priceTiers[i].priceUsd = activeCurrency === 'ZAR' ? Math.round(d/USD_TO_ZAR*100)/100 : d;
+      }
+      scheduleDraft();
     });
   });
 }
 
-function removeImage(index) {
-  uploadedImages.splice(index, 1);
-  renderEditView();
+function applyCurrencyToForm(){
+  const p = $('pricePrefix'); if(p) p.textContent = curSym();
+  document.querySelectorAll('.tier-price-wrap .cur-prefix').forEach(el => el.textContent = curSym());
+  const base = $('e-price');
+  if(base && providerData?.basePrice) base.value = Math.round(convertAmount(providerData.basePrice, activeCurrency));
+  priceTiers.forEach((t,i) => {
+    const inp = document.querySelector(`.tier-price-input[data-i="${i}"]`);
+    if(inp) inp.value = Math.round(convertAmount(t.priceUsd, activeCurrency));
+  });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SAVE — strict country + USD storage
-   ═══════════════════════════════════════════════════════════ */
-async function saveProfileData() {
-  const btn = $('save-btn');
-  const locationVal = $('e-loc').value.trim();
+function addTier(){ priceTiers.push({ name:'', desc:'', priceUsd:0 }); renderEdit(); }
+function removeTier(i){ priceTiers.splice(i,1); renderEdit(); scheduleDraft(); }
 
-  // ⭐ Block save if country can't be resolved
-  const resolvedCountry = detectCountryFromLocation(locationVal);
-  if (!resolvedCountry) {
-    showToast('Please include a recognized country — e.g. "Harare, Zimbabwe" or "Pretoria, South Africa".', 'error');
-    $('e-loc').focus();
-    updateCountryChip();
+function compressImage(file, maxW, q, cb){
+  const r = new FileReader();
+  r.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if(w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      cb(c.toDataURL('image/jpeg', q));
+    };
+    img.src = e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+function handleAvatar(e){
+  const f = e.target.files[0]; if(!f) return;
+  compressImage(f, 400, 0.7, b64 => { providerData.avatar = b64; renderEdit(); scheduleDraft(); toast('Avatar updated.', 'success'); });
+  e.target.value = '';
+}
+function handleGallery(e){
+  const files = Array.from(e.target.files);
+  if(uploadedImages.length + files.length > 5){ toast('Max 5 images allowed.', 'warn'); return; }
+  const txt = $('uploadText'); if(txt) txt.innerHTML = '<span class="spinner-sm" style="border-left-color:var(--navy)"></span> Processing…';
+  let done = 0;
+  files.forEach(f => {
+    if(!f.type.startsWith('image/')){ done++; return; }
+    compressImage(f, 900, 0.6, b64 => {
+      uploadedImages.push(b64);
+      done++;
+      if(done === files.length){ renderEdit(); scheduleDraft(); toast('Images added.', 'success'); }
+    });
+  });
+  e.target.value = '';
+}
+function removeImage(i){ uploadedImages.splice(i,1); renderEdit(); scheduleDraft(); }
+
+function getDraftKey(){ return 'z21_provider_draft_' + providerId; }
+function scheduleDraft(){ clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 500); }
+function saveDraft(){
+  try {
+    const state = {
+      name: $('e-name')?.value || '',
+      location: $('e-loc')?.value || '',
+      category: $('e-cat')?.value || '',
+      basePriceDisplay: Number($('e-price')?.value) || 0,
+      description: $('e-desc')?.value || '',
+      secondaryServices: $('e-secondary')?.value || '',
+      businessHours: $('e-hours')?.value || '',
+      yearsExperience: Number($('e-experience')?.value) || 0,
+      serviceAreas: $('e-areas')?.value || '',
+      languages: $('e-languages')?.value || '',
+      paymentMethods: $('e-payment')?.value || '',
+      cancellationPolicy: $('e-cancellation')?.value || '',
+      tiktok: $('e-tt')?.value || '',
+      instagram: $('e-ig')?.value || '',
+      facebook: $('e-fb')?.value || '',
+      youtube: $('e-yt')?.value || '',
+      website: $('e-web')?.value || '',
+      services: Array.from(document.querySelectorAll('.svc-chk:checked')).map(c => c.value),
+      priceTiers,
+      images: uploadedImages,
+      avatar: providerData?.avatar || null,
+      currency: activeCurrency,
+      _ts: Date.now()
+    };
+    localStorage.setItem(getDraftKey(), JSON.stringify(state));
+    showSaveStatus('Progress saved');
+  } catch(e){}
+}
+function showSaveStatus(msg){
+  const el = $('saveStatus'), txt = $('saveStatusText');
+  if(!el||!txt) return;
+  txt.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 2400);
+}
+
+async function saveProfile(){
+  const locVal = ($('e-loc').value || '').trim();
+  const priceVal = Number($('e-price').value) || 0;
+  let errors = false;
+
+  if(!locVal){ $('err-loc').classList.add('visible'); $('e-loc').classList.add('invalid'); errors = true; }
+  else if(!detectCountry(locVal)){ $('err-loc').classList.add('visible'); $('e-loc').classList.add('invalid'); errors = true; }
+  else { $('err-loc').classList.remove('visible'); $('e-loc').classList.remove('invalid'); }
+
+  if(priceVal <= 0){ $('err-price').classList.add('visible'); $('e-price').classList.add('invalid'); errors = true; }
+  else { $('err-price').classList.remove('visible'); $('e-price').classList.remove('invalid'); }
+
+  if(errors){
+    toast('Please fix the highlighted fields.', 'error');
+    document.querySelector('.invalid')?.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
 
-  btn.innerHTML = '<span class="spinner-sm"></span> Saving...';
+  const btn = $('saveBtn');
+  const orig = btn.innerHTML;
   btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Saving…';
 
-  const selectedSvc = Array.from(document.querySelectorAll('.edit-svc-chk:checked')).map(cb => cb.value);
-
-  // ⭐ Convert displayed price to USD for storage
-  const basePriceDisplay = Number($('e-price').value) || 0;
+  const country = detectCountry(locVal);
   const basePriceUsd = activeCurrency === 'ZAR'
-    ? Math.round((basePriceDisplay / USD_TO_ZAR) * 100) / 100
-    : Math.round(basePriceDisplay * 100) / 100;
+    ? Math.round((priceVal / USD_TO_ZAR) * 100) / 100
+    : Math.round(priceVal * 100) / 100;
+
+  const cleanTiers = priceTiers
+    .filter(t => t.name && t.name.trim() && t.priceUsd > 0)
+    .map(t => ({ name: t.name.trim(), desc: (t.desc||'').trim(), priceUsd: Number(t.priceUsd)||0 }));
 
   const updates = {
-    name: $('e-name').value.trim(),
-    location: locationVal,
-    country: resolvedCountry,
-    category: $('e-cat').value.trim(),
+    name: ($('e-name').value||'').trim(),
+    location: locVal,
+    country,
+    category: ($('e-cat').value||'').trim(),
     basePrice: basePriceUsd,
     basePriceCurrency: activeCurrency,
-    basePriceDisplay: basePriceDisplay,
-    description: $('e-desc').value.trim(),
-    services: selectedSvc,
-    secondaryServices: $('e-secondary').value.trim(),
-    businessHours: $('e-hours').value.trim(),
+    basePriceDisplay: priceVal,
+    priceTiers: cleanTiers,
+    description: ($('e-desc').value||'').trim(),
+    secondaryServices: ($('e-secondary').value||'').trim(),
+    businessHours: ($('e-hours').value||'').trim(),
     yearsExperience: Number($('e-experience').value) || 0,
-    serviceAreas: $('e-areas').value.trim(),
-    languages: $('e-languages').value.trim(),
-    paymentMethods: $('e-payment').value.trim(),
-    cancellationPolicy: $('e-cancellation').value.trim(),
-    tiktok:    fixLink($('e-tt').value, 'https://tiktok.com/@'),
-    instagram: fixLink($('e-ig').value, 'https://instagram.com/'),
-    facebook:  fixLink($('e-fb').value, 'https://facebook.com/'),
-    youtube:   fixLink($('e-yt').value, 'https://youtube.com/@'),
-    website:   fixLink($('e-web').value, 'https://'),
+    serviceAreas: ($('e-areas').value||'').trim(),
+    languages: ($('e-languages').value||'').trim(),
+    paymentMethods: ($('e-payment').value||'').trim(),
+    cancellationPolicy: ($('e-cancellation').value||'').trim(),
+    services: Array.from(document.querySelectorAll('.svc-chk:checked')).map(c => c.value),
+    tiktok: fixLink($('e-tt').value,'https://tiktok.com/@'),
+    instagram: fixLink($('e-ig').value,'https://instagram.com/'),
+    facebook: fixLink($('e-fb').value,'https://facebook.com/'),
+    youtube: fixLink($('e-yt').value,'https://youtube.com/@'),
+    website: fixLink($('e-web').value,'https://'),
     currency: activeCurrency,
     avatar: providerData.avatar || null,
     images: uploadedImages,
@@ -1110,133 +889,111 @@ async function saveProfileData() {
   };
 
   try {
-    await db.collection('serviceProviders').doc(currentProviderId).set(updates, { merge: true });
+    await db.collection('serviceProviders').doc(providerId).set(updates, { merge:true });
     providerData = { ...providerData, ...updates };
-    showToast('Profile saved successfully', 'success');
-    toggleMode();
-  } catch (e) {
+    localStorage.removeItem(getDraftKey());
+    toast('Profile saved successfully.', 'success');
+    showSaveStatus('Saved ✓');
+    setTimeout(() => toggleMode(), 600);
+  } catch(e){
     console.error(e);
-    let msg = 'Could not save your changes. ';
-    if (e.code === 'permission-denied') msg += 'Please make sure you are signed in to the correct account.';
-    else if (e.code === 'unavailable') msg += 'Please check your internet connection and try again.';
-    else msg += 'Please try again in a moment.';
-    showToast(msg, 'error');
-    btn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+    toast('Failed to save. Please try again.', 'error');
     btn.disabled = false;
+    btn.innerHTML = orig;
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   REVIEW SYSTEM
-   ═══════════════════════════════════════════════════════════ */
-function setupStarRating() {
-  const stars = document.querySelectorAll('#star-input i');
-  stars.forEach(star => {
-    star.addEventListener('mouseover', () => updateStarInputUI(parseInt(star.dataset.value)));
-    star.addEventListener('mouseleave', () => updateStarInputUI(selectedRating));
-    star.addEventListener('click', () => { selectedRating = parseInt(star.dataset.value); updateStarInputUI(selectedRating); });
+function setupReviews(){
+  document.querySelectorAll('#starInput i').forEach(s => {
+    s.addEventListener('mouseover', () => setStarUI(parseInt(s.dataset.v)));
+    s.addEventListener('mouseleave', () => setStarUI(selectedRating));
+    s.addEventListener('click', () => { selectedRating = parseInt(s.dataset.v); setStarUI(selectedRating); });
   });
-}
-
-function updateStarInputUI(val) {
-  document.querySelectorAll('#star-input i').forEach(star => {
-    star.className = parseInt(star.dataset.value) <= val ? 'fas fa-star active' : 'far fa-star';
-  });
-}
-
-async function checkExistingReview(profileId, collectionName) {
-  if (!currentUser) return null;
-  try {
-    const snap = await db.collection(collectionName).doc(profileId).collection('reviews')
-      .where('reviewerId','==',currentUser.uid).get();
-    if (!snap.empty) { const doc = snap.docs[0]; return { id: doc.id, ...doc.data() }; }
-    return null;
-  } catch (e) { console.error('Error checking existing review:', e); return null; }
-}
-
-async function submitReview(profileId, collectionName) {
-  if (selectedRating === 0) { alert('Please select a star rating.'); return; }
-  const comment = $('review-comment').value.trim();
-  if (!comment) { alert('Please write a comment.'); return; }
-  const reviewerName = $('reviewer-name').value.trim() || 'Anonymous';
-  const btn = $('submit-review-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-sm"></span> Sending...';
-  const existingReviewId = btn.dataset.reviewId || null;
-
-  try {
-    const reviewData = {
-      rating: selectedRating, reviewerName, comment,
-      reviewerId: currentUser.uid,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (existingReviewId) {
-      await db.collection(collectionName).doc(profileId).collection('reviews').doc(existingReviewId).update(reviewData);
-    } else {
-      reviewData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection(collectionName).doc(profileId).collection('reviews').add(reviewData);
+  $('submitReviewBtn').addEventListener('click', submitReview);
+  checkExistingReview().then(existing => {
+    if(existing){
+      $('reviewStatus').textContent = 'You already reviewed — you can update below.';
+      $('reviewerName').value = existing.reviewerName || '';
+      $('reviewComment').value = existing.comment || '';
+      selectedRating = existing.rating;
+      setStarUI(selectedRating);
+      $('submitReviewBtn').dataset.reviewId = existing.id;
     }
-    await updateProfileRating(profileId, collectionName);
-    loadReviews(profileId);
-    $('review-status').textContent = 'Review saved successfully!';
-    btn.textContent = 'Update Review';
-    const updatedReview = await checkExistingReview(profileId, collectionName);
-    if (updatedReview) btn.dataset.reviewId = updatedReview.id;
+  });
+}
+function setStarUI(v){
+  document.querySelectorAll('#starInput i').forEach(s => {
+    s.className = parseInt(s.dataset.v) <= v ? 'fas fa-star active' : 'far fa-star';
+  });
+}
+async function checkExistingReview(){
+  if(!currentUser) return null;
+  try {
+    const snap = await db.collection('serviceProviders').doc(providerId).collection('reviews')
+      .where('reviewerId','==',currentUser.uid).get();
+    if(!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+    return null;
+  } catch(e){ return null; }
+}
+async function submitReview(){
+  if(!selectedRating){ toast('Select a star rating.', 'warn'); return; }
+  const comment = $('reviewComment').value.trim();
+  if(!comment){ toast('Write a comment.', 'warn'); return; }
+  const reviewerName = $('reviewerName').value.trim() || 'Anonymous';
+  const btn = $('submitReviewBtn');
+  const existingId = btn.dataset.reviewId;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Sending…';
+  try {
+    const data = { rating: selectedRating, reviewerName, comment, reviewerId: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if(existingId){
+      await db.collection('serviceProviders').doc(providerId).collection('reviews').doc(existingId).update(data);
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('serviceProviders').doc(providerId).collection('reviews').add(data);
+    }
+    await updateRating();
+    loadReviews();
+    toast('Review saved.', 'success');
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Update Review';
-  } catch (e) {
-    console.error(e);
-    alert('Failed to submit review. Please try again.');
+  } catch(e){
+    toast('Failed to save.', 'error');
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
   }
 }
-
-async function updateProfileRating(profileId, collectionName) {
+async function updateRating(){
   try {
-    const reviewsSnap = await db.collection(collectionName).doc(profileId).collection('reviews').get();
-    let total = 0, count = 0;
-    reviewsSnap.forEach(doc => {
-      const data = doc.data();
-      if (data.rating) { total += data.rating; count++; }
-    });
-    const avg = count > 0 ? total / count : 0;
-    await db.collection(collectionName).doc(profileId).update({ rating: avg, reviewsCount: count });
-  } catch (e) { console.error('Error updating profile rating:', e); }
+    const snap = await db.collection('serviceProviders').doc(providerId).collection('reviews').get();
+    let t = 0, c = 0;
+    snap.forEach(d => { const r = d.data(); if(r.rating){ t += r.rating; c++; } });
+    const avg = c ? t/c : 0;
+    await db.collection('serviceProviders').doc(providerId).update({ rating: avg, reviewsCount: c });
+    if(providerData){ providerData.rating = avg; providerData.reviewsCount = c; }
+  } catch(e){}
 }
-
-async function loadReviews(profileId) {
-  const list = $('review-list');
-  if (!list) return;
-  list.innerHTML = '<p style="color:var(--muted);"><span class="spinner-sm" style="border-left-color:var(--navy);"></span> Loading reviews...</p>';
+async function loadReviews(){
+  const list = $('reviewList'); if(!list) return;
+  list.innerHTML = '<p style="color:var(--muted);font-size:.82rem">Loading…</p>';
   try {
-    const snap = await db.collection('serviceProviders').doc(profileId).collection('reviews').orderBy('createdAt','desc').get();
-    list.innerHTML = '';
-    if (snap.empty) { list.innerHTML = '<p style="color:var(--muted);">No reviews yet.</p>'; return; }
+    const snap = await db.collection('serviceProviders').doc(providerId).collection('reviews').orderBy('createdAt','desc').limit(20).get();
+    if(snap.empty){ list.innerHTML = '<p style="color:var(--muted);font-size:.82rem">No reviews yet.</p>'; return; }
     const tmpl = $('review-template');
-    snap.forEach(doc => {
-      const r = doc.data();
+    list.innerHTML = '';
+    snap.forEach(d => {
+      const r = d.data();
       const clone = tmpl.content.cloneNode(true);
       clone.querySelector('.reviewer-name').textContent = r.reviewerName || 'Anonymous';
-      let d = 'Recently';
-      if (r.createdAt && r.createdAt.toDate) d = new Date(r.createdAt.toDate()).toLocaleDateString();
-      clone.querySelector('.review-date').textContent = d;
-      clone.querySelector('.review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      clone.querySelector('.review-date').textContent = r.createdAt?.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : 'Recently';
+      clone.querySelector('.review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5-r.rating);
       clone.querySelector('.review-comment').textContent = r.comment || '';
       list.appendChild(clone);
     });
-  } catch (e) { list.innerHTML = '<p style="color:var(--pink);">Failed to load reviews.</p>'; }
+  } catch(e){ list.innerHTML = '<p style="color:var(--muted);font-size:.82rem">Failed to load.</p>'; }
 }
+function copyLink(){ navigator.clipboard.writeText(window.location.href).then(() => toast('Link copied!','success')); }
 
-function copyProfileLink(pid) {
-  navigator.clipboard.writeText(window.location.href).then(() => alert('Profile link copied!'));
-}
-
-/* ═══════════════════════════════════════════════════════════
-   BOOT
-   ═══════════════════════════════════════════════════════════ */
-updateCountryChip();
-applyCurrencyUI();
+updateDetectionUI();
 </script>
 </body>
 </html>

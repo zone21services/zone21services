@@ -11,30 +11,30 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 · DISCOVER
+  ZONE21 · DISCOVER  (v2 — Multi-country + Event Request Model)
 
-  LOADING: Full-screen flickering logo until Firebase Auth resolves.
+  WHAT CHANGED
+  ────────────
+  1. MULTI-COUNTRY SUPPORT
+     · Country is auto-detected (timezone → locale → IP lookup)
+     · Manual override persisted in localStorage
+     · Artist feed, city filters and phone/country fields adapt
+     · Currency (USD, ZAR, NAD, LSL, SZL, BWP, ZMW, MWK, MZN, GBP…)
+       is derived from the selected country and used everywhere
 
-  SUBSCRIPTION GATING (single-plan, strict):
-    · Source of truth = subscriptions/{uid}_annual ONLY
-    · No fallback query — the site handles many subscription docs,
-      so we only recognise the ONE annual plan written by the
-      subscription page. Any other sub doc is ignored.
-    · checkSubscription() returns false if that doc is missing,
-      deleted, not 'active', or expired.
-    · handleBookClick()   → fresh Firestore check before opening modal
-    · saveBooking()       → fresh Firestore check before writing to DB
-    · Signup does NOT overwrite an existing subscriptionStatus
+  2. NEW "EVENT REQUEST" BOOKING MODEL
+     · Artists no longer publish prices
+     · Schools / organisers post a full event brief
+       (event, artist preference, budget, requirements, contact)
+     · Admin team sources & negotiates with the artist
+     · 4-step wizard → eventRequests collection + admin inbox
 
-  AUTH: In-page modal (sign in / sign up / reset password).
-    · Reset password sends a secure link via email and always tells
-      the user to check their inbox AND spam folder.
+  3. SUBSCRIPTION GATING (unchanged, strict)
+     · subscriptions/{uid}_annual must exist, be 'active', unexpired
 
-  NAVIGATION: Top nav + user menu + bottom nav include "My Events"
-              linking to zone21tools.html
-              (icon: fa-calendar-days — free FA6 icon)
+  4. APPLE-MUSIC-INSPIRED VISUAL LANGUAGE (kept & extended)
 
-  File is named discover.html (lowercase) — all internal links match.
+  AUTH: in-page modal, sign in / sign up / reset password
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -229,7 +229,7 @@ body.z21-loading{ overflow:hidden; }
 @keyframes z21Pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .z21-hero h1{
   font-size:clamp(30px,4.5vw,52px);font-weight:800;
-  letter-spacing:-.035em;line-height:1.08;margin-bottom:12px;max-width:820px;
+  letter-spacing:-.035em;line-height:1.08;margin-bottom:12px;max-width:860px;
 }
 .z21-hero h1 .grad{
   background:linear-gradient(135deg,#ff2a54,#fa243c,#c0132b);
@@ -238,8 +238,49 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-hero p{
   font-size:clamp(15px,1.6vw,18px);
-  color:var(--text-muted);max-width:620px;line-height:1.55;
+  color:var(--text-muted);max-width:640px;line-height:1.55;
 }
+
+.z21-hero-cta{
+  display:flex;gap:12px;flex-wrap:wrap;margin-top:26px;
+}
+.z21-cta-primary{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 26px;border-radius:100px;
+  background:var(--accent);color:#fff;
+  font-size:14.5px;font-weight:700;
+  box-shadow:0 14px 40px rgba(250,36,60,.32);
+  transition:all .2s;
+}
+.z21-cta-primary:hover{background:var(--accent-2);transform:translateY(-2px)}
+.z21-cta-ghost{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 24px;border-radius:100px;
+  background:rgba(255,255,255,.06);
+  border:1px solid var(--border-2);
+  font-size:14.5px;font-weight:600;color:var(--text);
+  transition:all .2s;
+}
+.z21-cta-ghost:hover{background:rgba(255,255,255,.11);transform:translateY(-2px)}
+
+/* Region line */
+.z21-region-line{
+  display:inline-flex;align-items:center;gap:9px;
+  margin-top:22px;padding:9px 16px 9px 12px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:100px;font-size:13px;color:var(--text-muted);
+  transition:all .2s;
+}
+.z21-region-line:hover{border-color:var(--border-2)}
+.z21-region-line .flag{font-size:16px;line-height:1}
+.z21-region-line strong{color:#fff;font-weight:700}
+.z21-region-line button{
+  margin-left:6px;padding:4px 11px;border-radius:100px;
+  background:rgba(255,255,255,.08);
+  font-size:11.5px;font-weight:700;color:var(--text-muted);
+  transition:all .18s;
+}
+.z21-region-line button:hover{background:rgba(255,255,255,.16);color:#fff}
 
 /* Subscription banner */
 .z21-sub-banner{
@@ -311,6 +352,7 @@ body.z21-loading{ overflow:hidden; }
 .z21-filter-pill:hover{border-color:var(--border-2);color:var(--text)}
 .z21-filter-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .z21-filter-pill i.fa-chevron-down{font-size:10px;opacity:.7}
+.z21-filter-pill .z21-pill-flag{font-size:15px;line-height:1}
 .z21-filter select{
   position:absolute;inset:0;opacity:0;
   cursor:pointer;width:100%;height:100%;
@@ -371,6 +413,14 @@ body.z21-loading{ overflow:hidden; }
   letter-spacing:.1em;text-transform:uppercase;color:#fff;
 }
 .z21-featured-tag i{color:var(--accent);font-size:9px}
+.z21-country-tag{
+  position:absolute;top:14px;right:14px;z-index:2;
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 10px;background:rgba(0,0,0,.6);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:100px;font-size:13px;line-height:1;
+}
 
 .z21-avail-badge{
   position:absolute;bottom:14px;left:14px;z-index:2;
@@ -417,12 +467,11 @@ body.z21-loading{ overflow:hidden; }
   border-top:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;gap:10px;
 }
-.z21-price{font-size:15px;font-weight:800;letter-spacing:-.01em}
-.z21-price small{
-  font-size:10.5px;font-weight:500;color:var(--text-dim);
-  display:block;margin-bottom:1px;letter-spacing:0;
+.z21-rate-note{
+  font-size:11px;font-weight:600;color:var(--text-dim);
+  display:flex;align-items:center;gap:6px;line-height:1.2;
 }
-.z21-price-from{color:var(--text-dim);font-size:11px;font-weight:500;margin-right:2px}
+.z21-rate-note i{font-size:11px;color:var(--text-dim)}
 .z21-book-btn{
   padding:9px 18px;background:var(--accent);color:#fff;
   border-radius:100px;font-size:13px;font-weight:700;
@@ -467,7 +516,7 @@ body.z21-loading{ overflow:hidden; }
   font-size:26px;color:var(--text-dim);margin-bottom:6px;
 }
 .z21-state h3{font-size:19px;font-weight:700;letter-spacing:-.02em}
-.z21-state p{color:var(--text-muted);font-size:14px;max-width:420px;line-height:1.55}
+.z21-state p{color:var(--text-muted);font-size:14px;max-width:440px;line-height:1.55}
 .z21-state button{
   margin-top:6px;padding:11px 24px;background:var(--accent);
   border-radius:100px;font-size:14px;font-weight:700;transition:all .2s;
@@ -514,14 +563,6 @@ body.z21-loading{ overflow:hidden; }
 .z21-bottom-link i{font-size:16px}
 .z21-bottom-link span{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .z21-bottom-link.active{color:var(--accent)}
-.z21-bottom-badge{
-  position:absolute;top:8px;right:calc(50% - 18px);
-  min-width:16px;height:16px;padding:0 4px;
-  border-radius:100px;background:var(--accent);color:#fff;
-  font-size:9px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;
-  border:2px solid #000;
-}
 
 /* MODAL */
 .z21-modal{
@@ -540,7 +581,9 @@ body.z21-loading{ overflow:hidden; }
   box-shadow:0 40px 120px rgba(0,0,0,.7);
   animation:z21SlideUp .3s cubic-bezier(.25,1,.5,1);
   position:relative;
+  overscroll-behavior:contain;
 }
+.z21-modal-panel.wide{max-width:620px}
 @keyframes z21SlideUp{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .z21-modal-head{
   padding:24px 24px 0;display:flex;justify-content:space-between;
@@ -558,50 +601,70 @@ body.z21-loading{ overflow:hidden; }
 .z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
 .z21-modal-body{padding:20px 24px 24px}
 
-/* Auth tabs */
-.z21-auth-tabs{
-  display:flex;gap:4px;padding:4px;
-  background:var(--surface-2);border-radius:100px;margin-bottom:20px;
+/* Wizard step indicator */
+.z21-wsteps{
+  display:flex;padding:20px 24px 6px;position:relative;
 }
-.z21-auth-tab{
-  flex:1;padding:10px;border-radius:100px;
-  font-size:14px;font-weight:700;color:var(--text-muted);
+.z21-wstep{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;
+  position:relative;color:var(--text-dim);transition:color .25s;
+  text-align:center;
+}
+.z21-wstep::before{
+  content:'';position:absolute;top:13px;right:50%;width:100%;height:2px;
+  background:var(--border);z-index:0;transition:background .3s;
+}
+.z21-wstep:first-child::before{display:none}
+.z21-wstep-dot{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--surface-3);border:2px solid var(--surface);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;z-index:1;
+  transition:all .25s cubic-bezier(.25,1,.5,1);
+}
+.z21-wstep span{font-size:10.5px;font-weight:700;letter-spacing:.01em}
+.z21-wstep.active{color:#fff}
+.z21-wstep.active .z21-wstep-dot{
+  background:var(--accent);color:#fff;
+  box-shadow:0 0 0 4px rgba(250,36,60,.16);
+  transform:scale(1.06);
+}
+.z21-wstep.done{color:var(--text-muted)}
+.z21-wstep.done .z21-wstep-dot{background:var(--success);color:#04140a}
+.z21-wstep.done::before{background:rgba(48,209,88,.55)}
+
+/* Wizard panes */
+.z21-wizard-pane{display:none}
+.z21-wizard-pane.active{display:block;animation:z21PaneIn .32s cubic-bezier(.25,1,.5,1)}
+@keyframes z21PaneIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+
+.z21-pane-title{
+  font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);margin:4px 0 14px;
+}
+
+/* Wizard nav */
+.z21-wizard-nav{
+  display:flex;gap:10px;padding:6px 24px 24px;
+}
+.z21-wizard-nav button{
+  flex:1;padding:14px;border-radius:100px;
+  font-size:14.5px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
   transition:all .2s;
 }
-.z21-auth-tab.active{
-  background:var(--surface-3);color:#fff;
-  box-shadow:0 2px 8px rgba(0,0,0,.3);
+.z21-wiz-back{
+  background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);flex:0 0 auto !important;padding:14px 22px !important;
 }
+.z21-wiz-back:hover{background:var(--surface-3);color:#fff}
+.z21-wiz-next,.z21-wiz-submit{background:var(--accent);color:#fff}
+.z21-wiz-next:hover,.z21-wiz-submit:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-wiz-submit{background:var(--success) !important;color:#04140a !important}
+.z21-wiz-submit:hover{background:#3ee06a !important}
+.z21-wizard-nav button:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
-/* Forgot password link */
-.z21-forgot-row{
-  display:flex;justify-content:flex-end;
-  margin:-4px 0 14px;
-}
-.z21-link-btn{
-  font-size:13px;font-weight:600;
-  color:var(--accent);
-  padding:2px 0;
-  transition:opacity .2s;
-}
-.z21-link-btn:hover{opacity:.78;text-decoration:underline}
-
-/* Reset panel */
-.z21-reset-icon{
-  width:54px;height:54px;border-radius:15px;
-  background:rgba(250,36,60,.12);
-  border:1px solid rgba(250,36,60,.28);
-  display:flex;align-items:center;justify-content:center;
-  font-size:21px;color:var(--accent);
-  margin:0 auto 18px;
-}
-.z21-reset-hint{
-  font-size:12.5px;color:var(--text-dim);
-  line-height:1.6;text-align:center;
-  margin-top:16px;
-}
-.z21-reset-hint strong{color:var(--text-muted);font-weight:700}
-
+/* Form fields */
 .z21-field{margin-bottom:14px}
 .z21-field label{
   display:block;font-size:12px;font-weight:700;
@@ -615,6 +678,12 @@ body.z21-loading{ overflow:hidden; }
   background:var(--surface-2);border:1px solid var(--border);
   border-radius:var(--radius-sm);color:var(--text);
   font-size:15px;font-weight:500;outline:none;transition:all .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.z21-field select{
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='rgba(255,255,255,.45)'%3E%3Cpath d='M4.2 6.2 8 10l3.8-3.8'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px;
+  padding-right:40px;
 }
 .z21-field input:focus,
 .z21-field select:focus,
@@ -629,7 +698,123 @@ body.z21-loading{ overflow:hidden; }
   font-size:11px;color:var(--text-dim);
   text-transform:none;letter-spacing:0;font-weight:500;margin-left:4px;
 }
+.z21-field-hint{
+  font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.45;
+}
 
+/* Budget row */
+.z21-budget-row{display:grid;grid-template-columns:1fr 120px;gap:10px}
+.z21-budget-row input{padding-left:44px !important}
+.z21-budget-wrap{position:relative}
+.z21-budget-sym{
+  position:absolute;left:16px;top:50%;transform:translateY(-50%);
+  font-size:14px;font-weight:800;color:var(--text-dim);pointer-events:none;
+  max-width:24px;overflow:hidden;
+}
+
+/* Toggle */
+.z21-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:13px 16px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  margin-bottom:14px;cursor:pointer;
+}
+.z21-toggle-row .txt{font-size:13.5px;font-weight:600;color:var(--text-muted);line-height:1.35}
+.z21-toggle-row .txt small{display:block;font-size:11.5px;color:var(--text-dim);font-weight:500;margin-top:2px}
+.z21-switch{
+  position:relative;width:44px;height:26px;flex-shrink:0;
+  background:var(--surface-4);border-radius:100px;transition:background .22s;
+}
+.z21-switch::after{
+  content:'';position:absolute;top:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;background:#fff;
+  transition:transform .22s cubic-bezier(.25,1,.5,1);
+}
+.z21-toggle-row input{display:none}
+.z21-toggle-row input:checked + .z21-switch{background:var(--success)}
+.z21-toggle-row input:checked + .z21-switch::after{transform:translateX(18px)}
+
+/* Checkbox grid */
+.z21-check-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;
+}
+.z21-check{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 13px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;transition:all .18s;
+  font-size:13px;font-weight:600;color:var(--text-muted);
+}
+.z21-check:hover{border-color:var(--border-2);color:var(--text)}
+.z21-check input{display:none}
+.z21-check .box{
+  width:18px;height:18px;border-radius:6px;flex-shrink:0;
+  border:1.5px solid rgba(255,255,255,.22);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:transparent;transition:all .18s;
+}
+.z21-check input:checked ~ .box{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+}
+.z21-check:has(input:checked){
+  background:rgba(250,36,60,.08);
+  border-color:rgba(250,36,60,.35);color:#fff;
+}
+
+/* Review card */
+.z21-review{
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;margin-bottom:16px;
+}
+.z21-review-head{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+}
+.z21-review-head img{
+  width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  background:var(--surface-3);
+}
+.z21-review-head .t{flex:1;min-width:0}
+.z21-review-head .t strong{display:block;font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.z21-review-head .t small{display:block;font-size:12px;color:var(--text-dim);margin-top:2px}
+.z21-review-row{
+  display:flex;justify-content:space-between;gap:16px;
+  padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.045);
+  font-size:13px;
+}
+.z21-review-row:last-child{border-bottom:none}
+.z21-review-row .k{color:var(--text-dim);font-weight:600;flex-shrink:0}
+.z21-review-row .v{color:var(--text);font-weight:600;text-align:right;word-break:break-word}
+.z21-review-row .v.blank{color:var(--text-dim);font-weight:500}
+
+/* Success screen */
+.z21-success{
+  text-align:center;padding:14px 6px 4px;
+  animation:z21PaneIn .4s cubic-bezier(.25,1,.5,1);
+}
+.z21-success-icon{
+  width:78px;height:78px;border-radius:50%;margin:0 auto 20px;
+  background:rgba(48,209,88,.13);
+  border:1px solid rgba(48,209,88,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;color:var(--success);
+  animation:z21Pop .5s cubic-bezier(.25,1.6,.5,1);
+}
+@keyframes z21Pop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+.z21-success h3{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.z21-success p{font-size:14px;color:var(--text-muted);line-height:1.6;max-width:400px;margin:0 auto 20px}
+.z21-ref-chip{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:11px 20px;background:var(--surface-2);
+  border:1px dashed var(--border-2);border-radius:100px;
+  font-size:14px;font-weight:800;letter-spacing:.06em;color:var(--text);
+  margin-bottom:22px;
+}
+.z21-ref-chip i{color:var(--accent);font-size:13px}
+.z21-success-actions{display:flex;flex-direction:column;gap:10px}
+
+/* Generic buttons */
 .z21-btn-full{
   width:100%;padding:15px;border-radius:100px;
   font-size:15px;font-weight:700;
@@ -640,8 +825,6 @@ body.z21-loading{ overflow:hidden; }
 .z21-btn-full.primary:hover:not(:disabled){background:var(--accent-2);transform:translateY(-1px)}
 .z21-btn-full.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
 .z21-btn-full.secondary:hover{background:var(--surface-3)}
-.z21-btn-full.whatsapp{background:#25d366;color:#fff}
-.z21-btn-full.whatsapp:hover{background:#1ebe5b}
 .z21-btn-full:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
 .z21-divider{
@@ -662,25 +845,41 @@ body.z21-loading{ overflow:hidden; }
 .z21-form-msg.error{background:rgba(250,36,60,.1);border:1px solid rgba(250,36,60,.3);color:#ff9aa5}
 .z21-form-msg.success{background:rgba(48,209,88,.1);border:1px solid rgba(48,209,88,.3);color:#7ee89a}
 
-.z21-book-artist-head{
-  display:flex;align-items:center;gap:14px;
-  padding:16px;background:var(--surface-2);
-  border:1px solid var(--border);border-radius:var(--radius);
-  margin-bottom:20px;
+/* Auth tabs */
+.z21-auth-tabs{
+  display:flex;gap:4px;padding:4px;
+  background:var(--surface-2);border-radius:100px;margin-bottom:20px;
 }
-.z21-book-artist-head img{
-  width:60px;height:60px;border-radius:50%;
-  object-fit:cover;flex-shrink:0;
+.z21-auth-tab{
+  flex:1;padding:10px;border-radius:100px;
+  font-size:14px;font-weight:700;color:var(--text-muted);
+  transition:all .2s;
 }
-.z21-book-artist-head .info{flex:1;min-width:0}
-.z21-book-artist-head .info strong{
-  display:block;font-size:16px;font-weight:700;margin-bottom:3px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.z21-auth-tab.active{
+  background:var(--surface-3);color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
-.z21-book-artist-head .info small{
-  font-size:12.5px;color:var(--text-muted);
-  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+
+.z21-forgot-row{display:flex;justify-content:flex-end;margin:-4px 0 14px}
+.z21-link-btn{
+  font-size:13px;font-weight:600;color:var(--accent);
+  padding:2px 0;transition:opacity .2s;
 }
+.z21-link-btn:hover{opacity:.78;text-decoration:underline}
+
+.z21-reset-icon{
+  width:54px;height:54px;border-radius:15px;
+  background:rgba(250,36,60,.12);
+  border:1px solid rgba(250,36,60,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;color:var(--accent);
+  margin:0 auto 18px;
+}
+.z21-reset-hint{
+  font-size:12.5px;color:var(--text-dim);
+  line-height:1.6;text-align:center;margin-top:16px;
+}
+.z21-reset-hint strong{color:var(--text-muted);font-weight:700}
 
 /* TOAST */
 .z21-toast-wrap{
@@ -712,17 +911,24 @@ body.z21-loading{ overflow:hidden; }
 }
 @media(max-width:640px){
   .z21-hero{padding-top:24px}
+  .z21-hero-cta{gap:10px}
+  .z21-cta-primary,.z21-cta-ghost{padding:12px 20px;font-size:13.5px;flex:1;justify-content:center}
   .z21-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
   .z21-card-body{padding:12px 12px 14px;gap:6px}
   .z21-card-name{font-size:15px}
   .z21-card-meta{font-size:11.5px}
   .z21-genre-chip{font-size:10px;padding:2px 8px}
-  .z21-price{font-size:14px}
   .z21-book-btn{padding:8px 14px;font-size:12px}
+  .z21-rate-note{font-size:10px}
   .z21-filter-row{margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
   .z21-field-row{grid-template-columns:1fr;gap:0}
-  .z21-modal-panel{border-radius:22px}
-  .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
+  .z21-budget-row{grid-template-columns:1fr 104px}
+  .z21-check-grid{grid-template-columns:1fr}
+  .z21-modal-panel{border-radius:22px;max-height:94vh}
+  .z21-modal-head,.z21-modal-body{padding-left:18px;padding-right:18px}
+  .z21-wsteps{padding-left:18px;padding-right:18px}
+  .z21-wstep span{font-size:9.5px}
+  .z21-wizard-nav{padding-left:18px;padding-right:18px}
   .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
   .z21-bottom-link i{font-size:15px}
   .z21-bottom-link span{font-size:9px}
@@ -779,8 +985,23 @@ body.z21-loading{ overflow:hidden; }
 <!-- HERO -->
 <section class="z21-hero">
   <div class="z21-hero-tag" id="heroTag">Discover</div>
-  <h1 id="heroTitle">Find Zimbabwe's <span class="grad">hottest artists</span> for your next event.</h1>
-  <p id="heroSub">Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.</p>
+  <h1 id="heroTitle">Find <span class="grad">world-class artists</span> for your next event.</h1>
+  <p id="heroSub">Browse performers by name, genre or city. Post an event request and our team sources the perfect act for your budget.</p>
+
+  <div class="z21-hero-cta">
+    <button class="z21-cta-primary" id="heroRequestBtn">
+      <i class="fas fa-paper-plane"></i> Post an event request
+    </button>
+    <a href="#artistGrid" class="z21-cta-ghost" id="heroBrowseBtn">
+      <i class="fas fa-compass"></i> Browse artists
+    </a>
+  </div>
+
+  <button class="z21-region-line" id="regionLine" type="button">
+    <span class="flag" id="regionFlag">🇿🇼</span>
+    <span>Showing artists in <strong id="regionName">Zimbabwe</strong> · <span id="regionCurrency">USD</span></span>
+    <button type="button" id="regionChange">Change</button>
+  </button>
 
   <div id="subscriptionZone"></div>
 </section>
@@ -797,13 +1018,22 @@ body.z21-loading{ overflow:hidden; }
 
   <div class="z21-filter-row">
     <div class="z21-filter">
-      <button class="z21-filter-pill" id="locationPill">
-        <i class="fas fa-map-marker-alt"></i>
-        <span id="locationLabel">All Locations</span>
+      <button class="z21-filter-pill" id="countryPill">
+        <span class="z21-pill-flag" id="countryPillFlag">🇿🇼</span>
+        <span id="countryLabel">Zimbabwe</span>
         <i class="fas fa-chevron-down"></i>
       </button>
-      <select id="locationSelect" aria-label="Filter by location">
-        <option value="">All Locations</option>
+      <select id="countrySelect" aria-label="Filter by country"></select>
+    </div>
+
+    <div class="z21-filter">
+      <button class="z21-filter-pill" id="locationPill">
+        <i class="fas fa-map-marker-alt"></i>
+        <span id="locationLabel">All Cities</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <select id="locationSelect" aria-label="Filter by city">
+        <option value="">All Cities</option>
       </select>
     </div>
 
@@ -827,7 +1057,7 @@ body.z21-loading{ overflow:hidden; }
       <select id="availSelect" aria-label="Filter by availability">
         <option value="">Any Availability</option>
         <option value="available">Available</option>
-        <option value="busy">Busy</option>
+        <option value="busy">Limited</option>
         <option value="fully_booked">Fully Booked</option>
       </select>
     </div>
@@ -835,7 +1065,7 @@ body.z21-loading{ overflow:hidden; }
 </div>
 
 <div class="z21-results-meta">
-  <span><strong id="resultsCount">0</strong> <span id="resultsWord">artists</span></span>
+  <span><strong id="resultsCount">0</strong> <span id="resultsWord">artists</span> <span id="resultsRegion"></span></span>
   <button class="z21-reset-btn" id="resetBtn"><i class="fas fa-rotate-left"></i> Reset filters</button>
 </div>
 
@@ -862,8 +1092,8 @@ body.z21-loading{ overflow:hidden; }
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
       <div>
-        <h2 id="authTitle">Sign in to book</h2>
-        <p id="authSub">Create your free Zone21 account to continue booking artists.</p>
+        <h2 id="authTitle">Sign in to continue</h2>
+        <p id="authSub">Create your free Zone21 account to post event requests.</p>
       </div>
       <button class="z21-modal-close" data-close="authModal"><i class="fas fa-times"></i></button>
     </div>
@@ -903,12 +1133,18 @@ body.z21-loading{ overflow:hidden; }
           <label>Email</label>
           <input type="email" id="signupEmail" required placeholder="you@example.com" autocomplete="email">
         </div>
-        <div class="z21-field">
-          <label>Phone (WhatsApp)</label>
-          <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+        <div class="z21-field-row">
+          <div class="z21-field">
+            <label>Country</label>
+            <select id="signupCountry" required></select>
+          </div>
+          <div class="z21-field">
+            <label>Phone (WhatsApp)</label>
+            <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+          </div>
         </div>
         <div class="z21-field">
-          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <label>School / Organisation <span class="z21-field-optional">(optional)</span></label>
           <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
         </div>
         <div class="z21-field">
@@ -954,8 +1190,8 @@ body.z21-loading{ overflow:hidden; }
   <div class="z21-modal-panel" style="max-width:460px">
     <div class="z21-modal-head">
       <div>
-        <h2>Subscribe to book artists</h2>
-        <p>You need an active Zone21 subscription to send booking requests. It takes under 2 minutes.</p>
+        <h2>Subscribe to post requests</h2>
+        <p>You need an active Zone21 subscription to send event requests. It takes under 2 minutes.</p>
       </div>
       <button class="z21-modal-close" data-close="gateModal"><i class="fas fa-times"></i></button>
     </div>
@@ -964,7 +1200,7 @@ body.z21-loading{ overflow:hidden; }
         <i class="fas fa-lock" style="color:var(--accent);font-size:20px"></i>
         <div style="font-size:13.5px;line-height:1.5;color:var(--text-muted)">
           <strong style="color:#fff;display:block;margin-bottom:2px">Booking is locked</strong>
-          Subscribe to unlock unlimited booking requests, priority support, and event management tools.
+          Subscribe to unlock unlimited event requests, priority support, and event management tools.
         </div>
       </div>
       <a href="bookingsub.html" class="z21-btn-full primary" style="text-decoration:none">
@@ -977,76 +1213,285 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </div>
 
-<!-- BOOKING MODAL -->
-<div class="z21-modal" id="bookingModal">
-  <div class="z21-modal-panel">
+<!-- ═══════════════════════════════════════════════════════════
+     EVENT REQUEST WIZARD
+     ═══════════════════════════════════════════════════════════ -->
+<div class="z21-modal" id="requestModal">
+  <div class="z21-modal-panel wide">
+
     <div class="z21-modal-head">
       <div>
-        <h2>Send booking request</h2>
-        <p>Tell us about your event. The admin will review and reply via your inbox.</p>
+        <h2 id="reqTitle">Post an event request</h2>
+        <p id="reqSub">Tell us what you need — our team sources and negotiates with the artist for you.</p>
       </div>
-      <button class="z21-modal-close" data-close="bookingModal"><i class="fas fa-times"></i></button>
+      <button class="z21-modal-close" data-close="requestModal"><i class="fas fa-times"></i></button>
     </div>
+
+    <div class="z21-wsteps" id="wizardSteps">
+      <div class="z21-wstep" data-wstep="1">
+        <div class="z21-wstep-dot"><i class="fas fa-calendar-day"></i></div>
+        <span>Event</span>
+      </div>
+      <div class="z21-wstep" data-wstep="2">
+        <div class="z21-wstep-dot"><i class="fas fa-microphone"></i></div>
+        <span>Artist</span>
+      </div>
+      <div class="z21-wstep" data-wstep="3">
+        <div class="z21-wstep-dot"><i class="fas fa-wallet"></i></div>
+        <span>Budget</span>
+      </div>
+      <div class="z21-wstep" data-wstep="4">
+        <div class="z21-wstep-dot"><i class="fas fa-check"></i></div>
+        <span>Review</span>
+      </div>
+    </div>
+
     <div class="z21-modal-body">
-      <div class="z21-book-artist-head">
-        <img id="bookArtistImg" src="" alt="">
-        <div class="info">
-          <strong id="bookArtistName">—</strong>
-          <small id="bookArtistMeta">—</small>
+      <div class="z21-form-msg" id="reqMsg"></div>
+
+      <div id="requestFormWrap">
+
+        <!-- STEP 1 · EVENT -->
+        <div class="z21-wizard-pane active" data-pane="1">
+          <div class="z21-pane-title">Event details</div>
+
+          <div class="z21-field">
+            <label>Event Name</label>
+            <input type="text" id="reqEventName" placeholder="e.g. UZ Freshers' Welcome Party 2026">
+          </div>
+
+          <div class="z21-field-row">
+            <div class="z21-field">
+              <label>Event Type</label>
+              <select id="reqEventType">
+                <option value="">Select…</option>
+                <option>Campus Party</option>
+                <option>Concert</option>
+                <option>Private Gig</option>
+                <option>Wedding</option>
+                <option>Corporate Event</option>
+                <option>Festival</option>
+                <option>Birthday</option>
+                <option>Church Event</option>
+                <option>Fundraiser</option>
+                <option>Graduation</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="z21-field">
+              <label>Expected Attendance</label>
+              <input type="number" id="reqAttendance" min="1" placeholder="e.g. 400">
+            </div>
+          </div>
+
+          <div class="z21-field-row">
+            <div class="z21-field">
+              <label>Event Date</label>
+              <input type="date" id="reqDate">
+            </div>
+            <div class="z21-field">
+              <label>Start Time</label>
+              <input type="time" id="reqTime">
+            </div>
+          </div>
+
+          <div class="z21-field">
+            <label>Performance Duration</label>
+            <select id="reqDuration">
+              <option value="">Select…</option>
+              <option>30 minutes</option>
+              <option>45 minutes</option>
+              <option>1 hour</option>
+              <option>1.5 hours</option>
+              <option>2 hours</option>
+              <option>3 hours</option>
+              <option>4+ hours</option>
+              <option>Full day</option>
+            </select>
+          </div>
+
+          <div class="z21-field">
+            <label>Venue</label>
+            <input type="text" id="reqVenue" placeholder="e.g. UZ Great Hall">
+          </div>
+
+          <div class="z21-field-row">
+            <div class="z21-field">
+              <label>City</label>
+              <input type="text" id="reqCity" list="reqCityList" placeholder="e.g. Harare" autocomplete="off">
+              <datalist id="reqCityList"></datalist>
+            </div>
+            <div class="z21-field">
+              <label>Country</label>
+              <select id="reqCountry"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2 · ARTIST -->
+        <div class="z21-wizard-pane" data-pane="2">
+          <div class="z21-pane-title">Artist preference</div>
+
+          <div class="z21-field">
+            <label>Preferred Artist</label>
+            <select id="reqArtist"></select>
+            <div class="z21-field-hint">No preference? Our team will match the best available act to your brief and budget.</div>
+          </div>
+
+          <div class="z21-field-row">
+            <div class="z21-field">
+              <label>Genre Preference</label>
+              <select id="reqGenre"></select>
+            </div>
+            <div class="z21-field">
+              <label>Performance Type</label>
+              <select id="reqPerfType">
+                <option value="">Select…</option>
+                <option>Live Band</option>
+                <option>DJ Set</option>
+                <option>Solo Artist</option>
+                <option>Duo / Trio</option>
+                <option>MC / Host</option>
+                <option>Dance Group</option>
+                <option>Poet / Spoken Word</option>
+                <option>Comedian</option>
+                <option>Choir</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="z21-field">
+            <label>Notes for the Artist <span class="z21-field-optional">(optional)</span></label>
+            <textarea id="reqArtistNotes" placeholder="Set list preferences, songs you'd love to hear, language, dress code, meet & greet…"></textarea>
+          </div>
+        </div>
+
+        <!-- STEP 3 · BUDGET -->
+        <div class="z21-wizard-pane" data-pane="3">
+          <div class="z21-pane-title">Budget &amp; requirements</div>
+
+          <div class="z21-field">
+            <label>Your Budget</label>
+            <div class="z21-budget-row">
+              <div class="z21-budget-wrap">
+                <span class="z21-budget-sym" id="reqBudgetSym">$</span>
+                <input type="number" id="reqBudget" min="0" step="10" placeholder="0">
+              </div>
+              <select id="reqCurrency" aria-label="Currency"></select>
+            </div>
+            <div class="z21-field-hint">Give a realistic figure — this helps us negotiate the best rate for you.</div>
+          </div>
+
+          <label class="z21-toggle-row" for="reqFlexible">
+            <span class="txt">
+              Budget is flexible
+              <small>We can go slightly higher for the right act</small>
+            </span>
+            <input type="checkbox" id="reqFlexible">
+            <span class="z21-switch"></span>
+          </label>
+
+          <div class="z21-field">
+            <label>Preferred Payment Method</label>
+            <select id="reqPayment">
+              <option value="">Select…</option>
+              <option>EcoCash</option>
+              <option>Bank Transfer</option>
+              <option>Mobile Money</option>
+              <option>Cash</option>
+              <option>Card</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="z21-field">
+            <label>What Should We Arrange?</label>
+            <div class="z21-check-grid">
+              <label class="z21-check"><input type="checkbox" value="PA System"><span class="box"><i class="fas fa-check"></i></span> PA System</label>
+              <label class="z21-check"><input type="checkbox" value="Stage"><span class="box"><i class="fas fa-check"></i></span> Stage</label>
+              <label class="z21-check"><input type="checkbox" value="Lighting"><span class="box"><i class="fas fa-check"></i></span> Lighting</label>
+              <label class="z21-check"><input type="checkbox" value="DJ Equipment"><span class="box"><i class="fas fa-check"></i></span> DJ Equipment</label>
+              <label class="z21-check"><input type="checkbox" value="Transport"><span class="box"><i class="fas fa-check"></i></span> Transport</label>
+              <label class="z21-check"><input type="checkbox" value="Accommodation"><span class="box"><i class="fas fa-check"></i></span> Accommodation</label>
+              <label class="z21-check"><input type="checkbox" value="Meals"><span class="box"><i class="fas fa-check"></i></span> Meals</label>
+              <label class="z21-check"><input type="checkbox" value="Security"><span class="box"><i class="fas fa-check"></i></span> Security</label>
+            </div>
+          </div>
+
+          <div class="z21-field">
+            <label>Additional Details <span class="z21-field-optional">(optional)</span></label>
+            <textarea id="reqDescription" placeholder="Stage plot, sound requirements, curfew, sponsor obligations, anything else we should know…"></textarea>
+          </div>
+        </div>
+
+        <!-- STEP 4 · REVIEW -->
+        <div class="z21-wizard-pane" data-pane="4">
+          <div class="z21-pane-title">Contact &amp; review</div>
+
+          <div class="z21-field-row">
+            <div class="z21-field">
+              <label>Contact Name</label>
+              <input type="text" id="reqContactName" placeholder="Your full name">
+            </div>
+            <div class="z21-field">
+              <label>Phone (WhatsApp)</label>
+              <input type="tel" id="reqContactPhone" placeholder="+263 78 000 0000">
+            </div>
+          </div>
+
+          <div class="z21-field">
+            <label>Email</label>
+            <input type="email" id="reqContactEmail" placeholder="you@example.com">
+          </div>
+
+          <div class="z21-field">
+            <label>School / Organisation <span class="z21-field-optional">(optional)</span></label>
+            <input type="text" id="reqOrganization" placeholder="e.g. University of Zimbabwe SRC">
+          </div>
+
+          <div class="z21-pane-title" style="margin-top:22px">Summary</div>
+          <div class="z21-review" id="reqReview"></div>
+
+          <label class="z21-check" style="margin-bottom:4px">
+            <input type="checkbox" id="reqConsent">
+            <span class="box"><i class="fas fa-check"></i></span>
+            I confirm the details above are accurate and I'm authorised to make this request.
+          </label>
+        </div>
+
+      </div><!-- /requestFormWrap -->
+
+      <!-- SUCCESS -->
+      <div class="z21-success" id="requestSuccess" style="display:none">
+        <div class="z21-success-icon"><i class="fas fa-check"></i></div>
+        <h3>Request submitted</h3>
+        <p>Our team is now sourcing your artist. You'll get a reply in your inbox within 24 hours with availability and a final quote.</p>
+        <div class="z21-ref-chip"><i class="fas fa-hashtag"></i> <span id="successRef">—</span></div>
+        <div class="z21-success-actions">
+          <a href="zone21tools.html" class="z21-btn-full primary" style="text-decoration:none;margin-top:0">
+            <i class="fas fa-calendar-days"></i> View My Events
+          </a>
+          <button type="button" class="z21-btn-full secondary" data-close="requestModal">
+            Close
+          </button>
         </div>
       </div>
 
-      <div class="z21-form-msg" id="bookMsg"></div>
+    </div><!-- /modal body -->
 
-      <form id="bookingForm">
-        <div class="z21-field-row">
-          <div class="z21-field">
-            <label>Event Date</label>
-            <input type="date" id="bookDate" required>
-          </div>
-          <div class="z21-field">
-            <label>Event Time</label>
-            <input type="time" id="bookTime" required>
-          </div>
-        </div>
-        <div class="z21-field">
-          <label>Event Type</label>
-          <select id="bookEventType" required>
-            <option value="">Select event type…</option>
-            <option>Campus Party</option>
-            <option>Concert</option>
-            <option>Private Gig</option>
-            <option>Wedding</option>
-            <option>Corporate Event</option>
-            <option>Festival</option>
-            <option>Birthday</option>
-            <option>Other</option>
-          </select>
-        </div>
-        <div class="z21-field">
-          <label>Venue / Location</label>
-          <input type="text" id="bookVenue" required placeholder="e.g. UZ Great Hall, Harare">
-        </div>
-        <div class="z21-field">
-          <label>Budget (USD) <span class="z21-field-optional">(optional)</span></label>
-          <input type="number" id="bookBudget" min="0" placeholder="e.g. 250">
-        </div>
-        <div class="z21-field">
-          <label>Additional Details <span class="z21-field-optional">(optional)</span></label>
-          <textarea id="bookDescription" placeholder="Set length, special requests, expected attendance, stage requirements…"></textarea>
-        </div>
-
-        <button type="submit" class="z21-btn-full primary" id="bookSubmit">
-          <i class="fas fa-paper-plane"></i> Send Request on Site
-        </button>
-
-        <div class="z21-divider">or</div>
-
-        <button type="button" class="z21-btn-full whatsapp" id="bookWhatsApp">
-          <i class="fab fa-whatsapp"></i> Book via WhatsApp
-        </button>
-      </form>
+    <div class="z21-wizard-nav" id="wizardNav">
+      <button type="button" class="z21-wiz-back" id="wizBack">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <button type="button" class="z21-wiz-next" id="wizNext">
+        Continue <i class="fas fa-arrow-right"></i>
+      </button>
+      <button type="button" class="z21-wiz-submit" id="wizSubmit">
+        <i class="fas fa-paper-plane"></i> Submit Request
+      </button>
     </div>
+
   </div>
 </div>
 
@@ -1077,13 +1522,53 @@ const firebaseConfig = {
   measurementId: "G-KE007Y89F1"
 };
 
-const PLAN = { id: 'annual', name: 'Full Access — Annual', price: 150, months: 12 };
+const PLAN = { id: 'annual', name: 'Full Access — Annual', months: 12 };
 const ADMIN_WHATSAPP = '263789912268';
 const PER_PAGE = 12;
+const DEFAULT_COUNTRY = 'ZW';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+/* ═══════════════════════════════════════════════════════════
+   COUNTRY REGISTRY
+   Each country carries its currency, dial code and key cities.
+   Adding a new market = adding one entry here.
+   ═══════════════════════════════════════════════════════════ */
+const COUNTRIES = {
+  ZW: { code:'ZW', name:'Zimbabwe', flag:'🇿🇼', currency:'USD', symbol:'$',  dial:'+263',
+        cities:['Harare','Bulawayo','Chitungwiza','Mutare','Gweru','Kwekwe','Kadoma','Masvingo','Chinhoyi','Marondera','Victoria Falls','Hwange','Beitbridge','Kariba','Bindura','Rusape','Zvishavane','Gwanda'] },
+  ZA: { code:'ZA', name:'South Africa', flag:'🇿🇦', currency:'ZAR', symbol:'R', dial:'+27',
+        cities:['Johannesburg','Cape Town','Durban','Pretoria','Port Elizabeth','Bloemfontein','East London','Polokwane','Nelspruit','Kimberley','Soweto','Sandton','Stellenbosch','Pietermaritzburg','Rustenburg','Mthatha'] },
+  NA: { code:'NA', name:'Namibia', flag:'🇳🇦', currency:'NAD', symbol:'N$', dial:'+264',
+        cities:['Windhoek','Walvis Bay','Swakopmund','Oshakati','Rundu','Katima Mulilo','Ondangwa','Rehoboth','Otjiwarongo'] },
+  LS: { code:'LS', name:'Lesotho', flag:'🇱🇸', currency:'LSL', symbol:'L', dial:'+266',
+        cities:['Maseru','Teyateyaneng','Mafeteng','Hlotse','Mohale\'s Hoek','Quthing','Butha-Buthe'] },
+  SZ: { code:'SZ', name:'Eswatini', flag:'🇸🇿', currency:'SZL', symbol:'E', dial:'+268',
+        cities:['Mbabane','Manzini','Lobamba','Siteki','Nhlangano','Piggs Peak','Big Bend'] },
+  BW: { code:'BW', name:'Botswana', flag:'🇧🇼', currency:'BWP', symbol:'P', dial:'+267',
+        cities:['Gaborone','Francistown','Maun','Molepolole','Serowe','Selibe Phikwe','Kanye','Mahalapye'] },
+  ZM: { code:'ZM', name:'Zambia', flag:'🇿🇲', currency:'ZMW', symbol:'ZK', dial:'+260',
+        cities:['Lusaka','Kitwe','Ndola','Kabwe','Chingola','Livingstone','Solwezi','Chipata'] },
+  MW: { code:'MW', name:'Malawi', flag:'🇲🇼', currency:'MWK', symbol:'MK', dial:'+265',
+        cities:['Lilongwe','Blantyre','Mzuzu','Zomba','Kasungu','Mangochi'] },
+  MZ: { code:'MZ', name:'Mozambique', flag:'🇲🇿', currency:'MZN', symbol:'MT', dial:'+258',
+        cities:['Maputo','Matola','Beira','Nampula','Chimoio','Nacala','Quelimane','Tete'] },
+  GB: { code:'GB', name:'United Kingdom', flag:'🇬🇧', currency:'GBP', symbol:'£', dial:'+44',
+        cities:['London','Manchester','Birmingham','Leeds','Glasgow','Bristol','Liverpool','Edinburgh','Cardiff','Sheffield'] },
+  US: { code:'US', name:'United States', flag:'🇺🇸', currency:'USD', symbol:'$', dial:'+1',
+        cities:['New York','Los Angeles','Chicago','Houston','Atlanta','Washington DC','Boston','Seattle','Dallas','Miami'] }
+};
+
+const CURRENCY_EXTRA = ['USD','ZAR','GBP','EUR'];
+const ZONE_BY_TZ = {
+  'Africa/Harare':'ZW','Africa/Johannesburg':'ZA','Africa/Windhoek':'NA',
+  'Africa/Maseru':'LS','Africa/Mbabane':'SZ','Africa/Gaborone':'BW',
+  'Africa/Lusaka':'ZM','Africa/Blantyre':'MW','Africa/Maputo':'MZ',
+  'Europe/London':'GB','America/New_York':'US','America/Chicago':'US',
+  'America/Los_Angeles':'US','America/Denver':'US'
+};
 
 /* ═══════════════════════════════════════════════════════════
    LOADER SPLASH
@@ -1112,6 +1597,11 @@ setTimeout(hideLoader, FAILSAFE_MS);
 /* ═══════════════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════════════ */
+const state = {
+  country: DEFAULT_COUNTRY,
+  countryIsManual: false
+};
+
 let currentUser = null;
 let userProfile = null;
 let isSubscribed = false;
@@ -1119,8 +1609,10 @@ let isSubscribedResolved = false;
 let allArtists = [];
 let filteredArtists = [];
 let currentPage = 1;
-let pendingArtistAfterAuth = null;
+let pendingActionAfterAuth = null;   // 'request' | {type:'artist', id}
 let activeArtist = null;
+let wizStep = 1;
+const WIZ_TOTAL = 4;
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -1153,11 +1645,13 @@ function showToast(msg, type = 'info', duration = 3400){
 
 function showFormMsg(elId, msg, type = 'error'){
   const el = $(elId);
+  if(!el) return;
   el.textContent = msg;
   el.className = `z21-form-msg show ${type}`;
 }
 function clearFormMsg(elId){
   const el = $(elId);
+  if(!el) return;
   el.textContent = '';
   el.className = 'z21-form-msg';
 }
@@ -1168,8 +1662,8 @@ function closeModal(id){
   if(!document.querySelector('.z21-modal.open')) document.body.style.overflow = '';
 }
 
-function genBookingRef(){
-  return 'BK-' + Math.floor(100000 + Math.random() * 900000);
+function genRef(prefix){
+  return prefix + '-' + Math.floor(100000 + Math.random() * 900000);
 }
 
 function toDate(ts){
@@ -1193,18 +1687,118 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   COUNTRY DETECTION
+   Priority: manual override → timezone → locale → IP → default
+   ═══════════════════════════════════════════════════════════ */
+function detectCountrySync(){
+  // 1) Manual override
+  try{
+    const saved = localStorage.getItem('z21_country');
+    if(saved && COUNTRIES[saved]){
+      state.countryIsManual = true;
+      return saved;
+    }
+  }catch(_){}
+
+  // 2) Timezone
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if(ZONE_BY_TZ[tz]) return ZONE_BY_TZ[tz];
+    if(tz.startsWith('Africa/')){
+      // Unknown African TZ — keep default
+      return DEFAULT_COUNTRY;
+    }
+  }catch(_){}
+
+  // 3) Locale region
+  try{
+    const loc = navigator.language || '';
+    const m = loc.match(/-([A-Z]{2})$/);
+    if(m && COUNTRIES[m[1]]) return m[1];
+  }catch(_){}
+
+  return DEFAULT_COUNTRY;
+}
+
+async function refineCountryFromIP(){
+  if(state.countryIsManual) return;
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3500);
+    const res = await fetch('https://ipwho.is/', { signal: ctrl.signal });
+    clearTimeout(timer);
+    if(!res.ok) return;
+    const data = await res.json();
+    if(data && data.success === false) return;
+    const cc = String(data.country_code || '').toUpperCase();
+    if(cc && COUNTRIES[cc] && cc !== state.country){
+      applyCountry(cc, { manual:false, silent:true });
+    }
+  }catch(_){ /* silent — sync detection already applied */ }
+}
+
+function setManualCountry(code){
+  if(!COUNTRIES[code]) return;
+  state.countryIsManual = true;
+  try{ localStorage.setItem('z21_country', code); }catch(_){}
+  applyCountry(code, { manual:true });
+}
+
+function currentCountry(){ return COUNTRIES[state.country] || COUNTRIES[DEFAULT_COUNTRY]; }
+
+function applyCountry(code, opts = {}){
+  state.country = code;
+  const c = currentCountry();
+
+  // Header region line
+  $('regionFlag').textContent = c.flag;
+  $('regionName').textContent = c.name;
+  $('regionCurrency').textContent = c.currency;
+
+  // Filter pill
+  $('countryPillFlag').textContent = c.flag;
+  $('countryLabel').textContent = c.name;
+  const cSel = $('countrySelect');
+  if(cSel) cSel.value = code;
+
+  // Repopulate location options for the new country
+  populateLocationOptions();
+  populateCityDatalist();
+  updateResultsRegion();
+
+  if(!opts.silent){
+    applyFilters();
+    updateGreeting();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MONEY
+   ═══════════════════════════════════════════════════════════ */
+function money(amount, currency){
+  const cur = currency || currentCountry().currency;
+  try{
+    return new Intl.NumberFormat('en', {
+      style:'currency', currency: cur, maximumFractionDigits: 0
+    }).format(amount);
+  }catch(_){
+    return `${cur} ${amount}`;
+  }
+}
+
+function currencySymbol(code){
+  try{
+    const parts = new Intl.NumberFormat('en', { style:'currency', currency: code })
+      .formatToParts(0);
+    const sym = parts.find(p => p.type === 'currency');
+    return sym ? sym.value : code;
+  }catch(_){
+    return code;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    SUBSCRIPTION CHECK — STRICT, SINGLE PLAN
-
-   This site handles many subscriptions (different plans / docs).
-   The booking flow must only recognise the ONE annual plan
-   written by bookingsub.html, whose doc id is:
-
-       subscriptions/{uid}_annual
-
-   We intentionally do NOT fall back to a query that would match
-   any other 'active' subscription the user might hold. If that
-   doc doesn't exist, isn't active, is deleted, or is expired
-   → return false. No exceptions, no guesses.
    ═══════════════════════════════════════════════════════════ */
 async function checkSubscription(uid){
   if(!uid) return false;
@@ -1214,21 +1808,12 @@ async function checkSubscription(uid){
     if(!subSnap.exists()) return false;
 
     const s = subSnap.data();
-
-    // Ignore soft-deleted subs
     if(s.deletedAt) return false;
-
-    // Must be exactly 'active' — 'pending_payment', 'rejected',
-    // 'approved-but-stale', etc. do NOT count.
     if(s.status !== 'active') return false;
 
-    // Ignore expired subs
     const exp = toDate(s.expiresAt);
     if(exp && exp.getTime() <= Date.now()) return false;
 
-    // Belt-and-braces: if the doc carries a planId, make sure it
-    // matches the annual plan we expect. Guards against doc id
-    // collisions or accidental plan swaps in the admin.
     if(s.planId && s.planId !== PLAN.id) return false;
 
     return true;
@@ -1266,6 +1851,12 @@ onAuthStateChanged(auth, async (user) => {
     userProfile = { name: user.displayName || 'Member', email: user.email };
   }
 
+  // If the user's stored country differs and they haven't set a manual
+  // preference on this device, adopt their profile country.
+  if(userProfile.country && COUNTRIES[userProfile.country] && !state.countryIsManual){
+    applyCountry(userProfile.country, { silent:true });
+  }
+
   isSubscribed = await checkSubscription(user.uid);
   isSubscribedResolved = true;
 
@@ -1274,7 +1865,6 @@ onAuthStateChanged(auth, async (user) => {
   updateGreeting();
   hideLoader();
 
-  /* Resume any pending booking flow */
   afterAuthResume();
 });
 
@@ -1315,7 +1905,7 @@ $('menuSignOut').addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION ZONE (banner under hero)
+   SUBSCRIPTION ZONE
    ═══════════════════════════════════════════════════════════ */
 function renderSubscriptionZone(){
   const zone = $('subscriptionZone');
@@ -1327,7 +1917,7 @@ function renderSubscriptionZone(){
     zone.innerHTML = `
       <div class="z21-active-badge">
         <i class="fas fa-circle-check"></i>
-        Subscription active — you can book any artist
+        Subscription active — you can post unlimited event requests
       </div>`;
   } else {
     zone.innerHTML = `
@@ -1335,7 +1925,7 @@ function renderSubscriptionZone(){
         <i class="fas fa-lock"></i>
         <div class="z21-sub-banner-text">
           <strong>You haven't subscribed yet.</strong>
-          <span>Browse freely — subscribe to unlock booking.</span>
+          <span>Browse freely — subscribe to unlock event requests.</span>
         </div>
         <a href="bookingsub.html">Subscribe now</a>
       </div>`;
@@ -1343,19 +1933,56 @@ function renderSubscriptionZone(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   GREETING
+   GREETING / HERO
    ═══════════════════════════════════════════════════════════ */
 function updateGreeting(){
+  const c = currentCountry();
   if(currentUser && userProfile){
     const firstName = (userProfile.name || 'there').split(' ')[0];
     $('heroTag').textContent = 'Welcome back';
-    $('heroTitle').innerHTML = `Hey ${escapeHTML(firstName)}, find your next <span class="grad">showstopper</span>.`;
-    $('heroSub').textContent = 'Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.';
+    $('heroTitle').innerHTML = `Hey ${escapeHTML(firstName)}, book your next <span class="grad">showstopper</span>.`;
+    $('heroSub').textContent = `Browse artists across ${c.name} by name, genre or city. Post an event request and our team handles the rest.`;
   } else {
     $('heroTag').textContent = 'Discover';
-    $('heroTitle').innerHTML = `Find Zimbabwe's <span class="grad">hottest artists</span> for your next event.`;
-    $('heroSub').textContent = 'Browse performers by name, genre or location. Filter, compare, and send a booking request in under a minute.';
+    $('heroTitle').innerHTML = `Find <span class="grad">world-class artists</span> for your next event.`;
+    $('heroSub').textContent = `Browse performers in ${c.name} by name, genre or city. Post an event request and our team sources the perfect act for your budget.`;
   }
+  updateResultsRegion();
+}
+
+function updateResultsRegion(){
+  const c = currentCountry();
+  const el = $('resultsRegion');
+  if(el) el.textContent = `in ${c.name}`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COUNTRY ↔ CITY INFERENCE FOR ARTISTS
+   ═══════════════════════════════════════════════════════════ */
+const CITY_INDEX = (() => {
+  const idx = {};
+  Object.values(COUNTRIES).forEach(c => {
+    c.cities.forEach(city => { idx[city.toLowerCase()] = c.code; });
+  });
+  return idx;
+})();
+
+function computeArtistCountries(a){
+  if(a.country && COUNTRIES[a.country]) return [a.country];
+
+  const locs = (Array.isArray(a.locations) ? a.locations
+              : (a.location ? [a.location] : []))
+              .map(s => String(s).toLowerCase().trim());
+
+  const found = new Set();
+  locs.forEach(l => { if(CITY_INDEX[l]) found.add(CITY_INDEX[l]); });
+
+  if(found.size === 0){
+    // Legacy artist with no matchable city and no explicit country
+    if(a.country) found.add(a.country);
+    else found.add(DEFAULT_COUNTRY);
+  }
+  return [...found];
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1365,7 +1992,11 @@ async function loadArtists(){
   renderSkeletons();
   try{
     const snap = await getDocs(query(collection(db, 'artists'), limit(500)));
-    allArtists = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allArtists = snap.docs.map(d => {
+      const a = { id: d.id, ...d.data() };
+      a._countries = computeArtistCountries(a);
+      return a;
+    });
 
     if(allArtists.length === 0){
       renderEmpty();
@@ -1406,14 +2037,18 @@ function renderSkeletons(){
 }
 
 function renderEmpty(){
+  const c = currentCountry();
   $('artistGrid').innerHTML = `
     <div class="z21-state">
       <div class="z21-state-icon"><i class="fas fa-microphone-lines"></i></div>
-      <h3>No artists listed yet</h3>
-      <p>Zone21's artist roster is being built. Once artists are added, they'll appear here.</p>
+      <h3>No artists listed in ${escapeHTML(c.name)} yet</h3>
+      <p>Zone21 is actively onboarding artists across the region. In the meantime, post an event request and our team will source the perfect act for you.</p>
+      <button id="emptyRequestBtn"><i class="fas fa-paper-plane"></i> Post an event request</button>
     </div>`;
   $('resultsCount').textContent = '0';
   $('resultsWord').textContent = 'artists';
+  const b = $('emptyRequestBtn');
+  if(b) b.addEventListener('click', () => startRequestFlow(null));
 }
 
 function renderError(msg){
@@ -1427,44 +2062,107 @@ function renderError(msg){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FILTERS
+   FILTER POPULATION
    ═══════════════════════════════════════════════════════════ */
-const FALLBACK_LOCATIONS = [
-  'Harare','Bulawayo','Chitungwiza','Mutare','Gweru','Kwekwe','Kadoma',
-  'Masvingo','Chinhoyi','Marondera','Victoria Falls','Hwange','Beitbridge',
-  'Kariba','Bindura','Rusape','Zvishavane','Gwanda','Nationwide'
-];
+function populateCountrySelects(){
+  const opts = Object.values(COUNTRIES)
+    .map(c => `<option value="${c.code}">${c.flag} ${escapeHTML(c.name)} · ${c.currency}</option>`)
+    .join('');
+
+  // Filter select (with "All countries")
+  const cs = $('countrySelect');
+  cs.innerHTML = `<option value="ALL">🌍 All Countries</option>` + opts;
+  cs.value = state.country;
+
+  // Wizard country select
+  const rc = $('reqCountry');
+  rc.innerHTML = opts;
+  rc.value = state.country;
+
+  // Signup country select
+  const sc = $('signupCountry');
+  sc.innerHTML = opts;
+  sc.value = state.country;
+}
 
 function populateFilterOptions(){
-  const locSet = new Set(FALLBACK_LOCATIONS);
-  allArtists.forEach(a => {
-    const locs = Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []);
-    locs.forEach(l => l && locSet.add(l));
-  });
-  const locSel = $('locationSelect');
-  const currentLoc = locSel.value;
-  locSel.innerHTML = `<option value="">All Locations</option>` +
-    [...locSet].sort().map(l => `<option value="${escapeHTML(l)}">${escapeHTML(l)}</option>`).join('');
-  locSel.value = currentLoc;
+  const c = currentCountry();
+  const cSel = $('countrySelect');
+  if(cSel) cSel.value = state.country;
 
+  populateLocationOptions();
+
+  // Genres — scoped to the selected country's artists
   const genreSet = new Set();
   allArtists.forEach(a => {
+    if(state.country !== 'ALL' && !a._countries.includes(state.country)) return;
     (Array.isArray(a.genres) ? a.genres : []).forEach(g => g && genreSet.add(g));
   });
   const genreSel = $('genreSelect');
   const currentGenre = genreSel.value;
   genreSel.innerHTML = `<option value="">All Genres</option>` +
     [...genreSet].sort().map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
-  genreSel.value = currentGenre;
+  if([...genreSel.options].some(o => o.value === currentGenre)) genreSel.value = currentGenre;
+  else genreSel.value = '';
 }
 
+function populateLocationOptions(){
+  const cities = new Set();
+
+  if(state.country !== 'ALL'){
+    const c = COUNTRIES[state.country];
+    if(c) c.cities.forEach(city => cities.add(city));
+  }
+
+  allArtists.forEach(a => {
+    if(state.country !== 'ALL' && !a._countries.includes(state.country)) return;
+    const locs = Array.isArray(a.locations) ? a.locations
+               : (a.location ? [a.location] : []);
+    locs.forEach(l => { if(l) cities.add(l); });
+  });
+
+  const sel = $('locationSelect');
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">All Cities</option>` +
+    [...cities].sort().map(l => `<option value="${escapeHTML(l)}">${escapeHTML(l)}</option>`).join('');
+
+  if([...sel.options].some(o => o.value === prev)){
+    sel.value = prev;
+  } else {
+    sel.value = '';
+    $('locationLabel').textContent = 'All Cities';
+    $('locationPill').classList.remove('active');
+  }
+}
+
+function populateCityDatalist(){
+  const c = currentCountry();
+  const cities = new Set(c.cities);
+  allArtists.forEach(a => {
+    if(state.country === 'ALL' || a._countries.includes(state.country)){
+      const locs = Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []);
+      locs.forEach(l => { if(l) cities.add(l); });
+    }
+  });
+  $('reqCityList').innerHTML = [...cities].sort()
+    .map(city => `<option value="${escapeHTML(city)}"></option>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILTERING
+   ═══════════════════════════════════════════════════════════ */
 function applyFilters(){
   const q = $('searchInput').value.trim().toLowerCase();
+  const country = state.country;
   const loc = $('locationSelect').value;
   const genre = $('genreSelect').value;
   const avail = $('availSelect').value;
 
   filteredArtists = allArtists.filter(a => {
+    // Country
+    if(country !== 'ALL' && !a._countries.includes(country)) return false;
+
+    // City
     if(loc){
       const locs = (Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []))
         .map(x => String(x).toLowerCase());
@@ -1473,16 +2171,19 @@ function applyFilters(){
       if(!hasLoc) return false;
     }
 
+    // Genre
     if(genre){
       const genres = (Array.isArray(a.genres) ? a.genres : []).map(x => String(x).toLowerCase());
       if(!genres.includes(genre.toLowerCase())) return false;
     }
 
+    // Availability
     if(avail){
       const status = (a.availabilityStatus || 'available').toLowerCase();
       if(status !== avail) return false;
     }
 
+    // Text search
     if(q){
       const haystack = [
         a.name, a.bio,
@@ -1497,6 +2198,7 @@ function applyFilters(){
   currentPage = 1;
   renderArtists();
   updateResetBtn();
+  updateResultsRegion();
 }
 
 function updateResetBtn(){
@@ -1506,7 +2208,7 @@ function updateResetBtn(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER ARTISTS
+   RENDER CARDS
    ═══════════════════════════════════════════════════════════ */
 function renderArtists(){
   const grid = $('artistGrid');
@@ -1516,11 +2218,13 @@ function renderArtists(){
       <div class="z21-state">
         <div class="z21-state-icon"><i class="fas fa-search"></i></div>
         <h3>No artists match your filters</h3>
-        <p>Try clearing your search or picking a different location or genre.</p>
-        <button onclick="document.getElementById('resetBtn').click()"><i class="fas fa-rotate-left"></i> Reset filters</button>
+        <p>Try clearing your search, or post an event request and our team will find the right act for you.</p>
+        <button id="noResultRequestBtn"><i class="fas fa-paper-plane"></i> Post an event request</button>
       </div>`;
     $('pagination').innerHTML = '';
     $('resultsCount').textContent = '0';
+    const b = $('noResultRequestBtn');
+    if(b) b.addEventListener('click', () => startRequestFlow(null));
     return;
   }
 
@@ -1531,8 +2235,8 @@ function renderArtists(){
   $('resultsCount').textContent = filteredArtists.length;
   $('resultsWord').textContent = filteredArtists.length === 1 ? 'artist' : 'artists';
 
-  grid.querySelectorAll('[data-book-id]').forEach(btn => {
-    btn.addEventListener('click', () => handleBookClick(btn.dataset.bookId));
+  grid.querySelectorAll('[data-request-id]').forEach(btn => {
+    btn.addEventListener('click', () => handleRequestClick(btn.dataset.requestId));
   });
 
   renderPagination();
@@ -1549,18 +2253,15 @@ function renderCard(a){
                      : status === 'busy'      ? 'Limited'
                      : 'Fully Booked';
 
-  const priceFrom = a.priceFrom;
-  const currency = a.currency || 'USD';
-  const currencySymbol = currency === 'USD' ? '$' : currency + ' ';
-  const priceLabel = priceFrom != null
-    ? `${currencySymbol}${Number(priceFrom).toLocaleString('en-US')}`
-    : 'Enquire';
+  const countryCode = a._countries && a._countries[0];
+  const countryFlag = countryCode && COUNTRIES[countryCode] ? COUNTRIES[countryCode].flag : '';
 
   return `
     <article class="z21-card">
       <div class="z21-card-img">
         <img src="${escapeHTML(photo)}" alt="${name}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(a.name||'A')}&background=222226&color=fa243c&size=400&bold=true'">
         ${a.featured ? `<span class="z21-featured-tag"><i class="fas fa-star"></i> Featured</span>` : ''}
+        ${countryFlag ? `<span class="z21-country-tag" title="${escapeHTML(COUNTRIES[countryCode]?.name||'')}">${countryFlag}</span>` : ''}
         <span class="z21-avail-badge ${status}"><span class="dot"></span>${statusLabel}</span>
       </div>
       <div class="z21-card-body">
@@ -1574,12 +2275,9 @@ function renderCard(a){
         </div>
         ${bio ? `<div style="font-size:12.5px;color:var(--text-dim);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px">${bio}</div>` : ''}
         <div class="z21-card-footer">
-          <div class="z21-price">
-            <small>From</small>
-            <span class="z21-price-from"></span>${priceLabel}
-          </div>
-          <button class="z21-book-btn" data-book-id="${a.id}">
-            <i class="fas fa-bolt"></i> Book
+          <div class="z21-rate-note"><i class="fas fa-comments-dollar"></i> Rates on request</div>
+          <button class="z21-book-btn" data-request-id="${a.id}">
+            <i class="fas fa-paper-plane"></i> Request
           </button>
         </div>
       </div>
@@ -1649,56 +2347,41 @@ function renderPagination(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BOOK FLOW — HARDENED
+   REQUEST FLOW — ENTRY POINTS
    ═══════════════════════════════════════════════════════════ */
-async function handleBookClick(artistId){
+async function handleRequestClick(artistId){
   const artist = allArtists.find(a => a.id === artistId);
   if(!artist) return;
+  startRequestFlow(artist);
+}
 
+async function startRequestFlow(artist){
+  // Not signed in → remember intent, open auth
   if(!currentUser){
-    pendingArtistAfterAuth = artist;
+    pendingActionAfterAuth = { type:'request', artistId: artist ? artist.id : null };
     openAuthModal('signup');
     return;
   }
 
-  showToast('Checking subscription…', 'info', 1800);
+  showToast('Checking subscription…', 'info', 1600);
   const verified = await checkSubscription(currentUser.uid);
   isSubscribed = verified;
   isSubscribedResolved = true;
   renderSubscriptionZone();
 
   if(!verified){
-    showToast('Please subscribe first to book artists.', 'error');
+    showToast('Please subscribe first to post event requests.', 'error');
     openModal('gateModal');
     return;
   }
 
-  openBookingModal(artist);
-}
-
-function openBookingModal(artist){
-  activeArtist = artist;
-  $('bookArtistImg').src = artist.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name||'A')}&background=222226&color=fa243c&size=200&bold=true`;
-  $('bookArtistName').textContent = artist.name || 'Artist';
-  const locs = Array.isArray(artist.locations) ? artist.locations.slice(0,2).join(', ') : (artist.location || '');
-  const genres = Array.isArray(artist.genres) ? artist.genres.slice(0,2).join(' · ') : '';
-  $('bookArtistMeta').innerHTML = [locs, genres].filter(Boolean).map(escapeHTML).join(' &nbsp;·&nbsp; ') || 'Performer';
-
-  clearFormMsg('bookMsg');
-
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  $('bookDate').min = `${yyyy}-${mm}-${dd}`;
-
-  openModal('bookingModal');
+  openRequestWizard(artist);
 }
 
 function afterAuthResume(){
-  if(!pendingArtistAfterAuth) return;
-  const artist = pendingArtistAfterAuth;
-  pendingArtistAfterAuth = null;
+  if(!pendingActionAfterAuth) return;
+  const action = pendingActionAfterAuth;
+  pendingActionAfterAuth = null;
 
   let attempts = 0;
   const interval = setInterval(async () => {
@@ -1712,177 +2395,496 @@ function afterAuthResume(){
       isSubscribedResolved = true;
       renderSubscriptionZone();
 
-      if(verified){
-        openBookingModal(artist);
-      } else {
-        showToast('Please subscribe first to book artists.', 'error');
+      if(!verified){
+        showToast('Please subscribe first to post event requests.', 'error');
         openModal('gateModal');
+        return;
       }
+
+      const artist = action.artistId
+        ? allArtists.find(a => a.id === action.artistId) || null
+        : null;
+      openRequestWizard(artist);
       return;
     }
 
     if(attempts > 50){
       clearInterval(interval);
-      showToast('Please subscribe first to book artists.', 'error');
+      showToast('Please subscribe first to post event requests.', 'error');
       openModal('gateModal');
     }
   }, 100);
 }
 
-function collectBookingForm(){
-  const date = $('bookDate').value;
-  const time = $('bookTime').value;
-  const eventType = $('bookEventType').value;
-  const venue = $('bookVenue').value.trim();
-  const budget = $('bookBudget').value;
-  const description = $('bookDescription').value.trim();
+/* ═══════════════════════════════════════════════════════════
+   WIZARD — OPEN / RESET
+   ═══════════════════════════════════════════════════════════ */
+function openRequestWizard(artist){
+  activeArtist = artist || null;
+  wizStep = 1;
 
-  if(!date || !time || !eventType || !venue){
-    showFormMsg('bookMsg', 'Please fill in date, time, event type, and venue.', 'error');
-    return null;
+  clearFormMsg('reqMsg');
+  $('requestFormWrap').style.display = '';
+  $('requestSuccess').style.display = 'none';
+  $('wizardNav').style.display = '';
+  $('reqTitle').textContent = artist ? 'Request this artist' : 'Post an event request';
+  $('reqSub').textContent = artist
+    ? `Send us your brief for ${artist.name || 'this artist'} — we'll confirm availability and a final quote.`
+    : `Tell us what you need — our team sources and negotiates with the artist for you.`;
+
+  // Reset all wizard inputs
+  document.querySelectorAll('#requestFormWrap input, #requestFormWrap select, #requestFormWrap textarea')
+    .forEach(el => {
+      if(el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+      else if(el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    });
+
+  // Defaults
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  $('reqDate').min = `${yyyy}-${mm}-${dd}`;
+
+  // Country (respect current browse context unless 'ALL')
+  const startCountry = state.country === 'ALL' ? DEFAULT_COUNTRY : state.country;
+  $('reqCountry').value = startCountry;
+  onReqCountryChange();
+
+  // Currency select
+  buildCurrencySelect(startCountry);
+
+  // Contact prefill
+  if(userProfile){
+    $('reqContactName').value  = userProfile.name || '';
+    $('reqContactEmail').value = userProfile.email || currentUser.email || '';
+    $('reqContactPhone').value = userProfile.phone || '';
+    $('reqOrganization').value = userProfile.organization || userProfile.university || userProfile.school || '';
   }
-  return { date, time, eventType, venue, budget, description };
+
+  // Artist select (scoped to the chosen country)
+  populateRequestArtistSelect(artist ? artist.id : '');
+
+  // Genre select (scoped to country)
+  populateRequestGenreSelect();
+
+  renderWizard();
+  openModal('requestModal');
 }
 
-async function saveBooking(formData, source){
-  /* ── FINAL SUBSCRIPTION RE-CHECK before writing to DB ── */
+function buildCurrencySelect(countryCode){
+  const c = COUNTRIES[countryCode] || currentCountry();
+  const list = [c.currency, ...CURRENCY_EXTRA.filter(x => x !== c.currency)];
+  const sel = $('reqCurrency');
+  sel.innerHTML = list.map(cur => `<option value="${cur}">${cur}</option>`).join('');
+  sel.value = c.currency;
+  updateBudgetSymbol();
+}
+
+function updateBudgetSymbol(){
+  const cur = $('reqCurrency').value || currentCountry().currency;
+  $('reqBudgetSym').textContent = currencySymbol(cur);
+}
+
+function populateRequestArtistSelect(preselect){
+  const country = $('reqCountry').value;
+  const inCountry = allArtists.filter(a => !country || a._countries.includes(country));
+  const list = inCountry.length ? inCountry : allArtists;
+
+  const sel = $('reqArtist');
+  sel.innerHTML = `<option value="">No preference — recommend the best fit</option>` +
+    list.map(a => {
+      const g = Array.isArray(a.genres) && a.genres.length ? ` · ${a.genres.slice(0,2).join(', ')}` : '';
+      return `<option value="${a.id}">${escapeHTML(a.name || 'Artist')}${escapeHTML(g)}</option>`;
+    }).join('');
+
+  if(preselect && [...sel.options].some(o => o.value === preselect)){
+    sel.value = preselect;
+  } else {
+    sel.value = '';
+  }
+}
+
+function populateRequestGenreSelect(){
+  const country = $('reqCountry').value;
+  const genreSet = new Set();
+  allArtists.forEach(a => {
+    if(country && !a._countries.includes(country)) return;
+    (Array.isArray(a.genres) ? a.genres : []).forEach(g => g && genreSet.add(g));
+  });
+  const sel = $('reqGenre');
+  sel.innerHTML = `<option value="">Any genre</option>` +
+    [...genreSet].sort().map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
+}
+
+function onReqCountryChange(){
+  const code = $('reqCountry').value;
+  if(COUNTRIES[code]){
+    // Keep the manual currency in sync with country unless user overrode it
+    buildCurrencySelect(code);
+  }
+  populateRequestArtistSelect($('reqArtist').value);
+  populateRequestGenreSelect();
+
+  // Refresh city datalist based on the request's country
+  const c = COUNTRIES[code];
+  if(c){
+    const cities = new Set(c.cities);
+    allArtists.forEach(a => {
+      if(a._countries.includes(code)){
+        const locs = Array.isArray(a.locations) ? a.locations : (a.location ? [a.location] : []);
+        locs.forEach(l => { if(l) cities.add(l); });
+      }
+    });
+    $('reqCityList').innerHTML = [...cities].sort()
+      .map(city => `<option value="${escapeHTML(city)}"></option>`).join('');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WIZARD — NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+function renderWizard(){
+  document.querySelectorAll('.z21-wstep').forEach(el => {
+    const n = +el.dataset.wstep;
+    el.classList.toggle('active', n === wizStep);
+    el.classList.toggle('done', n < wizStep);
+  });
+  document.querySelectorAll('.z21-wizard-pane').forEach(p => {
+    p.classList.toggle('active', +p.dataset.pane === wizStep);
+  });
+
+  $('wizBack').style.display   = wizStep === 1 ? 'none' : '';
+  $('wizNext').style.display   = wizStep === WIZ_TOTAL ? 'none' : '';
+  $('wizSubmit').style.display = wizStep === WIZ_TOTAL ? '' : 'none';
+
+  if(wizStep === WIZ_TOTAL) buildReview();
+
+  const panel = document.querySelector('#requestModal .z21-modal-panel');
+  if(panel) panel.scrollTop = 0;
+  clearFormMsg('reqMsg');
+}
+
+function validateStep(step){
+  const fail = (msg, focusId) => {
+    showFormMsg('reqMsg', msg, 'error');
+    if(focusId && $(focusId)) $(focusId).focus();
+    return false;
+  };
+
+  if(step === 1){
+    if(!$('reqEventName').value.trim()) return fail('Please give your event a name.', 'reqEventName');
+    if(!$('reqEventType').value)        return fail('Please select an event type.', 'reqEventType');
+    if(!$('reqDate').value)             return fail('Please choose an event date.', 'reqDate');
+    if(!$('reqTime').value)             return fail('Please choose a start time.', 'reqTime');
+    if(!$('reqDuration').value)         return fail('Please select a performance duration.', 'reqDuration');
+    if(!$('reqVenue').value.trim())     return fail('Please enter the venue.', 'reqVenue');
+    if(!$('reqCity').value.trim())      return fail('Please enter the city.', 'reqCity');
+    if(!$('reqCountry').value)          return fail('Please select a country.', 'reqCountry');
+
+    const chosen = new Date($('reqDate').value + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    if(chosen < today) return fail('The event date can\'t be in the past.', 'reqDate');
+  }
+
+  if(step === 2){
+    if(!$('reqPerfType').value) return fail('Please choose a performance type.', 'reqPerfType');
+  }
+
+  if(step === 3){
+    const budget = $('reqBudget').value;
+    if(!budget || Number(budget) <= 0) return fail('Please enter your budget so we can negotiate for you.', 'reqBudget');
+    if(!$('reqCurrency').value)        return fail('Please choose a currency.', 'reqCurrency');
+    if(!$('reqPayment').value)         return fail('Please select a preferred payment method.', 'reqPayment');
+  }
+
+  if(step === 4){
+    if(!$('reqContactName').value.trim())  return fail('Please enter a contact name.', 'reqContactName');
+    if(!$('reqContactPhone').value.trim()) return fail('Please enter a contact phone number.', 'reqContactPhone');
+    const email = $('reqContactEmail').value.trim();
+    if(!email || !/^\S+@\S+\.\S+$/.test(email)) return fail('Please enter a valid contact email.', 'reqContactEmail');
+    if(!$('reqConsent').checked) return fail('Please confirm the details are accurate before submitting.', 'reqConsent');
+  }
+
+  clearFormMsg('reqMsg');
+  return true;
+}
+
+$('wizNext').addEventListener('click', () => {
+  if(!validateStep(wizStep)) return;
+  if(wizStep < WIZ_TOTAL){
+    wizStep++;
+    renderWizard();
+  }
+});
+
+$('wizBack').addEventListener('click', () => {
+  if(wizStep > 1){
+    wizStep--;
+    renderWizard();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   WIZARD — COLLECT / REVIEW
+   ═══════════════════════════════════════════════════════════ */
+function collectRequest(){
+  const requirements = [...document.querySelectorAll('.z21-check-grid input:checked')]
+    .map(i => i.value);
+
+  const artistSel = $('reqArtist');
+  const artistId = artistSel.value;
+  const artistObj = artistId ? allArtists.find(a => a.id === artistId) : null;
+
+  return {
+    eventName:      $('reqEventName').value.trim(),
+    eventType:      $('reqEventType').value,
+    eventDate:      $('reqDate').value,
+    eventTime:      $('reqTime').value,
+    duration:       $('reqDuration').value,
+    venue:          $('reqVenue').value.trim(),
+    city:           $('reqCity').value.trim(),
+    country:        $('reqCountry').value,
+    countryName:    COUNTRIES[$('reqCountry').value]?.name || '',
+    attendance:     $('reqAttendance').value ? Number($('reqAttendance').value) : null,
+
+    preferredArtistId:   artistId || '',
+    preferredArtistName: artistObj ? (artistObj.name || '') : '',
+    preferredArtistPhoto: artistObj ? (artistObj.photoUrl || '') : '',
+    genrePreference:     $('reqGenre').value,
+    performanceType:     $('reqPerfType').value,
+    artistNotes:         $('reqArtistNotes').value.trim(),
+
+    budget:          $('reqBudget').value ? Number($('reqBudget').value) : null,
+    currency:        $('reqCurrency').value,
+    budgetFlexible:  $('reqFlexible').checked,
+    paymentMethod:   $('reqPayment').value,
+    requirements,
+    description:     $('reqDescription').value.trim(),
+
+    contactName:     $('reqContactName').value.trim(),
+    contactPhone:    $('reqContactPhone').value.trim(),
+    contactEmail:    $('reqContactEmail').value.trim(),
+    organization:    $('reqOrganization').value.trim()
+  };
+}
+
+function fmtEventDate(iso){
+  if(!iso) return '—';
+  try{
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  }catch(_){ return iso; }
+}
+
+function fmtTime(t){
+  if(!t) return '—';
+  try{
+    const [h,m] = t.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+  }catch(_){ return t; }
+}
+
+function row(k, v, blank = false){
+  return `<div class="z21-review-row">
+    <span class="k">${escapeHTML(k)}</span>
+    <span class="v${blank ? ' blank' : ''}">${escapeHTML(v)}</span>
+  </div>`;
+}
+
+function buildReview(){
+  const d = collectRequest();
+  const artistImg = d.preferredArtistPhoto
+    || `https://ui-avatars.com/api/?name=${encodeURIComponent(d.preferredArtistName || 'Z21')}&background=222226&color=fa243c&size=100&bold=true`;
+
+  const artistLine = d.preferredArtistName
+    ? escapeHTML(d.preferredArtistName)
+    : 'No preference — recommend the best fit';
+
+  const budgetLine = d.budget
+    ? money(d.budget, d.currency) + (d.budgetFlexible ? ' (flexible)' : '')
+    : '—';
+
+  const html = `
+    <div class="z21-review-head">
+      <img src="${escapeHTML(artistImg)}" alt="">
+      <div class="t">
+        <strong>${escapeHTML(d.eventName || 'Your event')}</strong>
+        <small>${escapeHTML(d.eventType || '')} · ${escapeHTML(d.city || '')}${d.countryName ? ', ' + escapeHTML(d.countryName) : ''}</small>
+      </div>
+    </div>
+    ${row('Artist', artistLine, !d.preferredArtistName)}
+    ${row('Performance', (d.performanceType || '—') + (d.duration ? ' · ' + d.duration : ''))}
+    ${row('Date', fmtEventDate(d.eventDate) + ' · ' + fmtTime(d.eventTime))}
+    ${row('Venue', d.venue || '—')}
+    ${row('Attendance', d.attendance ? d.attendance.toLocaleString() : '—', !d.attendance)}
+    ${row('Budget', budgetLine)}
+    ${row('Payment', d.paymentMethod || '—', !d.paymentMethod)}
+    ${row('We arrange', d.requirements.length ? d.requirements.join(', ') : '—', !d.requirements.length)}
+    ${row('Contact', (d.contactName || '—') + ' · ' + (d.contactPhone || '—'))}
+    ${row('Email', d.contactEmail || '—', !d.contactEmail)}
+    ${d.organization ? row('Organisation', d.organization) : ''}
+  `;
+  $('reqReview').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WIZARD — SUBMIT
+   ═══════════════════════════════════════════════════════════ */
+$('wizSubmit').addEventListener('click', async () => {
+  for(let s = 1; s <= WIZ_TOTAL; s++){
+    if(!validateStep(s)){
+      wizStep = s;
+      renderWizard();
+      return;
+    }
+  }
+
+  clearFormMsg('reqMsg');
+
+  // Final fresh subscription check
   const stillSubbed = await checkSubscription(currentUser.uid);
   if(!stillSubbed){
     isSubscribed = false;
     isSubscribedResolved = true;
     renderSubscriptionZone();
-    throw new Error('Your subscription is not active. Subscribe to book artists.');
+    closeModal('requestModal');
+    showToast('Your subscription is not active. Subscribe to post requests.', 'error');
+    openModal('gateModal');
+    return;
   }
 
-  const ref = genBookingRef();
-  const payload = {
-    userId: currentUser.uid,
-    userName: userProfile?.name || 'Member',
-    userEmail: userProfile?.email || currentUser.email || '',
-    userPhone: userProfile?.phone || '',
-    artistId: activeArtist.id,
-    artistName: activeArtist.name || '',
-    artistPhoto: activeArtist.photoUrl || '',
-    eventDate: formData.date,
-    eventTime: formData.time,
-    eventType: formData.eventType,
-    venue: formData.venue,
-    budget: formData.budget ? Number(formData.budget) : null,
-    description: formData.description || '',
-    status: 'pending',
-    ref,
-    source,
-    createdAt: serverTimestamp()
-  };
-  const docRef = await addDoc(collection(db, 'bookings'), payload);
+  const btn = $('wizSubmit');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
 
   try{
-    await addDoc(collection(db, 'messages'), {
-      sender: 'user',
-      senderId: currentUser.uid,
-      senderType: 'organizer',
-      senderName: payload.userName,
-      recipientId: 'admin',
-      type: 'artist_booking',
-      subject: `Booking request · ${payload.artistName}`,
-      message: `New booking request ${ref}\n\nArtist: ${payload.artistName}\nDate: ${payload.eventDate} ${payload.eventTime}\nEvent: ${payload.eventType}\nVenue: ${payload.venue}\nBudget: ${payload.budget ? '$'+payload.budget : 'Not specified'}\n\nDetails: ${payload.description || '—'}`,
-      bookingRef: ref,
-      bookingId: docRef.id,
-      artistId: payload.artistId,
-      status: 'unread',
+    const data = collectRequest();
+    const ref = genRef('ER');
+
+    const payload = {
+      /* ── identity ── */
+      ref,
+      requestRef: ref,
+      isEventRequest: true,
+      userId: currentUser.uid,
+      userName: userProfile?.name || 'Member',
+      userEmail: userProfile?.email || currentUser.email || '',
+      userPhone: userProfile?.phone || data.contactPhone || '',
+      organization: data.organization || '',
+
+      /* ── legacy-compatible booking fields ── */
+      artistId: data.preferredArtistId || '',
+      artistName: data.preferredArtistName || '',
+      artistPhoto: data.preferredArtistPhoto || '',
+      eventDate: data.eventDate,
+      eventTime: data.eventTime,
+      eventType: data.eventType,
+      venue: data.venue,
+      budget: data.budget,
+      description: data.description || data.artistNotes || '',
+      status: 'pending',
+      source: 'web',
+
+      /* ── new event-request fields ── */
+      eventName: data.eventName,
+      duration: data.duration,
+      city: data.city,
+      country: data.country,
+      countryName: data.countryName,
+      attendance: data.attendance,
+      currency: data.currency,
+      budgetFlexible: data.budgetFlexible,
+      paymentMethod: data.paymentMethod,
+      requirements: data.requirements,
+      preferredArtistId: data.preferredArtistId || '',
+      preferredArtistName: data.preferredArtistName || '',
+      genrePreference: data.genrePreference || '',
+      performanceType: data.performanceType,
+      artistNotes: data.artistNotes || '',
+      contactName: data.contactName,
+      contactPhone: data.contactPhone,
+      contactEmail: data.contactEmail,
+
       createdAt: serverTimestamp()
-    });
-  }catch(e){
-    console.warn('Inbox message write failed:', e);
-  }
+    };
 
-  return { ref, id: docRef.id };
-}
+    const docRef = await addDoc(collection(db, 'bookings'), payload);
 
-$('bookingForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  clearFormMsg('bookMsg');
-  const formData = collectBookingForm();
-  if(!formData) return;
+    // Mirror into a dedicated collection for the new admin workflow
+    try{
+      await addDoc(collection(db, 'eventRequests'), { ...payload, bookingId: docRef.id });
+    }catch(e){
+      console.warn('eventRequests mirror failed (non-fatal):', e);
+    }
 
-  const btn = $('bookSubmit');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+    // Drop an unread message into the admin inbox
+    try{
+      const summaryLines = [
+        `New event request ${ref}`,
+        ``,
+        `Event: ${payload.eventName} (${payload.eventType})`,
+        `Date: ${payload.eventDate} at ${payload.eventTime} · ${payload.duration}`,
+        `Venue: ${payload.venue}, ${payload.city}, ${payload.countryName}`,
+        `Attendance: ${payload.attendance || '—'}`,
+        `Artist preference: ${payload.preferredArtistName || 'No preference'}`,
+        `Performance: ${payload.performanceType}`,
+        `Budget: ${payload.budget ? money(payload.budget, payload.currency) : '—'}${payload.budgetFlexible ? ' (flexible)' : ''}`,
+        `Payment: ${payload.paymentMethod}`,
+        `We arrange: ${payload.requirements.length ? payload.requirements.join(', ') : '—'}`,
+        ``,
+        `Contact: ${payload.contactName} · ${payload.contactPhone} · ${payload.contactEmail}`,
+        payload.organization ? `Organisation: ${payload.organization}` : '',
+        payload.description ? `` : '',
+        payload.description ? `Details: ${payload.description}` : '',
+        payload.artistNotes ? `Artist notes: ${payload.artistNotes}` : ''
+      ].filter(Boolean);
 
-  try{
-    const { ref } = await saveBooking(formData, 'web');
-    showFormMsg('bookMsg', `Booking request sent — reference ${ref}. Check your inbox for the admin's reply.`, 'success');
-    showToast(`Request sent · ${ref}`, 'success');
-    setTimeout(() => {
-      closeModal('bookingModal');
-      $('bookingForm').reset();
-      clearFormMsg('bookMsg');
-    }, 1800);
+      await addDoc(collection(db, 'messages'), {
+        sender: 'user',
+        senderId: currentUser.uid,
+        senderType: 'organizer',
+        senderName: payload.userName,
+        recipientId: 'admin',
+        type: 'event_request',
+        subject: `Event request · ${payload.eventName || payload.eventType}`,
+        message: summaryLines.join('\n'),
+        bookingRef: ref,
+        bookingId: docRef.id,
+        artistId: payload.artistId,
+        country: payload.country,
+        status: 'unread',
+        createdAt: serverTimestamp()
+      });
+    }catch(e){
+      console.warn('Inbox message write failed:', e);
+    }
+
+    // Show success screen
+    $('successRef').textContent = ref;
+    $('requestFormWrap').style.display = 'none';
+    $('wizardNav').style.display = 'none';
+    $('reqTitle').textContent = 'Request received';
+    $('reqSub').textContent = 'Our team will be in touch shortly.';
+    $('requestSuccess').style.display = '';
+    document.querySelectorAll('.z21-wstep').forEach(el => el.classList.add('done'));
+
+    showToast(`Request sent · ${ref}`, 'success', 4200);
   }catch(err){
     console.error(err);
-    if(err.message && err.message.includes('subscription')){
-      closeModal('bookingModal');
-      showToast(err.message, 'error');
-      openModal('gateModal');
-    } else {
-      showFormMsg('bookMsg', 'Could not send request: ' + err.message, 'error');
-    }
+    showFormMsg('reqMsg', 'Could not submit your request: ' + (err?.message || 'Unknown error'), 'error');
   }finally{
     btn.disabled = false;
     btn.innerHTML = orig;
   }
 });
 
-$('bookWhatsApp').addEventListener('click', async () => {
-  clearFormMsg('bookMsg');
-  const formData = collectBookingForm();
-  if(!formData) return;
-
-  const btn = $('bookWhatsApp');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing…';
-
-  try{
-    const { ref } = await saveBooking(formData, 'whatsapp');
-
-    const msg = [
-      `*Zone21 Booking Request*`,
-      `Ref: ${ref}`,
-      ``,
-      `*Artist:* ${activeArtist.name || ''}`,
-      `*Date:* ${formData.date} at ${formData.time}`,
-      `*Event:* ${formData.eventType}`,
-      `*Venue:* ${formData.venue}`,
-      formData.budget ? `*Budget:* $${formData.budget}` : null,
-      formData.description ? `*Details:* ${formData.description}` : null,
-      ``,
-      `From: ${userProfile?.name || 'Member'} (${userProfile?.email || currentUser.email || ''})`
-    ].filter(Boolean).join('\n');
-
-    const waUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    showToast(`Request saved · ${ref}`, 'success');
-    setTimeout(() => {
-      window.open(waUrl, '_blank', 'noopener');
-      closeModal('bookingModal');
-      $('bookingForm').reset();
-      clearFormMsg('bookMsg');
-    }, 700);
-  }catch(err){
-    console.error(err);
-    if(err.message && err.message.includes('subscription')){
-      closeModal('bookingModal');
-      showToast(err.message, 'error');
-      openModal('gateModal');
-    } else {
-      showFormMsg('bookMsg', 'Could not prepare WhatsApp message: ' + err.message, 'error');
-    }
-  }finally{
-    btn.disabled = false;
-    btn.innerHTML = orig;
-  }
-});
+/* Field wiring */
+$('reqCountry').addEventListener('change', onReqCountryChange);
+$('reqCurrency').addEventListener('change', updateBudgetSymbol);
 
 /* ═══════════════════════════════════════════════════════════
    AUTH MODAL
@@ -1890,6 +2892,8 @@ $('bookWhatsApp').addEventListener('click', async () => {
 function openAuthModal(mode = 'signin'){
   switchAuthTab(mode);
   clearFormMsg('authMsg');
+  const sc = $('signupCountry');
+  if(sc && !sc.value) sc.value = state.country === 'ALL' ? DEFAULT_COUNTRY : state.country;
   openModal('authModal');
 }
 
@@ -1902,7 +2906,6 @@ function hideResetPanel(){
 
 function showResetPanel(){
   clearFormMsg('resetMsg');
-  // Pre-fill from whatever the user already typed on the sign-in form
   const typed = ($('signinEmail')?.value || '').trim();
   if(typed) $('resetEmail').value = typed;
 
@@ -1925,10 +2928,10 @@ function switchAuthTab(mode){
   });
   $('signinForm').style.display = mode === 'signin' ? '' : 'none';
   $('signupForm').style.display = mode === 'signup' ? '' : 'none';
-  $('authTitle').textContent = mode === 'signin' ? 'Sign in to book' : 'Create your account';
+  $('authTitle').textContent = mode === 'signin' ? 'Sign in to continue' : 'Create your account';
   $('authSub').textContent = mode === 'signin'
     ? 'Welcome back. Sign in to continue.'
-    : 'Free to create. Subscribe when you\'re ready to book.';
+    : 'Free to create. Subscribe when you\'re ready to post requests.';
   clearFormMsg('authMsg');
   clearFormMsg('resetMsg');
 }
@@ -1968,9 +2971,17 @@ $('signupForm').addEventListener('submit', async (e) => {
 
   const name = $('signupName').value.trim();
   const email = $('signupEmail').value.trim();
+  const country = $('signupCountry').value || DEFAULT_COUNTRY;
   const phone = $('signupPhone').value.trim();
   const university = $('signupUniversity').value.trim();
   const password = $('signupPassword').value;
+
+  if(!COUNTRIES[country]){
+    showFormMsg('authMsg', 'Please select a valid country.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    return;
+  }
 
   try{
     const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -1978,22 +2989,35 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    /* Don't overwrite existing subscriptionStatus. Only set defaults
-       on first creation — same fix as everywhere else. */
+    const c = COUNTRIES[country];
     const uRef = doc(db, 'users', uid);
     const uSnap = await getDoc(uRef);
+
     if(!uSnap.exists()){
       await setDoc(uRef, {
-        name, email, phone, university,
+        name, email, phone,
+        country,
+        countryName: c.name,
+        currency: c.currency,
+        organization: university,
+        university,
         role: 'student',
         subscriptionStatus: 'none',
         createdAt: serverTimestamp()
       });
     } else {
       await setDoc(uRef, {
-        name, email, phone, university
+        name, email, phone,
+        country,
+        countryName: c.name,
+        currency: c.currency,
+        organization: university,
+        university
       }, { merge: true });
     }
+
+    // Adopt the chosen country for this browsing session
+    if(!state.countryIsManual) applyCountry(country, { silent:true });
 
     showToast('Account created — welcome to Zone21!', 'success');
     closeModal('authModal');
@@ -2013,7 +3037,7 @@ $('forgotPasswordBtn').addEventListener('click', showResetPanel);
 
 $('resetBackBtn').addEventListener('click', () => {
   switchAuthTab('signin');
-  $('authTitle').textContent = 'Sign in to book';
+  $('authTitle').textContent = 'Sign in to continue';
 });
 
 $('resetForm').addEventListener('submit', async (e) => {
@@ -2055,8 +3079,6 @@ $('resetForm').addEventListener('submit', async (e) => {
       btn.innerHTML = orig;
       return;
     }
-    // Everything else (including user-not-found) falls through silently
-    // so we never reveal whether an address is registered.
     console.warn('Password reset request handled privately:', code || err?.message);
   }
 
@@ -2109,22 +3131,41 @@ $('searchClear').addEventListener('click', () => {
   applyFilters();
 });
 
+$('countrySelect').addEventListener('change', (e) => {
+  const v = e.target.value;
+  if(v === 'ALL'){
+    state.country = 'ALL';
+    $('countryPillFlag').textContent = '🌍';
+    $('countryLabel').textContent = 'All Countries';
+    $('regionFlag').textContent = '🌍';
+    $('regionName').textContent = 'All Countries';
+    $('regionCurrency').textContent = 'Mixed';
+    populateFilterOptions();
+    applyFilters();
+    updateGreeting();
+    return;
+  }
+  setManualCountry(v);
+});
+
 $('locationSelect').addEventListener('change', (e) => {
   const v = e.target.value;
-  $('locationLabel').textContent = v || 'All Locations';
+  $('locationLabel').textContent = v || 'All Cities';
   $('locationPill').classList.toggle('active', !!v);
   applyFilters();
 });
+
 $('genreSelect').addEventListener('change', (e) => {
   const v = e.target.value;
   $('genreLabel').textContent = v || 'All Genres';
   $('genrePill').classList.toggle('active', !!v);
   applyFilters();
 });
+
 $('availSelect').addEventListener('change', (e) => {
   const v = e.target.value;
   const label = v === 'available' ? 'Available'
-              : v === 'busy'      ? 'Busy'
+              : v === 'busy'      ? 'Limited'
               : v === 'fully_booked' ? 'Fully Booked'
               : 'Any Availability';
   $('availLabel').textContent = label;
@@ -2137,7 +3178,7 @@ $('resetBtn').addEventListener('click', () => {
   $('locationSelect').value = '';
   $('genreSelect').value = '';
   $('availSelect').value = '';
-  $('locationLabel').textContent = 'All Locations';
+  $('locationLabel').textContent = 'All Cities';
   $('genreLabel').textContent = 'All Genres';
   $('availLabel').textContent = 'Any Availability';
   $('locationPill').classList.remove('active');
@@ -2147,11 +3188,35 @@ $('resetBtn').addEventListener('click', () => {
   applyFilters();
 });
 
+/* Region line → scroll to country filter */
+$('regionChange').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const wrap = document.querySelector('.z21-search-wrap');
+  if(wrap) wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+  $('countrySelect').focus();
+});
+
+/* Hero CTAs */
+$('heroRequestBtn').addEventListener('click', () => startRequestFlow(null));
+$('heroBrowseBtn').addEventListener('click', (e) => {
+  e.preventDefault();
+  const grid = document.querySelector('.z21-search-wrap');
+  if(grid) grid.scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
 /* ═══════════════════════════════════════════════════════════
    BOOT
    ═══════════════════════════════════════════════════════════ */
-loadArtists();
+state.country = detectCountrySync();
+state.countryIsManual = (() => {
+  try{ return !!localStorage.getItem('z21_country'); }catch(_){ return false; }
+})();
+
+populateCountrySelects();
+applyCountry(state.country, { silent:true });
 updateGreeting();
+loadArtists();
+refineCountryFromIP();
 </script>
 </body>
 </html>

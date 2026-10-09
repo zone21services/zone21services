@@ -11,28 +11,35 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  THREADING CONVENTION
-    · Root messages (no threadId) → threadId = their own docId
-    · Replies                     → threadId = root doc's ID
+  ZONE21 · ORGANISER INBOX  (v2 — Event Request Workflow)
 
-  MESSAGE TYPES
-    · 'artist_booking'       ← discover.html
-    · 'subscription_invoice' ← bookingsub.html
-    · 'chat' / 'general_query' / 'payment_proof' ← support.html
-    · 'admin_reply'          ← admin panel
-    · 'user_reply'           ← this page
+  WHAT'S NEW
+  ──────────
+  1. EVENT REQUEST CONTEXT
+     · Shows full brief: event name, date/time, duration, attendance,
+       venue, city, budget (in correct currency), requirements,
+       preferred artist, performance type
 
-  AUTH:
-    · Sign in / Sign up / Reset password all inline in one modal.
-    · Reset password sends a secure link via email and always tells the
-      user to check their inbox AND spam folder — never reveals whether
-      an address is registered.
+  2. LIFECYCLE TIMELINE
+     · pending → sourcing → quoted → confirmed → completed
+     · Vertical/horizontal progress bar with current step highlighted
 
-  FIXES PRESERVED
-    1. Subscription status badge reads LIVE from subscriptions/{uid}_annual.
-    2. Reply box supports base64 image attachments (compressed ~800px, 0.7).
-    3. No duplicate invoice number in thread header.
-    4. "My Events" nav link → zone21tools.html.
+  3. QUOTE BOX
+     · When admin sends a quote: prominent card with amount, terms,
+       validity, and Accept/Decline actions for the organiser
+     · Accept → booking becomes 'confirmed' + admin is notified
+     · Decline → booking becomes 'declined' + admin is notified
+
+  4. ASSIGNED ARTIST CARD
+     · When admin assigns an artist, it appears as a green card at the
+       top of the conversation — matching the admin panel design
+
+  5. MULTI-COUNTRY CURRENCY
+     · Budget and quote amounts render with the correct symbol based
+       on the request's currency field (USD, ZAR, GBP, EUR, etc.)
+
+  6. QUICK REPLIES
+     · One-tap canned messages for common organizer responses
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -54,6 +61,8 @@
   --success:#30d158;
   --warn:#ff9f0a;
   --info:#0a84ff;
+  --purple:#8B5CF6;
+  --cyan:#06B6D4;
   --radius-sm:10px;
   --radius:14px;
   --radius-lg:20px;
@@ -373,6 +382,8 @@ body.z21-loading{ overflow:hidden; }
   margin-bottom:6px;
 }
 .z21-thread-badges{display:flex;gap:6px;flex-wrap:wrap}
+
+/* PILLS */
 .z21-pill{
   display:inline-flex;align-items:center;gap:4px;
   padding:3px 9px;border-radius:100px;
@@ -380,6 +391,8 @@ body.z21-loading{ overflow:hidden; }
   letter-spacing:.04em;text-transform:uppercase;
 }
 .z21-pill.pending{background:rgba(255,159,10,.14);color:#ffce8a;border:1px solid rgba(255,159,10,.3)}
+.z21-pill.sourcing{background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.32)}
+.z21-pill.quoted{background:rgba(6,182,212,.16);color:#67e8f9;border:1px solid rgba(6,182,212,.32)}
 .z21-pill.confirmed{background:rgba(48,209,88,.14);color:#7ee89a;border:1px solid rgba(48,209,88,.3)}
 .z21-pill.completed{background:rgba(10,132,255,.14);color:#7ab8ff;border:1px solid rgba(10,132,255,.3)}
 .z21-pill.declined{background:rgba(250,36,60,.14);color:#ff9aa5;border:1px solid rgba(250,36,60,.3)}
@@ -435,17 +448,17 @@ body.z21-loading{ overflow:hidden; }
 
 .z21-detail-scroll{overflow-y:auto;flex:1;padding:22px}
 
-/* CONTEXT CARD */
+/* ══════════ EVENT REQUEST CONTEXT ══════════ */
 .z21-context{
   background:var(--surface-2);
   border:1px solid var(--border);
   border-radius:var(--radius);
-  padding:18px;margin-bottom:22px;
+  padding:20px;margin-bottom:22px;
 }
 .z21-context-head{
   display:flex;justify-content:space-between;align-items:center;
-  gap:12px;margin-bottom:14px;
-  padding-bottom:12px;
+  gap:12px;margin-bottom:16px;
+  padding-bottom:14px;
   border-bottom:1px solid var(--border);
 }
 .z21-context-title{
@@ -453,10 +466,136 @@ body.z21-loading{ overflow:hidden; }
   letter-spacing:.1em;text-transform:uppercase;
   color:var(--text-dim);
 }
+
+/* Request status badge */
+.z21-req-status{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:100px;
+  font-size:11px;font-weight:800;
+  letter-spacing:.04em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.z21-req-status.pending{background:rgba(255,159,10,.14);color:#ffce8a;border:1px solid rgba(255,159,10,.3)}
+.z21-req-status.sourcing{background:rgba(139,92,246,.16);color:#c4b5fd;border:1px solid rgba(139,92,246,.32)}
+.z21-req-status.quoted{background:rgba(6,182,212,.16);color:#67e8f9;border:1px solid rgba(6,182,212,.32)}
+.z21-req-status.confirmed{background:rgba(48,209,88,.14);color:#7ee89a;border:1px solid rgba(48,209,88,.3)}
+.z21-req-status.completed{background:rgba(10,132,255,.14);color:#7ab8ff;border:1px solid rgba(10,132,255,.3)}
+.z21-req-status.declined{background:rgba(250,36,60,.14);color:#ff9aa5;border:1px solid rgba(250,36,60,.3)}
+
+/* Timeline progress */
+.z21-timeline{
+  display:flex;align-items:flex-start;gap:0;
+  margin-bottom:20px;padding:14px 4px;
+}
+.z21-tl-step{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  gap:6px;position:relative;min-width:0;
+}
+.z21-tl-step::before{
+  content:'';position:absolute;top:11px;right:50%;width:100%;height:2px;
+  background:var(--border-2);z-index:0;transition:background .3s;
+}
+.z21-tl-step:first-child::before{display:none}
+.z21-tl-step.done::before{background:var(--success)}
+.z21-tl-step.current::before{background:linear-gradient(90deg,var(--success) 0%,var(--accent) 100%)}
+.z21-tl-dot{
+  width:24px;height:24px;border-radius:50%;
+  background:var(--surface-3);border:2px solid var(--surface-2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--text-dim);z-index:1;
+  transition:all .3s;
+}
+.z21-tl-step.done .z21-tl-dot{
+  background:var(--success);border-color:var(--surface-2);color:#000;
+}
+.z21-tl-step.current .z21-tl-dot{
+  background:var(--accent);border-color:var(--surface-2);color:#fff;
+  box-shadow:0 0 0 4px rgba(250,36,60,.2);
+  animation:z21TlPulse 2s infinite;
+}
+@keyframes z21TlPulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(250,36,60,.2)}
+  50%{box-shadow:0 0 0 7px rgba(250,36,60,.08)}
+}
+.z21-tl-label{
+  font-size:9.5px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-dim);text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;
+}
+.z21-tl-step.done .z21-tl-label{color:var(--success)}
+.z21-tl-step.current .z21-tl-label{color:var(--accent)}
+
+/* Assigned artist card */
+.z21-assigned-card{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;
+  background:linear-gradient(135deg,rgba(48,209,88,.1) 0%,rgba(48,209,88,.02) 100%);
+  border:1px solid rgba(48,209,88,.35);
+  border-radius:14px;margin-bottom:16px;
+}
+.z21-assigned-card img{
+  width:56px;height:56px;border-radius:12px;object-fit:cover;flex-shrink:0;
+  background:var(--surface-3);
+}
+.z21-assigned-card .info{flex:1;min-width:0}
+.z21-assigned-card .info small{
+  display:block;font-size:10.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#7ee89a;margin-bottom:4px;
+}
+.z21-assigned-card .info strong{
+  display:block;font-size:16px;font-weight:800;letter-spacing:-.02em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  margin-bottom:2px;
+}
+.z21-assigned-card .info span{
+  display:block;font-size:12.5px;color:var(--text-muted);
+}
+
+/* Quote box */
+.z21-quote-box{
+  padding:20px;
+  background:linear-gradient(135deg,rgba(6,182,212,.1) 0%,rgba(6,182,212,.02) 100%);
+  border:1px solid rgba(6,182,212,.35);
+  border-radius:16px;margin-bottom:16px;
+}
+.z21-quote-label{
+  font-size:11px;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:#67e8f9;margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;
+}
+.z21-quote-label i{font-size:12px}
+.z21-quote-amount{
+  font-size:32px;font-weight:900;letter-spacing:-.035em;
+  color:#fff;line-height:1;margin-bottom:6px;
+}
+.z21-quote-meta{
+  font-size:13px;color:var(--text-muted);line-height:1.55;
+  margin-bottom:16px;
+}
+.z21-quote-meta strong{color:var(--text);font-weight:700}
+.z21-quote-actions{display:flex;gap:10px;flex-wrap:wrap}
+.z21-quote-actions button{
+  flex:1;min-width:140px;
+  padding:13px 18px;border-radius:100px;
+  font-size:14px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;transition:all .2s;
+}
+.z21-quote-accept{background:var(--success);color:#000}
+.z21-quote-accept:hover:not(:disabled){background:#3ee06a;transform:translateY(-1px)}
+.z21-quote-decline{background:var(--surface-3);color:var(--text);border:1px solid var(--border-2)}
+.z21-quote-decline:hover:not(:disabled){background:var(--surface-4)}
+.z21-quote-actions button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Context grid */
 .z21-context-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-  gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:16px;
 }
 .z21-context-item small{
   display:block;font-size:10.5px;font-weight:700;
@@ -465,7 +604,46 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-context-item strong{
   font-size:13.5px;font-weight:700;letter-spacing:-.01em;
-  word-break:break-word;
+  word-break:break-word;line-height:1.35;
+}
+.z21-context-item strong .muted{
+  color:var(--text-dim);font-weight:500;font-style:italic;
+}
+
+/* Requirements chips */
+.z21-req-chips{
+  display:flex;gap:6px;flex-wrap:wrap;margin-top:16px;
+  padding-top:14px;border-top:1px solid var(--border);
+}
+.z21-req-chips > .label{
+  font-size:10.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-dim);margin-right:6px;
+  align-self:center;
+}
+.z21-req-chip{
+  padding:5px 11px;border-radius:100px;
+  font-size:11.5px;font-weight:700;
+  background:rgba(250,36,60,.1);color:#ff9aa5;
+  border:1px solid rgba(250,36,60,.25);
+  white-space:nowrap;
+}
+.z21-req-chip.empty{
+  background:var(--surface-3);color:var(--text-dim);
+  border-color:var(--border);font-weight:500;font-style:italic;
+}
+
+/* Full notes block */
+.z21-notes{
+  margin-top:14px;padding:12px 14px;
+  background:var(--surface-3);border-radius:10px;
+  font-size:13px;line-height:1.6;white-space:pre-wrap;
+  color:var(--text-muted);border-left:3px solid var(--border-2);
+}
+.z21-notes strong{
+  display:block;font-size:10.5px;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:6px;font-weight:800;
 }
 
 /* MESSAGES */
@@ -519,7 +697,24 @@ body.z21-loading{ overflow:hidden; }
   flex-shrink:0;
 }
 
-/* Attachment preview (above the input bar) */
+/* Quick reply chips */
+.z21-quick-replies{
+  display:flex;gap:6px;flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.z21-quick-chip{
+  padding:7px 13px;border-radius:100px;
+  background:var(--surface-2);border:1px solid var(--border);
+  font-size:12px;font-weight:600;color:var(--text-muted);
+  transition:all .15s;white-space:nowrap;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+}
+.z21-quick-chip:hover{
+  background:var(--surface-3);
+  border-color:var(--accent);
+  color:var(--text);
+}
+
 .z21-attach-preview{
   position:relative;
   display:inline-flex;
@@ -560,7 +755,7 @@ body.z21-loading{ overflow:hidden; }
   background:var(--surface-2);
   border:1px solid var(--border);
   border-radius:22px;
-  padding:8px 8px 8px 8px;
+  padding:8px;
   transition:border-color .2s;
 }
 .z21-reply-bar:focus-within{border-color:rgba(250,36,60,.5)}
@@ -602,7 +797,7 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-reply-hint i{color:var(--info)}
 
-/* EMPTY / LOADING STATES */
+/* EMPTY / LOADING */
 .z21-empty{
   padding:80px 24px;text-align:center;
   display:flex;flex-direction:column;align-items:center;gap:14px;
@@ -700,6 +895,7 @@ body.z21-loading{ overflow:hidden; }
   animation:z21SlideUp .3s cubic-bezier(.25,1,.5,1);
   position:relative;
 }
+.z21-modal-panel.md{max-width:600px}
 @keyframes z21SlideUp{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .z21-modal-head{
   padding:26px 26px 0;
@@ -717,7 +913,28 @@ body.z21-loading{ overflow:hidden; }
 .z21-modal-close:hover{background:rgba(255,255,255,.15);color:#fff}
 .z21-modal-body{padding:20px 26px 26px}
 
-/* Auth tabs */
+/* Confirm quote modal */
+.z21-confirm-quote{
+  padding:18px;
+  background:linear-gradient(135deg,rgba(6,182,212,.1),rgba(6,182,212,.02));
+  border:1px solid rgba(6,182,212,.35);
+  border-radius:14px;margin-bottom:18px;
+  text-align:center;
+}
+.z21-confirm-quote small{
+  display:block;font-size:11px;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:#67e8f9;margin-bottom:8px;
+}
+.z21-confirm-quote strong{
+  display:block;font-size:28px;font-weight:900;
+  letter-spacing:-.03em;color:#fff;line-height:1;
+}
+.z21-confirm-quote span{
+  display:block;font-size:12.5px;color:var(--text-muted);margin-top:8px;line-height:1.5;
+}
+
+/* Auth tabs (kept) */
 .z21-auth-tabs{
   display:flex;gap:4px;padding:4px;
   background:var(--surface-2);border-radius:100px;
@@ -733,13 +950,11 @@ body.z21-loading{ overflow:hidden; }
   box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
 
-/* Forgot password link */
 .z21-forgot-row{display:flex;justify-content:flex-end;margin:-4px 0 14px;}
 .z21-link-btn{font-size:13px;font-weight:600;color:var(--accent);
   padding:2px 0;transition:opacity .2s;}
 .z21-link-btn:hover{opacity:.78;text-decoration:underline}
 
-/* Reset panel */
 .z21-reset-icon{width:54px;height:54px;border-radius:15px;
   background:rgba(250,36,60,.12);border:1px solid rgba(250,36,60,.28);
   display:flex;align-items:center;justify-content:center;
@@ -748,7 +963,6 @@ body.z21-loading{ overflow:hidden; }
   line-height:1.6;text-align:center;margin-top:16px;}
 .z21-reset-hint strong{color:var(--text-muted);font-weight:700}
 
-/* Form fields */
 .z21-field{margin-bottom:14px}
 .z21-field label{
   display:block;font-size:12px;font-weight:700;
@@ -772,6 +986,7 @@ body.z21-loading{ overflow:hidden; }
   background:var(--surface-3);
   box-shadow:0 0 0 4px rgba(250,36,60,.09);
 }
+.z21-field textarea{min-height:96px;resize:vertical;font-family:inherit;line-height:1.5}
 .z21-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .z21-field-optional{
   font-size:11px;color:var(--text-dim);
@@ -795,6 +1010,10 @@ body.z21-loading{ overflow:hidden; }
 }
 .z21-btn-full.primary{background:var(--accent);color:#fff}
 .z21-btn-full.primary:hover:not(:disabled){background:var(--accent-2);transform:translateY(-1px)}
+.z21-btn-full.success{background:var(--success);color:#000}
+.z21-btn-full.success:hover:not(:disabled){background:#3ee06a;transform:translateY(-1px)}
+.z21-btn-full.danger{background:var(--surface-2);color:#ff9aa5;border:1px solid rgba(250,36,60,.3)}
+.z21-btn-full.danger:hover:not(:disabled){background:rgba(250,36,60,.08)}
 .z21-btn-full.secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
 .z21-btn-full.secondary:hover{background:var(--surface-3)}
 .z21-btn-full:disabled{opacity:.55;cursor:not-allowed;transform:none}
@@ -850,7 +1069,11 @@ body.z21-loading{ overflow:hidden; }
   .z21-thread{padding:14px}
   .z21-thread-icon{width:40px;height:40px;font-size:15px}
   .z21-msg{max-width:94%}
-  .z21-context-grid{grid-template-columns:1fr 1fr}
+  .z21-context-grid{grid-template-columns:1fr 1fr;gap:14px}
+  .z21-quote-amount{font-size:28px}
+  .z21-quote-actions{flex-direction:column}
+  .z21-quote-actions button{width:100%}
+  .z21-tl-label{font-size:8.5px}
   .z21-field-row{grid-template-columns:1fr;gap:0}
   .z21-modal-panel{border-radius:22px}
   .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
@@ -912,12 +1135,12 @@ body.z21-loading{ overflow:hidden; }
 
   <div class="z21-page-head">
     <h1>Your <span class="grad">inbox</span></h1>
-    <p id="inboxSub">Every booking request, subscription update, and message from the Zone21 team — all in one place.</p>
+    <p id="inboxSub">Every event request, quote, and message from the Zone21 team — all in one place.</p>
   </div>
 
   <div class="z21-tabs" id="tabs">
     <button class="z21-tab active" data-tab="all">All <span class="z21-tab-count" id="countAll">0</span></button>
-    <button class="z21-tab" data-tab="bookings">Bookings <span class="z21-tab-count" id="countBookings">0</span></button>
+    <button class="z21-tab" data-tab="bookings">Event Requests <span class="z21-tab-count" id="countBookings">0</span></button>
     <button class="z21-tab" data-tab="subscription">Subscription <span class="z21-tab-count" id="countSub">0</span></button>
     <button class="z21-tab" data-tab="support">Support <span class="z21-tab-count" id="countSupport">0</span></button>
     <button class="z21-tab" data-tab="unread">Unread <span class="z21-tab-count" id="countUnread">0</span></button>
@@ -925,7 +1148,7 @@ body.z21-loading{ overflow:hidden; }
 
   <div class="z21-search-bar">
     <i class="fas fa-search"></i>
-    <input type="text" id="searchInput" placeholder="Search by artist, invoice, or message…" autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Search by event, artist, invoice, or message…" autocomplete="off">
   </div>
 
   <div class="z21-inbox">
@@ -947,7 +1170,7 @@ body.z21-loading{ overflow:hidden; }
       <div class="z21-empty">
         <div class="z21-empty-icon"><i class="fas fa-inbox"></i></div>
         <h3>Select a conversation</h3>
-        <p>Your booking requests, subscription updates, and admin messages appear here.</p>
+        <p>Your event requests, quotes, and admin messages appear here.</p>
       </div>
     </div>
   </div>
@@ -968,7 +1191,7 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </nav>
 
-<!-- AUTH MODAL — Sign In / Sign Up / Reset Password -->
+<!-- AUTH MODAL -->
 <div class="z21-modal" id="authModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -1019,7 +1242,7 @@ body.z21-loading{ overflow:hidden; }
           <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
         </div>
         <div class="z21-field">
-          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <label>School / Organisation <span class="z21-field-optional">(optional)</span></label>
           <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
         </div>
         <div class="z21-field">
@@ -1060,6 +1283,79 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </div>
 
+<!-- ACCEPT QUOTE MODAL -->
+<div class="z21-modal" id="acceptQuoteModal">
+  <div class="z21-modal-panel md">
+    <div class="z21-modal-head">
+      <div>
+        <h2>Accept this quote?</h2>
+        <p>By accepting, you confirm the artist for your event. The Zone21 team will send you payment details and final logistics.</p>
+      </div>
+      <button class="z21-modal-close" data-close="acceptQuoteModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-confirm-quote" id="acceptQuoteSummary">
+        <small>Total quote</small>
+        <strong id="acceptQuoteAmount">—</strong>
+        <span id="acceptQuoteMeta"></span>
+      </div>
+
+      <div class="z21-field">
+        <label>Message to Zone21 <span class="z21-field-optional">(optional)</span></label>
+        <textarea id="acceptQuoteNote" placeholder="Any special instructions, questions, or notes for the team…"></textarea>
+      </div>
+
+      <button class="z21-btn-full success" id="acceptQuoteConfirm">
+        <i class="fas fa-circle-check"></i> Accept &amp; Confirm Booking
+      </button>
+      <button class="z21-btn-full secondary" data-close="acceptQuoteModal" style="margin-top:8px">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DECLINE QUOTE MODAL -->
+<div class="z21-modal" id="declineQuoteModal">
+  <div class="z21-modal-panel md">
+    <div class="z21-modal-head">
+      <div>
+        <h2>Decline this quote?</h2>
+        <p>Let us know why so we can look for a better option or adjust the offer.</p>
+      </div>
+      <button class="z21-modal-close" data-close="declineQuoteModal"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="z21-modal-body">
+      <div class="z21-form-msg" id="declineQuoteMsg"></div>
+
+      <div class="z21-field">
+        <label>Reason <span class="z21-field-optional">(optional)</span></label>
+        <select id="declineQuoteReason">
+          <option value="">Select a reason…</option>
+          <option value="Price is too high">Price is too high</option>
+          <option value="Different artist preferred">Different artist preferred</option>
+          <option value="Date no longer works">Date no longer works</option>
+          <option value="Event cancelled">Event cancelled</option>
+          <option value="Budget changed">Budget changed</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="z21-field">
+        <label>Additional Notes <span class="z21-field-optional">(optional)</span></label>
+        <textarea id="declineQuoteNote" placeholder="Anything else we should know?"></textarea>
+      </div>
+
+      <button class="z21-btn-full danger" id="declineQuoteConfirm">
+        <i class="fas fa-times"></i> Decline Quote
+      </button>
+      <button class="z21-btn-full secondary" data-close="declineQuoteModal" style="margin-top:8px">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="z21-toast-wrap" id="toastWrap"></div>
 
@@ -1071,8 +1367,8 @@ import {
   sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, addDoc, collection,
-  onSnapshot, query, where, serverTimestamp, updateDoc
+  getFirestore, doc, getDoc, setDoc, addDoc, updateDoc,
+  collection, onSnapshot, query, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ═══════════════════════════════════════════════════════════
@@ -1085,17 +1381,25 @@ const firebaseConfig = {
   storageBucket: "zone21.firebasestorage.app",
   messagingSenderId: "405963057292",
   appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-  measurementKind: "G-KE007Y89F1"
+  measurementId: "G-KE007Y89F1"
 };
 
 const PLAN_ID = 'annual';
+const REQUEST_FLOW = ['pending', 'sourcing', 'quoted', 'confirmed', 'completed'];
+const FLOW_LABELS = {
+  pending: 'Submitted',
+  sourcing: 'Sourcing',
+  quoted: 'Quoted',
+  confirmed: 'Confirmed',
+  completed: 'Completed'
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
-   LOADER SPLASH
+   LOADER
    ═══════════════════════════════════════════════════════════ */
 const PAGE_START = Date.now();
 const MIN_LOADER_MS = 900;
@@ -1126,7 +1430,6 @@ let userProfile = null;
 let allMessages = [];
 let allBookings = {};
 
-/* Subscription cache — maps invoiceNumber → sub doc, and the primary sub doc */
 let userSubsByInvoice = {};
 let userSubsPrimary = null;
 
@@ -1140,11 +1443,14 @@ let unsubReceived = null;
 let unsubBookings = null;
 let unsubUserSubs = null;
 
-/* Attachment state */
-let pendingReplyImage = null;   // base64 data URL or null
+let pendingReplyImage = null;
+
+/* Quote action state */
+let currentQuoteBookingId = null;
+let currentQuoteData = null;
 
 /* ═══════════════════════════════════════════════════════════
-   UTILITIES
+   UTILS
    ═══════════════════════════════════════════════════════════ */
 const $ = (id) => document.getElementById(id);
 
@@ -1153,6 +1459,35 @@ function escapeHTML(s){
   const d = document.createElement('div');
   d.textContent = String(s);
   return d.innerHTML;
+}
+
+function money(amount, currency){
+  const cur = currency || 'USD';
+  if(amount == null || amount === '') return '—';
+  try{
+    return new Intl.NumberFormat('en', {
+      style:'currency', currency: cur, maximumFractionDigits: 0
+    }).format(Number(amount));
+  }catch(_){
+    return `${cur} ${amount}`;
+  }
+}
+
+function fmtEventDate(iso){
+  if(!iso) return '—';
+  try{
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  }catch(_){ return iso; }
+}
+
+function fmtTime(t){
+  if(!t) return '—';
+  try{
+    const [h,m] = t.split(':').map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+  }catch(_){ return t; }
 }
 
 function showToast(msg, type = 'info'){
@@ -1174,19 +1509,18 @@ function showToast(msg, type = 'info'){
 
 function showFormMsg(elId, msg, type = 'error'){
   const el = $(elId);
+  if(!el) return;
   el.textContent = msg;
   el.className = `z21-form-msg show ${type}`;
 }
 function clearFormMsg(elId){
   const el = $(elId);
+  if(!el) return;
   el.textContent = '';
   el.className = 'z21-form-msg';
 }
 
-function openModal(id){
-  $(id).classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
+function openModal(id){ $(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeModal(id){
   $(id).classList.remove('open');
   if(!document.querySelector('.z21-modal.open')) document.body.style.overflow = '';
@@ -1233,8 +1567,6 @@ function friendlyAuthError(err){
 
 /* ═══════════════════════════════════════════════════════════
    IMAGE COMPRESSION → BASE64
-   Small target (800px max, 0.7 quality) to stay well under
-   Firestore's 1MB per-document limit.
    ═══════════════════════════════════════════════════════════ */
 function compressImageToBase64(file, maxDim = 800, quality = 0.7){
   return new Promise((resolve, reject) => {
@@ -1260,7 +1592,6 @@ function compressImageToBase64(file, maxDim = 800, quality = 0.7){
 
         const base64 = canvas.toDataURL('image/jpeg', quality);
 
-        // Safety: retry harder if the base64 is > 700KB
         if(base64.length > 700000){
           resolve(canvas.toDataURL('image/jpeg', 0.5));
           return;
@@ -1293,7 +1624,6 @@ function hideResetPanel(){
 
 function showResetPanel(){
   clearFormMsg('resetMsg');
-  // Prefill from whatever the user already typed on the sign-in form
   const typed = ($('signinEmail')?.value || '').trim();
   if(typed) $('resetEmail').value = typed;
 
@@ -1442,7 +1772,6 @@ $('resetForm').addEventListener('submit', async (e) => {
       btn.innerHTML = orig;
       return;
     }
-    // Silently swallow user-not-found to avoid revealing registered emails.
     console.warn('Password reset request handled privately:', code || err?.message);
   }
 
@@ -1474,7 +1803,6 @@ onAuthStateChanged(auth, async (user) => {
   if(unsubBookings){ unsubBookings(); unsubBookings = null; }
   if(unsubUserSubs){ unsubUserSubs(); unsubUserSubs = null; }
 
-  // reset local sub cache
   userSubsByInvoice = {};
   userSubsPrimary = null;
 
@@ -1541,7 +1869,6 @@ $('menuSignOut').addEventListener('click', async () => {
 
 /* ═══════════════════════════════════════════════════════════
    SUBSCRIPTION LISTENER
-   Keeps the subscription badge in sync with admin approvals.
    ═══════════════════════════════════════════════════════════ */
 function startSubscriptionListener(){
   const uid = currentUser.uid;
@@ -1556,8 +1883,6 @@ function startSubscriptionListener(){
         const s = { id: d.id, ...d.data() };
         if(s.invoiceNumber) userSubsByInvoice[s.invoiceNumber] = s;
 
-        // Prefer the compound {uid}_annual doc as primary;
-        // else fall back to any active sub
         if(d.id === `${uid}_${PLAN_ID}`){
           userSubsPrimary = s;
         } else if(
@@ -1569,7 +1894,6 @@ function startSubscriptionListener(){
         }
       });
 
-      // Re-enrich threads with fresh sub status + re-render
       threads = threads.map(t => enrichThread(t));
       filteredThreads = applyFiltersToThreads(threads);
       renderThreadList();
@@ -1683,7 +2007,14 @@ function buildThreads(){
 }
 
 function detectType(m){
-  if(m.type === 'artist_booking' || m.bookingRef || m.bookingId) return 'booking';
+  if(
+    m.type === 'event_request' ||
+    m.type === 'event_request_update' ||
+    m.type === 'event_request_quote' ||
+    m.type === 'artist_booking' ||
+    m.bookingRef ||
+    m.bookingId
+  ) return 'booking';
   if(m.type === 'subscription_invoice' || m.invoiceNumber) return 'subscription';
   if(m.type === 'payment_proof') return 'payment';
   return 'support';
@@ -1696,25 +2027,22 @@ function enrichThread(t){
     const bookingId = t.root.bookingId;
     const booking = bookingId ? allBookings[bookingId] : null;
     out.booking = booking || null;
-    out.title = booking
-      ? `Booking · ${booking.artistName || 'Artist'}`
-      : (t.root.subject || `Booking · ${t.root.artistName || 'Artist'}`);
+
+    const eventName = booking?.eventName || booking?.eventType || 'Event request';
+    const status = booking?.status || 'pending';
+
+    out.title = eventName;
     out.subtitle = booking
-      ? [booking.eventDate, booking.eventType].filter(Boolean).join(' · ')
+      ? [booking.eventType, booking.city].filter(Boolean).join(' · ')
       : (t.root.bookingRef || '');
-    out.status = booking?.status || 'pending';
+    out.status = status;
     out.ref = booking?.ref || t.root.bookingRef || '';
   }
   else if(t.type === 'subscription'){
     out.title = 'Subscription';
 
-    /* Look up the REAL sub doc by invoice number. The message's own
-       `status` field is set at creation and never updates, so the
-       subscription doc is the live source of truth. */
     const invNum = t.root?.invoiceNumber;
     const subDoc = invNum ? userSubsByInvoice[invNum] : null;
-
-    // Fallback: if we can't match by invoice, use the primary sub
     const fallbackSub = !subDoc && userSubsPrimary ? userSubsPrimary : null;
     const effective = subDoc || fallbackSub;
 
@@ -1768,7 +2096,9 @@ function applyFiltersToThreads(list){
         t.lastMessage?.message,
         t.root?.artistName,
         t.booking?.artistName,
+        t.booking?.eventName,
         t.booking?.venue,
+        t.booking?.city,
         t.root?.invoiceNumber
       ].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(q);
@@ -1815,7 +2145,7 @@ function renderThreadList(){
       <div class="z21-empty">
         <div class="z21-empty-icon"><i class="fas fa-lock"></i></div>
         <h3>Sign in to view your inbox</h3>
-        <p>Your booking requests and admin messages will appear here.</p>
+        <p>Your event requests, quotes, and admin messages will appear here.</p>
         <button onclick="window.zone21OpenAuth('signin')"><i class="fas fa-arrow-right"></i> Sign In / Sign Up</button>
       </div>`;
     return;
@@ -1829,8 +2159,8 @@ function renderThreadList(){
         <h3>${hasAny ? 'No matches' : 'No conversations yet'}</h3>
         <p>${hasAny
           ? 'Try a different search term or filter.'
-          : 'Book an artist from the Discover page and it will show up here instantly.'}</p>
-        ${!hasAny ? `<a href="discover.html" class="z21-btn-empty"><i class="fas fa-compass"></i> Discover Artists</a>` : ''}
+          : 'Post an event request on Discover and it will show up here instantly.'}</p>
+        ${!hasAny ? `<a href="discover.html" class="z21-btn-empty"><i class="fas fa-paper-plane"></i> Post an Event Request</a>` : ''}
       </div>`;
     return;
   }
@@ -1885,7 +2215,8 @@ function threadIconClass(t){
 function threadBadgeHTML(t){
   if(t.type === 'booking'){
     const s = t.status || 'pending';
-    return `<span class="z21-pill ${s}">${escapeHTML(s)}</span>` +
+    const label = FLOW_LABELS[s] || s;
+    return `<span class="z21-pill ${s}">${escapeHTML(label)}</span>` +
            (t.ref ? `<span class="z21-pill neutral">${escapeHTML(t.ref)}</span>` : '');
   }
   if(t.type === 'subscription'){
@@ -1900,7 +2231,7 @@ function threadBadgeHTML(t){
 function threadPreviewText(t){
   const last = t.lastMessage;
   if(!last) return '';
-  const who = (last.sender === 'admin' || last.senderType === 'admin') ? 'Zone21: ' : '';
+  const who = (last.sender === 'admin' || last.senderType === 'admin') ? 'Zone21: ' : 'You: ';
   let body = last.message || last.subject || '';
   if(!body && (last.image || last.proofImage)) body = '[Image]';
   body = body.replace(/\n+/g, ' · ').trim();
@@ -1950,7 +2281,7 @@ function renderDetail(threadId){
       <div class="z21-empty">
         <div class="z21-empty-icon"><i class="fas fa-inbox"></i></div>
         <h3>Select a conversation</h3>
-        <p>Your booking requests, subscription updates, and admin messages appear here.</p>
+        <p>Your event requests, quotes, and admin messages appear here.</p>
       </div>`;
     return;
   }
@@ -1990,82 +2321,293 @@ function renderDetail(threadId){
 
   let scrollHTML = `<div class="z21-detail-scroll" id="detailScroll">`;
 
-  if(t.type === 'booking' && t.booking){
-    const b = t.booking;
-    scrollHTML += `
-      <div class="z21-context">
-        <div class="z21-context-head">
-          <span class="z21-context-title">Booking details</span>
-          <span class="z21-pill ${b.status || 'pending'}">${escapeHTML(b.status || 'pending')}</span>
-        </div>
-        <div class="z21-context-grid">
-          <div class="z21-context-item"><small>Artist</small><strong>${escapeHTML(b.artistName || '—')}</strong></div>
-          <div class="z21-context-item"><small>Date</small><strong>${escapeHTML(b.eventDate || '—')}${b.eventTime ? ' · ' + escapeHTML(b.eventTime) : ''}</strong></div>
-          <div class="z21-context-item"><small>Event</small><strong>${escapeHTML(b.eventType || '—')}</strong></div>
-          <div class="z21-context-item"><small>Venue</small><strong>${escapeHTML(b.venue || '—')}</strong></div>
-          ${b.budget ? `<div class="z21-context-item"><small>Budget</small><strong>$${escapeHTML(b.budget)}</strong></div>` : ''}
-        </div>
-      </div>`;
+  if(t.type === 'booking'){
+    scrollHTML += renderBookingContext(t);
   } else if(t.type === 'subscription'){
-    const liveStatus = t.subscriptionStatus || 'pending';
-    const statusLabel = liveStatus === 'active' ? 'Active'
-                      : liveStatus === 'rejected' ? 'Rejected'
-                      : 'Pending';
-    scrollHTML += `
-      <div class="z21-context">
-        <div class="z21-context-head">
-          <span class="z21-context-title">Subscription</span>
-          <span class="z21-pill ${liveStatus}">${statusLabel}</span>
-        </div>
-        <div class="z21-context-grid">
-          <div class="z21-context-item"><small>Plan</small><strong>Full Access · Annual</strong></div>
-          <div class="z21-context-item"><small>Amount</small><strong>$150.00</strong></div>
-          <div class="z21-context-item"><small>Invoice</small><strong style="font-family:'SF Mono',monospace;font-size:12.5px">${escapeHTML(t.root.invoiceNumber || '—')}</strong></div>
-        </div>
-      </div>`;
+    scrollHTML += renderSubscriptionContext(t);
   } else if(t.type === 'payment'){
-    scrollHTML += `
-      <div class="z21-context">
-        <div class="z21-context-head">
-          <span class="z21-context-title">Payment proof</span>
-        </div>
-        <div class="z21-context-grid">
-          ${t.root.amount ? `<div class="z21-context-item"><small>Amount</small><strong>$${escapeHTML(t.root.amount)}</strong></div>` : ''}
-          ${t.root.method ? `<div class="z21-context-item"><small>Method</small><strong>${escapeHTML(t.root.method)}</strong></div>` : ''}
-          ${t.root.purpose ? `<div class="z21-context-item"><small>Purpose</small><strong>${escapeHTML(t.root.purpose)}</strong></div>` : ''}
-          ${t.root.reference ? `<div class="z21-context-item"><small>Reference</small><strong style="font-family:'SF Mono',monospace;font-size:12.5px">${escapeHTML(t.root.reference)}</strong></div>` : ''}
-        </div>
-      </div>`;
+    scrollHTML += renderPaymentContext(t);
   }
 
   scrollHTML += `<div class="z21-messages">`;
   t.messages.forEach(m => {
-    const isMe = m.senderId === currentUser.uid && m.sender !== 'admin';
-    const d = toDate(m.createdAt);
-    const timeStr = d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-    const fullTime = d ? fmtFull(d) : '';
-    const avatarLabel = isMe
-      ? (userProfile?.name || 'ME').charAt(0).toUpperCase()
-      : 'Z';
-    const imgHTML = m.image || m.proofImage
-      ? `<img src="${escapeHTML(m.image || m.proofImage)}" alt="" data-img="${escapeHTML(m.image || m.proofImage)}">`
-      : '';
-    const text = m.message || m.subject || '';
-    const emptyText = !text && imgHTML ? '' : (text || '[Attachment]');
-
-    scrollHTML += `
-      <div class="z21-msg ${isMe ? 'me' : 'them'}">
-        <div class="z21-msg-avatar ${isMe ? 'me' : 'them'}">${avatarLabel}</div>
-        <div class="z21-msg-body">
-          <div class="z21-bubble">${escapeHTML(emptyText)}${imgHTML}</div>
-          <div class="z21-msg-time" title="${escapeHTML(fullTime)}">${escapeHTML(timeStr)}</div>
-        </div>
-      </div>`;
+    scrollHTML += renderMessageHTML(m);
   });
   scrollHTML += `</div></div>`;
 
-  const replyHTML = `
+  const replyHTML = renderReplyBox(t);
+
+  detail.innerHTML = headerHTML + scrollHTML + replyHTML;
+
+  const scroll = $('detailScroll');
+  if(scroll) scroll.scrollTop = scroll.scrollHeight;
+
+  const backBtn = $('mobileBackBtn');
+  if(backBtn) backBtn.addEventListener('click', closeMobileDetail);
+
+  detail.querySelectorAll('[data-img]').forEach(img => {
+    img.addEventListener('click', () => window.open(img.dataset.img, '_blank'));
+  });
+
+  wireReplyBox(t);
+  wireQuoteActions(t);
+}
+
+/* ── Event request context ── */
+function renderBookingContext(t){
+  const b = t.booking;
+
+  /* If we don't have the booking doc yet, fall back to root message fields */
+  if(!b){
+    return `
+      <div class="z21-context">
+        <div class="z21-context-head">
+          <span class="z21-context-title">Event request</span>
+          <span class="z21-req-status pending">Pending</span>
+        </div>
+        <div class="z21-context-grid">
+          <div class="z21-context-item"><small>Reference</small><strong>${escapeHTML(t.root.bookingRef || '—')}</strong></div>
+          <div class="z21-context-item"><small>Artist</small><strong>${escapeHTML(t.root.artistName || '—')}</strong></div>
+        </div>
+      </div>`;
+  }
+
+  const status = b.status || 'pending';
+  const isDeclined = status === 'declined';
+  const currentIdx = REQUEST_FLOW.indexOf(status);
+
+  /* Timeline (skip if declined) */
+  let timelineHTML = '';
+  if(!isDeclined){
+    timelineHTML = `
+      <div class="z21-timeline">
+        ${REQUEST_FLOW.map((step, i) => {
+          const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : '';
+          return `
+            <div class="z21-tl-step ${cls}">
+              <div class="z21-tl-dot">
+                ${i < currentIdx ? '<i class="fas fa-check"></i>' : `<span>${i+1}</span>`}
+              </div>
+              <div class="z21-tl-label">${escapeHTML(FLOW_LABELS[step] || step)}</div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  /* Assigned artist card */
+  const assignedHTML = b.artistName ? `
+    <div class="z21-assigned-card">
+      <img src="${escapeHTML(b.artistPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.artistName)}&background=30d158&color=000&size=200&bold=true`)}" alt="">
+      <div class="info">
+        <small>Assigned artist</small>
+        <strong>${escapeHTML(b.artistName)}</strong>
+        <span>Sourced by Zone21 for your event</span>
+      </div>
+    </div>
+  ` : '';
+
+  /* Quote box — only shows when status is 'quoted' and not yet accepted */
+  const quoteHTML = (status === 'quoted' && b.quoteAmount) ? `
+    <div class="z21-quote-box">
+      <div class="z21-quote-label"><i class="fas fa-file-invoice-dollar"></i> Quote from Zone21</div>
+      <div class="z21-quote-amount">${escapeHTML(money(b.quoteAmount, b.quoteCurrency || b.currency || 'USD'))}</div>
+      <div class="z21-quote-meta">
+        ${b.quoteTerms ? `<strong>Terms:</strong> ${escapeHTML(b.quoteTerms)}<br>` : ''}
+        ${b.quoteValidity ? `<strong>Valid for:</strong> ${escapeHTML(b.quoteValidity)}<br>` : ''}
+        ${b.quoteSentAt ? `<strong>Sent:</strong> ${escapeHTML(fmtFull(toDate(b.quoteSentAt)))}` : ''}
+      </div>
+      <div class="z21-quote-actions" data-quote-actions data-booking-id="${escapeHTML(b.id)}">
+        <button class="z21-quote-accept" data-quote-accept="${escapeHTML(b.id)}">
+          <i class="fas fa-circle-check"></i> Accept Quote
+        </button>
+        <button class="z21-quote-decline" data-quote-decline="${escapeHTML(b.id)}">
+          <i class="fas fa-times"></i> Decline
+        </button>
+      </div>
+    </div>
+  ` : '';
+
+  /* Status labels */
+  const statusLabels = {
+    pending: 'Awaiting Review',
+    sourcing: 'Sourcing Artist',
+    quoted: 'Quote Ready',
+    confirmed: 'Confirmed',
+    completed: 'Completed',
+    declined: 'Declined'
+  };
+
+  /* Requirements chips */
+  const reqs = Array.isArray(b.requirements) ? b.requirements : [];
+  const reqChips = reqs.length
+    ? reqs.map(r => `<span class="z21-req-chip">${escapeHTML(r)}</span>`).join('')
+    : `<span class="z21-req-chip empty">No extras requested</span>`;
+
+  const currency = b.currency || 'USD';
+  const budget = b.budget ? money(b.budget, currency) + (b.budgetFlexible ? ' (flexible)' : '') : null;
+
+  return `
+    <div class="z21-context">
+      <div class="z21-context-head">
+        <span class="z21-context-title">Event request</span>
+        <span class="z21-req-status ${escapeHTML(status)}">${escapeHTML(statusLabels[status] || status)}</span>
+      </div>
+
+      ${timelineHTML}
+      ${assignedHTML}
+      ${quoteHTML}
+
+      <div class="z21-context-grid">
+        <div class="z21-context-item"><small>Event</small><strong>${escapeHTML(b.eventName || b.eventType || '—')}</strong></div>
+        <div class="z21-context-item"><small>Type</small><strong>${escapeHTML(b.eventType || '—')}</strong></div>
+        <div class="z21-context-item"><small>Date</small><strong>${escapeHTML(fmtEventDate(b.eventDate))}</strong></div>
+        <div class="z21-context-item"><small>Time</small><strong>${escapeHTML(fmtTime(b.eventTime))}</strong></div>
+        <div class="z21-context-item"><small>Duration</small><strong>${escapeHTML(b.duration || '—')}</strong></div>
+        <div class="z21-context-item"><small>Attendance</small><strong>${b.attendance ? Number(b.attendance).toLocaleString() : '—'}</strong></div>
+        <div class="z21-context-item"><small>Venue</small><strong>${escapeHTML(b.venue || '—')}</strong></div>
+        <div class="z21-context-item"><small>City</small><strong>${escapeHTML(b.city || '—')}${b.countryName ? ', ' + escapeHTML(b.countryName) : ''}</strong></div>
+        <div class="z21-context-item">
+          <small>Your Budget</small>
+          <strong>${budget ? escapeHTML(budget) : '<span class="muted">—</span>'}</strong>
+        </div>
+        <div class="z21-context-item"><small>Payment</small><strong>${escapeHTML(b.paymentMethod || '—')}</strong></div>
+        <div class="z21-context-item">
+          <small>Preferred Artist</small>
+          <strong>${b.preferredArtistName ? escapeHTML(b.preferredArtistName) : '<span class="muted">No preference</span>'}</strong>
+        </div>
+        <div class="z21-context-item"><small>Performance</small><strong>${escapeHTML(b.performanceType || '—')}</strong></div>
+      </div>
+
+      <div class="z21-req-chips">
+        <span class="label">We arrange:</span>
+        ${reqChips}
+      </div>
+
+      ${b.artistNotes ? `<div class="z21-notes"><strong>Notes for the artist</strong>${escapeHTML(b.artistNotes)}</div>` : ''}
+      ${b.description ? `<div class="z21-notes"><strong>Additional details</strong>${escapeHTML(b.description)}</div>` : ''}
+    </div>`;
+}
+
+/* ── Subscription context ── */
+function renderSubscriptionContext(t){
+  const liveStatus = t.subscriptionStatus || 'pending';
+  const statusLabel = liveStatus === 'active' ? 'Active'
+                    : liveStatus === 'rejected' ? 'Rejected'
+                    : 'Pending';
+
+  return `
+    <div class="z21-context">
+      <div class="z21-context-head">
+        <span class="z21-context-title">Subscription</span>
+        <span class="z21-pill ${escapeHTML(liveStatus)}">${statusLabel}</span>
+      </div>
+      <div class="z21-context-grid">
+        <div class="z21-context-item"><small>Plan</small><strong>Full Access · Annual</strong></div>
+        <div class="z21-context-item"><small>Amount</small><strong>$150.00</strong></div>
+        <div class="z21-context-item"><small>Invoice</small><strong style="font-family:'SF Mono',monospace;font-size:12.5px">${escapeHTML(t.root.invoiceNumber || '—')}</strong></div>
+      </div>
+    </div>`;
+}
+
+/* ── Payment context ── */
+function renderPaymentContext(t){
+  return `
+    <div class="z21-context">
+      <div class="z21-context-head">
+        <span class="z21-context-title">Payment proof</span>
+      </div>
+      <div class="z21-context-grid">
+        ${t.root.amount ? `<div class="z21-context-item"><small>Amount</small><strong>$${escapeHTML(t.root.amount)}</strong></div>` : ''}
+        ${t.root.method ? `<div class="z21-context-item"><small>Method</small><strong>${escapeHTML(t.root.method)}</strong></div>` : ''}
+        ${t.root.purpose ? `<div class="z21-context-item"><small>Purpose</small><strong>${escapeHTML(t.root.purpose)}</strong></div>` : ''}
+        ${t.root.reference ? `<div class="z21-context-item"><small>Reference</small><strong style="font-family:'SF Mono',monospace;font-size:12.5px">${escapeHTML(t.root.reference)}</strong></div>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ── Render single message ── */
+function renderMessageHTML(m){
+  const isMe = m.senderId === currentUser.uid && m.sender !== 'admin';
+  const d = toDate(m.createdAt);
+  const timeStr = d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const fullTime = d ? fmtFull(d) : '';
+  const avatarLabel = isMe
+    ? (userProfile?.name || 'ME').charAt(0).toUpperCase()
+    : 'Z';
+  const imgHTML = m.image || m.proofImage
+    ? `<img src="${escapeHTML(m.image || m.proofImage)}" alt="" data-img="${escapeHTML(m.image || m.proofImage)}">`
+    : '';
+  const text = m.message || m.subject || '';
+  const emptyText = !text && imgHTML ? '' : (text || '[Attachment]');
+
+  return `
+    <div class="z21-msg ${isMe ? 'me' : 'them'}">
+      <div class="z21-msg-avatar ${isMe ? 'me' : 'them'}">${escapeHTML(avatarLabel)}</div>
+      <div class="z21-msg-body">
+        <div class="z21-bubble">${escapeHTML(emptyText)}${imgHTML}</div>
+        <div class="z21-msg-time" title="${escapeHTML(fullTime)}">${escapeHTML(timeStr)}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Reply box (with quick replies) ── */
+function renderReplyBox(t){
+  /* Quick replies tailored to the current state */
+  let quickReplies = [];
+  if(t.type === 'booking'){
+    const status = t.booking?.status || 'pending';
+    if(status === 'pending'){
+      quickReplies = [
+        'Thanks — looking forward to your suggestion!',
+        'Please prioritise artists within our budget.',
+        'Let me know if you need any more details.'
+      ];
+    } else if(status === 'sourcing'){
+      quickReplies = [
+        'Great, thanks for the update!',
+        'Any rough ETA on the artist options?',
+        'We\'re flexible on the performance time.'
+      ];
+    } else if(status === 'quoted'){
+      quickReplies = [
+        'Can we adjust the price slightly?',
+        'We\'d love to proceed — sending confirmation.',
+        'Could you add a lighting package too?'
+      ];
+    } else if(status === 'confirmed'){
+      quickReplies = [
+        'Perfect — thanks for confirming!',
+        'Please share the final run sheet.',
+        'Can we schedule a sound check earlier?'
+      ];
+    } else {
+      quickReplies = [
+        'Thanks for the update.',
+        'Any chance we can revisit this?'
+      ];
+    }
+  } else if(t.type === 'subscription'){
+    quickReplies = [
+      'I\'ve made the payment — proof attached.',
+      'Could you confirm my subscription is active?',
+      'How long does activation take?'
+    ];
+  } else {
+    quickReplies = [
+      'Thanks for the reply!',
+      'Could you clarify one thing for me?',
+      'All sorted — thank you!'
+    ];
+  }
+
+  return `
     <div class="z21-reply">
+      ${quickReplies.length ? `
+        <div class="z21-quick-replies">
+          ${quickReplies.map(q => `<button class="z21-quick-chip" data-quick="${escapeHTML(q)}">${escapeHTML(q)}</button>`).join('')}
+        </div>
+      ` : ''}
+
       <div class="z21-attach-preview" id="attachPreview" style="display:none;">
         <img id="attachPreviewImg" alt="">
         <button class="z21-attach-remove" id="attachRemove" aria-label="Remove attachment">
@@ -2089,20 +2631,21 @@ function renderDetail(threadId){
         Attach a screenshot for context · Replies reach the Zone21 team.
       </div>
     </div>`;
+}
 
-  detail.innerHTML = headerHTML + scrollHTML + replyHTML;
+function threadIconBg(iconClass){
+  switch(iconClass){
+    case 'booking':      return 'background:rgba(250,36,60,.14);color:var(--accent);border:1px solid rgba(250,36,60,.28)';
+    case 'subscription': return 'background:rgba(255,159,10,.14);color:var(--warn);border:1px solid rgba(255,159,10,.28)';
+    case 'payment':      return 'background:rgba(48,209,88,.14);color:var(--success);border:1px solid rgba(48,209,88,.28)';
+    default:             return 'background:rgba(10,132,255,.14);color:var(--info);border:1px solid rgba(10,132,255,.28)';
+  }
+}
 
-  const scroll = $('detailScroll');
-  if(scroll) scroll.scrollTop = scroll.scrollHeight;
-
-  const backBtn = $('mobileBackBtn');
-  if(backBtn) backBtn.addEventListener('click', closeMobileDetail);
-
-  detail.querySelectorAll('[data-img]').forEach(img => {
-    img.addEventListener('click', () => window.open(img.dataset.img, '_blank'));
-  });
-
-  // Wire reply input
+/* ═══════════════════════════════════════════════════════════
+   WIRE REPLY BOX
+   ═══════════════════════════════════════════════════════════ */
+function wireReplyBox(t){
   const input = $('replyInput');
   const send = $('sendReply');
   const attachBtn = $('replyAttachBtn');
@@ -2112,7 +2655,6 @@ function renderDetail(threadId){
   const removeBtn = $('attachRemove');
   const sizeLabel = $('attachSize');
 
-  // Reset attachment state when switching threads
   pendingReplyImage = null;
   if(preview) preview.style.display = 'none';
   if(attachBtn) attachBtn.classList.remove('has-image');
@@ -2138,7 +2680,17 @@ function renderDetail(threadId){
     send.addEventListener('click', () => submitReply(t));
   }
 
-  // Attach button → open file picker
+  /* Quick replies */
+  document.querySelectorAll('.z21-quick-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if(!input) return;
+      input.value = chip.dataset.quick;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    });
+  });
+
+  /* Attach image */
   if(attachBtn && fileInput){
     attachBtn.addEventListener('click', () => fileInput.click());
 
@@ -2167,10 +2719,6 @@ function renderDetail(threadId){
         preview.style.display = 'inline-flex';
         attachBtn.classList.add('has-image');
         updateSendState();
-
-        if(kb > 800){
-          showToast(`Large image (${kb}KB) — sending may be slow.`, 'info');
-        }
       }catch(err){
         console.error(err);
         showToast('Could not process image: ' + err.message, 'error');
@@ -2189,17 +2737,8 @@ function renderDetail(threadId){
   }
 }
 
-function threadIconBg(iconClass){
-  switch(iconClass){
-    case 'booking':      return 'background:rgba(250,36,60,.14);color:var(--accent);border:1px solid rgba(250,36,60,.28)';
-    case 'subscription': return 'background:rgba(255,159,10,.14);color:var(--warn);border:1px solid rgba(255,159,10,.28)';
-    case 'payment':      return 'background:rgba(48,209,88,.14);color:var(--success);border:1px solid rgba(48,209,88,.28)';
-    default:             return 'background:rgba(10,132,255,.14);color:var(--info);border:1px solid rgba(10,132,255,.28)';
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════
-   SUBMIT REPLY (supports base64 image attachment)
+   SUBMIT REPLY
    ═══════════════════════════════════════════════════════════ */
 async function submitReply(thread){
   const input = $('replyInput');
@@ -2231,7 +2770,7 @@ async function submitReply(thread){
       createdAt: serverTimestamp()
     };
 
-    if(image) payload.image = image;   // base64 data URL
+    if(image) payload.image = image;
 
     await addDoc(collection(db, 'messages'), payload);
 
@@ -2252,6 +2791,190 @@ async function submitReply(thread){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   QUOTE ACTIONS (Accept / Decline)
+   ═══════════════════════════════════════════════════════════ */
+function wireQuoteActions(t){
+  document.querySelectorAll('[data-quote-accept]').forEach(btn => {
+    btn.addEventListener('click', () => openAcceptQuoteModal(btn.dataset.quoteAccept));
+  });
+  document.querySelectorAll('[data-quote-decline]').forEach(btn => {
+    btn.addEventListener('click', () => openDeclineQuoteModal(btn.dataset.quoteDecline));
+  });
+}
+
+function openAcceptQuoteModal(bookingId){
+  const b = allBookings[bookingId];
+  if(!b) return;
+
+  currentQuoteBookingId = bookingId;
+  currentQuoteData = b;
+
+  $('acceptQuoteAmount').textContent = money(b.quoteAmount, b.quoteCurrency || b.currency || 'USD');
+  $('acceptQuoteMeta').innerHTML = [
+    b.artistName ? `Artist: <strong>${escapeHTML(b.artistName)}</strong>` : '',
+    b.eventName ? `Event: <strong>${escapeHTML(b.eventName)}</strong>` : '',
+    b.eventDate ? `Date: <strong>${escapeHTML(fmtEventDate(b.eventDate))}</strong>` : ''
+  ].filter(Boolean).join('<br>');
+
+  $('acceptQuoteNote').value = '';
+  openModal('acceptQuoteModal');
+}
+
+function openDeclineQuoteModal(bookingId){
+  const b = allBookings[bookingId];
+  if(!b) return;
+
+  currentQuoteBookingId = bookingId;
+  currentQuoteData = b;
+
+  clearFormMsg('declineQuoteMsg');
+  $('declineQuoteReason').value = '';
+  $('declineQuoteNote').value = '';
+  openModal('declineQuoteModal');
+}
+
+/* ── Accept quote ── */
+$('acceptQuoteConfirm').addEventListener('click', async () => {
+  const btn = $('acceptQuoteConfirm');
+  const orig = btn.innerHTML;
+
+  if(!currentQuoteBookingId || !currentQuoteData){
+    showToast('Booking not found.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirming…';
+
+  const b = currentQuoteData;
+  const note = $('acceptQuoteNote').value.trim();
+
+  try{
+    /* 1) Update the booking doc → confirmed */
+    await updateDoc(doc(db, 'bookings', currentQuoteBookingId), {
+      status: 'confirmed',
+      confirmedAt: serverTimestamp(),
+      confirmedBy: currentUser.uid,
+      updatedAt: serverTimestamp()
+    });
+
+    /* 2) Notify the admin + post into the thread */
+    const messageBody = [
+      `✅ I'm accepting the quote for "${b.eventName || 'the event'}".`,
+      ``,
+      `Quote: ${money(b.quoteAmount, b.quoteCurrency || b.currency || 'USD')}`,
+      b.artistName ? `Artist: ${b.artistName}` : '',
+      b.eventDate ? `Event date: ${b.eventDate} at ${b.eventTime || ''}` : '',
+      note ? `\nNote: ${note}` : '',
+      ``,
+      `Please send me the payment details so we can lock in the booking.`
+    ].filter(Boolean).join('\n');
+
+    await addDoc(collection(db, 'messages'), {
+      sender: 'user',
+      senderId: currentUser.uid,
+      senderType: 'organizer',
+      senderName: userProfile?.name || 'Member',
+      recipientId: 'admin',
+      type: 'event_request_accepted',
+      threadId: findRootThreadId(currentQuoteBookingId),
+      parentType: 'booking',
+      bookingRef: b.ref || null,
+      bookingId: currentQuoteBookingId,
+      subject: `Quote accepted — ${b.eventName || 'Event'}`,
+      message: messageBody,
+      status: 'unread',
+      createdAt: serverTimestamp()
+    });
+
+    showToast('Quote accepted — booking confirmed!', 'success', 4200);
+    closeModal('acceptQuoteModal');
+  }catch(e){
+    console.error(e);
+    showToast('Could not accept quote: ' + e.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    currentQuoteBookingId = null;
+    currentQuoteData = null;
+  }
+});
+
+/* ── Decline quote ── */
+$('declineQuoteConfirm').addEventListener('click', async () => {
+  clearFormMsg('declineQuoteMsg');
+
+  if(!currentQuoteBookingId || !currentQuoteData){
+    showFormMsg('declineQuoteMsg', 'Booking not found.', 'error');
+    return;
+  }
+
+  const btn = $('declineQuoteConfirm');
+  const orig = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Declining…';
+
+  const b = currentQuoteData;
+  const reason = $('declineQuoteReason').value;
+  const note = $('declineQuoteNote').value.trim();
+
+  try{
+    /* 1) Update the booking doc → declined */
+    await updateDoc(doc(db, 'bookings', currentQuoteBookingId), {
+      status: 'declined',
+      declinedAt: serverTimestamp(),
+      declinedBy: currentUser.uid,
+      declineReason: reason || '',
+      updatedAt: serverTimestamp()
+    });
+
+    /* 2) Notify admin */
+    const messageBody = [
+      `I'm declining the quote for "${b.eventName || 'the event'}".`,
+      reason ? `\nReason: ${reason}` : '',
+      note ? `\nNote: ${note}` : '',
+      ``,
+      `Please let me know if we can explore other options.`
+    ].filter(Boolean).join('\n');
+
+    await addDoc(collection(db, 'messages'), {
+      sender: 'user',
+      senderId: currentUser.uid,
+      senderType: 'organizer',
+      senderName: userProfile?.name || 'Member',
+      recipientId: 'admin',
+      type: 'event_request_declined',
+      threadId: findRootThreadId(currentQuoteBookingId),
+      parentType: 'booking',
+      bookingRef: b.ref || null,
+      bookingId: currentQuoteBookingId,
+      subject: `Quote declined — ${b.eventName || 'Event'}`,
+      message: messageBody,
+      status: 'unread',
+      createdAt: serverTimestamp()
+    });
+
+    showToast('Quote declined — Zone21 has been notified.', 'info');
+    closeModal('declineQuoteModal');
+  }catch(e){
+    console.error(e);
+    showFormMsg('declineQuoteMsg', 'Could not decline quote: ' + e.message, 'error');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    currentQuoteBookingId = null;
+    currentQuoteData = null;
+  }
+});
+
+/* Find the root thread id for a given booking (so admin replies stack correctly) */
+function findRootThreadId(bookingId){
+  const t = threads.find(x => x.booking?.id === bookingId || x.root?.bookingId === bookingId);
+  return t ? t.threadId : null;
+}
+
+/* ═══════════════════════════════════════════════════════════
    TABS + SEARCH
    ═══════════════════════════════════════════════════════════ */
 document.querySelectorAll('.z21-tab').forEach(tab => {
@@ -2263,7 +2986,7 @@ document.querySelectorAll('.z21-tab').forEach(tab => {
 
     const labels = {
       all: 'All conversations',
-      bookings: 'Booking requests',
+      bookings: 'Event requests',
       subscription: 'Subscription',
       support: 'Support & payments',
       unread: 'Unread'

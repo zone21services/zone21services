@@ -9,6 +9,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+<!--
+═══════════════════════════════════════════════════════════════════
+  ZONE21 · MY ACCOUNT  (v2 — Multi-country + Multi-currency)
+
+  NEW
+  ───
+  · Silent location detection (timezone → language → IP)
+  · Country field on profile with flag + auto-detected on signup
+  · Billing currency switcher (USD / ZAR) — persisted to Firestore
+  · Subscription summary shows the correct price in the right
+    currency based on the user's preference (and the frozen currency
+    on any active invoice)
+  · Upgraded signup modal captures Country → sets currency
+═══════════════════════════════════════════════════════════════════
+-->
+
 <style>
 :root{
   --bg:#000; --surface:#101012; --surface-2:#18181b; --surface-3:#222226; --surface-4:#2a2a2e;
@@ -34,25 +50,19 @@ img{display:block;max-width:100%}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
 
-/* ═══════════════════════════════════════════════════════════
-   LOADING SPLASH
-   ═══════════════════════════════════════════════════════════ */
+/* LOADING SPLASH */
 body.z21-loading > *:not(#z21Loader){ visibility:hidden; }
 body.z21-loading{ overflow:hidden; }
-
 .z21-loader{
-  position:fixed;inset:0;z-index:9999;
-  background:#000;
+  position:fixed;inset:0;z-index:9999;background:#000;
   display:flex;align-items:center;justify-content:center;
   transition:opacity .6s ease,visibility .6s ease;
 }
 .z21-loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
 .z21-loader::before{
-  content:'';position:absolute;
-  width:520px;height:520px;border-radius:50%;
+  content:'';position:absolute;width:520px;height:520px;border-radius:50%;
   background:radial-gradient(circle,rgba(250,36,60,.22) 0%,transparent 65%);
-  pointer-events:none;
-  animation:z21Glow 4s ease-in-out infinite;
+  pointer-events:none;animation:z21Glow 4s ease-in-out infinite;
 }
 .z21-loader-logo{
   display:flex;align-items:center;gap:16px;
@@ -64,35 +74,23 @@ body.z21-loading{ overflow:hidden; }
   background:linear-gradient(135deg,var(--accent),#c0132b);
   display:flex;align-items:center;justify-content:center;
   font-size:30px;font-weight:900;color:#fff;
-  box-shadow:0 16px 48px var(--accent-glow);
-  flex-shrink:0;
+  box-shadow:0 16px 48px var(--accent-glow);flex-shrink:0;
 }
 .z21-loader-name{
-  font-size:clamp(28px,6vw,36px);
-  font-weight:800;letter-spacing:-.035em;color:var(--text);
+  font-size:clamp(28px,6vw,36px);font-weight:800;
+  letter-spacing:-.035em;color:var(--text);
 }
 .z21-loader-name span{color:var(--accent)}
-
 @keyframes z21Flicker{
-  0%{opacity:1;filter:brightness(1)}
-  6%{opacity:1;filter:brightness(1)}
-  7%{opacity:.5;filter:brightness(.7)}
-  9%{opacity:1;filter:brightness(1)}
-  22%{opacity:1;filter:brightness(1)}
-  23%{opacity:.82;filter:brightness(.9)}
-  24%{opacity:1;filter:brightness(1)}
-  50%{opacity:1;filter:brightness(1)}
-  51%{opacity:.68;filter:brightness(.85)}
-  53%{opacity:1;filter:brightness(1)}
-  71%{opacity:1;filter:brightness(1)}
-  72%{opacity:.55;filter:brightness(.75)}
-  74%{opacity:1;filter:brightness(1)}
-  100%{opacity:1;filter:brightness(1)}
+  0%{opacity:1;filter:brightness(1)}6%{opacity:1;filter:brightness(1)}
+  7%{opacity:.5;filter:brightness(.7)}9%{opacity:1;filter:brightness(1)}
+  22%{opacity:1;filter:brightness(1)}23%{opacity:.82;filter:brightness(.9)}
+  24%{opacity:1;filter:brightness(1)}50%{opacity:1;filter:brightness(1)}
+  51%{opacity:.68;filter:brightness(.85)}53%{opacity:1;filter:brightness(1)}
+  71%{opacity:1;filter:brightness(1)}72%{opacity:.55;filter:brightness(.75)}
+  74%{opacity:1;filter:brightness(1)}100%{opacity:1;filter:brightness(1)}
 }
-@keyframes z21Glow{
-  0%,100%{opacity:.8;transform:scale(1)}
-  50%{opacity:1;transform:scale(1.08)}
-}
+@keyframes z21Glow{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
 @media(prefers-reduced-motion:reduce){
   .z21-loader-logo,.z21-loader::before{animation:none}
 }
@@ -171,6 +169,27 @@ body.z21-loading{ overflow:hidden; }
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
 }
 .z21-page-head p{font-size:15px;color:var(--text-muted);line-height:1.55;max-width:600px}
+
+/* LOCATION BANNER */
+.z21-loc-banner{
+  display:inline-flex;align-items:center;gap:10px;
+  margin-top:18px;padding:8px 16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:100px;font-size:12.5px;
+  color:var(--text-muted);font-weight:600;
+  transition:all .2s;
+}
+.z21-loc-banner:hover{border-color:var(--border-2)}
+.z21-loc-banner .flag{font-size:16px;line-height:1}
+.z21-loc-banner strong{color:#fff;font-weight:700}
+.z21-loc-banner .cur-chip{
+  padding:3px 10px;border-radius:100px;
+  background:rgba(250,36,60,.14);
+  border:1px solid rgba(250,36,60,.3);
+  color:#ff9aa5;font-size:10.5px;font-weight:800;
+  letter-spacing:.06em;
+}
 
 /* HERO CARD */
 .z21-hero-card{
@@ -283,6 +302,7 @@ body.z21-loading{ overflow:hidden; }
   border-radius:var(--radius-sm);
   color:var(--text);font-size:14.5px;font-weight:500;
   outline:none;transition:all .2s;
+  -webkit-appearance:none;appearance:none;
 }
 .z21-inline-input:focus{
   border-color:rgba(250,36,60,.6);
@@ -295,10 +315,56 @@ body.z21-loading{ overflow:hidden; }
   cursor:default;color:var(--text-muted);
 }
 .z21-inline-input:disabled:focus{box-shadow:none;border-color:transparent}
+
+/* Country display pill in profile */
+.z21-country-display{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 0;
+  font-size:14.5px;font-weight:600;color:var(--text-muted);
+}
+.z21-country-display .flag{font-size:20px;line-height:1}
+.z21-country-display .cur-badge{
+  margin-left:auto;
+  padding:3px 10px;border-radius:100px;
+  background:rgba(250,36,60,.14);
+  border:1px solid rgba(250,36,60,.3);
+  color:#ff9aa5;font-size:10.5px;font-weight:800;
+  letter-spacing:.06em;
+}
+
 .z21-inline-label{
   font-size:11.5px;font-weight:700;
   letter-spacing:.08em;text-transform:uppercase;
   color:var(--text-dim);margin-bottom:6px;display:block;
+}
+
+/* Currency switcher (inside subscription section) */
+.z21-cur-switch{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:5px 5px 5px 14px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:100px;
+}
+.z21-cur-switch__label{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10.5px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);
+  white-space:nowrap;
+}
+.z21-cur-switch__label i{color:var(--accent);font-size:11px}
+.z21-cur-opts{display:flex;gap:3px;background:rgba(0,0,0,.4);border-radius:100px;padding:3px}
+.z21-cur-opts button{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;
+  font-size:12px;font-weight:800;letter-spacing:-.01em;
+  color:var(--text-muted);
+  transition:all .2s;white-space:nowrap;
+}
+.z21-cur-opts button:hover{color:#fff}
+.z21-cur-opts button.active{
+  background:var(--accent);color:#fff;
+  box-shadow:0 6px 18px var(--accent-glow);
 }
 
 .z21-btn-sm{
@@ -396,13 +462,11 @@ body.z21-loading{ overflow:hidden; }
   box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
 
-/* Forgot password link */
 .z21-forgot-row{display:flex;justify-content:flex-end;margin:-4px 0 14px;}
 .z21-link-btn{font-size:13px;font-weight:600;color:var(--accent);
   padding:2px 0;transition:opacity .2s;}
 .z21-link-btn:hover{opacity:.78;text-decoration:underline}
 
-/* Reset panel */
 .z21-reset-icon{width:54px;height:54px;border-radius:15px;
   background:rgba(250,36,60,.12);border:1px solid rgba(250,36,60,.28);
   display:flex;align-items:center;justify-content:center;
@@ -425,6 +489,14 @@ body.z21-loading{ overflow:hidden; }
   border-radius:var(--radius-sm);
   color:var(--text);font-size:15px;font-weight:500;
   outline:none;transition:all .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.z21-field select{
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='rgba(255,255,255,.45)'%3E%3Cpath d='M4.2 6.2 8 10l3.8-3.8'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+  background-size:16px;
+  padding-right:40px;
 }
 .z21-field input:focus,
 .z21-field select:focus{
@@ -630,6 +702,10 @@ body.z21-loading{ overflow:hidden; }
   .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
   .z21-bottom-link i{font-size:15px}
   .z21-bottom-link span{font-size:9px}
+  .z21-cur-switch{padding:5px}
+  .z21-cur-switch__label{display:none}
+  .z21-cur-opts{flex:1}
+  .z21-cur-opts button{flex:1;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
@@ -684,6 +760,13 @@ body.z21-loading{ overflow:hidden; }
   <div class="z21-page-head">
     <h1>My <span class="grad">account</span></h1>
     <p>Manage your profile, subscription, and security settings.</p>
+
+    <!-- Location banner -->
+    <button class="z21-loc-banner" id="locBanner" type="button" aria-label="Detected location">
+      <span class="flag" id="locFlag">🇿🇼</span>
+      <span>Showing <strong id="locCountry">Zimbabwe</strong></span>
+      <span class="cur-chip" id="locCurrencyChip">USD</span>
+    </button>
   </div>
 
   <!-- HERO CARD -->
@@ -723,9 +806,30 @@ body.z21-loading{ overflow:hidden; }
         </div>
       </div>
       <div class="z21-row">
+        <div class="z21-row-icon accent"><i class="fas fa-globe"></i></div>
+        <div class="z21-row-body">
+          <label class="z21-inline-label">Country</label>
+          <select class="z21-inline-input" id="inpCountry" disabled>
+            <option value="ZW">🇿🇼 Zimbabwe</option>
+            <option value="ZA">🇿🇦 South Africa</option>
+            <option value="NA">🇳🇦 Namibia</option>
+            <option value="LS">🇱🇸 Lesotho</option>
+            <option value="SZ">🇸🇿 Eswatini</option>
+            <option value="BW">🇧🇼 Botswana</option>
+            <option value="ZM">🇿🇲 Zambia</option>
+            <option value="MW">🇲🇼 Malawi</option>
+            <option value="MZ">🇲🇿 Mozambique</option>
+            <option value="GB">🇬🇧 United Kingdom</option>
+            <option value="US">🇺🇸 United States</option>
+            <option value="OTHER">🌍 Other</option>
+          </select>
+          <div class="z21-field-hint">Changing country updates your preferred billing currency.</div>
+        </div>
+      </div>
+      <div class="z21-row">
         <div class="z21-row-icon accent"><i class="fas fa-graduation-cap"></i></div>
         <div class="z21-row-body">
-          <label class="z21-inline-label">University <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-dim)">(optional)</span></label>
+          <label class="z21-inline-label">School / Organisation <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-dim)">(optional)</span></label>
           <input type="text" class="z21-inline-input" id="inpUniversity" placeholder="e.g. University of Zimbabwe" disabled>
         </div>
       </div>
@@ -749,7 +853,7 @@ body.z21-loading{ overflow:hidden; }
   <div class="z21-section">
     <div class="z21-section-title">Subscription</div>
     <div class="z21-card" id="subCard">
-      <div class="z21-plan-summary">
+      <div class="z21-plan-summary" id="planSummary">
         <div class="z21-plan-top">
           <div>
             <div class="z21-plan-name">Full Access — Annual</div>
@@ -763,6 +867,23 @@ body.z21-loading{ overflow:hidden; }
           <div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>
         </div>
       </div>
+
+      <!-- Currency preference row -->
+      <div class="z21-row" style="flex-wrap:wrap">
+        <div class="z21-row-icon accent"><i class="fas fa-coins"></i></div>
+        <div class="z21-row-body">
+          <div class="z21-row-title">Billing currency</div>
+          <div class="z21-row-sub" id="currencySub">Auto-detected from your location</div>
+        </div>
+        <div class="z21-cur-switch" id="currencySwitch">
+          <span class="z21-cur-switch__label"><i class="fas fa-globe"></i> Currency</span>
+          <div class="z21-cur-opts">
+            <button type="button" data-currency="USD">🇺🇸 USD $</button>
+            <button type="button" data-currency="ZAR">🇿🇦 ZAR R</button>
+          </div>
+        </div>
+      </div>
+
       <div class="z21-row clickable" id="manageSubBtn">
         <div class="z21-row-icon accent"><i class="fas fa-crown"></i></div>
         <div class="z21-row-body">
@@ -834,9 +955,7 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </nav>
 
-<!-- ═══════════════════════════════════════════════════════════
-     AUTH MODAL — Sign In / Sign Up / Reset Password
-     ═══════════════════════════════════════════════════════════ -->
+<!-- AUTH MODAL -->
 <div class="z21-modal" id="authModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -877,7 +996,7 @@ body.z21-loading{ overflow:hidden; }
         </button>
       </form>
 
-      <!-- SIGN UP -->
+      <!-- SIGN UP (UPGRADED) -->
       <form id="signupForm" style="display:none" autocomplete="on">
         <div class="z21-field">
           <label>Full Name</label>
@@ -887,14 +1006,36 @@ body.z21-loading{ overflow:hidden; }
           <label>Email</label>
           <input type="email" id="signupEmail" required placeholder="you@example.com" autocomplete="email">
         </div>
-        <div class="z21-field">
-          <label>Phone (WhatsApp)</label>
-          <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+
+        <div class="z21-field-row">
+          <div class="z21-field">
+            <label>Country</label>
+            <select id="signupCountry" required>
+              <option value="ZW">🇿🇼 Zimbabwe (USD)</option>
+              <option value="ZA">🇿🇦 South Africa (ZAR)</option>
+              <option value="NA">🇳🇦 Namibia (ZAR)</option>
+              <option value="LS">🇱🇸 Lesotho (ZAR)</option>
+              <option value="SZ">🇸🇿 Eswatini (ZAR)</option>
+              <option value="BW">🇧🇼 Botswana (USD)</option>
+              <option value="ZM">🇿🇲 Zambia (USD)</option>
+              <option value="MW">🇲🇼 Malawi (USD)</option>
+              <option value="MZ">🇲🇿 Mozambique (USD)</option>
+              <option value="GB">🇬🇧 United Kingdom (USD)</option>
+              <option value="US">🇺🇸 United States (USD)</option>
+              <option value="OTHER">🌍 Other (USD)</option>
+            </select>
+          </div>
+          <div class="z21-field">
+            <label>Phone (WhatsApp)</label>
+            <input type="tel" id="signupPhone" required placeholder="+263 78 000 0000" autocomplete="tel">
+          </div>
         </div>
+
         <div class="z21-field">
-          <label>University <span class="z21-field-optional">(optional)</span></label>
+          <label>School / Organisation <span class="z21-field-optional">(optional)</span></label>
           <input type="text" id="signupUniversity" placeholder="e.g. University of Zimbabwe">
         </div>
+
         <div class="z21-field">
           <label>Password</label>
           <div class="z21-pw-wrap">
@@ -905,6 +1046,10 @@ body.z21-loading{ overflow:hidden; }
         <button type="submit" class="z21-btn-full primary" id="signupSubmit">
           <i class="fas fa-user-plus"></i> Create Account
         </button>
+
+        <div class="z21-field-hint" style="text-align:center;margin-top:12px">
+          Your billing currency is set automatically from your country.
+        </div>
       </form>
 
       <!-- RESET PASSWORD -->
@@ -979,7 +1124,7 @@ body.z21-loading{ overflow:hidden; }
   </div>
 </div>
 
-<!-- AVATAR MODAL — file upload (base64) -->
+<!-- AVATAR MODAL -->
 <div class="z21-modal" id="avatarModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -1102,14 +1247,58 @@ const firebaseConfig = {
   measurementKind: "G-KE007Y89F1"
 };
 
-const PLAN = { id: 'annual', name: 'Full Access — Annual', price: 150, months: 12 };
+const PLAN = {
+  id: 'annual',
+  name: 'Full Access — Annual',
+  months: 12,
+  prices: { USD: 150, ZAR: 1200 }
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CURRENCY + COUNTRY CATALOGS
+   ═══════════════════════════════════════════════════════════ */
+const CURRENCIES = {
+  USD: { symbol: '$', label: 'USD (US Dollar)' },
+  ZAR: { symbol: 'R', label: 'ZAR (South African Rand)' }
+};
+
+const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
+
+const TIMEZONE_COUNTRY = {
+  'Africa/Johannesburg': 'ZA', 'Africa/Maseru': 'LS', 'Africa/Mbabane': 'SZ',
+  'Africa/Windhoek': 'NA', 'Africa/Harare': 'ZW', 'Africa/Lusaka': 'ZM',
+  'Africa/Gaborone': 'BW', 'Africa/Maputo': 'MZ', 'Africa/Lagos': 'NG',
+  'Africa/Nairobi': 'KE', 'Africa/Accra': 'GH', 'Africa/Cairo': 'EG',
+  'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
+  'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL',
+  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
+  'America/Los_Angeles': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
+  'Asia/Dubai': 'AE', 'Asia/Kolkata': 'IN', 'Asia/Singapore': 'SG',
+  'Australia/Sydney': 'AU', 'Australia/Perth': 'AU', 'Australia/Melbourne': 'AU',
+  'Pacific/Auckland': 'NZ'
+};
+
+const COUNTRY_META = {
+  ZW: { flag:'🇿🇼', name:'Zimbabwe' },
+  ZA: { flag:'🇿🇦', name:'South Africa' },
+  NA: { flag:'🇳🇦', name:'Namibia' },
+  LS: { flag:'🇱🇸', name:'Lesotho' },
+  SZ: { flag:'🇸🇿', name:'Eswatini' },
+  BW: { flag:'🇧🇼', name:'Botswana' },
+  ZM: { flag:'🇿🇲', name:'Zambia' },
+  MW: { flag:'🇲🇼', name:'Malawi' },
+  MZ: { flag:'🇲🇿', name:'Mozambique' },
+  GB: { flag:'🇬🇧', name:'United Kingdom' },
+  US: { flag:'🇺🇸', name:'United States' },
+  OTHER: { flag:'🌍', name:'Other' }
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
-   LOADER SPLASH
+   LOADER
    ═══════════════════════════════════════════════════════════ */
 const PAGE_START = Date.now();
 const MIN_LOADER_MS = 900;
@@ -1140,9 +1329,74 @@ let userProfile = null;
 let subscription = null;
 let isEditingProfile = false;
 
-/* Avatar upload state */
-let pendingAvatarBase64 = null;   // compressed base64 data URL
-let pendingAvatarDirty  = false;  // true when user picked/removed a photo
+let pendingAvatarBase64 = null;
+let pendingAvatarDirty  = false;
+
+/* Multi-currency state */
+let activeCurrency = 'USD';
+let manualCurrency = false;
+let detectedCountry = null;
+
+/* ═══════════════════════════════════════════════════════════
+   COUNTRY DETECTION (boots before Firebase)
+   ═══════════════════════════════════════════════════════════ */
+function detectCountrySync(){
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if(TIMEZONE_COUNTRY[tz]) return TIMEZONE_COUNTRY[tz];
+  }catch(_){}
+  try{
+    const langs = [navigator.language, ...(navigator.languages || [])].filter(Boolean);
+    for(const lang of langs){
+      const m = /[-_]([A-Za-z]{2})\b/.exec(lang);
+      if(m) return m[1].toUpperCase();
+    }
+  }catch(_){}
+  return null;
+}
+
+async function detectCountryViaIP(){
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch('https://ipapi.co/country/', { signal: ctrl.signal });
+    clearTimeout(timer);
+    if(!res.ok) return null;
+    const code = (await res.text()).trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  }catch(_){
+    return null;
+  }
+}
+
+function currencyForCountry(code){
+  return ZAR_COUNTRIES.has(code) ? 'ZAR' : 'USD';
+}
+
+(function bootCurrency(){
+  try{
+    manualCurrency = localStorage.getItem('zone21_currency_manual') === '1';
+    const stored = localStorage.getItem('zone21_currency');
+    if(manualCurrency && CURRENCIES[stored]) activeCurrency = stored;
+  }catch(_){}
+
+  if(!manualCurrency){
+    detectedCountry = detectCountrySync();
+    if(detectedCountry) activeCurrency = currencyForCountry(detectedCountry);
+    detectCountryViaIP().then(code => {
+      if(!code || manualCurrency) return;
+      detectedCountry = code;
+      const next = currencyForCountry(code);
+      if(next !== activeCurrency){
+        activeCurrency = next;
+        try{ localStorage.setItem('zone21_currency', next); }catch(_){}
+        applyCurrencyUI();
+        applyLocationBanner();
+        renderSubCard();
+      }
+    }).catch(() => {});
+  }
+})();
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -1161,6 +1415,21 @@ function safeUrl(url){
   try{ const u = new URL(url); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''; }
   catch{ return ''; }
 }
+
+function getPrice(currency = activeCurrency){
+  return PLAN.prices[currency] != null ? PLAN.prices[currency] : PLAN.prices.USD;
+}
+function currencySymbol(c){ return CURRENCIES[c]?.symbol || '$'; }
+function currencyLabel(c){ return CURRENCIES[c]?.label || 'USD (US Dollar)'; }
+function formatMoney(amount, currency = activeCurrency){
+  const num = Number(amount) || 0;
+  const s = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${currencySymbol(currency)}${s}`;
+}
+function formatCompact(amount, currency = activeCurrency){
+  return formatMoney(amount, currency).replace(/\.00$/, '');
+}
+
 function showToast(msg, type = 'info'){
   const wrap = $('toastWrap');
   const t = document.createElement('div');
@@ -1177,11 +1446,13 @@ function showToast(msg, type = 'info'){
 }
 function showFormMsg(id, msg, type = 'error'){
   const el = $(id);
+  if(!el) return;
   el.textContent = msg;
   el.className = `z21-form-msg show ${type}`;
 }
 function clearFormMsg(id){
   const el = $(id);
+  if(!el) return;
   el.textContent = '';
   el.className = 'z21-form-msg';
 }
@@ -1197,9 +1468,7 @@ function toDate(ts){
   if(ts.seconds) return new Date(ts.seconds * 1000);
   return new Date(ts);
 }
-function fmtDate(d){
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+function fmtDate(d){ return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function daysBetween(a, b){ return Math.ceil((b - a) / 86400000); }
 
 function friendlyAuthError(err){
@@ -1215,8 +1484,67 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   IMAGE COMPRESSION → BASE64
-   Avatars are small, so we compress hard: 200px max, 0.7 quality.
+   CURRENCY UI
+   ═══════════════════════════════════════════════════════════ */
+function setCurrency(currency, isManual = true){
+  if(!CURRENCIES[currency]) return;
+  activeCurrency = currency;
+  if(isManual){
+    manualCurrency = true;
+    try{ localStorage.setItem('zone21_currency_manual', '1'); }catch(_){}
+  }
+  try{ localStorage.setItem('zone21_currency', currency); }catch(_){}
+
+  applyCurrencyUI();
+  applyLocationBanner();
+  renderSubCard();
+
+  // Persist to Firestore if signed in
+  if(currentUser){
+    setDoc(doc(db, 'users', currentUser.uid), {
+      preferredCurrency: currency,
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(e => console.warn('Could not save currency preference:', e));
+  }
+
+  // Update the currency subtitle
+  const sub = $('currencySub');
+  if(sub){
+    sub.textContent = manualCurrency
+      ? `Manually set to ${currency}`
+      : `Auto-detected from your location`;
+  }
+}
+
+function applyCurrencyUI(){
+  document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
+  });
+}
+
+function applyLocationBanner(){
+  const code = detectedCountry || (manualCurrency ? (activeCurrency === 'ZAR' ? 'ZA' : 'ZW') : 'ZW');
+  const meta = COUNTRY_META[code] || COUNTRY_META.OTHER;
+
+  const flagEl = $('locFlag');
+  const nameEl = $('locCountry');
+  const chipEl = $('locCurrencyChip');
+  if(flagEl) flagEl.textContent = meta.flag;
+  if(nameEl) nameEl.textContent = meta.name;
+  if(chipEl) chipEl.textContent = activeCurrency;
+}
+
+document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
+  btn.addEventListener('click', () => setCurrency(btn.dataset.currency, true));
+});
+
+$('locBanner').addEventListener('click', () => {
+  // Scroll to the currency switch row
+  document.getElementById('currencySwitch')?.scrollIntoView({ behavior:'smooth', block:'center' });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   IMAGE COMPRESSION → BASE64 (square crop)
    ═══════════════════════════════════════════════════════════ */
 function compressImageToBase64(file, maxDim = 200, quality = 0.7){
   return new Promise((resolve, reject) => {
@@ -1224,12 +1552,10 @@ function compressImageToBase64(file, maxDim = 200, quality = 0.7){
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        let { width: w, height: h } = img;
-
+        const { width: w, height: h } = img;
         const size = Math.min(w, h);
         const sx = (w - size) / 2;
         const sy = (h - size) / 2;
-
         const target = Math.min(maxDim, size);
 
         const canvas = document.createElement('canvas');
@@ -1241,8 +1567,7 @@ function compressImageToBase64(file, maxDim = 200, quality = 0.7){
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, sx, sy, size, size, 0, 0, target, target);
 
-        const base64 = canvas.toDataURL('image/jpeg', quality);
-        resolve(base64);
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = () => reject(new Error('Invalid image file'));
       img.src = e.target.result;
@@ -1258,7 +1583,19 @@ function compressImageToBase64(file, maxDim = 200, quality = 0.7){
 function openAuthModal(mode = 'signin'){
   switchAuthTab(mode);
   clearFormMsg('authMsg');
+  applyDetectedCountryToSignupForm();
   openModal('authModal');
+}
+
+function applyDetectedCountryToSignupForm(){
+  const sel = $('signupCountry');
+  if(!sel) return;
+  if(detectedCountry && COUNTRY_META[detectedCountry]){
+    const exists = Array.from(sel.options).some(o => o.value === detectedCountry);
+    if(exists) sel.value = detectedCountry;
+  } else if(activeCurrency === 'ZAR'){
+    sel.value = 'ZA';
+  }
 }
 
 function hideResetPanel(){
@@ -1270,7 +1607,6 @@ function hideResetPanel(){
 
 function showResetPanel(){
   clearFormMsg('resetMsg');
-  // Prefill from whatever the user already typed on the sign-in form
   const typed = ($('signinEmail')?.value || '').trim();
   if(typed) $('resetEmail').value = typed;
 
@@ -1299,6 +1635,8 @@ function switchAuthTab(mode){
     : 'Free to create. Manage your profile here.';
   clearFormMsg('authMsg');
   clearFormMsg('resetMsg');
+
+  if(mode === 'signup') applyDetectedCountryToSignupForm();
 }
 
 document.querySelectorAll('.z21-auth-tab').forEach(t => {
@@ -1338,7 +1676,7 @@ $('signinForm').addEventListener('submit', async (e) => {
   }
 });
 
-/* Sign Up form */
+/* UPGRADED SIGN UP */
 $('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1349,9 +1687,20 @@ $('signupForm').addEventListener('submit', async (e) => {
 
   const name = $('signupName').value.trim();
   const email = $('signupEmail').value.trim();
+  const country = $('signupCountry').value;
   const phone = $('signupPhone').value.trim();
   const university = $('signupUniversity').value.trim();
   const password = $('signupPassword').value;
+
+  if(!country){
+    showFormMsg('authMsg', 'Please select your country.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    return;
+  }
+
+  const countryMeta = COUNTRY_META[country] || COUNTRY_META.OTHER;
+  const userCurrency = currencyForCountry(country);
 
   try{
     const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -1359,19 +1708,37 @@ $('signupForm').addEventListener('submit', async (e) => {
 
     try{ await updateProfile(cred.user, { displayName: name }); }catch(_){}
 
-    /* Don't overwrite existing subscriptionStatus. Only set defaults on
-       first creation — same fix as everywhere else. */
     const uRef = doc(db, 'users', uid);
     const uSnap = await getDoc(uRef);
     if(!uSnap.exists()){
       await setDoc(uRef, {
-        name, email, phone, university,
+        name, email, phone,
+        university,
+        country,
+        countryName: countryMeta.name,
+        preferredCurrency: userCurrency,
         role: 'student',
         subscriptionStatus: 'none',
         createdAt: serverTimestamp()
       });
     } else {
-      await setDoc(uRef, { name, email, phone, university }, { merge: true });
+      await setDoc(uRef, {
+        name, email, phone,
+        university,
+        country,
+        countryName: countryMeta.name,
+        preferredCurrency: userCurrency
+      }, { merge: true });
+    }
+
+    // Adopt the country currency if the user hasn't manually overridden
+    if(!manualCurrency){
+      activeCurrency = userCurrency;
+      detectedCountry = country;
+      try{ localStorage.setItem('zone21_currency', userCurrency); }catch(_){}
+      applyCurrencyUI();
+      applyLocationBanner();
+      renderSubCard();
     }
 
     showToast('Account created — welcome to Zone21!', 'success');
@@ -1434,7 +1801,6 @@ $('resetForm').addEventListener('submit', async (e) => {
       btn.innerHTML = orig;
       return;
     }
-    // Silently swallow user-not-found to avoid revealing registered emails.
     console.warn('Password reset request handled privately:', code || err?.message);
   }
 
@@ -1468,6 +1834,7 @@ onAuthStateChanged(auth, async (user) => {
     renderHeroCard();
     renderProfile();
     renderSubCard();
+    updateCurrencySubtitle();
     hideLoader();
     return;
   }
@@ -1482,11 +1849,25 @@ onAuthStateChanged(auth, async (user) => {
     userProfile = { name: user.displayName || 'Member', email: user.email };
   }
 
+  // Adopt the profile's currency / country unless the visitor has
+  // already set a manual preference on this device.
+  if(!manualCurrency){
+    if(userProfile.preferredCurrency && CURRENCIES[userProfile.preferredCurrency]){
+      activeCurrency = userProfile.preferredCurrency;
+      applyCurrencyUI();
+    }
+    if(userProfile.country){
+      detectedCountry = userProfile.country;
+      applyLocationBanner();
+    }
+  }
+
   await loadSubscription();
   renderNavUser();
   renderHeroCard();
   renderProfile();
   renderSubCard();
+  updateCurrencySubtitle();
   hideLoader();
 });
 
@@ -1499,6 +1880,14 @@ async function loadSubscription(){
     console.warn('Sub load error:', e);
     subscription = null;
   }
+}
+
+function updateCurrencySubtitle(){
+  const sub = $('currencySub');
+  if(!sub) return;
+  sub.textContent = manualCurrency
+    ? `Manually set to ${activeCurrency}`
+    : `Auto-detected from your location`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1567,6 +1956,10 @@ function renderHeroCard(){
     chipClass = 'pending'; chipIcon = 'fa-hourglass-half'; chipText = 'Payment pending';
   }
 
+  const countryCode = userProfile.country || detectedCountry || 'ZW';
+  const countryMeta = COUNTRY_META[countryCode] || COUNTRY_META.OTHER;
+  const countryChip = `<span class="z21-chip"><span style="font-size:12px">${countryMeta.flag}</span> ${escapeHTML(countryMeta.name)}</span>`;
+
   const joined = toDate(userProfile.createdAt);
   const joinedChip = joined
     ? `<span class="z21-chip"><i class="fas fa-calendar"></i> Since ${fmtDate(joined)}</span>`
@@ -1584,7 +1977,7 @@ function renderHeroCard(){
       <div class="email">${escapeHTML(userProfile.email || currentUser.email || '')}</div>
       <div class="z21-hero-chips">
         <span class="z21-chip ${chipClass}"><i class="fas ${chipIcon}"></i> ${chipText}</span>
-        ${userProfile.university ? `<span class="z21-chip"><i class="fas fa-graduation-cap"></i> ${escapeHTML(userProfile.university)}</span>` : ''}
+        ${countryChip}
         ${joinedChip}
       </div>
     </div>`;
@@ -1603,11 +1996,19 @@ function renderProfile(){
   $('inpPhone').value = userProfile.phone || '';
   $('inpUniversity').value = userProfile.university || '';
   $('inpCity').value = userProfile.address?.city || userProfile.city || '';
+
+  const countryCode = userProfile.country || detectedCountry || 'ZW';
+  const sel = $('inpCountry');
+  if([...sel.options].some(o => o.value === countryCode)){
+    sel.value = countryCode;
+  } else {
+    sel.value = 'OTHER';
+  }
 }
 
 function setProfileEditing(on){
   isEditingProfile = on;
-  ['inpName','inpPhone','inpUniversity','inpCity'].forEach(id => {
+  ['inpName','inpPhone','inpUniversity','inpCity','inpCountry'].forEach(id => {
     $(id).disabled = !on;
   });
   $('inpEmail').disabled = true;
@@ -1642,6 +2043,8 @@ $('profileEditBtn').addEventListener('click', async () => {
   const phone = $('inpPhone').value.trim();
   const university = $('inpUniversity').value.trim();
   const city = $('inpCity').value.trim();
+  const country = $('inpCountry').value;
+  const countryMeta = COUNTRY_META[country] || COUNTRY_META.OTHER;
 
   if(!name){
     showToast('Name cannot be empty.', 'error');
@@ -1655,23 +2058,45 @@ $('profileEditBtn').addEventListener('click', async () => {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
 
   try{
-    await setDoc(doc(db, 'users', currentUser.uid), {
+    const patch = {
       name, phone, university,
-      address: { city, country: 'Zimbabwe' },
+      country,
+      countryName: countryMeta.name,
+      address: { city, country: countryMeta.name },
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    };
 
+    // If the country changes and the user hasn't manually forced a
+    // currency on this device, adopt the new country's currency.
+    if(!manualCurrency){
+      const nextCurrency = currencyForCountry(country);
+      if(nextCurrency !== activeCurrency){
+        activeCurrency = nextCurrency;
+        patch.preferredCurrency = nextCurrency;
+        try{ localStorage.setItem('zone21_currency', nextCurrency); }catch(_){}
+        applyCurrencyUI();
+      }
+      detectedCountry = country;
+      applyLocationBanner();
+    }
+
+    await setDoc(doc(db, 'users', currentUser.uid), patch, { merge: true });
     try{ await updateProfile(currentUser, { displayName: name }); }catch(_){}
 
+    // Local state
     userProfile.name = name;
     userProfile.phone = phone;
     userProfile.university = university;
-    userProfile.address = { ...(userProfile.address || {}), city, country: 'Zimbabwe' };
+    userProfile.country = country;
+    userProfile.countryName = countryMeta.name;
+    userProfile.address = { ...(userProfile.address || {}), city, country: countryMeta.name };
+    if(patch.preferredCurrency) userProfile.preferredCurrency = patch.preferredCurrency;
 
     showToast('Profile updated.', 'success');
     setProfileEditing(false);
     renderNavUser();
     renderHeroCard();
+    renderSubCard();
   }catch(e){
     console.error(e);
     showToast('Could not save: ' + e.message, 'error');
@@ -1693,19 +2118,24 @@ function renderSubCard(){
   const badgeWrap = $('planBadgeWrap');
   const grid = $('planGrid');
   const desc = $('planDesc');
+  const summary = $('planSummary');
+
+  const priceStr = `${formatCompact(getPrice(), activeCurrency)} / year`;
 
   if(!currentUser){
+    if(summary) summary.classList.remove('active');
     badgeWrap.innerHTML = `<span class="z21-chip none"><i class="fas fa-circle-xmark"></i> Not signed in</span>`;
-    grid.innerHTML = `<div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>`;
+    grid.innerHTML = `<div class="z21-plan-grid-item"><small>Price</small><strong>${priceStr}</strong></div>`;
     $('manageSubSub').textContent = 'Sign in to view your plan';
     return;
   }
 
   if(!subscription){
+    if(summary) summary.classList.remove('active');
     desc.textContent = 'Subscribe to unlock unlimited artist bookings';
     badgeWrap.innerHTML = `<span class="z21-chip none"><i class="fas fa-circle-xmark"></i> Not subscribed</span>`;
     grid.innerHTML = `
-      <div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>
+      <div class="z21-plan-grid-item"><small>Price</small><strong>${priceStr}</strong></div>
       <div class="z21-plan-grid-item"><small>Status</small><strong style="color:var(--accent)">Inactive</strong></div>`;
     $('manageSubSub').textContent = 'Subscribe now to unlock booking';
     return;
@@ -1716,21 +2146,30 @@ function renderSubCard(){
   const expiresAt = toDate(subscription.expiresAt)
                  || (approvedAt ? new Date(approvedAt.getTime() + 365*86400000) : null);
 
+  // Use the invoice-frozen currency if available, else the user's
+  // current preference (which may differ)
+  const subCurrency = subscription.currency || activeCurrency;
+  const subPrice = subscription.price != null ? subscription.price : getPrice(subCurrency);
+  const subPriceStr = `${formatCompact(subPrice, subCurrency)} / year`;
+
   if(status === 'pending_payment'){
+    if(summary) summary.classList.remove('active');
     desc.textContent = 'Payment being reviewed';
     badgeWrap.innerHTML = `<span class="z21-chip pending"><i class="fas fa-hourglass-half"></i> Pending</span>`;
     grid.innerHTML = `
-      <div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>
+      <div class="z21-plan-grid-item"><small>Amount</small><strong>${formatMoney(subPrice, subCurrency)}</strong></div>
+      <div class="z21-plan-grid-item"><small>Currency</small><strong>${escapeHTML(subCurrency)}</strong></div>
       <div class="z21-plan-grid-item"><small>Invoice</small><strong style="font-family:'SF Mono',monospace;font-size:12.5px">${escapeHTML(subscription.invoiceNumber || '—')}</strong></div>`;
     $('manageSubSub').textContent = 'View your pending invoice';
     return;
   }
 
   if(status === 'rejected'){
+    if(summary) summary.classList.remove('active');
     desc.textContent = 'Last payment was not approved';
     badgeWrap.innerHTML = `<span class="z21-chip none"><i class="fas fa-circle-xmark"></i> Rejected</span>`;
     grid.innerHTML = `
-      <div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>
+      <div class="z21-plan-grid-item"><small>Amount</small><strong>${formatMoney(subPrice, subCurrency)}</strong></div>
       <div class="z21-plan-grid-item"><small>Status</small><strong style="color:var(--accent)">Rejected</strong></div>`;
     $('manageSubSub').textContent = 'Try again or contact support';
     return;
@@ -1739,10 +2178,12 @@ function renderSubCard(){
   if(status === 'active' || status === 'approved'){
     const now = new Date();
     const daysLeft = expiresAt ? Math.max(0, daysBetween(now, expiresAt)) : 0;
+    if(summary) summary.classList.add('active');
     desc.textContent = 'Unlimited artist bookings & every Zone21 tool';
     badgeWrap.innerHTML = `<span class="z21-chip active"><i class="fas fa-circle-check"></i> Active</span>`;
     grid.innerHTML = `
-      <div class="z21-plan-grid-item"><small>Price</small><strong>$150 / year</strong></div>
+      <div class="z21-plan-grid-item"><small>Paid</small><strong>${formatCompact(subPrice, subCurrency)}</strong></div>
+      <div class="z21-plan-grid-item"><small>Currency</small><strong>${escapeHTML(subCurrency)}</strong></div>
       <div class="z21-plan-grid-item"><small>Days left</small><strong style="color:${daysLeft <= 14 ? 'var(--accent)' : 'var(--text)'}">${daysLeft}</strong></div>
       <div class="z21-plan-grid-item"><small>Expires</small><strong>${expiresAt ? fmtDate(expiresAt) : '—'}</strong></div>`;
     $('manageSubSub').textContent = 'View plan, renew, or see invoices';
@@ -1836,7 +2277,7 @@ $('pwForm').addEventListener('submit', async (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   AVATAR MODAL — file upload, base64 stored in Firestore
+   AVATAR MODAL
    ═══════════════════════════════════════════════════════════ */
 function openAvatarModal(){
   if(!currentUser){ openAuthModal('signin'); return; }
@@ -1966,7 +2407,6 @@ async function doSignOut(){
   try{
     await signOut(auth);
     showToast('Signed out.', 'info');
-    // No redirect — onAuthStateChanged re-renders the page
   }catch(e){
     showToast('Could not sign out: ' + e.message, 'error');
   }
@@ -2088,13 +2528,16 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   EXPOSE (empty-state buttons)
+   EXPOSE
    ═══════════════════════════════════════════════════════════ */
 window.zone21OpenAuth = openAuthModal;
 
 /* ═══════════════════════════════════════════════════════════
    BOOT
    ═══════════════════════════════════════════════════════════ */
+applyCurrencyUI();
+applyLocationBanner();
+updateCurrencySubtitle();
 renderHeroCard();
 </script>
 </body>

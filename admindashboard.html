@@ -6,1044 +6,1126 @@
     <title>Zone21 Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <style>
-        /* ===== ROOT ===== */
-        :root {
-            --navy: #0a1f2e;
-            --navy-light: #143040;
-            --lime: #C0C800;
-            --lime-glow: rgba(192, 200, 0, 0.25);
-            --pink: #F80070;
-            --pink-glow: rgba(248, 0, 112, 0.15);
-            --bg: #f0f4fa;
-            --card-bg: #ffffff;
-            --text: #0f1a24;
-            --text-secondary: #3d4f5e;
-            --text-muted: #7a8a9a;
-            --border: #e6eaf0;
-            --radius: 20px;
-            --radius-sm: 12px;
-            --shadow: 0 8px 32px rgba(10, 31, 46, 0.06);
-            --shadow-hover: 0 16px 48px rgba(10, 31, 46, 0.10);
-            --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            --sidebar-width: 260px;
+        :root{
+            --navy:#0a1f2e;--navy-light:#143040;--navy-dark:#071522;
+            --lime:#C0C800;--lime-glow:rgba(192,200,0,.25);
+            --gold:#C9A961;--gold-soft:rgba(201,169,97,.12);
+            --pink:#F80070;--pink-glow:rgba(248,0,112,.15);
+            --green:#10B981;--green-soft:rgba(16,185,129,.10);
+            --amber:#F59E0B;--amber-soft:rgba(245,158,11,.10);
+            --coral:#D4856B;--coral-soft:rgba(212,133,107,.08);
+            --bg:#f0f4fa;--card-bg:#ffffff;
+            --text:#0f1a24;--text-secondary:#3d4f5e;--text-muted:#7a8a9a;--text-dim:#a0b0be;
+            --border:#e6eaf0;--border-strong:#d3dae3;
+            --radius:20px;--radius-sm:12px;--radius-lg:16px;
+            --shadow:0 8px 32px rgba(10,31,46,.06);
+            --shadow-hover:0 16px 48px rgba(10,31,46,.10);
+            --shadow-md:0 6px 20px -6px rgba(10,30,44,.10);
+            --transition:.3s cubic-bezier(.25,.46,.45,.94);
+            --sidebar-width:260px;
         }
+        *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+        body{background:var(--bg);color:var(--text);display:flex;min-height:100vh;overflow-x:hidden}
+        ::-webkit-scrollbar{width:6px;height:6px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--lime);border-radius:10px}
+        a{color:inherit;text-decoration:none}
+        button{font-family:inherit;cursor:pointer;border:none;background:none}
+        img{max-width:100%;display:block}
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        /* OVERLAY */
+        .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(10,31,46,.5);backdrop-filter:blur(4px);z-index:998}
+        .sidebar-overlay.active{display:block}
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            display: flex;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+        /* SIDEBAR */
+        .sidebar{background:var(--navy);color:#fff;width:var(--sidebar-width);height:100vh;position:fixed;top:0;left:0;display:flex;flex-direction:column;overflow-y:auto;transition:transform .35s cubic-bezier(.25,.46,.45,.94);z-index:999;border-right:1px solid rgba(255,255,255,.04);transform:translateX(0)}
+        .sidebar.closed{transform:translateX(-100%)}
+        .sidebar .brand{padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:12px}
+        .sidebar .brand .logo-icon{width:40px;height:40px;background:var(--lime);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;color:var(--navy)}
+        .sidebar .brand h1{font-size:1.2rem;font-weight:800;color:var(--lime);letter-spacing:-.02em}
+        .sidebar .brand h1 span{color:#fff;font-weight:400}
+        .sidebar .nav-section{padding:12px 12px;flex:1}
+        .sidebar .nav-section .section-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.3);padding:8px 12px 8px}
+        .sidebar .nav-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius-sm);color:rgba(255,255,255,.65);text-decoration:none;font-size:.85rem;font-weight:500;transition:var(--transition);margin-bottom:2px;cursor:pointer;border:none;background:transparent;width:100%;text-align:left}
+        .sidebar .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+        .sidebar .nav-item.active{background:rgba(192,200,0,.12);color:var(--lime);box-shadow:inset 0 0 0 1px rgba(192,200,0,.10)}
+        .sidebar .nav-item i{width:20px;text-align:center;font-size:1rem}
+        .sidebar .nav-item .badge{margin-left:auto;background:var(--pink);color:#fff;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:20px}
+        .sidebar .nav-item .badge.lime{background:var(--lime);color:var(--navy)}
+        .sidebar .sidebar-footer{padding:16px 24px;border-top:1px solid rgba(255,255,255,.06);font-size:.65rem;color:rgba(255,255,255,.3);text-align:center;letter-spacing:.04em}
 
-        /* ===== SCROLLBAR ===== */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 10px; }
+        /* MAIN */
+        .main-content{flex:1;min-height:100vh;display:flex;flex-direction:column;padding:0;margin-left:var(--sidebar-width);transition:margin-left .35s cubic-bezier(.25,.46,.45,.94);width:calc(100% - var(--sidebar-width))}
+        .main-content.expanded{margin-left:0;width:100%}
 
-        /* ===== OVERLAY ===== */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(10, 31, 46, 0.5);
-            backdrop-filter: blur(4px);
-            z-index: 998;
-        }
-        .sidebar-overlay.active { display: block; }
+        /* TOPBAR */
+        .top-bar{background:rgba(255,255,255,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(230,234,240,.6);padding:14px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:900;gap:16px;flex-wrap:wrap}
+        .top-bar .left{display:flex;align-items:center;gap:16px}
+        .top-bar .left .menu-toggle{display:none;background:none;border:none;font-size:1.3rem;color:var(--navy);cursor:pointer;padding:4px 8px;border-radius:8px;transition:var(--transition)}
+        .top-bar .left .menu-toggle:hover{background:var(--bg)}
+        .top-bar .left .page-title h2{font-size:1.2rem;font-weight:700;color:var(--navy);letter-spacing:-.02em}
+        .top-bar .left .page-title .sub{font-size:.75rem;color:var(--text-muted);font-weight:400}
+        .top-bar .right{display:flex;align-items:center;gap:14px}
+        .top-bar .right .notif-btn{width:38px;height:38px;border-radius:50%;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer;transition:var(--transition);position:relative}
+        .top-bar .right .notif-btn:hover{border-color:var(--lime);background:#fff}
+        .top-bar .right .notif-btn .dot{position:absolute;top:8px;right:8px;width:8px;height:8px;background:var(--pink);border-radius:50%;border:2px solid #fff}
+        .top-bar .right .admin-profile{display:flex;align-items:center;gap:10px;padding:4px 12px 4px 4px;border-radius:40px;background:var(--bg);border:1px solid var(--border)}
+        .top-bar .right .admin-profile .avatar{width:34px;height:34px;border-radius:50%;background:var(--navy);color:var(--lime);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0}
+        .top-bar .right .admin-profile .name{font-weight:600;font-size:.85rem;color:var(--text)}
+        .top-bar .right .admin-profile .role{font-size:.65rem;color:var(--text-muted);font-weight:500}
+        .top-bar .right .btn-signout{background:transparent;border:1.5px solid var(--border);border-radius:30px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:.8rem;color:var(--text-secondary);transition:var(--transition);display:flex;align-items:center;gap:6px}
+        .top-bar .right .btn-signout:hover{border-color:var(--pink);color:var(--pink);background:rgba(248,0,112,.04)}
 
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            background: var(--navy);
-            color: #fff;
-            width: var(--sidebar-width);
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            z-index: 999;
-            border-right: 1px solid rgba(255,255,255,0.04);
-            transform: translateX(0);
-        }
-        .sidebar.closed {
-            transform: translateX(-100%);
-        }
+        /* CONTENT */
+        .content-wrapper{padding:28px 32px 60px;flex:1;max-width:1500px;margin:0 auto;width:100%}
 
-        .sidebar .brand {
-            padding: 24px 24px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .sidebar .brand .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: var(--lime);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: 900;
-            color: var(--navy);
-        }
-        .sidebar .brand h1 {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: var(--lime);
-            letter-spacing: -0.02em;
-        }
-        .sidebar .brand h1 span { color: #fff; font-weight: 400; }
+        /* WELCOME */
+        .welcome-section{margin-bottom:24px}
+        .welcome-section h1{font-size:1.6rem;font-weight:800;color:var(--navy);letter-spacing:-.03em}
+        .welcome-section p{color:var(--text-muted);font-size:.95rem;margin-top:4px}
+        .welcome-section p .highlight{color:var(--lime);font-weight:700}
 
-        .sidebar .nav-section {
-            padding: 16px 12px;
-            flex: 1;
-        }
-        .sidebar .nav-section .section-label {
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.3);
-            padding: 0 12px 8px;
-        }
-        .sidebar .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: var(--radius-sm);
-            color: rgba(255,255,255,0.65);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: var(--transition);
-            margin-bottom: 2px;
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            width: 100%;
-            text-align: left;
-        }
-        .sidebar .nav-item:hover {
-            background: rgba(255,255,255,0.06);
-            color: #fff;
-        }
-        .sidebar .nav-item.active {
-            background: rgba(192, 200, 0, 0.12);
-            color: var(--lime);
-            box-shadow: inset 0 0 0 1px rgba(192, 200, 0, 0.10);
-        }
-        .sidebar .nav-item i { width: 20px; text-align: center; font-size: 1rem; }
-        .sidebar .nav-item .badge {
-            margin-left: auto;
-            background: var(--pink);
-            color: #fff;
-            font-size: 0.6rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 20px;
-        }
-        .sidebar .nav-item .badge.lime { background: var(--lime); color: var(--navy); }
-        .sidebar .nav-item .badge.pink { background: var(--pink); color: #fff; }
+        /* STATS */
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:24px}
+        .stat-card{background:var(--card-bg);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);border:1px solid var(--border);transition:var(--transition);position:relative;overflow:hidden}
+        .stat-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-hover);border-color:rgba(192,200,0,.15)}
+        .stat-card .stat-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+        .stat-card.s1 .stat-accent{background:linear-gradient(90deg,var(--navy),var(--navy-light))}
+        .stat-card.s2 .stat-accent{background:linear-gradient(90deg,var(--lime),#d4dd00)}
+        .stat-card.s3 .stat-accent{background:linear-gradient(90deg,var(--pink),#e00066)}
+        .stat-card.s4 .stat-accent{background:linear-gradient(90deg,#10B981,#34D399)}
+        .stat-card.s5 .stat-accent{background:linear-gradient(90deg,#7c3aed,#a855f7)}
+        .stat-card.s6 .stat-accent{background:linear-gradient(90deg,var(--gold),#d4b478)}
+        .stat-card .top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+        .stat-card .stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.15rem}
+        .stat-card.s1 .stat-icon{background:rgba(10,31,46,.08);color:var(--navy)}
+        .stat-card.s2 .stat-icon{background:var(--lime-glow);color:var(--lime)}
+        .stat-card.s3 .stat-icon{background:var(--pink-glow);color:var(--pink)}
+        .stat-card.s4 .stat-icon{background:var(--green-soft);color:var(--green)}
+        .stat-card.s5 .stat-icon{background:rgba(124,58,237,.10);color:#7c3aed}
+        .stat-card.s6 .stat-icon{background:var(--gold-soft);color:var(--gold)}
+        .stat-card .stat-trend{font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--green-soft);color:var(--green);white-space:nowrap}
+        .stat-card .stat-trend.warn{background:var(--amber-soft);color:#856404}
+        .stat-card .stat-trend.danger{background:var(--pink-glow);color:var(--pink)}
+        .stat-card .stat-trend.info{background:rgba(74,106,127,.10);color:var(--text-secondary)}
+        .stat-card .value{font-size:1.85rem;font-weight:800;color:var(--navy);letter-spacing:-.02em;line-height:1.15}
+        .stat-card .label{font-size:.78rem;color:var(--text-muted);font-weight:500;margin-top:2px}
 
-        .sidebar .sidebar-footer {
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255,255,255,0.06);
-            font-size: 0.65rem;
-            color: rgba(255,255,255,0.3);
-            text-align: center;
-            letter-spacing: 0.04em;
-        }
+        /* QUICK ACTIONS */
+        .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+        .quick-action-btn{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 14px;text-align:center;cursor:pointer;transition:var(--transition);text-decoration:none;color:var(--text);position:relative;display:flex;flex-direction:column;align-items:center;gap:6px}
+        .quick-action-btn:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);border-color:var(--lime)}
+        .quick-action-btn i{font-size:1.4rem;color:var(--lime)}
+        .quick-action-btn .label{font-size:.8rem;font-weight:700}
+        .quick-action-btn .sub{font-size:.68rem;color:var(--text-muted);font-weight:500}
+        .quick-action-btn.featured-action{background:linear-gradient(135deg,rgba(124,58,237,.04),rgba(168,85,247,.04));border-color:rgba(124,58,237,.25)}
+        .quick-action-btn.featured-action i{color:#7c3aed}
+        .quick-action-btn.blueprint-action{background:linear-gradient(135deg,rgba(201,169,97,.05),rgba(201,169,97,.02));border-color:rgba(201,169,97,.3)}
+        .quick-action-btn.blueprint-action i{color:var(--gold)}
 
-        /* ===== MAIN CONTENT ===== */
-        .main-content {
-            flex: 1;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 0;
-            margin-left: var(--sidebar-width);
-            transition: margin-left 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            width: calc(100% - var(--sidebar-width));
-        }
-        .main-content.expanded {
-            margin-left: 0;
-            width: 100%;
-        }
+        /* SECTION HEADERS */
+        .section-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:32px 0 14px;flex-wrap:wrap}
+        .section-head h2{font-size:1.1rem;font-weight:800;color:var(--navy);letter-spacing:-.015em;display:flex;align-items:center;gap:10px}
+        .section-head h2 i{color:var(--gold);font-size:1rem}
+        .section-head .count-pill{font-size:.62rem;font-weight:800;color:var(--text-muted);background:var(--bg);padding:3px 10px;border-radius:20px}
+        .section-head .count-pill.alert{background:var(--pink-glow);color:var(--pink)}
+        .section-head .link-action{font-size:.72rem;font-weight:800;color:var(--gold);display:inline-flex;align-items:center;gap:6px;padding:.45rem .9rem;border-radius:20px;background:var(--gold-soft);border:1px solid rgba(201,169,97,.3);transition:var(--transition)}
+        .section-head .link-action:hover{background:var(--gold);color:#fff;border-color:var(--gold)}
 
-        /* ===== TOP BAR ===== */
-        .top-bar {
-            background: rgba(255,255,255,0.80);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(230, 234, 240, 0.6);
-            padding: 14px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 900;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-        .top-bar .left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .top-bar .left .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 1.3rem;
-            color: var(--navy);
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 8px;
-            transition: var(--transition);
-        }
-        .top-bar .left .menu-toggle:hover {
-            background: var(--bg);
-        }
-        .top-bar .left .page-title h2 {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--navy);
-            letter-spacing: -0.02em;
-        }
-        .top-bar .left .page-title .sub {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-        .top-bar .right {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .top-bar .right .notif-btn {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: var(--transition);
-            position: relative;
-        }
-        .top-bar .right .notif-btn:hover {
-            border-color: var(--lime);
-            background: #fff;
-        }
-        .top-bar .right .notif-btn .dot {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 8px;
-            height: 8px;
-            background: var(--pink);
-            border-radius: 50%;
-            border: 2px solid #fff;
-        }
-        .top-bar .right .admin-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 4px 12px 4px 4px;
-            border-radius: 40px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            transition: var(--transition);
-            cursor: default;
-        }
-        .top-bar .right .admin-profile:hover {
-            border-color: var(--lime);
-            box-shadow: 0 2px 12px rgba(192,200,0,0.08);
-        }
-        .top-bar .right .admin-profile .avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            background: var(--navy);
-            color: var(--lime);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.8rem;
-            flex-shrink: 0;
-        }
-        .top-bar .right .admin-profile .name {
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: var(--text);
-        }
-        .top-bar .right .admin-profile .role {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-        .top-bar .right .btn-signout {
-            background: transparent;
-            border: 1.5px solid var(--border);
-            border-radius: 30px;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .top-bar .right .btn-signout:hover {
-            border-color: var(--pink);
-            color: var(--pink);
-            background: rgba(248,0,112,0.04);
-        }
+        /* BLUEPRINT PANELS */
+        .bp-panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+        .bp-panel__head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:linear-gradient(180deg,#fff,#FBFCFD)}
+        .bp-panel__head h3{font-size:.95rem;font-weight:800;color:var(--navy);letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+        .bp-panel__head h3 i{color:var(--gold);font-size:.9rem}
+        .bp-panel__head .hint{font-size:.72rem;color:var(--text-muted);font-weight:600}
+        .bp-panel__body{padding:0}
 
-        /* ===== CONTENT WRAPPER ===== */
-        .content-wrapper {
-            padding: 28px 32px 40px;
-            flex: 1;
-        }
+        /* TABLE ROWS */
+        .bp-row{display:flex;align-items:flex-start;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);transition:var(--transition);flex-wrap:wrap}
+        .bp-row:last-child{border-bottom:none}
+        .bp-row:hover{background:var(--bg)}
+        .bp-row__icon{width:42px;height:42px;border-radius:12px;background:var(--gold-soft);color:var(--gold);display:grid;place-items:center;font-size:.95rem;flex-shrink:0}
+        .bp-row__icon.green{background:var(--green-soft);color:var(--green)}
+        .bp-row__icon.pink{background:var(--pink-glow);color:var(--pink)}
+        .bp-row__icon.blue{background:rgba(10,132,255,.10);color:#0A84FF}
+        .bp-row__icon.amber{background:var(--amber-soft);color:#9A6E00}
+        .bp-row__body{flex:1;min-width:200px}
+        .bp-row__title{font-size:.88rem;font-weight:800;color:var(--navy);letter-spacing:-.01em;line-height:1.3}
+        .bp-row__sub{font-size:.72rem;color:var(--text-muted);font-weight:600;margin-top:3px;display:flex;gap:12px;flex-wrap:wrap}
+        .bp-row__sub i{font-size:.65rem;margin-right:3px}
+        .bp-row__right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .bp-row__amount{font-size:1rem;font-weight:800;color:var(--navy);white-space:nowrap}
 
-        /* ===== WELCOME SECTION ===== */
-        .welcome-section {
-            margin-bottom: 28px;
-        }
-        .welcome-section h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--navy);
-            letter-spacing: -0.03em;
-        }
-        .welcome-section p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            margin-top: 4px;
-        }
-        .welcome-section p .highlight {
-            color: var(--lime);
-            font-weight: 700;
-        }
+        /* BUTTONS */
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1rem;border:1px solid transparent;border-radius:8px;font-size:.75rem;font-weight:700;transition:var(--transition);text-decoration:none;white-space:nowrap}
+        .btn i{font-size:.85em}
+        .btn-primary{background:var(--navy);color:#fff}
+        .btn-primary:hover{background:var(--navy-light);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+        .btn-lime{background:var(--lime);color:var(--navy)}
+        .btn-lime:hover{background:#d4dc00;transform:translateY(-1px)}
+        .btn-green{background:var(--green);color:#fff}
+        .btn-green:hover{background:#0b8259;transform:translateY(-1px)}
+        .btn-red{background:var(--pink);color:#fff}
+        .btn-red:hover{background:#c4004e;transform:translateY(-1px)}
+        .btn-outline{background:#fff;border-color:var(--border-strong);color:var(--text-secondary)}
+        .btn-outline:hover{border-color:var(--navy);color:var(--navy)}
+        .btn-gold{background:linear-gradient(135deg,var(--gold),#b8954d);color:#fff}
+        .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,169,97,.35)}
+        .btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
 
-        /* ===== STATS GRID ===== */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 18px;
-            margin-bottom: 28px;
-        }
-        .stat-card {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 22px 24px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-hover);
-            border-color: rgba(192, 200, 0, 0.15);
-        }
-        .stat-card .stat-accent {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            border-radius: var(--radius) var(--radius) 0 0;
-        }
-        .stat-card:nth-child(1) .stat-accent { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
-        .stat-card:nth-child(2) .stat-accent { background: linear-gradient(90deg, var(--lime), #d4dd00); }
-        .stat-card:nth-child(3) .stat-accent { background: linear-gradient(90deg, var(--pink), #e00066); }
-        .stat-card:nth-child(4) .stat-accent { background: linear-gradient(90deg, #10B981, #34D399); }
-        /* NEW: Artist-specific stat card accent */
-        .stat-card.artists-card .stat-accent { background: linear-gradient(90deg, #7c3aed, #a855f7); }
-        .stat-card.artists-card .stat-icon { background: rgba(124,58,237,0.10); color: #7c3aed; }
+        /* STATUS CHIPS */
+        .status-chip{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:20px;white-space:nowrap;display:inline-block}
+        .status-chip.pending{background:var(--amber-soft);color:#9A6E00}
+        .status-chip.paid,.status-chip.active,.status-chip.accepted{background:var(--green-soft);color:var(--green)}
+        .status-chip.invited{background:rgba(10,132,255,.10);color:#0A84FF}
+        .status-chip.declined{background:var(--coral-soft);color:var(--coral)}
+        .status-chip.expired,.status-chip.rejected{background:var(--pink-glow);color:var(--pink)}
+        .status-chip.draft{background:rgba(122,136,153,.12);color:var(--text-muted)}
 
-        .stat-card .top-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-        .stat-card .stat-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-        .stat-card:nth-child(1) .stat-icon { background: rgba(10,31,46,0.08); color: var(--navy); }
-        .stat-card:nth-child(2) .stat-icon { background: rgba(192,200,0,0.12); color: var(--lime); }
-        .stat-card:nth-child(3) .stat-icon { background: rgba(248,0,112,0.10); color: var(--pink); }
-        .stat-card:nth-child(4) .stat-icon { background: rgba(16,185,129,0.10); color: #10B981; }
+        /* EMPTY STATES */
+        .bp-empty{padding:40px 24px;text-align:center;color:var(--text-muted)}
+        .bp-empty i{font-size:2rem;color:var(--border-strong);display:block;margin-bottom:10px}
+        .bp-empty h4{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:4px}
+        .bp-empty p{font-size:.8rem;font-weight:500}
 
-        .stat-card .stat-trend {
-            font-size: 0.7rem;
-            font-weight: 600;
-            padding: 2px 10px;
-            border-radius: 20px;
-            background: #d4edda;
-            color: #155724;
-        }
-        .stat-card .stat-trend.down { background: #f8d7da; color: #721c24; }
+        /* RECENT */
+        .recent-section{background:var(--card-bg);border-radius:var(--radius);padding:22px 24px;border:1px solid var(--border);box-shadow:var(--shadow)}
+        .recent-section .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+        .recent-section .header h3{font-size:1rem;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px}
+        .recent-section .header h3 i{color:var(--lime)}
+        .recent-section .header a{font-size:.8rem;color:var(--text-muted);font-weight:500}
+        .recent-section .header a:hover{color:var(--lime)}
+        .recent-item{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+        .recent-item:last-child{border-bottom:none}
+        .recent-item .icon{width:36px;height:36px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--navy);flex-shrink:0}
+        .recent-item .info{flex:1}
+        .recent-item .info .title{font-weight:600;font-size:.85rem}
+        .recent-item .info .desc{font-size:.75rem;color:var(--text-muted)}
+        .recent-item .time{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
 
-        .stat-card .value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--navy);
-            letter-spacing: -0.02em;
-            line-height: 1.2;
-        }
-        .stat-card .label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 500;
-            margin-top: 2px;
-        }
+        /* TOAST */
+        #toast{position:fixed;top:80px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:340px;width:calc(100% - 40px)}
+        .toast{padding:12px 18px;border-radius:11px;background:var(--navy);color:#fff;font-size:.82rem;font-weight:700;box-shadow:0 12px 32px rgba(0,0,0,.18);animation:slIn .3s ease;display:flex;align-items:center;gap:10px;border-left:3px solid var(--lime)}
+        .toast.success{border-left-color:var(--green)}
+        .toast.error{border-left-color:var(--pink)}
+        @keyframes slIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
 
-        /* ===== QUICK ACTIONS ===== */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 14px;
-            margin-bottom: 28px;
+        /* RESPONSIVE */
+        @media (max-width:992px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+        @media (max-width:768px){
+            .sidebar{transform:translateX(-100%)}
+            .sidebar.open{transform:translateX(0)}
+            .sidebar.closed{transform:translateX(-100%)}
+            .main-content{margin-left:0;width:100%}
+            .top-bar{padding:12px 16px}
+            .top-bar .left .menu-toggle{display:block}
+            .top-bar .right .admin-profile .name,.top-bar .right .admin-profile .role{display:none}
+            .top-bar .right .btn-signout span{display:none}
+            .top-bar .right .btn-signout{padding:8px 12px}
+            .content-wrapper{padding:16px 16px 80px}
+            .stats-grid{grid-template-columns:1fr 1fr;gap:12px}
+            .stat-card{padding:16px 18px}
+            .stat-card .value{font-size:1.4rem}
+            .bp-row{padding:12px 16px}
+            .welcome-section h1{font-size:1.3rem}
         }
-        .quick-action-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 18px 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: var(--transition);
-            text-decoration: none;
-            color: var(--text);
-            position: relative;
+        @media (max-width:400px){
+            .stats-grid{grid-template-columns:1fr}
         }
-        .quick-action-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-            border-color: var(--lime);
-        }
-        .quick-action-btn i {
-            font-size: 1.5rem;
-            color: var(--lime);
-            margin-bottom: 6px;
-            display: block;
-        }
-        .quick-action-btn .label {
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        .quick-action-btn .sub {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-
-        /* NEW: Featured quick action for Manage Artists */
-        .quick-action-btn.featured-action {
-            background: linear-gradient(135deg, rgba(124,58,237,0.04), rgba(168,85,247,0.04));
-            border-color: rgba(124,58,237,0.25);
-        }
-        .quick-action-btn.featured-action:hover {
-            border-color: #7c3aed;
-            box-shadow: 0 16px 48px rgba(124,58,237,0.12);
-        }
-        .quick-action-btn.featured-action i {
-            color: #7c3aed;
-        }
-
-        /* ===== RECENT ACTIVITY ===== */
-        .recent-section {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 22px 24px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-        .recent-section .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 14px;
-        }
-        .recent-section .header h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--navy);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .recent-section .header h3 i { color: var(--lime); }
-        .recent-section .header a {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .recent-section .header a:hover { color: var(--lime); }
-
-        .recent-item {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .recent-item:last-child { border-bottom: none; }
-        .recent-item .icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--navy);
-            flex-shrink: 0;
-        }
-        .recent-item .info { flex: 1; }
-        .recent-item .info .title { font-weight: 600; font-size: 0.85rem; }
-        .recent-item .info .desc { font-size: 0.75rem; color: var(--text-muted); }
-        .recent-item .time { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 992px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-            .sidebar.closed {
-                transform: translateX(-100%);
-            }
-
-            .main-content {
-                margin-left: 0;
-                width: 100%;
-            }
-
-            .top-bar {
-                padding: 12px 16px;
-                flex-wrap: wrap;
-            }
-            .top-bar .left .menu-toggle {
-                display: block;
-            }
-            .top-bar .left .page-title h2 { font-size: 1rem; }
-            .top-bar .left .page-title .sub { font-size: 0.65rem; }
-            .top-bar .right .admin-profile .name { display: none; }
-            .top-bar .right .admin-profile .role { display: none; }
-            .top-bar .right .btn-signout span { display: none; }
-            .top-bar .right .btn-signout { padding: 8px 12px; }
-
-            .content-wrapper { padding: 16px 16px 80px; }
-
-            .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-            .stat-card { padding: 16px 18px; }
-            .stat-card .value { font-size: 1.4rem; }
-            .stat-card .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
-
-            .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .quick-action-btn { padding: 14px 12px; }
-            .quick-action-btn i { font-size: 1.2rem; }
-
-            .recent-section { padding: 16px 18px; }
-            .welcome-section h1 { font-size: 1.3rem; }
-        }
-
-        @media (max-width: 400px) {
-            .stats-grid { grid-template-columns: 1fr; }
-            .quick-actions { grid-template-columns: 1fr 1fr; }
-        }
-
-        @media (min-width: 769px) {
-            .sidebar-overlay { display: none !important; }
-        }
+        @media (min-width:769px){.sidebar-overlay{display:none!important}}
     </style>
 </head>
 <body>
 
-    <!-- ===== SIDEBAR OVERLAY ===== -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div id="toast"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- ===== SIDEBAR ===== -->
-    <aside class="sidebar closed" id="sidebar">
-        <div class="brand">
-            <div class="logo-icon">Z</div>
-            <h1>Zone<span>21</span></h1>
-        </div>
-        <nav class="nav-section">
-            <div class="section-label">Main</div>
-            <a class="nav-item active" href="admin-dashboard.html">
-                <i class="fas fa-chart-line"></i> Overview
-            </a>
-            <a class="nav-item" href="adminevents.html">
-                <i class="fas fa-check-circle"></i> Approve Events
-                <span class="badge" id="pending-badge">0</span>
-            </a>
-            <a class="nav-item" href="ticketsmanagement.html">
-                <i class="fas fa-ticket-alt"></i> Manage Tickets
-            </a>
-            <a class="nav-item" href="adminpublishevents.html">
-                <i class="fas fa-globe"></i> Publish Events
-            </a>
-
-            <!-- NEW: Artists section -->
-            <div class="section-label" style="margin-top:12px;">Artists</div>
-            <a class="nav-item" href="adminbookings.html">
-                <i class="fas fa-microphone"></i> Manage Artists
-                <span class="badge lime">New</span>
-            </a>
-
-            <div class="section-label" style="margin-top:12px;">Analytics</div>
-            <a class="nav-item" href="adminrevenue">
-                <i class="fas fa-dollar-sign"></i> Tickets Revenue
-            </a>
-            <a class="nav-item" href="adminsalesdata.html">
-                <i class="fas fa-chart-bar"></i> Sales Data
-            </a>
-
-            <div class="section-label" style="margin-top:12px;">Management</div>
-            <a class="nav-item" href="managevendors.html">
-                <i class="fas fa-store"></i> Vendors
-                <span class="badge lime">New</span>
-            </a>
-            <a class="nav-item" href="manageorganizers.html">
-                <i class="fas fa-users"></i> Event Organizers
-            </a>
-            <a class="nav-item" href="adminsupport.html">
-                <i class="fas fa-headset"></i> Support
-            </a>
-            <a class="nav-item" href="adminpayments.html">
-                <i class="fas fa-credit-card"></i> Payments
-            </a>
-            <a class="nav-item" href="scantickets.html">
-                <i class="fas fa-qrcode"></i> Scan Tickets
-            </a>
-        </nav>
-        <div class="sidebar-footer">Admin Panel v2.1</div>
-    </aside>
-
-    <!-- ===== MAIN CONTENT ===== -->
-    <div class="main-content" id="mainContent">
-
-        <!-- ===== TOP BAR ===== -->
-        <header class="top-bar">
-            <div class="left">
-                <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <div class="page-title">
-                    <h2>Dashboard</h2>
-                    <span class="sub">Welcome back, Admin</span>
-                </div>
-            </div>
-            <div class="right">
-                <button class="notif-btn" title="Notifications">
-                    <i class="fas fa-bell"></i>
-                    <span class="dot"></span>
-                </button>
-                <div class="admin-profile">
-                    <div class="avatar" id="admin-avatar">AD</div>
-                    <div>
-                        <div class="name" id="admin-name">Admin</div>
-                        <div class="role">Administrator</div>
-                    </div>
-                </div>
-                <button class="btn-signout" onclick="signOut()">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sign Out</span>
-                </button>
-            </div>
-        </header>
-
-        <!-- ===== CONTENT WRAPPER ===== -->
-        <div class="content-wrapper">
-
-            <!-- Welcome -->
-            <div class="welcome-section">
-                <h1>Good to see you, <span id="greeting-name">Admin</span> 👋</h1>
-                <p>Here's what's happening across your <span class="highlight">Zone21</span> platform today.</p>
-            </div>
-
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-accent"></div>
-                    <div class="top-row">
-                        <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
-                        <span class="stat-trend">+12%</span>
-                    </div>
-                    <div class="value" id="stat-total-events">0</div>
-                    <div class="label">Total Events</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-accent"></div>
-                    <div class="top-row">
-                        <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
-                        <span class="stat-trend" id="pending-trend">Awaiting</span>
-                    </div>
-                    <div class="value" id="stat-pending-events">0</div>
-                    <div class="label">Pending Approval</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-accent"></div>
-                    <div class="top-row">
-                        <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-                        <span class="stat-trend">+8%</span>
-                    </div>
-                    <div class="value" id="stat-tickets-sold">0</div>
-                    <div class="label">Tickets Sold</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-accent"></div>
-                    <div class="top-row">
-                        <div class="stat-icon"><i class="fas fa-coins"></i></div>
-                        <span class="stat-trend">+5%</span>
-                    </div>
-                    <div class="value" id="stat-revenue">$0</div>
-                    <div class="label">Total Revenue</div>
-                </div>
-                <!-- NEW: Artist roster stat -->
-                <div class="stat-card artists-card">
-                    <div class="stat-accent"></div>
-                    <div class="top-row">
-                        <div class="stat-icon"><i class="fas fa-microphone"></i></div>
-                        <span class="stat-trend" id="artists-trend">Roster</span>
-                    </div>
-                    <div class="value" id="stat-artists">0</div>
-                    <div class="label">Artists Listed</div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-                <a href="adminevents.html" class="quick-action-btn">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="label">Approve Events</div>
-                    <div class="sub">Review pending requests</div>
-                </a>
-                <a href="ticketsmanagement.html" class="quick-action-btn">
-                    <i class="fas fa-ticket-alt"></i>
-                    <div class="label">Manage Tickets</div>
-                    <div class="sub">View & export tickets</div>
-                </a>
-                <a href="adminpublishevents.html" class="quick-action-btn">
-                    <i class="fas fa-globe"></i>
-                    <div class="label">Publish Events</div>
-                    <div class="sub">Go live with events</div>
-                </a>
-                <a href="managevendors.html" class="quick-action-btn">
-                    <i class="fas fa-store"></i>
-                    <div class="label">Manage Vendors</div>
-                    <div class="sub">View & edit providers</div>
-                </a>
-                <!-- NEW: Featured quick action for artists -->
-                <a href="adminbookings.html" class="quick-action-btn featured-action">
-                    <i class="fas fa-microphone"></i>
-                    <div class="label">Manage Artists</div>
-                    <div class="sub">Roster & booking requests</div>
-                </a>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="recent-section">
-                <div class="header">
-                    <h3><i class="fas fa-clock"></i> Recent Activity</h3>
-                    <a href="adminevents.html">View All</a>
-                </div>
-                <div id="recent-activity">
-                    <!-- Dynamically populated -->
-                    <div class="recent-item">
-                        <div class="icon"><i class="fas fa-spinner fa-spin"></i></div>
-                        <div class="info">
-                            <div class="title">Loading recent activity...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+<!-- SIDEBAR -->
+<aside class="sidebar closed" id="sidebar">
+    <div class="brand">
+        <div class="logo-icon">Z</div>
+        <h1>Zone<span>21</span></h1>
     </div>
+    <nav class="nav-section">
 
-    <script>
-        // ============================================================
-        //  FIREBASE
-        // ============================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-            authDomain: "zone21.firebaseapp.com",
-            projectId: "zone21",
-            storageBucket: "zone21.firebasestorage.app",
-            messagingSenderId: "405963057292",
-            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-            measurementId: "G-KE007Y89F1"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        <div class="section-label">Main</div>
+        <a class="nav-item active" href="admin-dashboard.html"><i class="fas fa-chart-line"></i> Overview</a>
+        <a class="nav-item" href="adminevents.html"><i class="fas fa-check-circle"></i> Approve Events <span class="badge" id="pending-badge">0</span></a>
+        <a class="nav-item" href="ticketsmanagement.html"><i class="fas fa-ticket-alt"></i> Manage Tickets</a>
+        <a class="nav-item" href="adminpublishevents.html"><i class="fas fa-globe"></i> Publish Events</a>
 
-        // ============================================================
-        //  AUTH CHECK
-        // ============================================================
-        auth.onAuthStateChanged(async (user) => {
-            if (!user) {
-                window.location.href = 'admin.html';
-                return;
-            }
+        <!-- ⭐ NEW: Blueprint Control -->
+        <div class="section-label" style="margin-top:12px;">Blueprint Control</div>
+        <a class="nav-item" href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')"><i class="fas fa-file-invoice-dollar"></i> Payment Approvals <span class="badge" id="pendingPaymentsBadge">0</span></a>
+        <a class="nav-item" href="#vendorPayouts" onclick="scrollToSection('vendorPayouts')"><i class="fas fa-hand-holding-dollar"></i> Vendor Payouts <span class="badge lime" id="pendingPayoutsBadge">0</span></a>
+        <a class="nav-item" href="#cashoutRequests" onclick="scrollToSection('cashoutRequests')"><i class="fas fa-money-bill-transfer"></i> Cashout Requests <span class="badge" id="pendingCashoutsBadge">0</span></a>
+        <a class="nav-item" href="#eventCoordination" onclick="scrollToSection('eventCoordination')"><i class="fas fa-sitemap"></i> Live Coordination</a>
 
-            try {
-                const adminDoc = await db.collection('admins').doc(user.uid).get();
-                if (!adminDoc.exists) {
-                    await auth.signOut();
-                    window.location.href = 'admin.html';
-                    return;
+        <div class="section-label" style="margin-top:12px;">Artists</div>
+        <a class="nav-item" href="adminbookings.html"><i class="fas fa-microphone"></i> Manage Artists <span class="badge lime">New</span></a>
+
+        <div class="section-label" style="margin-top:12px;">Analytics</div>
+        <a class="nav-item" href="adminrevenue"><i class="fas fa-dollar-sign"></i> Tickets Revenue</a>
+        <a class="nav-item" href="adminsalesdata.html"><i class="fas fa-chart-bar"></i> Sales Data</a>
+
+        <div class="section-label" style="margin-top:12px;">Management</div>
+        <a class="nav-item" href="managevendors.html"><i class="fas fa-store"></i> Vendors</a>
+        <a class="nav-item" href="manageorganizers.html"><i class="fas fa-users"></i> Event Organizers</a>
+        <a class="nav-item" href="adminsupport.html"><i class="fas fa-headset"></i> Support</a>
+        <a class="nav-item" href="adminpayments.html"><i class="fas fa-credit-card"></i> Payments</a>
+        <a class="nav-item" href="scantickets.html"><i class="fas fa-qrcode"></i> Scan Tickets</a>
+    </nav>
+    <div class="sidebar-footer">Admin Panel v3.0 · Blueprint</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-content" id="mainContent">
+
+    <header class="top-bar">
+        <div class="left">
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar"><i class="fas fa-bars"></i></button>
+            <div class="page-title">
+                <h2>Dashboard</h2>
+                <span class="sub">Welcome back, Admin</span>
+            </div>
+        </div>
+        <div class="right">
+            <button class="notif-btn" title="Notifications" onclick="scrollToSection('eventCoordination')">
+                <i class="fas fa-bell"></i>
+                <span class="dot"></span>
+            </button>
+            <div class="admin-profile">
+                <div class="avatar" id="admin-avatar">AD</div>
+                <div>
+                    <div class="name" id="admin-name">Admin</div>
+                    <div class="role">Administrator</div>
+                </div>
+            </div>
+            <button class="btn-signout" onclick="signOut()"><i class="fas fa-sign-out-alt"></i><span>Sign Out</span></button>
+        </div>
+    </header>
+
+    <div class="content-wrapper">
+
+        <div class="welcome-section">
+            <h1>Good to see you, <span id="greeting-name">Admin</span> 👋</h1>
+            <p>Full command center for <span class="highlight">Zone21</span> — events, blueprint coordination, payments & payouts.</p>
+        </div>
+
+        <!-- ═════════ STATS ═════════ -->
+        <div class="stats-grid">
+            <div class="stat-card s1">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+                    <span class="stat-trend" id="eventsTrend">Total</span>
+                </div>
+                <div class="value" id="stat-total-events">0</div>
+                <div class="label">Total Events</div>
+            </div>
+            <div class="stat-card s2">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+                    <span class="stat-trend warn" id="pending-trend">Awaiting</span>
+                </div>
+                <div class="value" id="stat-pending-events">0</div>
+                <div class="label">Events Pending</div>
+            </div>
+            <div class="stat-card s3">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <span class="stat-trend danger" id="payments-trend">Pending</span>
+                </div>
+                <div class="value" id="stat-pending-payments">0</div>
+                <div class="label">Payments to Approve</div>
+            </div>
+            <div class="stat-card s6">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-sack-dollar"></i></div>
+                    <span class="stat-trend" id="revenue-trend">Total</span>
+                </div>
+                <div class="value" id="stat-revenue">$0</div>
+                <div class="label">Revenue Received</div>
+            </div>
+            <div class="stat-card s4">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-users-gear"></i></div>
+                    <span class="stat-trend" id="assignments-trend">Live</span>
+                </div>
+                <div class="value" id="stat-assignments">0</div>
+                <div class="label">Active Assignments</div>
+            </div>
+            <div class="stat-card s5">
+                <div class="stat-accent"></div>
+                <div class="top-row">
+                    <div class="stat-icon"><i class="fas fa-money-bill-transfer"></i></div>
+                    <span class="stat-trend info" id="cashouts-trend">Requests</span>
+                </div>
+                <div class="value" id="stat-cashouts">0</div>
+                <div class="label">Cashout Requests</div>
+            </div>
+        </div>
+
+        <!-- ═════════ QUICK ACTIONS ═════════ -->
+        <div class="quick-actions">
+            <a href="adminevents.html" class="quick-action-btn"><i class="fas fa-check-circle"></i><div class="label">Approve Events</div><div class="sub">Review requests</div></a>
+            <a href="ticketsmanagement.html" class="quick-action-btn"><i class="fas fa-ticket-alt"></i><div class="label">Manage Tickets</div><div class="sub">View & export</div></a>
+            <a href="adminpublishevents.html" class="quick-action-btn"><i class="fas fa-globe"></i><div class="label">Publish Events</div><div class="sub">Go live</div></a>
+            <a href="managevendors.html" class="quick-action-btn"><i class="fas fa-store"></i><div class="label">Vendors</div><div class="sub">Manage providers</div></a>
+            <a href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')" class="quick-action-btn blueprint-action"><i class="fas fa-file-invoice-dollar"></i><div class="label">Payments</div><div class="sub">Approve transfers</div></a>
+            <a href="#vendorPayouts" onclick="scrollToSection('vendorPayouts')" class="quick-action-btn blueprint-action"><i class="fas fa-hand-holding-dollar"></i><div class="label">Payouts</div><div class="sub">Pay vendors</div></a>
+            <a href="adminbookings.html" class="quick-action-btn featured-action"><i class="fas fa-microphone"></i><div class="label">Artists</div><div class="sub">Roster & bookings</div></a>
+        </div>
+
+        <!-- ═════════ PAYMENT APPROVALS ═════════ -->
+        <section id="paymentApprovals" style="scroll-margin-top:80px">
+            <div class="section-head">
+                <h2><i class="fas fa-file-invoice-dollar"></i> Payment Approvals <span class="count-pill" id="paymentCount">0</span></h2>
+                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Approving unlocks the organizer's subscription</span>
+            </div>
+            <div class="bp-panel">
+                <div class="bp-panel__body" id="paymentList">
+                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading payments…</h4><p>Fetching pending manual transfers</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═════════ VENDOR PAYOUTS ═════════ -->
+        <section id="vendorPayouts" style="scroll-margin-top:80px">
+            <div class="section-head">
+                <h2><i class="fas fa-hand-holding-dollar"></i> Vendor Payouts <span class="count-pill" id="payoutCount">0</span></h2>
+                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Release held funds to vendors for completed jobs</span>
+            </div>
+            <div class="bp-panel">
+                <div class="bp-panel__body" id="payoutList">
+                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading payouts…</h4><p>Fetching assignments with released funds</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═════════ CASHOUT REQUESTS ═════════ -->
+        <section id="cashoutRequests" style="scroll-margin-top:80px">
+            <div class="section-head">
+                <h2><i class="fas fa-money-bill-transfer"></i> Cashout Requests <span class="count-pill" id="cashoutCount">0</span></h2>
+                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Vendor withdrawal requests awaiting approval</span>
+            </div>
+            <div class="bp-panel">
+                <div class="bp-panel__body" id="cashoutList">
+                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading cashouts…</h4><p>Fetching vendor requests</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═════════ EVENT COORDINATION ═════════ -->
+        <section id="eventCoordination" style="scroll-margin-top:80px">
+            <div class="section-head">
+                <h2><i class="fas fa-sitemap"></i> Live Event Coordination <span class="count-pill" id="coordinationCount">0</span></h2>
+                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Real-time status of every vendor invitation</span>
+            </div>
+            <div class="bp-panel">
+                <div class="bp-panel__head" style="padding:12px 22px">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <span style="font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">Filter:</span>
+                        <button class="btn btn-outline" data-bp-filter="all" onclick="setBpFilter('all')" style="background:var(--navy);color:#fff;border-color:var(--navy)">All</button>
+                        <button class="btn btn-outline" data-bp-filter="invited" onclick="setBpFilter('invited')">Invited</button>
+                        <button class="btn btn-outline" data-bp-filter="accepted" onclick="setBpFilter('accepted')">Accepted</button>
+                        <button class="btn btn-outline" data-bp-filter="paid_deposit" onclick="setBpFilter('paid_deposit')">Deposit</button>
+                        <button class="btn btn-outline" data-bp-filter="paid_full" onclick="setBpFilter('paid_full')">Fully Paid</button>
+                        <button class="btn btn-outline" data-bp-filter="declined" onclick="setBpFilter('declined')">Declined</button>
+                    </div>
+                </div>
+                <div class="bp-panel__body" id="coordinationList">
+                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading assignments…</h4><p>Fetching live coordination data</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═════════ RECENT ═════════ -->
+        <div class="recent-section" style="margin-top:24px">
+            <div class="header">
+                <h3><i class="fas fa-clock"></i> Recent Event Activity</h3>
+                <a href="adminevents.html">View All</a>
+            </div>
+            <div id="recent-activity">
+                <div class="recent-item">
+                    <div class="icon"><i class="fas fa-spinner fa-spin"></i></div>
+                    <div class="info"><div class="title">Loading recent activity...</div></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   FIREBASE
+============================================================ */
+const firebaseConfig = {
+    apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+    authDomain: "zone21.firebaseapp.com",
+    projectId: "zone21",
+    storageBucket: "zone21.firebasestorage.app",
+    messagingSenderId: "405963057292",
+    appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+    measurementId: "G-KE007Y89F1"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function toast(msg, type='info'){
+    const c = document.getElementById('toast');
+    if(!c){ alert(msg); return; }
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    const icon = type==='success'?'fa-circle-check':type==='error'?'fa-circle-exclamation':'fa-circle-info';
+    t.innerHTML = `<i class="fas ${icon}"></i><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 4500);
+}
+function escapeHtml(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function safe(s, max=80){
+    if(s==null) return '';
+    let v = String(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(v.length>max) v = v.slice(0,max).trim()+'…';
+    return v;
+}
+function fmtMoney(amount, curr='USD'){
+    const sym = curr === 'ZAR' ? 'R' : '$';
+    const n = Math.round(Number(amount)||0);
+    return `${sym}${n.toLocaleString('en-US')}`;
+}
+function fmtFromUSD(usd, curr){
+    const n = Number(usd) || 0;
+    if(curr === 'ZAR') return `R${Math.round(n*19).toLocaleString('en-US')}`;
+    return `$${Math.round(n).toLocaleString('en-US')}`;
+}
+function timeAgo(t){
+    const s = Math.floor((Date.now()-t)/1000);
+    if(s < 60) return 'Just now';
+    if(s < 3600) return Math.floor(s/60)+'m ago';
+    if(s < 86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+}
+const toDate = v => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
+function scrollToSection(id){
+    const el = document.getElementById(id);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+window.scrollToSection = scrollToSection;
+
+/* ============================================================
+   AUTH
+============================================================ */
+auth.onAuthStateChanged(async (user) => {
+    if(!user){ window.location.href = 'admin.html'; return; }
+    try{
+        const adminDoc = await db.collection('admins').doc(user.uid).get();
+        if(!adminDoc.exists){
+            await auth.signOut();
+            window.location.href = 'admin.html';
+            return;
+        }
+        const data = adminDoc.data();
+        const name = data.name || user.email?.split('@')[0] || 'Admin';
+        document.getElementById('admin-name').textContent = name;
+        document.getElementById('greeting-name').textContent = name;
+        document.getElementById('admin-avatar').textContent = name.charAt(0).toUpperCase();
+
+        // Boot all listeners
+        listenEventsStats();
+        listenPayments();
+        listenAssignments();
+        listenCashouts();
+        loadRecentActivity();
+    }catch(e){
+        console.error(e);
+        await auth.signOut();
+        window.location.href = 'admin.html';
+    }
+});
+
+function signOut(){
+    auth.signOut().then(() => window.location.href = 'admin.html')
+        .catch(() => window.location.href = 'admin.html');
+}
+window.signOut = signOut;
+
+/* ============================================================
+   STATS — events + revenue
+============================================================ */
+function listenEventsStats(){
+    db.collection('events').onSnapshot(snap => {
+        document.getElementById('stat-total-events').textContent = snap.size;
+        document.getElementById('eventsTrend').textContent = snap.size > 0 ? 'Total' : 'Empty';
+    }, err => console.error('events:', err));
+
+    db.collection('events').where('status','==','pending').onSnapshot(snap => {
+        const c = snap.size;
+        document.getElementById('stat-pending-events').textContent = c;
+        document.getElementById('pending-badge').textContent = c;
+        const tr = document.getElementById('pending-trend');
+        tr.textContent = c > 0 ? `${c} awaiting` : 'All clear';
+        tr.className = 'stat-trend' + (c > 0 ? ' warn' : '');
+    }, err => console.error('pending events:', err));
+
+    db.collection('invoices').where('status','==','paid').onSnapshot(snap => {
+        let total = 0;
+        snap.forEach(d => {
+            const a = d.data();
+            total += Number(a.total || a.amount || a.payNow || 0);
+        });
+        document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
+    }, err => console.error('revenue:', err));
+}
+
+/* ============================================================
+   PAYMENT APPROVALS — invoices with pending_manual_transfer
+============================================================ */
+let currentPaymentFilter = 'pending_manual_transfer';
+
+function listenPayments(){
+    db.collection('invoices')
+      .where('status','==','pending_manual_transfer')
+      .onSnapshot(snap => {
+        const invoices = [];
+        snap.forEach(d => invoices.push({ id: d.id, ...d.data() }));
+        invoices.sort((a,b) => {
+            const at = a.createdAt?.toMillis?.() || 0;
+            const bt = b.createdAt?.toMillis?.() || 0;
+            return bt - at;
+        });
+        renderPayments(invoices);
+    }, err => {
+        console.warn('payments listener:', err.message);
+        // Fallback: query all invoices client-side filter
+        db.collection('invoices').onSnapshot(snap2 => {
+            const invoices = [];
+            snap2.forEach(d => {
+                const data = d.data();
+                if(String(data.status||'').toLowerCase() === 'pending_manual_transfer'){
+                    invoices.push({ id: d.id, ...data });
                 }
-                const data = adminDoc.data();
-                const name = data.name || user.email?.split('@')[0] || 'Admin';
-                document.getElementById('admin-name').textContent = name;
-                document.getElementById('greeting-name').textContent = name;
-                document.getElementById('admin-avatar').textContent = name.charAt(0).toUpperCase();
-                loadStats();
-                loadRecentActivity();
-            } catch (err) {
-                console.error('Admin check error:', err);
-                await auth.signOut();
-                window.location.href = 'admin.html';
-            }
+            });
+            renderPayments(invoices);
+        }, () => {});
+    });
+}
+
+function renderPayments(invoices){
+    const list = document.getElementById('paymentList');
+    const count = document.getElementById('paymentCount');
+    const badge = document.getElementById('pendingPaymentsBadge');
+    count.textContent = invoices.length;
+    document.getElementById('stat-pending-payments').textContent = invoices.length;
+    if(badge){
+        if(invoices.length){ badge.textContent = invoices.length; }
+        else { badge.style.display = 'none'; }
+    }
+    if(invoices.length === 0){
+        list.innerHTML = `<div class="bp-empty"><i class="fas fa-check-circle"></i><h4>No pending payments</h4><p>All manual transfers have been processed.</p></div>`;
+        return;
+    }
+    list.innerHTML = invoices.map(inv => {
+        const cust = inv.customerInfo || {};
+        const fullName = `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || cust.email || 'Unknown';
+        const planName = inv.planName || (inv.packageDetails && inv.packageDetails.name) || 'Subscription';
+        const currency = inv.currency || (inv.packageDetails && inv.packageDetails.currency) || 'USD';
+        const total = inv.total || (inv.packageDetails && inv.packageDetails.price) || 0;
+        const invNo = inv.invoiceNumber || inv.id;
+        const months = inv.months || 1;
+        const planId = inv.packageDetails && inv.packageDetails.id || inv.planId || '';
+        const userId = inv.userId || '';
+        const dateStr = toDate(inv.createdAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
+
+        return `
+            <div class="bp-row">
+                <div class="bp-row__icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="bp-row__body">
+                    <div class="bp-row__title">${escapeHtml(planName)} · ${months} month${months>1?'s':''}</div>
+                    <div class="bp-row__sub">
+                        <span><i class="fas fa-user"></i> ${escapeHtml(safe(fullName,50))}</span>
+                        <span><i class="fas fa-envelope"></i> ${escapeHtml(safe(cust.email || '—',40))}</span>
+                        <span><i class="fas fa-hashtag"></i> ${escapeHtml(invNo)}</span>
+                        <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+                    </div>
+                </div>
+                <div class="bp-row__right">
+                    <span class="status-chip pending">Pending Transfer</span>
+                    <span class="bp-row__amount">${fmtMoney(total, currency)}</span>
+                    <button class="btn btn-green" onclick="approvePayment('${escapeAttr(invNo)}','${escapeAttr(userId)}','${escapeAttr(planId)}')">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                    <button class="btn btn-outline" onclick="rejectPayment('${escapeAttr(invNo)}')">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function escapeAttr(s){
+    return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+
+async function approvePayment(invoiceNumber, userId, planId){
+    if(!confirm(`Approve invoice ${invoiceNumber}? This unlocks the organizer's subscription.`)) return;
+    try{
+        // 1) Mark invoice paid
+        await db.collection('invoices').doc(invoiceNumber).update({
+            status: 'paid',
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: auth.currentUser?.uid || 'admin'
         });
 
-        // ============================================================
-        //  SIGN OUT
-        // ============================================================
-        function signOut() {
-            auth.signOut().then(() => {
-                window.location.href = 'admin.html';
-            }).catch(() => {
-                window.location.href = 'admin.html';
-            });
-        }
-
-        // ============================================================
-        //  LIVE STATS – realtime Firestore listeners
-        // ============================================================
-        function loadStats() {
-            // Total events
-            db.collection('events').onSnapshot(snap => {
-                document.getElementById('stat-total-events').textContent = snap.size;
-            }, err => console.error('Total events error:', err));
-
-            // Pending events
-            db.collection('events').where('status', '==', 'pending').onSnapshot(snap => {
-                const count = snap.size;
-                document.getElementById('stat-pending-events').textContent = count;
-                document.getElementById('pending-badge').textContent = count;
-                const trend = document.getElementById('pending-trend');
-                if (count > 0) {
-                    trend.textContent = `${count} awaiting`;
-                    trend.className = 'stat-trend';
-                    trend.style.background = '#fff3cd';
-                    trend.style.color = '#856404';
-                } else {
-                    trend.textContent = 'All clear';
-                    trend.className = 'stat-trend';
-                    trend.style.background = '#d4edda';
-                    trend.style.color = '#155724';
-                }
-            }, err => console.error('Pending events error:', err));
-
-            // Tickets sold (count of all tickets)
-            db.collection('tickets').onSnapshot(snap => {
-                document.getElementById('stat-tickets-sold').textContent = snap.size;
-            }, err => console.error('Tickets error:', err));
-
-            // Revenue from paid invoices
-            db.collection('invoices').where('status', '==', 'paid').onSnapshot(snap => {
-                let total = 0;
-                snap.forEach(doc => {
-                    const amount = doc.data().amount || 0;
-                    total += amount;
-                });
-                document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
-            }, err => console.error('Invoices error:', err));
-
-            // NEW: Total artists in roster
-            db.collection('artists').onSnapshot(snap => {
-                document.getElementById('stat-artists').textContent = snap.size;
-                const trend = document.getElementById('artists-trend');
-                trend.textContent = snap.size > 0 ? 'Active' : 'Empty';
-            }, err => {
-                console.error('Artists error:', err);
-                // Fallback: field may not exist yet or rules blocked
-                document.getElementById('stat-artists').textContent = '—';
-                document.getElementById('artists-trend').textContent = 'N/A';
-            });
-        }
-
-        // ============================================================
-        //  RECENT ACTIVITY
-        // ============================================================
-        function loadRecentActivity() {
-            const container = document.getElementById('recent-activity');
-
-            db.collection('events')
-                .orderBy('createdAt', 'desc')
-                .limit(5)
-                .onSnapshot(snap => {
-                    if (snap.empty) {
-                        container.innerHTML = `
-                            <div class="recent-item">
-                                <div class="icon"><i class="fas fa-info-circle"></i></div>
-                                <div class="info">
-                                    <div class="title">No recent activity</div>
-                                    <div class="desc">Events will appear here as they are created</div>
-                                </div>
-                            </div>
-                        `;
-                        return;
-                    }
-
-                    let html = '';
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        const eventName = data.eventName || data.name || data.title || 'Unnamed event';
-                        let timeStr = 'Just now';
-                        if (data.createdAt) {
-                            const date = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-                            timeStr = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                        }
-                        let icon = 'fa-calendar-plus';
-                        let statusLabel = 'New event created';
-                        if (data.status === 'pending') {
-                            icon = 'fa-hourglass-half';
-                            statusLabel = 'Event pending approval';
-                        } else if (data.status === 'approved') {
-                            icon = 'fa-check-circle';
-                            statusLabel = 'Event approved';
-                        } else if (data.status === 'rejected') {
-                            icon = 'fa-times-circle';
-                            statusLabel = 'Event rejected';
-                        } else if (data.status === 'cancelled') {
-                            icon = 'fa-ban';
-                            statusLabel = 'Event cancelled';
-                        }
-                        html += `
-                            <div class="recent-item">
-                                <div class="icon"><i class="fas ${icon}"></i></div>
-                                <div class="info">
-                                    <div class="title">${statusLabel}</div>
-                                    <div class="desc">${eventName}</div>
-                                </div>
-                                <span class="time">${timeStr}</span>
-                            </div>
-                        `;
+        // 2) Activate subscription
+        if(userId && planId){
+            // Try direct doc ID first
+            const directId = `${userId}_${planId}`;
+            try {
+                const subDoc = await db.collection('subscriptions').doc(directId).get();
+                if(subDoc.exists){
+                    await db.collection('subscriptions').doc(directId).update({
+                        status: 'active',
+                        approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        approvedBy: auth.currentUser?.uid || 'admin'
                     });
-                    container.innerHTML = html;
-                }, err => {
-                    console.error('Error loading recent activity:', err);
-                    container.innerHTML = `
-                        <div class="recent-item">
-                            <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
-                            <div class="info">
-                                <div class="title">Could not load activity</div>
-                                <div class="desc">${err.message}</div>
-                            </div>
-                        </div>
-                    `;
-                });
+                } else {
+                    // Query by userId + planId
+                    const q = await db.collection('subscriptions')
+                        .where('userId','==',userId)
+                        .where('planId','==',planId)
+                        .limit(1).get();
+                    if(!q.empty){
+                        await q.docs[0].ref.update({
+                            status: 'active',
+                            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            approvedBy: auth.currentUser?.uid || 'admin'
+                        });
+                    }
+                }
+            } catch(e){ console.warn('sub activate:', e); }
         }
 
-        // ============================================================
-        //  SIDEBAR TOGGLE
-        // ============================================================
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        const menuToggle = document.getElementById('menuToggle');
+        // 3) Notify user via messages
+        try {
+            await db.collection('messages').add({
+                sender: 'admin',
+                senderId: auth.currentUser?.uid || 'admin',
+                senderType: 'admin',
+                senderName: 'Zone21 Admin',
+                subject: `Payment Approved · ${invoiceNumber}`,
+                message: `Your payment for invoice ${invoiceNumber} has been approved. Your subscription is now active.`,
+                type: 'payment_approved',
+                recipientId: userId,
+                status: 'unread',
+                invoiceNumber,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch(e){}
 
-        function toggleSidebar() {
-            const isOpen = sidebar.classList.contains('open');
-            if (isOpen) {
-                sidebar.classList.remove('open');
-                sidebar.classList.add('closed');
-                overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            } else {
-                sidebar.classList.remove('closed');
-                sidebar.classList.add('open');
-                overlay.classList.add('active');
-                document.body.style.overflow = 'hidden';
+        toast('Payment approved — subscription activated', 'success');
+    }catch(e){
+        console.error(e);
+        toast('Failed to approve: ' + e.message, 'error');
+    }
+}
+window.approvePayment = approvePayment;
+
+async function rejectPayment(invoiceNumber){
+    if(!confirm(`Reject invoice ${invoiceNumber}? The organizer will need to resubmit proof.`)) return;
+    try{
+        await db.collection('invoices').doc(invoiceNumber).update({
+            status: 'rejected',
+            rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            rejectedBy: auth.currentUser?.uid || 'admin'
+        });
+        toast('Payment rejected', 'info');
+    }catch(e){
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+window.rejectPayment = rejectPayment;
+
+/* ============================================================
+   VENDOR PAYOUTS — assignments with paid_deposit/paid_full
+============================================================ */
+let allAssignments = [];
+
+function listenAssignments(){
+    db.collection('assignments').onSnapshot(snap => {
+        allAssignments = [];
+        snap.forEach(d => allAssignments.push({ id: d.id, ...d.data() }));
+        allAssignments.sort((a,b) => {
+            const at = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+            const bt = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+            return bt - at;
+        });
+
+        renderPayouts();
+        renderCoordination();
+        updateAssignmentStats();
+    }, err => {
+        console.warn('assignments:', err.message);
+    });
+}
+
+function updateAssignmentStats(){
+    const active = allAssignments.filter(a => ['invited','accepted','paid_deposit','paid_full'].includes(String(a.status||''))).length;
+    document.getElementById('stat-assignments').textContent = active;
+    const tr = document.getElementById('assignments-trend');
+    tr.textContent = active > 0 ? 'Live' : 'Idle';
+}
+
+function renderPayouts(){
+    const list = document.getElementById('payoutList');
+    const count = document.getElementById('payoutCount');
+    const badge = document.getElementById('pendingPayoutsBadge');
+
+    // Payout candidates: paid_deposit or paid_full where payout not yet released
+    const payouts = allAssignments.filter(a => {
+        const s = String(a.status || '').toLowerCase();
+        if(s !== 'paid_deposit' && s !== 'paid_full') return false;
+        const ps = String(a.payoutStatus || 'pending').toLowerCase();
+        return ps !== 'released' && ps !== 'paid';
+    });
+
+    count.textContent = payouts.length;
+    if(badge){
+        if(payouts.length){ badge.textContent = payouts.length; badge.style.display = 'inline-block'; }
+        else { badge.style.display = 'none'; }
+    }
+
+    if(payouts.length === 0){
+        list.innerHTML = `<div class="bp-empty"><i class="fas fa-hand-holding-dollar"></i><h4>No pending payouts</h4><p>Vendors with received funds will show up here.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = payouts.map(a => {
+        const currency = a.currency || 'USD';
+        const budgetUsd = Number(a.budget)||0;
+        const paidPct = String(a.status).toLowerCase() === 'paid_deposit' ? 0.5 : 1;
+        const amountDueUsd = budgetUsd * paidPct;
+        const amountDisplay = fmtFromUSD(amountDueUsd, currency);
+        const eventName = a.eventName || 'Event';
+        const vendorName = a.providerName || 'Vendor';
+        const service = a.service || 'Service';
+        const date = a.date || '—';
+        const st = String(a.status).toLowerCase();
+        const statusLabel = st === 'paid_deposit' ? 'Deposit Received' : 'Fully Paid';
+
+        return `
+            <div class="bp-row">
+                <div class="bp-row__icon green"><i class="fas fa-hand-holding-dollar"></i></div>
+                <div class="bp-row__body">
+                    <div class="bp-row__title">${escapeHtml(vendorName)} · ${escapeHtml(service)}</div>
+                    <div class="bp-row__sub">
+                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(eventName)}</span>
+                        <span><i class="fas fa-clock"></i> ${escapeHtml(date)}</span>
+                        <span><i class="fas fa-user"></i> ${escapeHtml(safe(a.organizerName||'Organizer',40))}</span>
+                    </div>
+                </div>
+                <div class="bp-row__right">
+                    <span class="status-chip accepted">${statusLabel}</span>
+                    <span class="bp-row__amount">${amountDisplay}</span>
+                    <button class="btn btn-green" onclick="releasePayout('${escapeAttr(a.id)}','${escapeAttr(vendorName)}','${escapeAttr(amountDisplay)}')">
+                        <i class="fas fa-paper-plane"></i> Release
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function releasePayout(assignmentId, vendorName, amountDisplay){
+    if(!confirm(`Release ${amountDisplay} to ${vendorName}? This marks the assignment as fully settled.`)) return;
+    try{
+        await db.collection('assignments').doc(assignmentId).update({
+            payoutStatus: 'released',
+            payoutReleasedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            payoutReleasedBy: auth.currentUser?.uid || 'admin',
+            status: 'completed'
+        });
+        // Also create a payout record for auditing
+        try {
+            await db.collection('vendorPayouts').add({
+                assignmentId,
+                vendorName,
+                amountDisplay,
+                releasedBy: auth.currentUser?.uid || 'admin',
+                releasedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch(e){}
+        toast(`Payout released to ${vendorName}`, 'success');
+    }catch(e){
+        console.error(e);
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+window.releasePayout = releasePayout;
+
+/* ============================================================
+   CASHOUTS
+============================================================ */
+function listenCashouts(){
+    db.collection('cashouts').onSnapshot(snap => {
+        const requests = [];
+        snap.forEach(d => requests.push({ id: d.id, ...d.data() }));
+        requests.sort((a,b) => {
+            const at = a.requestedAt?.toMillis?.() || 0;
+            const bt = b.requestedAt?.toMillis?.() || 0;
+            return bt - at;
+        });
+        renderCashouts(requests);
+    }, err => {
+        console.warn('cashouts:', err.message);
+    });
+}
+
+function renderCashouts(requests){
+    const list = document.getElementById('cashoutList');
+    const count = document.getElementById('cashoutCount');
+    const badge = document.getElementById('pendingCashoutsBadge');
+    const pending = requests.filter(r => String(r.status||'').toLowerCase() === 'pending');
+
+    count.textContent = pending.length;
+    document.getElementById('stat-cashouts').textContent = pending.length;
+    if(badge){
+        if(pending.length){ badge.textContent = pending.length; badge.style.display = 'inline-block'; }
+        else { badge.style.display = 'none'; }
+    }
+
+    if(requests.length === 0){
+        list.innerHTML = `<div class="bp-empty"><i class="fas fa-money-bill-transfer"></i><h4>No cashout requests</h4><p>Vendor withdrawals will appear here.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = requests.slice(0, 20).map(r => {
+        const st = String(r.status||'pending').toLowerCase();
+        const cls = st === 'approved' || st === 'paid' ? 'accepted' : st === 'rejected' ? 'rejected' : 'pending';
+        const statusLabel = st === 'pending' ? 'Pending' : st === 'approved' ? 'Approved' : st === 'paid' ? 'Paid' : st === 'rejected' ? 'Rejected' : st;
+        const currency = r.currency || 'USD';
+        const amount = fmtMoney(r.amount || 0, currency);
+        const reqAt = toDate(r.requestedAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
+
+        return `
+            <div class="bp-row">
+                <div class="bp-row__icon amber"><i class="fas fa-money-bill-transfer"></i></div>
+                <div class="bp-row__body">
+                    <div class="bp-row__title">${escapeHtml(r.providerName || 'Vendor')}</div>
+                    <div class="bp-row__sub">
+                        <span><i class="fas fa-hashtag"></i> ${escapeHtml(safe(r.id,30))}</span>
+                        <span><i class="fas fa-calendar"></i> ${reqAt}</span>
+                    </div>
+                </div>
+                <div class="bp-row__right">
+                    <span class="status-chip ${cls}">${statusLabel}</span>
+                    <span class="bp-row__amount">${amount}</span>
+                    ${st === 'pending' ? `
+                        <button class="btn btn-green" onclick="approveCashout('${escapeAttr(r.id)}')"><i class="fas fa-check"></i> Approve</button>
+                        <button class="btn btn-outline" onclick="rejectCashout('${escapeAttr(r.id)}')"><i class="fas fa-xmark"></i></button>
+                    ` : ''}
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function approveCashout(id){
+    if(!confirm('Approve this cashout request?')) return;
+    try{
+        await db.collection('cashouts').doc(id).update({
+            status: 'approved',
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            approvedBy: auth.currentUser?.uid || 'admin'
+        });
+        toast('Cashout approved', 'success');
+    }catch(e){
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+window.approveCashout = approveCashout;
+
+async function rejectCashout(id){
+    if(!confirm('Reject this cashout request?')) return;
+    try{
+        await db.collection('cashouts').doc(id).update({
+            status: 'rejected',
+            rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            rejectedBy: auth.currentUser?.uid || 'admin'
+        });
+        toast('Cashout rejected', 'info');
+    }catch(e){
+        toast('Failed: ' + e.message, 'error');
+    }
+}
+window.rejectCashout = rejectCashout;
+
+/* ============================================================
+   EVENT COORDINATION — live assignments across all events
+============================================================ */
+let bpFilter = 'all';
+
+function setBpFilter(f){
+    bpFilter = f;
+    document.querySelectorAll('[data-bp-filter]').forEach(b => {
+        const active = b.dataset.bpFilter === f;
+        b.style.background = active ? 'var(--navy)' : '#fff';
+        b.style.color = active ? '#fff' : 'var(--text-secondary)';
+        b.style.borderColor = active ? 'var(--navy)' : 'var(--border-strong)';
+    });
+    renderCoordination();
+}
+window.setBpFilter = setBpFilter;
+
+function renderCoordination(){
+    const list = document.getElementById('coordinationList');
+    const count = document.getElementById('coordinationCount');
+
+    let filtered = allAssignments;
+    if(bpFilter !== 'all') filtered = allAssignments.filter(a => String(a.status||'').toLowerCase() === bpFilter);
+    count.textContent = filtered.length;
+
+    if(filtered.length === 0){
+        list.innerHTML = `<div class="bp-empty"><i class="fas fa-sitemap"></i><h4>No assignments</h4><p>${bpFilter === 'all' ? 'No vendor invitations sent yet.' : 'No assignments match this filter.'}</p></div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.slice(0, 40).map(a => {
+        const st = String(a.status || 'not_sent').toLowerCase();
+        const stCls = ['invited','accepted','paid_deposit','paid_full','declined'].includes(st) ? st : 'pending';
+        const stLabel = {
+            invited:'Invited', accepted:'Accepted',
+            paid_deposit:'Deposit Paid', paid_full:'Fully Paid',
+            declined:'Declined', completed:'Completed',
+            not_sent:'Not sent'
+        }[st] || st;
+        const currency = a.currency || 'USD';
+        const amount = a.budget ? fmtFromUSD(a.budget, currency) : '—';
+        const eventName = a.eventName || 'Event';
+        const vendorName = a.providerName || 'Unassigned';
+        const service = a.service || 'Service';
+        const date = a.date || '—';
+        const when = a.createdAt?.toMillis?.() || Date.now();
+
+        return `
+            <div class="bp-row">
+                <div class="bp-row__icon blue"><i class="fas fa-sitemap"></i></div>
+                <div class="bp-row__body">
+                    <div class="bp-row__title">${escapeHtml(service)} · ${escapeHtml(vendorName)}</div>
+                    <div class="bp-row__sub">
+                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(eventName)}</span>
+                        <span><i class="fas fa-clock"></i> ${escapeHtml(date)} ${a.time?'· '+escapeHtml(a.time):''}</span>
+                        <span><i class="fas fa-user"></i> ${escapeHtml(safe(a.organizerName||'Organizer',40))}</span>
+                        <span><i class="fas fa-hourglass-half"></i> ${timeAgo(when)}</span>
+                    </div>
+                </div>
+                <div class="bp-row__right">
+                    <span class="status-chip ${stCls}">${stLabel}</span>
+                    <span class="bp-row__amount">${amount}</span>
+                </div>
+            </div>`;
+    }).join('');
+
+    if(filtered.length > 40){
+        list.innerHTML += `<div class="bp-empty"><p>Showing first 40 of ${filtered.length} records.</p></div>`;
+    }
+}
+
+/* ============================================================
+   RECENT EVENT ACTIVITY
+============================================================ */
+function loadRecentActivity(){
+    const container = document.getElementById('recent-activity');
+    db.collection('events').orderBy('createdAt','desc').limit(5)
+        .onSnapshot(snap => {
+            if(snap.empty){
+                container.innerHTML = `<div class="recent-item"><div class="icon"><i class="fas fa-info-circle"></i></div><div class="info"><div class="title">No recent activity</div><div class="desc">Events will appear here as they are created</div></div></div>`;
+                return;
             }
-        }
+            let html = '';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const eventName = d.eventName || d.name || d.title || 'Unnamed event';
+                let timeStr = 'Just now';
+                if(d.createdAt){
+                    const dt = d.createdAt.toDate ? d.createdAt.toDate() : new Date(d.createdAt);
+                    timeStr = dt.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+                }
+                let icon = 'fa-calendar-plus';
+                let label = 'New event created';
+                if(d.status === 'pending'){ icon = 'fa-hourglass-half'; label = 'Event pending approval'; }
+                else if(d.status === 'approved'){ icon = 'fa-check-circle'; label = 'Event approved'; }
+                else if(d.status === 'rejected'){ icon = 'fa-times-circle'; label = 'Event rejected'; }
+                else if(d.status === 'cancelled'){ icon = 'fa-ban'; label = 'Event cancelled'; }
+                html += `<div class="recent-item"><div class="icon"><i class="fas ${icon}"></i></div><div class="info"><div class="title">${escapeHtml(label)}</div><div class="desc">${escapeHtml(safe(eventName,60))}</div></div><span class="time">${escapeHtml(timeStr)}</span></div>`;
+            });
+            container.innerHTML = html;
+        }, err => {
+            container.innerHTML = `<div class="recent-item"><div class="icon"><i class="fas fa-exclamation-triangle"></i></div><div class="info"><div class="title">Could not load activity</div><div class="desc">${escapeHtml(err.message)}</div></div></div>`;
+        });
+}
 
-        function closeSidebar() {
-            sidebar.classList.remove('open');
-            sidebar.classList.add('closed');
+/* ============================================================
+   SIDEBAR
+============================================================ */
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+const menuToggle = document.getElementById('menuToggle');
+
+function toggleSidebar(){
+    const open = sidebar.classList.contains('open');
+    if(open){
+        sidebar.classList.remove('open');
+        sidebar.classList.add('closed');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    } else {
+        sidebar.classList.remove('closed');
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+menuToggle.addEventListener('click', toggleSidebar);
+overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open'); sidebar.classList.add('closed');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+});
+document.querySelectorAll('.sidebar .nav-item').forEach(l => {
+    l.addEventListener('click', () => {
+        if(window.innerWidth <= 768){
+            sidebar.classList.remove('open'); sidebar.classList.add('closed');
             overlay.classList.remove('active');
             document.body.style.overflow = '';
         }
-
-        menuToggle.addEventListener('click', toggleSidebar);
-        overlay.addEventListener('click', closeSidebar);
-
-        document.querySelectorAll('.sidebar .nav-item').forEach(link => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
-                    closeSidebar();
-                }
-            });
-        });
-
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('open', 'closed');
-                overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-
-        if (window.innerWidth > 768) {
-            sidebar.classList.remove('closed');
-            sidebar.classList.remove('open');
-        } else {
-            sidebar.classList.add('closed');
-            sidebar.classList.remove('open');
-        }
-    </script>
+    });
+});
+window.addEventListener('resize', () => {
+    if(window.innerWidth > 768){
+        sidebar.classList.remove('open','closed');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
+if(window.innerWidth > 768){
+    sidebar.classList.remove('closed','open');
+} else {
+    sidebar.classList.add('closed');
+}
+</script>
 </body>
 </html>

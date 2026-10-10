@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Vendor Payments · Zone21</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#0A1E2C;--navy-700:#1B3A52;--navy-800:#102838;--navy-900:#061420;
+  --lime:#C0C800;--lime-deep:#8A9000;--lime-soft:rgba(192,200,0,.10);
+  --gold:#C9A961;--gold-soft:rgba(201,169,97,.12);--gold-deep:#9C7F3F;
+  --coral:#D4856B;--pink:#F80070;--pink-deep:#CC005C;
+  --green:#0F9D6E;--green-soft:rgba(15,157,110,.10);
+  --amber:#F5B400;--amber-soft:rgba(245,180,0,.10);
+  --ink:#0F172A;--body:#475569;--muted:#7A8899;
+  --line:#E6EAF0;--line-strong:#D3DAE3;
+  --canvas:#F6F7F9;--surface:#FFFFFF;--danger:#D92D20;
+  --radius:12px;--radius-lg:16px;--radius-xl:22px;
+  --shadow-sm:0 1px 3px rgba(10,30,44,.05);
+  --shadow-md:0 6px 20px -6px rgba(10,30,44,.10);
+  --shadow-lg:0 24px 48px -20px rgba(10,30,44,.20);
+  --t:.25s cubic-bezier(.4,0,.2,1);
+}
+html,body{height:100%;overflow-x:hidden;background:var(--canvas);font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);font-size:.95rem;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+img{max-width:100%;display:block}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px}
+
+.topbar{position:sticky;top:0;z-index:600;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.topbar__inner{max-width:1100px;margin:0 auto;padding:.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.brand{display:flex;align-items:center;gap:.7rem;min-width:0;text-decoration:none}
+.brand__mark{width:42px;height:42px;border-radius:11px;background:linear-gradient(145deg,var(--navy-700),var(--navy));color:var(--lime);display:grid;place-items:center;font-weight:800;font-size:.85rem;flex-shrink:0;box-shadow:0 4px 14px rgba(10,30,44,.20)}
+.brand__text strong{display:block;font-size:.98rem;font-weight:800;color:var(--navy);letter-spacing:-.02em;line-height:1.2}
+.brand__text small{display:block;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.topbar__right{display:flex;align-items:center;gap:.6rem}
+.icon-btn{width:40px;height:40px;border-radius:11px;background:var(--canvas);color:var(--navy);display:grid;place-items:center;font-size:.9rem;transition:var(--t);position:relative;flex-shrink:0;text-decoration:none}
+.icon-btn:hover{background:var(--lime-soft);color:var(--lime-deep)}
+.icon-btn .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--pink);color:#fff;font-size:.6rem;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+.user-chip{display:flex;align-items:center;gap:.55rem;padding:.35rem .8rem .35rem .4rem;background:var(--canvas);border-radius:999px;font-size:.72rem;font-weight:700;color:var(--navy);max-width:200px;text-decoration:none}
+.user-chip .av{width:26px;height:26px;border-radius:50%;background:var(--navy);color:var(--lime);display:grid;place-items:center;font-size:.65rem;font-weight:800;flex-shrink:0}
+.user-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.shell{max-width:1100px;margin:0 auto;padding:1.75rem 1.5rem 5rem;width:100%}
+.view{display:none;animation:fade .35s cubic-bezier(.22,1,.36,1)}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.hero{text-align:center;padding:1.5rem 0 1.25rem}
+.hero__eyebrow{display:inline-flex;align-items:center;gap:.45rem;font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-soft);border:1px solid rgba(201,169,97,.35);padding:.4rem 1rem;border-radius:999px;margin-bottom:1rem}
+.hero h1{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.6rem,3.5vw,2.3rem);font-weight:700;letter-spacing:-.03em;color:var(--navy);line-height:1.12;margin-bottom:.5rem}
+.hero h1 em{font-style:italic;font-weight:600;color:var(--lime-deep);position:relative;white-space:nowrap}
+.hero h1 em::after{content:'';position:absolute;bottom:.05em;left:-.05em;right:-.05em;height:.28em;background:var(--lime);opacity:.35;z-index:-1;border-radius:3px}
+.hero p{font-size:.92rem;color:var(--body);font-weight:500;max-width:620px;margin:0 auto}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.25rem;border:1px solid transparent;border-radius:10px;font-family:inherit;font-size:.83rem;font-weight:700;cursor:pointer;transition:var(--t);text-decoration:none;letter-spacing:-.005em;white-space:nowrap}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--navy-800);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.btn-lime{background:var(--lime);color:var(--navy)}
+.btn-lime:hover{background:#d4dc00;transform:translateY(-1px);box-shadow:0 6px 20px rgba(192,200,0,.35)}
+.btn-outline{background:#fff;border-color:var(--line-strong);color:var(--navy)}
+.btn-outline:hover{background:var(--canvas);border-color:var(--navy)}
+.btn-danger{background:var(--pink);color:#fff}
+.btn-danger:hover{background:var(--pink-deep);transform:translateY(-1px)}
+.btn-success{background:var(--green);color:#fff}
+.btn-sm{padding:.5rem .9rem;font-size:.75rem}
+.btn-block{width:100%}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-xl);padding:clamp(20px,3vw,30px);margin-bottom:1.25rem;box-shadow:var(--shadow-md)}
+
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.section-head h2{font-size:1.1rem;font-weight:800;letter-spacing:-.02em;color:var(--navy);display:flex;align-items:center;gap:.6rem;line-height:1.25}
+.section-head h2 i{color:var(--gold-deep);font-size:.9rem}
+.section-head p{font-size:.78rem;color:var(--muted);font-weight:500;margin-top:3px}
+
+/* line items */
+.cart-item{display:flex;gap:1rem;align-items:flex-start;padding:1rem 1.15rem;border:1px solid var(--line);border-radius:var(--radius);background:#fff;margin-bottom:.6rem;transition:var(--t)}
+.cart-item:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
+.cart-item__left{flex:1;min-width:0}
+.cart-item__svc{font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:.2rem;letter-spacing:-.01em}
+.cart-item__prov{font-size:.75rem;color:var(--muted);font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.cart-item__break{font-size:.72rem;color:var(--body);background:var(--canvas);padding:.35rem .7rem;border-radius:6px;display:inline-block;font-weight:600}
+.cart-item__price{font-size:1.05rem;font-weight:800;color:var(--navy);text-align:right;white-space:nowrap}
+.cart-item__price small{display:block;font-size:.6rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+
+/* payment type */
+.pay-opts{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1rem 0}
+@media(max-width:560px){.pay-opts{grid-template-columns:1fr}}
+.pay-opt{padding:1.1rem 1rem;border:1.5px solid var(--line);border-radius:var(--radius);cursor:pointer;transition:var(--t);background:#fff;text-align:left;display:block;position:relative}
+.pay-opt:hover{border-color:var(--navy)}
+.pay-opt.selected{border-color:var(--navy);background:linear-gradient(150deg,#fff,var(--gold-soft));box-shadow:0 0 0 3px rgba(201,169,97,.18)}
+.pay-opt input{display:none}
+.pay-opt .po-title{font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.pay-opt .po-desc{font-size:.72rem;color:var(--muted);font-weight:600}
+.pay-opt .po-amt{font-size:1.15rem;font-weight:800;color:var(--navy);margin-top:.5rem;letter-spacing:-.02em}
+.pay-opt .po-badge{position:absolute;top:.75rem;right:.75rem;font-size:.55rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--lime);color:var(--navy);padding:2px 8px;border-radius:999px}
+.pay-opt.locked{opacity:.55;cursor:not-allowed;pointer-events:none}
+
+/* totals */
+.cart-totals{background:var(--canvas);border:1px solid var(--line);border-radius:var(--radius-lg);padding:1.25rem;margin-top:1rem}
+.cart-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;font-size:.85rem;border-bottom:1px solid var(--line);gap:1rem}
+.cart-row:last-child{border:none}
+.cart-row .lbl{color:var(--muted);font-weight:700}
+.cart-row .val{color:var(--navy);font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.cart-row.total{margin-top:.5rem;padding-top:.9rem;border-top:2px solid var(--line-strong)}
+.cart-row.total .lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--navy)}
+.cart-row.total .val{font-size:1.5rem;letter-spacing:-.03em}
+.cart-row.balance .val{color:var(--gold-deep)}
+.cart-row.balance .lbl{color:var(--gold-deep)}
+.cart-row.discount .val{color:var(--green)}
+
+/* smart banner */
+.smart-banner{background:linear-gradient(135deg,var(--green-soft),rgba(15,157,110,.04));border:1px solid rgba(15,157,110,.3);border-left:3px solid var(--green);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:.8rem;color:var(--body);line-height:1.6;display:flex;gap:.75rem;align-items:flex-start}
+.smart-banner i{color:var(--green);flex-shrink:0;margin-top:3px}
+.smart-banner strong{color:var(--navy);font-weight:800}
+
+/* invoice */
+.inv-wrap{max-width:900px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md)}
+.inv-head{background:linear-gradient(140deg,var(--navy),var(--navy-900));color:#fff;padding:1.5rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.inv-head .logo{display:flex;align-items:center;gap:.7rem}
+.inv-head .logo-mark{width:46px;height:46px;border-radius:11px;background:var(--lime);color:var(--navy);display:grid;place-items:center;font-weight:800;font-size:1rem}
+.inv-head .logo-txt strong{display:block;font-family:'Fraunces',Georgia,serif;font-size:1.2rem;font-weight:700;letter-spacing:-.02em;color:#fff}
+.inv-head .logo-txt strong span{color:var(--lime);font-style:italic}
+.inv-head .logo-txt small{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.inv-num{text-align:right}
+.inv-num .lbl{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:700}
+.inv-num .num{font-size:1.15rem;font-weight:800;letter-spacing:.02em;color:var(--gold)}
+.inv-body{padding:2rem;position:relative}
+.stamp{position:absolute;top:1.5rem;right:2rem;border:3px solid var(--danger);border-radius:8px;color:var(--danger);font-size:1.2rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;text-align:center;line-height:1.1;padding:.35rem 1rem;opacity:.55;transform:rotate(15deg);z-index:5;background:rgba(217,45,32,.04)}
+.stamp small{display:block;font-size:.5rem;letter-spacing:.08em;opacity:.75}
+.stamp.paid{border-color:var(--green);color:var(--green);background:rgba(15,157,110,.05)}
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-bottom:1.5rem}
+@media(max-width:600px){.inv-grid{grid-template-columns:1fr;gap:1rem}}
+.inv-grid h4{font-size:.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.inv-grid .name{font-size:1.05rem;font-weight:800;color:var(--navy);letter-spacing:-.02em}
+.inv-grid .sub{font-size:.8rem;color:var(--muted);font-weight:500;word-break:break-word}
+.meta-row{display:flex;justify-content:space-between;padding:.4rem 0;font-size:.8rem;border-bottom:1px solid var(--line);gap:.75rem}
+.meta-row:last-child{border:none}
+.meta-row .l{color:var(--muted);font-weight:600}
+.meta-row .v{font-weight:800;color:var(--navy);text-align:right}
+.meta-row .v.danger{color:var(--danger)}
+.inv-table{width:100%;border-collapse:collapse;margin:1.25rem 0;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.inv-table thead{background:var(--navy)}
+.inv-table th{padding:.75rem 1rem;text-align:left;font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.85)}
+.inv-table td{padding:.85rem 1rem;font-size:.85rem;color:var(--body);border-bottom:1px solid var(--line)}
+.inv-table tr:last-child td{border:none}
+.inv-table .svc-name{font-weight:800;color:var(--navy)}
+.inv-table .svc-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+.inv-table .amt{text-align:right;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.inv-total{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 1.3rem;background:var(--canvas);border:1px solid var(--line);border-radius:10px;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem}
+.inv-total .lbl{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.inv-total .amt{font-family:'Fraunces',Georgia,serif;font-size:1.7rem;font-weight:700;color:var(--navy);letter-spacing:-.03em}
+.pay-note{background:var(--gold-soft);border-left:3px solid var(--gold);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;font-size:.82rem;color:var(--body);line-height:1.6}
+.pay-note strong{color:var(--navy);font-weight:800}
+.pay-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem;margin-bottom:1.25rem}
+.pay-card{padding:1rem;border:1px solid var(--line);border-radius:10px;text-align:center;background:#fff;transition:var(--t)}
+.pay-card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
+.pay-card .ico{width:52px;height:52px;margin:0 auto .55rem;border-radius:12px;background:var(--canvas);display:grid;place-items:center;overflow:hidden;padding:6px}
+.pay-card .ico img{width:100%;height:100%;object-fit:contain}
+.pay-card .nm{font-size:.82rem;font-weight:800;color:var(--navy);margin-bottom:3px}
+.pay-card .det{font-size:.8rem;font-weight:700;color:var(--body);word-break:break-word}
+.pay-card .acc{font-size:.66rem;color:var(--muted);font-weight:600;margin-top:2px;word-break:break-word}
+.inv-actions{display:flex;gap:.6rem;flex-wrap:wrap;padding-top:1rem;border-top:1px solid var(--line)}
+.inv-actions .btn{flex:1;min-width:160px}
+.inv-foot{padding-top:1rem;border-top:1px solid var(--line);text-align:center;font-size:.72rem;color:var(--muted);font-weight:600;margin-top:1rem}
+.inv-foot i{color:var(--gold-deep);margin-right:.3rem}
+
+/* states */
+.empty{padding:2.5rem 1.5rem;text-align:center;border:1.5px dashed var(--line-strong);border-radius:var(--radius);color:var(--muted);background:var(--canvas)}
+.empty i{font-size:1.8rem;display:block;margin-bottom:.6rem;color:var(--line-strong)}
+.empty h4{color:var(--navy);font-size:.95rem;font-weight:800;margin-bottom:.25rem}
+.empty p{font-size:.8rem;font-weight:500;max-width:420px;margin:0 auto .85rem}
+.loader{padding:3rem 1.5rem;text-align:center;color:var(--muted);font-weight:600}
+.loader i{font-size:1.6rem;display:block;margin-bottom:.75rem;color:var(--gold-deep);animation:spin .9s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(6,20,32,.58);backdrop-filter:blur(8px);z-index:1000;display:none;align-items:center;justify-content:center;padding:1rem;animation:fdIn .25s}
+.modal-overlay.active{display:flex}
+@keyframes fdIn{from{opacity:0}to{opacity:1}}
+.modal{background:#fff;border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);animation:slUp .3s cubic-bezier(.22,1,.36,1);overflow:hidden}
+@keyframes slUp{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal__head{padding:1.1rem 1.4rem;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.modal__head h3{font-size:1rem;font-weight:800;color:var(--navy);letter-spacing:-.015em;display:flex;align-items:center;gap:.55rem}
+.modal__head h3 i{color:var(--gold-deep)}
+.modal__close{width:34px;height:34px;border-radius:50%;background:var(--canvas);color:var(--muted);display:grid;place-items:center;font-size:.85rem;transition:var(--t);flex-shrink:0}
+.modal__close:hover{background:var(--coral-soft);color:var(--coral)}
+.modal__body{padding:1.4rem;overflow-y:auto;flex:1}
+.modal__foot{padding:1rem 1.4rem;border-top:1px solid var(--line);display:flex;gap:.6rem;flex-wrap:wrap;justify-content:flex-end}
+
+/* toasts */
+#toast{position:fixed;top:82px;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;max-width:360px;width:calc(100% - 2rem)}
+.toast{padding:.8rem 1.1rem;border-radius:10px;background:var(--navy);color:#fff;font-size:.8rem;font-weight:700;box-shadow:var(--shadow-lg);animation:slIn .3s cubic-bezier(.22,1,.36,1);display:flex;align-items:center;gap:.6rem;border-left:3px solid var(--gold)}
+.toast.success{border-left-color:var(--green)}
+.toast.error{border-left-color:var(--coral)}
+.toast.warn{border-left-color:var(--amber)}
+@keyframes slIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+.hidden{display:none!important}
+.small-note{font-size:.72rem;color:var(--muted);font-weight:500;line-height:1.55}
+.small-note strong{color:var(--navy)}
+
+@media(max-width:768px){
+  .shell{padding:1rem .85rem 4rem}
+  .topbar__inner{padding:.65rem .85rem;gap:.5rem}
+  .brand__text small{display:none}
+  .inv-body{padding:1.25rem}
+  .stamp{top:.9rem;right:.9rem;font-size:.9rem;padding:.2rem .6rem;border-width:2px}
+  .stamp small{font-size:.4rem}
+  .user-chip span{display:none}
+  .user-chip{padding:.35rem}
+  .hero{padding:1rem 0 .75rem}
+}
+@media print{
+  .topbar,.modal-overlay,#toast,.no-print,.inv-actions{display:none!important}
+  body{background:#fff}
+  .shell{padding:0;max-width:none}
+  .inv-wrap{border:none;box-shadow:none;border-radius:0;max-width:none}
+  .stamp{opacity:.45}
+}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<header class="topbar no-print">
+  <div class="topbar__inner">
+    <a class="brand" href="dashboard.html">
+      <div class="brand__mark">Z21</div>
+      <div class="brand__text">
+        <strong>Zone21</strong>
+        <small>Vendor Payments</small>
+      </div>
+    </a>
+    <div class="topbar__right">
+      <a class="icon-btn" href="dashboard.html" title="Back to Dashboard"><i class="fas fa-arrow-left"></i></a>
+      <a class="icon-btn" href="support.html" title="Support"><i class="fas fa-headset"></i></a>
+      <div class="user-chip" id="userChip">
+        <div class="av" id="userAvatar">?</div>
+        <span id="userName">Loading…</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- ============ CART / CHECKOUT ============ -->
+  <section class="view active" id="view-checkout">
+    <div class="hero">
+      <span class="hero__eyebrow"><i class="fas fa-coins"></i> Zone21 Payments</span>
+      <h1>Complete your <em>vendor payments</em></h1>
+      <p>Review your accepted vendors, choose a deposit or full payment, and generate your official invoice. Booking is confirmed after Zone21 admin verifies your transfer.</p>
+    </div>
+
+    <div id="smartBannerMount"></div>
+    <div id="cartMount"><div class="loader"><i class="fas fa-circle-notch"></i> Loading your cart…</div></div>
+  </section>
+
+  <!-- ============ INVOICE ============ -->
+  <section class="view" id="view-invoice">
+    <div class="inv-wrap" id="invoiceMount"></div>
+  </section>
+
+  <!-- ============ STATUS ============ -->
+  <section class="view" id="view-status">
+    <div class="hero">
+      <span class="hero__eyebrow"><i class="fas fa-clock"></i> Payment Status</span>
+      <h1>Awaiting <em>admin approval</em></h1>
+      <p>Your invoice has been submitted. Zone21 admin will verify your transfer and mark your booking as paid. You'll be notified once complete.</p>
+    </div>
+    <div id="statusMount"></div>
+  </section>
+
+</main>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal__head">
+      <h3><i class="fas fa-file-invoice"></i> Confirm & Generate Invoice</h3>
+      <button class="modal__close" onclick="closeConfirm()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="modal__body" id="confirmBody"></div>
+    <div class="modal__foot">
+      <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-primary" id="confirmBtn"><i class="fas fa-check"></i> Generate Invoice</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   FIREBASE
+========================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+  authDomain: "zone21.firebaseapp.com",
+  projectId: "zone21",
+  storageBucket: "zone21.firebasestorage.app",
+  messagingSenderId: "405963057292",
+  appId: "1:405963057292:web:80e9923ae84eb7029073a9"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+/* ==========================================================
+   CONFIG
+========================================================== */
+const CURRENCIES = { USD:{ sym:'$', label:'USD (US Dollar)' }, ZAR:{ sym:'R', label:'ZAR (South African Rand)' } };
+const USD_TO_ZAR = 19;
+
+const ZONE21 = {
+  phone:'+263789912268',
+  whatsapp:'+263789912268',
+  email:'zone21services@gmail.com'
+};
+
+/* Deposit intelligence: how much % of the total each event type typically requires */
+const DEPOSIT_RULES = [
+  { test:/wedding|lobola|traditional|marriage/i,             rate:0.50, reason:'Weddings typically require 50% deposit' },
+  { test:/corporate|conference|summit|gala|awards|enterprise/i, rate:0.50, reason:'Corporate & gala events typically require 50%' },
+  { test:/concert|festival|live show|music/i,                rate:0.50, reason:'Concerts & festivals typically require 50%' },
+  { test:/sport|tournament/i,                                rate:0.50, reason:'Sports events typically require 50%' },
+  { test:/church|religious|convention/i,                     rate:0.40, reason:'Church events typically require 40%' },
+  { test:/graduation/i,                                      rate:0.40, reason:'Graduations typically require 40%' },
+  { test:/memorial|funeral/i,                                rate:0.35, reason:'Memorial services typically require 35%' },
+  { test:/birthday|kids|baby|private|intimate/i,             rate:0.30, reason:'Private & kids events typically require 30%' }
+];
+
+function smartDeposit(totalUsd, eventType, attendees){
+  let rate = 0.40, reason = 'Standard 40% deposit';
+  for(const rule of DEPOSIT_RULES){
+    if(rule.test.test(eventType || '')){ rate = rule.rate; reason = rule.reason; break; }
+  }
+  // Attendees-based bump
+  if(rate === 0.40 && attendees > 300){ rate = 0.50; reason = 'Large events (300+) typically require 50%'; }
+  if(rate === 0.40 && attendees && attendees < 30){ rate = 0.30; reason = 'Small events typically require 30%'; }
+  return { rate, reason, depositUsd: Math.round(totalUsd * rate * 100)/100 };
+}
+
+/* Payment methods (mirrors provider-checkout.html + subscription.html) */
+const PAYMENT_METHODS = {
+  USD: [
+    { name:'Ecocash', detail:'078 991 2268', account:'Tanatswa Dean Mwanza',
+      icon:'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgwnfhozjpovvXfL0xyqpu46qT3PjiQqNnUI97upb7S5JgCPPviUCxlPmJX27y7p9qa1qGWXB8qGKKG6SUrWnW9dNQrFLrNkbCH7OPynH0v-hErLb3LwkDDNrljlrAK1RBs1QniSaJkQJNPcg1D0xeCCxKN28WEbV3egQWEb43iSD-PeRYC5uI1loZcEhYY/s1600/722de7bfbab2b24020b8fb404bc9fe58_icon.png' },
+    { name:'Innbucks', detail:'078 991 2268', account:'Tanatswa Dean Mwanza',
+      icon:'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiol9STr7ImEkAH6KsKj4n5XsA6edceL24btsYwwo426RfFGa7uuqVMJrBY2U6FCFFPYX5Daf50iTun5jmqp9bx-sN1Ukmy0N2e7TSjPtT7TvRLfmS1FBjkeADvjzI2WpEpr0pB179sZBxNvZoH06DUdJzIkwa7JMzt_T1UH1ELIDMQKX8T3lhRaVrVR4K6/s1600/APP_ICON.png' },
+    { name:'TN CyberTech Bank', detail:'4638 3300 1429 9948', account:'Corporate Account',
+      icon:'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjcQFUEJrA33gQlP3kceYEdQCuJ1gXImN7b031MmiGlTdgqdD6An640fWWVV0R7jBsL2If96hrnDv9PypAbNBK_yQDH8z8Quefrt1Xc2xi6sShTFmHRgrO_sdGbvckOeMVoJZFIjA6DV_AJm9qLzliGiyU0DZXYT0SvPCvDR1_8J1aP4mEKObQk-3KfWJaV/s1600/kiev-ukraine-september-visa-mastercard-logos-printed-white-paper-visa-mastercard-american-multinational-102631953.jpg' }
+  ],
+  ZAR: [
+    { name:'Bank Zero · Mukuru', detail:'70034456519', account:'Branch 435000 · Takudzwa Nigel Mwanza',
+      icon:'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFCVvyDeworWiRtxvCLZfu6qJrTF-Yw89pyTtBQnHdy1I4SRiZzjt6O2jHOdzQ3TqBerKK4mZeXf2eTSuGHYhIKKR1w7uWKefCHr-mlQWT1djIZWUS-n3c8nzaCDFDSdzVAHzZCnsMscqTOi1Osp8U6NRSKwepTiZQZ6MfsWgJC7dkoXDxLXeCAUT9SA1R/s1600/Mukuru-Logo-Pack-Orange.jpg' },
+    { name:'E-Wallet', detail:'+27 73 251 7297', account:'Takudzwa Nigel Mwanza',
+      icon:'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEintAcpjjwpAoJ5-jQZ7WvCpQ3Lju6x3-PZluIhV0gEDPYJZ6ECrUVT3TXpaGrpm_5nYrEGAxRIyoHxB5x9SH9r1VUpe9U5O-Y4e0Y2M8CSbXJuHcFeIJtVaOHd1aG9zN_G3sGEatmndjrU3pL0k8f4PMUpW3YkLlBVGr2bCJE82k9wEaXoM3eXbdjxhbZF/s1600/e-wallet-icon-e1559893309544.png' }
+  ]
+};
+
+/* ==========================================================
+   STATE
+========================================================== */
+let currentUser = null;
+let cart = null;
+let activeCurrency = 'USD';
+let selectedPayType = 'deposit';
+let depositInfo = { rate:0.40, reason:'', depositUsd:0 };
+let generatedInvoice = null;
+let existingPayments = [];
+let matchesLookup = {};
+
+const $ = id => document.getElementById(id);
+
+/* ==========================================================
+   UTILITIES
+========================================================== */
+function toast(msg, type='info'){
+  const c = $('toast'); if(!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type||'info');
+  const icon = type==='success'?'fa-circle-check':type==='error'?'fa-circle-exclamation':type==='warn'?'fa-triangle-exclamation':'fa-circle-info';
+  t.innerHTML = `<i class="fas ${icon}"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 5000);
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function safe(s, max=80){
+  if(s==null) return '';
+  let v = String(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  if(v.length>max) v = v.slice(0,max).trim()+'…';
+  return v;
+}
+function curSym(c){ c = c || activeCurrency; return CURRENCIES[c].sym; }
+function toZAR(usd){ return Math.round((Number(usd)||0) * USD_TO_ZAR); }
+function fmtUSD(usd){ const n = Math.round(Number(usd)||0); return `$${n.toLocaleString('en-US')}`; }
+function fmtZAR(zar){ const n = Math.round(Number(zar)||0); return `R${n.toLocaleString('en-US')}`; }
+function fmtFromUSD(usd, c){ c = c || activeCurrency; return c==='ZAR' ? fmtZAR(toZAR(usd)) : fmtUSD(usd); }
+function fmtMoney(amount, c){ c = c || activeCurrency; return c==='ZAR' ? fmtZAR(amount) : fmtUSD(amount); }
+function getUid(p){ if(!p) return ''; return String(p.uid||p.userId||p.providerId||p.id||p._id||'').trim(); }
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const el = $(id); if(el) el.classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ==========================================================
+   AUTH + BOOT
+========================================================== */
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){
+    // Don't violently redirect — show a locked state, the user can sign in
+    $('cartMount').innerHTML = `
+      <div class="empty">
+        <i class="fas fa-lock"></i>
+        <h4>Sign in required</h4>
+        <p>Please sign in to access your payment cart.</p>
+        <a class="btn btn-primary" href="index.html"><i class="fas fa-right-to-bracket"></i> Sign In</a>
+      </div>`;
+    return;
+  }
+  currentUser = user;
+  const display = user.displayName || user.email || 'Organiser';
+  $('userName').textContent = display;
+  $('userAvatar').textContent = display.split(/[\s@._-]+/).map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase() || 'O';
+
+  await loadCart();
+  await loadExistingPayments();
+  renderCartView();
+});
+
+/* ==========================================================
+   LOAD CART — localStorage first, Firestore fallback
+========================================================== */
+async function loadCart(){
+  let local = null;
+  try { local = JSON.parse(localStorage.getItem('zone21_payment_cart') || 'null'); } catch(e){}
+  if(local && local.lines?.length && Date.now() - (local.timestamp||0) < 7*86400000){
+    cart = local;
+  } else {
+    // Try Firestore fallback by looking for the latest paymentCarts for this user
+    try {
+      const snap = await db.collection('paymentCarts')
+        .where('userId','==',currentUser.uid)
+        .limit(20).get();
+      const arr = [];
+      snap.forEach(d=>arr.push({ id:d.id, ...d.data() }));
+      arr.sort((a,b)=> (b.timestamp||0) - (a.timestamp||0));
+      cart = arr[0] || null;
+    } catch(e){ console.warn('Firestore cart lookup failed:', e.message); }
+  }
+
+  if(!cart){
+    $('cartMount').innerHTML = `
+      <div class="empty">
+        <i class="fas fa-shopping-cart"></i>
+        <h4>No cart found</h4>
+        <p>Go back to your dashboard, open the payment cart from your event, and click <strong>Generate Invoice</strong> — you'll be redirected here.</p>
+        <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-top:1rem">
+          <a class="btn btn-primary" href="dashboard.html"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+          <a class="btn btn-outline" href="print2.html"><i class="fas fa-wand-magic-sparkles"></i> Open Event</a>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Build matches lookup keyed by service
+  matchesLookup = {};
+  if(cart.matches){
+    Object.entries(cart.matches).forEach(([svc, arr])=>{
+      matchesLookup[svc] = {};
+      (arr||[]).forEach(p => { matchesLookup[svc][p.uid] = p; });
+    });
+  }
+
+  // Ensure currency
+  if(cart.currency && CURRENCIES[cart.currency]) activeCurrency = cart.currency;
+  if(cart.preferredPayType) selectedPayType = cart.preferredPayType;
+
+  // Compute deposit intelligence
+  const subtotalUsd = cart.subtotalUsd || (cart.lines||[]).reduce((s,l)=>s+(l.amountUsd||0),0);
+  depositInfo = smartDeposit(subtotalUsd, cart.eventData?.type, cart.eventData?.attendees);
+}
+
+/* ==========================================================
+   LOAD EXISTING PAYMENTS for this event
+========================================================== */
+async function loadExistingPayments(){
+  if(!cart) return;
+  existingPayments = [];
+  try {
+    const snap = await db.collection('invoices')
+      .where('userId','==',currentUser.uid)
+      .limit(50).get();
+    snap.forEach(d=>{
+      const r = d.data();
+      if((r.eventId && r.eventId === cart.sessionId) ||
+         (r.eventName && r.eventName === cart.eventData?.name)){
+        existingPayments.push({ id:d.id, ...r });
+      }
+    });
+  } catch(e){
+    console.warn('Invoice lookup failed (rules?):', e.message);
+  }
+}
+
+/* ==========================================================
+   RENDER CART
+========================================================== */
+function renderCartView(){
+  if(!cart){ return; }
+
+  const lines = cart.lines || [];
+  const subtotalUsd = cart.subtotalUsd || lines.reduce((s,l)=>s+(l.amountUsd||0),0);
+  const subtotalDisplay = activeCurrency === 'ZAR' ? toZAR(subtotalUsd) : subtotalUsd;
+
+  const depositDisplay  = activeCurrency === 'ZAR' ? toZAR(depositInfo.depositUsd) : depositInfo.depositUsd;
+  const balanceDisplay  = Math.max(0, subtotalDisplay - depositDisplay);
+
+  // What's already been paid?
+  const paidUsd = existingPayments
+    .filter(p => p.status === 'approved' || p.status === 'paid')
+    .reduce((s,p)=>s + (p.payNowUsd || p.payNow || 0), 0);
+  const pendingUsd = existingPayments
+    .filter(p => p.status === 'pending' || p.status === 'pending_payment')
+    .reduce((s,p)=>s + (p.payNowUsd || p.payNow || 0), 0);
+  const remainingUsd = Math.max(0, subtotalUsd - paidUsd - pendingUsd);
+  const paidDisplay      = activeCurrency === 'ZAR' ? toZAR(paidUsd) : paidUsd;
+  const pendingDisplay   = activeCurrency === 'ZAR' ? toZAR(pendingUsd) : pendingUsd;
+  const remainingDisplay = activeCurrency === 'ZAR' ? toZAR(remainingUsd) : remainingUsd;
+
+  // If a deposit is already pending, lock new invoice generation
+  const depositPending = existingPayments.some(p => p.payType === 'deposit' && (p.status === 'pending' || p.status === 'pending_payment'));
+  const depositPaid    = existingPayments.some(p => p.payType === 'deposit' && (p.status === 'approved' || p.status === 'paid'));
+
+  // ─── Smart banner ───────────────────────────────────────────────
+  let smartBanner = '';
+  if(depositPaid && remainingUsd > 0){
+    smartBanner = `
+      <div class="smart-banner">
+        <i class="fas fa-circle-check"></i>
+        <div>
+          <strong>Deposit received.</strong> You can now generate the balance invoice to fully confirm your booking.
+          Remaining balance: <strong>${fmtFromUSD(remainingUsd)}</strong>.
+        </div>
+      </div>`;
+  } else if(depositPending){
+    smartBanner = `
+      <div class="smart-banner" style="border-color:rgba(245,180,0,.45);border-left-color:var(--amber);background:linear-gradient(135deg,var(--amber-soft),rgba(245,180,0,.04))">
+        <i class="fas fa-clock" style="color:#9A6E00"></i>
+        <div>
+          <strong>Deposit invoice pending.</strong> Zone21 admin is verifying your transfer. Once approved you can generate the balance invoice.
+        </div>
+      </div>`;
+  } else if(pendingUsd > 0){
+    smartBanner = `
+      <div class="smart-banner" style="border-color:rgba(245,180,0,.45);border-left-color:var(--amber);background:linear-gradient(135deg,var(--amber-soft),rgba(245,180,0,.04))">
+        <i class="fas fa-clock" style="color:#9A6E00"></i>
+        <div><strong>Invoice pending.</strong> Zone21 admin will approve shortly.</div>
+      </div>`;
+  } else {
+    smartBanner = `
+      <div class="smart-banner">
+        <i class="fas fa-wand-magic-sparkles"></i>
+        <div>
+          <strong>Smart deposit applied.</strong> ${escapeHtml(depositInfo.reason)} — 
+          <strong>${Math.round(depositInfo.rate*100)}%</strong> deposit (${fmtFromUSD(depositInfo.depositUsd)}).
+        </div>
+      </div>`;
+  }
+  $('smartBannerMount').innerHTML = smartBanner;
+
+  // ─── Which payment types can be generated? ──────────────────────
+  const canFullPay    = !depositPending && remainingUsd > 0;
+  const canDepositPay = !depositPending && !depositPaid && remainingUsd > 0;
+  const canBalancePay = depositPaid && remainingUsd > 0;
+
+  // If balance stage, force the "balance" option
+  if(canBalancePay){ selectedPayType = 'balance'; }
+  else if(!canDepositPay && selectedPayType === 'deposit'){ selectedPayType = 'full'; }
+
+  const balancePayDisplay = remainingDisplay;
+
+  // ─── Render ─────────────────────────────────────────────────────
+  const html = `
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <h2><i class="fas fa-shopping-cart"></i> Accepted Services</h2>
+          <p>${escapeHtml(cart.eventData?.name || 'Your event')} · ${escapeHtml(cart.eventData?.date || '')}</p>
+        </div>
+        <div class="toolbar__left">
+          <a class="btn btn-outline btn-sm" href="dashboard.html"><i class="fas fa-arrow-left"></i> Dashboard</a>
+          <button class="btn btn-outline btn-sm" onclick="changeCurrency()" title="Switch currency">
+            <i class="fas fa-globe"></i> ${activeCurrency}
+          </button>
+        </div>
+      </div>
+
+      <div id="lineItemsMount">
+        ${lines.map(l => {
+          const amt = activeCurrency === 'ZAR' ? toZAR(l.amountUsd) : l.amountUsd;
+          const vendor = matchesLookup[l.service]?.[l.providerId] || {};
+          const tiers = l.priceTiers || [];
+          const tierChip = tiers.length
+            ? `<span style="font-size:.6rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--gold-soft);color:var(--gold-deep);padding:2px 7px;border-radius:99px;border:1px solid rgba(201,169,97,.4)">${tiers.length} tier${tiers.length===1?'':'s'}</span>`
+            : '';
+          return `
+            <div class="cart-item">
+              <div class="cart-item__left">
+                <div class="cart-item__svc">${escapeHtml(l.service)} ${tierChip}</div>
+                <div class="cart-item__prov"><i class="fas fa-user"></i> ${escapeHtml(safe(l.providerName,50))} ${l.location ? '· <i class="fas fa-location-dot"></i> '+escapeHtml(safe(l.location,30)) : ''}</div>
+                <div class="cart-item__break">${escapeHtml(l.breakdown || 'Calculated')}</div>
+                ${l.reasoning ? `<div class="small-note" style="margin-top:.35rem">💡 ${escapeHtml(l.reasoning)}</div>` : ''}
+              </div>
+              <div class="cart-item__price">${fmtMoney(amt)}</div>
+            </div>`;
+        }).join('')}
+      </div>
+
+      <div class="cart-totals">
+        <div class="cart-row"><span class="lbl">Subtotal</span><span class="val">${fmtMoney(subtotalDisplay)}</span></div>
+        ${paidDisplay > 0 ? `<div class="cart-row"><span class="lbl">Paid (admin-approved)</span><span class="val" style="color:var(--green)">-${fmtMoney(paidDisplay)}</span></div>` : ''}
+        ${pendingDisplay > 0 ? `<div class="cart-row"><span class="lbl">Pending approval</span><span class="val" style="color:var(--amber)">-${fmtMoney(pendingDisplay)}</span></div>` : ''}
+        <div class="cart-row total"><span class="lbl">Amount Due</span><span class="val">${fmtMoney(remainingDisplay || subtotalDisplay)}</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <h2><i class="fas fa-hand-holding-dollar"></i> Choose Payment Type</h2>
+          <p>Deposit secures your bookings — balance is paid later.</p>
+        </div>
+      </div>
+
+      <div class="pay-opts">
+        <label class="pay-opt ${selectedPayType==='deposit'?'selected':''} ${!canDepositPay?'locked':''}" data-pay="deposit">
+          ${canDepositPay ? '<span class="po-badge">Recommended</span>' : ''}
+          <input type="radio" name="paytype" value="deposit" ${selectedPayType==='deposit'?'checked':''} ${!canDepositPay?'disabled':''}>
+          <div class="po-title"><i class="fas fa-shield-halved" style="color:var(--gold-deep)"></i> Pay ${Math.round(depositInfo.rate*100)}% Deposit</div>
+          <div class="po-desc">${escapeHtml(depositInfo.reason)}</div>
+          <div class="po-amt">${fmtMoney(depositDisplay)}</div>
+        </label>
+
+        <label class="pay-opt ${selectedPayType==='full'?'selected':''} ${!canFullPay?'locked':''}" data-pay="full">
+          <input type="radio" name="paytype" value="full" ${selectedPayType==='full'?'checked':''} ${!canFullPay?'disabled':''}>
+          <div class="po-title"><i class="fas fa-circle-check" style="color:var(--green)"></i> Pay Full Amount</div>
+          <div class="po-desc">100% confirmed after admin approval.</div>
+          <div class="po-amt">${fmtMoney(remainingDisplay || subtotalDisplay)}</div>
+        </label>
+
+        ${canBalancePay ? `
+          <label class="pay-opt ${selectedPayType==='balance'?'selected':''}" data-pay="balance">
+            <span class="po-badge" style="background:var(--green);color:#fff">Complete Booking</span>
+            <input type="radio" name="paytype" value="balance" ${selectedPayType==='balance'?'checked':''}>
+            <div class="po-title"><i class="fas fa-flag-checkered" style="color:var(--green)"></i> Pay Remaining Balance</div>
+            <div class="po-desc">You already paid the deposit. Settle the rest to fully confirm.</div>
+            <div class="po-amt">${fmtMoney(balancePayDisplay)}</div>
+          </label>
+        ` : ''}
+      </div>
+
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+        <button class="btn btn-primary" id="genInvoiceBtn" style="flex:1;min-width:200px">
+          <i class="fas fa-file-invoice"></i> Generate Invoice
+        </button>
+        <button class="btn btn-outline" onclick="clearCart()" style="flex:0 0 auto">
+          <i class="fas fa-trash"></i> Clear Cart
+        </button>
+      </div>
+    </div>
+  `;
+  $('cartMount').innerHTML = html;
+
+  // Wire payment type radios
+  document.querySelectorAll('input[name=paytype]').forEach(r=>{
+    r.onchange = () => {
+      selectedPayType = r.value;
+      document.querySelectorAll('.pay-opt').forEach(el=>{
+        el.classList.toggle('selected', el.dataset.pay === selectedPayType);
+      });
+    };
+  });
+
+  // Wire generate button
+  const btn = $('genInvoiceBtn');
+  if(btn) btn.onclick = () => prepareConfirm();
+}
+
+/* ==========================================================
+   CURRENCY SWITCH
+========================================================== */
+window.changeCurrency = function(){
+  activeCurrency = activeCurrency === 'USD' ? 'ZAR' : 'USD';
+  if(cart){ cart.currency = activeCurrency; }
+  try { localStorage.setItem('zone21_payment_cart', JSON.stringify(cart)); } catch(e){}
+  renderCartView();
+  toast(`Currency switched to ${activeCurrency}.`, 'info');
+};
+
+/* ==========================================================
+   CLEAR CART
+========================================================== */
+window.clearCart = function(){
+  if(!confirm('Remove this pending cart? Your existing invoices stay on record.')) return;
+  try { localStorage.removeItem('zone21_payment_cart'); } catch(e){}
+  cart = null;
+  window.location.href = 'dashboard.html';
+};
+
+/* ==========================================================
+   CONFIRM MODAL + INVOICE GENERATION
+========================================================== */
+function prepareConfirm(){
+  if(!cart || !cart.lines?.length){ toast('Nothing to invoice.', 'error'); return; }
+
+  const subtotalUsd = cart.subtotalUsd || cart.lines.reduce((s,l)=>s+(l.amountUsd||0),0);
+  const depositUsd = depositInfo.depositUsd;
+
+  // Re-check existing payments to determine remaining
+  const paidUsd = existingPayments.filter(p=>p.status==='approved'||p.status==='paid').reduce((s,p)=>s+(p.payNowUsd||0),0);
+  const pendingUsd = existingPayments.filter(p=>p.status==='pending'||p.status==='pending_payment').reduce((s,p)=>s+(p.payNowUsd||0),0);
+  const remainingUsd = Math.max(0, subtotalUsd - paidUsd - pendingUsd);
+
+  let payNowUsd = 0, payLabel = '', payDesc = '';
+  if(selectedPayType === 'deposit'){
+    payNowUsd = Math.min(depositUsd, remainingUsd);
+    payLabel = `${Math.round(depositInfo.rate*100)}% Deposit`;
+    payDesc  = depositInfo.reason;
+  } else if(selectedPayType === 'balance'){
+    payNowUsd = remainingUsd;
+    payLabel = 'Remaining Balance';
+    payDesc  = 'Settle the balance to fully confirm your booking.';
+  } else {
+    payNowUsd = remainingUsd;
+    payLabel = 'Full Payment';
+    payDesc  = 'Pay 100% now to lock everything in immediately.';
+  }
+
+  const payNowDisplay = activeCurrency === 'ZAR' ? toZAR(payNowUsd) : payNowUsd;
+  const subtotalDisplay = activeCurrency === 'ZAR' ? toZAR(subtotalUsd) : subtotalUsd;
+  const balanceAfterUsd = Math.max(0, remainingUsd - payNowUsd);
+  const balanceAfterDisplay = activeCurrency === 'ZAR' ? toZAR(balanceAfterUsd) : balanceAfterUsd;
+
+  $('confirmBody').innerHTML = `
+    <p class="small-note" style="margin-bottom:1rem">You're about to generate an official invoice. Zone21 admin will verify your transfer before the booking is marked as <strong>PAID</strong>.</p>
+
+    <div class="cart-totals" style="margin-top:0">
+      <div class="cart-row"><span class="lbl">Event</span><span class="val">${escapeHtml(safe(cart.eventData?.name||'Event',40))}</span></div>
+      <div class="cart-row"><span class="lbl">Services</span><span class="val">${cart.lines.length}</span></div>
+      <div class="cart-row"><span class="lbl">Subtotal</span><span class="val">${fmtMoney(subtotalDisplay)}</span></div>
+      <div class="cart-row"><span class="lbl">Payment type</span><span class="val">${escapeHtml(payLabel)}</span></div>
+      <div class="cart-row total"><span class="lbl">Pay Now</span><span class="val">${fmtMoney(payNowDisplay)}</span></div>
+      ${balanceAfterUsd > 0 ? `<div class="cart-row balance"><span class="lbl">Remaining balance after this</span><span class="val">${fmtMoney(balanceAfterDisplay)}</span></div>` : ''}
+    </div>
+
+    <div class="small-note" style="margin-top:1rem">${escapeHtml(payDesc)}</div>
+  `;
+
+  const confirmBtn = $('confirmBtn');
+  confirmBtn.disabled = false;
+  confirmBtn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
+  confirmBtn.onclick = () => generateInvoiceNow({
+    subtotalUsd, payNowUsd, payLabel, payDesc, payType: selectedPayType
+  });
+
+  $('confirmModal').classList.add('active');
+}
+
+window.closeConfirm = function(){ $('confirmModal').classList.remove('active'); };
+
+/* ─── Actual invoice generation ─── */
+async function generateInvoiceNow({ subtotalUsd, payNowUsd, payLabel, payDesc, payType }){
+  const btn = $('confirmBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Generating…';
+
+  try {
+    const invNo = 'INV-' + Math.floor(100000 + Math.random()*900000);
+    const currency = activeCurrency;
+    const payNowDisplay = currency === 'ZAR' ? toZAR(payNowUsd) : payNowUsd;
+
+    const invoiceDoc = {
+      invoiceNumber: invNo,
+      userId: currentUser.uid,
+      userEmail: currentUser.email || '',
+      userName: currentUser.displayName || currentUser.email || 'Organiser',
+
+      eventId: cart.sessionId,
+      eventName: cart.eventData?.name || 'Event',
+      eventDate: cart.eventData?.date || '',
+      eventLocation: cart.eventData?.location || '',
+      eventType: cart.eventData?.type || '',
+      attendees: cart.eventData?.attendees || 0,
+
+      source: 'vendorpayments',
+      lines: cart.lines,
+      invitations: cart.invitations || {},
+      matchesSummary: cart.matches || {},
+
+      subtotalUsd,
+      subtotalDisplay: currency === 'ZAR' ? toZAR(subtotalUsd) : subtotalUsd,
+
+      payNowUsd,
+      payNowDisplay,
+      balanceUsd: Math.max(0, subtotalUsd - payNowUsd),
+      currency,
+
+      payType,                // 'deposit' | 'balance' | 'full'
+      payLabel,
+      payDesc,
+      depositRate: payType === 'deposit' ? depositInfo.rate : null,
+
+      status: 'pending',      // 'pending' → admin approves → 'paid'
+      paymentStatus: 'pending_manual_transfer',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // 1. Save invoice
+    await db.collection('invoices').doc(invNo).set(invoiceDoc);
+
+    // 2. Save user mirror
+    await db.collection('users').doc(currentUser.uid).set({
+      latestInvoiceId: invNo,
+      latestPaymentStatus: 'pending',
+      latestPaymentAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // 3. Notify admin queue
+    await db.collection('admin_notifications').add({
+      type: 'manual_payment_pending',
+      invoiceNumber: invNo,
+      userId: currentUser.uid,
+      userEmail: currentUser.email || '',
+      userName: invoiceDoc.userName,
+      eventName: invoiceDoc.eventName,
+      amountUsd: payNowUsd,
+      amountDisplay: payNowDisplay,
+      currency,
+      payType,
+      status: 'unread',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 4. Update the cart handoff to reflect this invoice was created
+    try {
+      await db.collection('paymentCarts').doc(cart.sessionId).set({
+        status: 'invoice_generated',
+        lastInvoice: invNo,
+        lastPayType: payType,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch(e){}
+
+    // 5. Cache locally so we can render the invoice without a refetch
+    generatedInvoice = { ...invoiceDoc, createdAt: new Date(), updatedAt: new Date() };
+    existingPayments.push({
+      id: invNo, status:'pending', payNowUsd, payType
+    });
+
+    // 6. Render the invoice
+    closeConfirm();
+    renderInvoiceView(generatedInvoice);
+    showView('view-invoice');
+
+    toast('Invoice generated — awaiting admin approval.', 'success');
+
+  } catch(err){
+    console.error('Invoice generation failed:', err);
+    toast('Failed to generate invoice: ' + (err.message||'unknown'), 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Generate Invoice';
+  }
+}
+
+/* ==========================================================
+   RENDER INVOICE
+========================================================== */
+function renderInvoiceView(inv){
+  const currency = inv.currency || activeCurrency;
+  const methods = PAYMENT_METHODS[currency] || PAYMENT_METHODS.USD;
+
+  const isDeposit = inv.payType === 'deposit';
+  const isBalance = inv.payType === 'balance';
+  const isFull    = inv.payType === 'full';
+  const totalLabel = isDeposit ? 'Deposit Payable' : isBalance ? 'Balance Payable' : 'Total Payable';
+
+  const payNowDisplay = currency === 'ZAR'
+    ? (inv.payNowDisplay || toZAR(inv.payNowUsd || 0))
+    : (inv.payNowDisplay || inv.payNowUsd || 0);
+
+  const subtotalDisplay = currency === 'ZAR'
+    ? (inv.subtotalDisplay || toZAR(inv.subtotalUsd || 0))
+    : (inv.subtotalDisplay || inv.subtotalUsd || 0);
+
+  const balanceDisplay = inv.balanceUsd ? (currency === 'ZAR' ? toZAR(inv.balanceUsd) : inv.balanceUsd) : 0;
+
+  const lines = inv.lines || cart?.lines || [];
+
+  $('invoiceMount').innerHTML = `
+    <div class="inv-head">
+      <div class="logo">
+        <div class="logo-mark">Z21</div>
+        <div class="logo-txt">
+          <strong>Zone<span>21</span></strong>
+          <small>Event Operations</small>
+        </div>
+      </div>
+      <div class="inv-num">
+        <div class="lbl">Invoice Number</div>
+        <div class="num">${escapeHtml(inv.invoiceNumber)}</div>
+      </div>
+    </div>
+
+    <div class="inv-body">
+      <div class="stamp" id="stamp">Unpaid<small>payment pending</small></div>
+
+      <div class="inv-grid">
+        <div>
+          <h4>Bill To</h4>
+          <div class="name">${escapeHtml(inv.userName || currentUser.displayName || currentUser.email)}</div>
+          <div class="sub">${escapeHtml(inv.userEmail || currentUser.email || '')}</div>
+          ${inv.eventLocation ? `<div class="sub">${escapeHtml(inv.eventLocation)}</div>` : ''}
+        </div>
+        <div>
+          <h4>Invoice Details</h4>
+          <div class="meta-row"><span class="l">Date Issued</span><span class="v">${new Date(inv.createdAt?.toDate?.() || inv.createdAt || Date.now()).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</span></div>
+          <div class="meta-row"><span class="l">Event</span><span class="v">${escapeHtml(safe(inv.eventName||'Event',40))}</span></div>
+          <div class="meta-row"><span class="l">Payment Type</span><span class="v">${escapeHtml(inv.payLabel || (isDeposit?'Deposit':'Full Payment'))}</span></div>
+          <div class="meta-row"><span class="l">Currency</span><span class="v">${CURRENCIES[currency].label}</span></div>
+          <div class="meta-row"><span class="l">Status</span><span class="v danger">UNPAID · PENDING APPROVAL</span></div>
+        </div>
+      </div>
+
+      <table class="inv-table">
+        <thead><tr><th>Service</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+          ${lines.map(l=>{
+            const usd = l.amountUsd || 0;
+            const amt = currency === 'ZAR' ? toZAR(usd) : usd;
+            return `
+              <tr>
+                <td>
+                  <div class="svc-name">${escapeHtml(l.service)}</div>
+                  <div class="svc-sub">${escapeHtml(safe(l.providerName,50))} · ${escapeHtml(l.breakdown||'Calculated')}</div>
+                </td>
+                <td class="amt">${fmtMoney(amt, currency)}</td>
+              </tr>`;
+          }).join('')}
+          <tr>
+            <td style="font-weight:700;color:var(--navy);background:var(--canvas)">Subtotal</td>
+            <td class="amt" style="background:var(--canvas)">${fmtMoney(subtotalDisplay, currency)}</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;color:var(--navy);background:var(--canvas)">${totalLabel}</td>
+            <td class="amt" style="background:var(--canvas)">${fmtMoney(payNowDisplay, currency)}</td>
+          </tr>
+          ${balanceDisplay > 0 ? `
+          <tr>
+            <td style="font-weight:700;color:var(--gold-deep);background:var(--gold-soft)">Remaining balance after this payment</td>
+            <td class="amt" style="color:var(--gold-deep);background:var(--gold-soft)">${fmtMoney(balanceDisplay, currency)}</td>
+          </tr>` : ''}
+        </tbody>
+      </table>
+
+      <div class="inv-total">
+        <span class="lbl">${totalLabel}</span>
+        <span class="amt">${fmtMoney(payNowDisplay, currency)}</span>
+      </div>
+
+      <div class="pay-note">
+        <strong>Manual payment required.</strong> Transfer the exact amount to any account below using your <strong>Invoice Number</strong> (<strong>${escapeHtml(inv.invoiceNumber)}</strong>) as the payment reference. Your booking becomes valid <strong>only after Zone21 admin confirms the payment</strong>.
+      </div>
+
+      <div class="pay-grid">
+        ${methods.map(m=>`
+          <div class="pay-card">
+            <div class="ico"><img src="${escapeHtml(m.icon)}" alt="${escapeHtml(m.name)}" onerror="this.style.display='none'"></div>
+            <div class="nm">${escapeHtml(m.name)}</div>
+            <div class="det">${escapeHtml(m.detail)}</div>
+            <div class="acc">${escapeHtml(m.account)}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="inv-actions no-print">
+        <button class="btn btn-outline" onclick="showView('view-checkout')"><i class="fas fa-arrow-left"></i> Back to Cart</button>
+        <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+        <button class="btn btn-primary" onclick="markProofSent()"><i class="fas fa-upload"></i> I've Sent Payment</button>
+      </div>
+
+      <div class="inv-foot">
+        <i class="fas fa-shield-halved"></i>
+        Booking is valid after deposit or full payment is confirmed by Zone21 admin.
+      </div>
+    </div>
+  `;
+}
+
+/* ==========================================================
+   MARK PROOF SENT
+========================================================== */
+window.markProofSent = async function(){
+  if(!generatedInvoice){
+    toast('Generate an invoice first.', 'error');
+    return;
+  }
+  const invNo = generatedInvoice.invoiceNumber;
+  try {
+    await db.collection('invoices').doc(invNo).set({
+      proofSentAt: firebase.firestore.FieldValue.serverTimestamp(),
+      proofSent: true
+    }, { merge: true });
+
+    await db.collection('admin_notifications').add({
+      type: 'proof_of_payment_submitted',
+      invoiceNumber: invNo,
+      userId: currentUser.uid,
+      userEmail: currentUser.email,
+      eventName: generatedInvoice.eventName,
+      status: 'unread',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    toast('Zone21 has been notified. Awaiting approval.', 'success');
+
+    // Redirect to support.html with proof params so user can upload screenshot
+    const params = new URLSearchParams({
+      invoice: invNo,
+      type: 'payment_proof',
+      amount: generatedInvoice.payNowDisplay || '',
+      currency: generatedInvoice.currency,
+      event: generatedInvoice.eventName || '',
+      date: generatedInvoice.eventDate || '',
+      location: generatedInvoice.eventLocation || ''
+    });
+    setTimeout(()=>{ window.location.href = 'support.html?' + params.toString(); }, 800);
+
+  } catch(e){
+    console.error(e);
+    toast('Failed to notify admin: ' + e.message, 'error');
+  }
+};
+
+/* ==========================================================
+   ESC + overlay click
+========================================================== */
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeConfirm();
+});
+document.querySelectorAll('.modal-overlay').forEach(ov=>{
+  ov.addEventListener('click', e => { if(e.target === ov) ov.classList.remove('active'); });
+});
+</script>
+</body>
+</html>

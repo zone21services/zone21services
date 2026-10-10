@@ -11,23 +11,23 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 · EVENT TOOLS  (v3)
+  ZONE21 · EVENT TOOLS  (v4 — subscription gate fixed)
 
-  CHANGES FROM v2
-  ───────────────
-  · REMOVED the visible location banner + currency switcher.
-    Country is still detected silently (timezone → locale → IP)
-    and used only as the default currency for the gate price.
-  · SUBSCRIPTION READ FIXED — evaluation now mirrors the exact
-    logic used in bookingsub.html's renderStatus():
-      status field (pending_payment | active | approved | rejected)
-      approvedAt / expiresAt / createdAt / deletedAt
-    This prevents the "false negative" (subscribed user seeing
-    'locked') that came from checking fields bookingsub never writes.
-  · Realtime onSnapshot listener stays — the banner updates live
-    the moment an admin approves payment.
-  · 4-state machine: active · pending · expired · inactive.
-    Tools unlock ONLY on 'active'.
+  FIXES v2 → v4
+  ─────────────
+  · REMOVED the `deletedAt` check from subscription evaluation.
+    bookingsub.html writes `deletedAt: deleteField()` on every
+    invoice, and depending on the SDK version this leaves the
+    field present (as a truthy sentinel), causing a false
+    "inactive" reading. bookingsub.html itself never checks
+    deletedAt — it only reads `status`. We now match that.
+  · TRUST the `status` field for the gate. Expiry is used ONLY
+    for the "X days remaining" display, never to flip an
+    explicitly-active subscription to "expired".
+  · Added console diagnostics so any future mismatch is easy to
+    spot in devtools.
+  · REMOVED visible location + currency UI (silent detection
+    remains for the gate price only).
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -453,7 +453,6 @@ body.z21-loading{overflow:hidden}
   <h1>Plan, create, and <span class="grad">celebrate</span> your event.</h1>
   <p>Every Zone21 tool in one place — blueprints, security, guests, revenue, and analytics.</p>
 
-  <!-- Subscription state mount (no location / currency UI) -->
   <div id="subscriptionZone"></div>
 </section>
 
@@ -662,13 +661,9 @@ const PLAN = {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   CURRENCY (SILENT) — used only for the gate modal price.
-   No UI surfaces this to the user.
+   CURRENCY (silent — for gate price only)
    ═══════════════════════════════════════════════════════════ */
-const CURRENCIES = {
-  USD: { symbol: '$' },
-  ZAR: { symbol: 'R' }
-};
+const CURRENCIES = { USD: { symbol: '$' }, ZAR: { symbol: 'R' } };
 const ZAR_COUNTRIES = new Set(['ZA','LS','SZ','NA']);
 
 const TIMEZONE_COUNTRY = {
@@ -800,10 +795,7 @@ setTimeout(hideLoader, FAILSAFE_MS);
 let currentUser = null;
 let userProfile = null;
 
-/* Subscription state machine:
-     'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'inactive'
-   Tools unlock ONLY on 'active'. */
-let subState = 'signed-out';
+let subState = 'signed-out';   // 'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'inactive'
 let subUnsub = null;
 let currentSub = null;
 let currentSubExpiry = null;
@@ -897,42 +889,62 @@ function updateGatePrice(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION EVALUATION
+   SUBSCRIPTION EVALUATION  ★ THE FIX ★
    ─────────────────────────────────────────────────────────
-   Mirrors bookingsub.html's own status logic EXACTLY:
-     · Doc path   : subscriptions/{uid}_annual
-     · Status     : 'pending_payment' | 'active' | 'approved' | 'rejected'
-     · Dates      : approvedAt (set on admin approval), expiresAt
-                    (optional — derived from approvedAt + 12 months),
-                    createdAt (fallback anchor), deletedAt (soft delete)
-   Returns { state, sub, expiresAt } so the UI can render rich states.
+   Matches bookingsub.html's renderStatus() exactly:
+
+     Doc path : subscriptions/{uid}_annual
+     Field    : `status`
+       'pending_payment' / 'pending' → pending
+       'rejected'                    → inactive
+       'expired'                     → expired
+       'active' / 'approved'         → ACTIVE  ✅
+
+   We DO NOT check `deletedAt` (bookingsub writes it via
+   deleteField(), which can linger as a truthy sentinel on
+   some SDK versions and was the cause of the false negative).
+
+   We DO NOT flip an explicitly-active status to 'expired' —
+   expiry is used only to display "X days remaining".
    ═══════════════════════════════════════════════════════════ */
 function evaluateSubscription(sub){
-  if(!sub)        return { state:'inactive', sub:null, expiresAt:null };
-  if(sub.deletedAt) return { state:'inactive', sub:null, expiresAt:null };
+  if(!sub){
+    console.debug('[Zone21] No subscription document found for this user.');
+    return { state:'inactive', sub:null, expiresAt:null };
+  }
 
-  const status = String(sub.status || 'pending_payment').toLowerCase();
+  console.debug('[Zone21] Subscription document:', sub);
 
-  if(status === 'rejected')                       return { state:'inactive', sub, expiresAt:null };
-  if(status === 'pending_payment' || status === 'pending'){
+  const raw    = sub.status;
+  const status = String(raw || 'pending_payment').toLowerCase().trim();
+
+  if(status === 'rejected'){
+    return { state:'inactive', sub, expiresAt:null };
+  }
+  if(status === 'pending' || status === 'pending_payment' || status === 'pending_manual_transfer'){
     return { state:'pending', sub, expiresAt:null };
   }
-  if(status !== 'active' && status !== 'approved'){
+  if(status === 'expired'){
+    return { state:'expired', sub, expiresAt: toDate(sub.expiresAt) };
+  }
+
+  const isActive = (status === 'active' || status === 'approved');
+  if(!isActive){
+    console.warn('[Zone21] Unrecognised subscription status:', raw);
     return { state:'inactive', sub, expiresAt:null };
   }
 
-  // Active / approved — derive expiry using the SAME anchor logic
-  // bookingsub.html uses when it renders the status card.
-  const approvedAt = toDate(sub.approvedAt);
+  /* ----- Active / approved -----
+     Derive expiry for display only. Never used to gate. */
+  const approvedAt = toDate(sub.approvedAt)
+                  || toDate(sub.updatedAt)
+                  || toDate(sub.createdAt);
   const expiresAt  = toDate(sub.expiresAt)
-                  || (approvedAt ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000) : null)
-                  || (toDate(sub.createdAt)
-                        ? new Date(toDate(sub.createdAt).getTime() + PLAN.months * 30 * 86400000)
+                  || (approvedAt
+                        ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000)
                         : null);
 
-  if(expiresAt && expiresAt.getTime() <= Date.now()){
-    return { state:'expired', sub, expiresAt };
-  }
+  console.debug('[Zone21] Subscription is ACTIVE. Expires:', expiresAt);
   return { state:'active', sub, expiresAt };
 }
 
@@ -953,7 +965,7 @@ function attachSubListener(uid){
     currentSubExpiry = result.expiresAt || null;
     updateToolsLockUI();
   }, (err) => {
-    console.warn('Subscription listener error:', err);
+    console.error('[Zone21] Subscription listener error:', err);
     subState = 'inactive';
     currentSub = null;
     currentSubExpiry = null;
@@ -1098,7 +1110,7 @@ function renderSubscriptionZone(){
     return;
   }
 
-  // inactive / none
+  // inactive
   const priceStr = formatCompact(getPrice(), activeCurrency);
   zone.innerHTML = `
     <div class="z21-sub-banner">

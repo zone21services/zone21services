@@ -3,30 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Event Requests · Zone21</title>
+<title>Dashboard · Zone21 Schools</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-<!--
-═══════════════════════════════════════════════════════════════════
-  ZONE21 · DISCOVER / EVENT REQUESTS  (v4 — subscription gate fixed)
-
-  FIXES v3 → v4
-  ─────────────
-  · REMOVED the `deletedAt` check from subscription evaluation.
-    bookingsub.html writes `deletedAt: deleteField()` on invoices
-    and depending on SDK version this lingers as a truthy
-    sentinel, causing a false "no active plan" reading.
-    bookingsub.html itself never checks deletedAt — it only
-    reads `status`. We now match that exactly.
-  · TRUST the `status` field for the gate. Expiry is used only
-    for the "X days remaining" display — never to flip an
-    explicitly-active sub to expired.
-  · Console diagnostics added so any future mismatch is visible.
-═══════════════════════════════════════════════════════════════════
--->
 
 <style>
 :root{
@@ -35,6 +16,7 @@
   --text:#fff;--text-muted:rgba(255,255,255,.62);--text-dim:rgba(255,255,255,.38);
   --accent:#fa243c;--accent-2:#ff3b52;--accent-glow:rgba(250,36,60,.35);
   --success:#30d158;--warn:#ff9f0a;--info:#0a84ff;--purple:#7c3aed;
+  --gold:#C9A961;--gold-soft:rgba(201,169,97,.12);
   --radius-sm:10px;--radius:14px;--radius-lg:20px;--radius-xl:28px;
   --nav-h:64px;--bottom-nav-h:68px;
 }
@@ -73,13 +55,11 @@ body.z21-loading{overflow:hidden}
   letter-spacing:-.035em;color:var(--text);}
 .z21-loader-name span{color:var(--accent)}
 @keyframes z21Flicker{
-  0%{opacity:1;filter:brightness(1)}6%{opacity:1;filter:brightness(1)}
-  7%{opacity:.5;filter:brightness(.7)}9%{opacity:1;filter:brightness(1)}
-  22%{opacity:1;filter:brightness(1)}23%{opacity:.82;filter:brightness(.9)}
-  24%{opacity:1;filter:brightness(1)}50%{opacity:1;filter:brightness(1)}
-  51%{opacity:.68;filter:brightness(.85)}53%{opacity:1;filter:brightness(1)}
-  71%{opacity:1;filter:brightness(1)}72%{opacity:.55;filter:brightness(.75)}
-  74%{opacity:1;filter:brightness(1)}100%{opacity:1;filter:brightness(1)}
+  0%,6%,100%{opacity:1;filter:brightness(1)}
+  7%{opacity:.5;filter:brightness(.7)}9%,22%{opacity:1;filter:brightness(1)}
+  23%{opacity:.82;filter:brightness(.9)}24%,50%{opacity:1;filter:brightness(1)}
+  51%{opacity:.68;filter:brightness(.85)}53%,71%{opacity:1;filter:brightness(1)}
+  72%{opacity:.55;filter:brightness(.75)}74%{opacity:1;filter:brightness(1)}
 }
 @keyframes z21Glow{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
 @media(prefers-reduced-motion:reduce){.z21-loader-logo,.z21-loader::before{animation:none}}
@@ -111,6 +91,15 @@ body.z21-loading{overflow:hidden}
 .z21-btn-nav{padding:8px 18px;border-radius:100px;background:var(--accent);color:#fff;
   font-size:13px;font-weight:700;transition:all .2s;}
 .z21-btn-nav:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-icon-nav{position:relative;width:38px;height:38px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:14px;transition:all .2s;}
+.z21-icon-nav:hover{color:var(--text);border-color:var(--border-2)}
+.z21-icon-nav .b{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;
+  padding:0 5px;border-radius:100px;background:var(--accent);color:#fff;
+  font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  border:2px solid #000;}
 .z21-user-menu{position:absolute;top:calc(var(--nav-h) - 6px);right:clamp(16px,4vw,48px);
   background:var(--surface-2);border:1px solid var(--border-2);
   border-radius:var(--radius);padding:6px;min-width:230px;
@@ -219,17 +208,130 @@ body.z21-loading{overflow:hidden}
 .sub-banner.pending .sub-banner__cta{background:var(--warn);color:#3d2800}
 .sub-banner.expired .sub-banner__cta{background:var(--info);color:#fff}
 
+/* PENDING PAYMENT BANNER */
+.pending-payment-banner{
+  background:linear-gradient(135deg,#064e3b 0%,#0f766e 45%,#065f46 100%);
+  color:#fff;border-radius:var(--radius-lg);padding:18px 22px;margin-top:20px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  box-shadow:0 18px 44px -14px rgba(15,157,110,.55),0 0 0 1px rgba(16,185,129,.2);
+  position:relative;overflow:hidden;}
+.pending-payment-banner::before{
+  content:'';position:absolute;top:-60%;right:-15%;width:320px;height:320px;
+  background:radial-gradient(circle,rgba(16,185,129,.35) 0%,transparent 65%);
+  pointer-events:none;border-radius:50%;}
+.pending-payment-banner i.ico{
+  width:52px;height:52px;border-radius:14px;
+  background:linear-gradient(135deg,#10b981,#059669);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;position:relative;z-index:1;
+  box-shadow:0 10px 26px -8px rgba(16,185,129,.6),inset 0 1px 0 rgba(255,255,255,.25);}
+.pending-payment-banner .pp-txt{flex:1;min-width:220px;position:relative;z-index:1}
+.pending-payment-banner .pp-txt strong{display:block;font-weight:800;font-size:15px;margin-bottom:3px}
+.pending-payment-banner .pp-txt span{font-size:13px;opacity:.92;font-weight:500;line-height:1.5}
+.pending-payment-banner .btn-continue{
+  background:#fff;color:#065f46;padding:11px 22px;border-radius:100px;
+  font-size:13px;font-weight:800;display:inline-flex;align-items:center;gap:7px;
+  text-decoration:none;position:relative;z-index:1;transition:all .2s;white-space:nowrap;}
+.pending-payment-banner .btn-continue:hover{background:#f0fdf4;transform:translateY(-1px)}
+
+/* PAYMENT HIGHLIGHTS */
+.pay-highlights{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px}
+@media(max-width:640px){.pay-highlights{grid-template-columns:1fr}}
+.pay-high-card{border-radius:var(--radius-lg);padding:18px 20px;
+  border:1.5px solid var(--border);background:var(--surface);
+  display:flex;gap:14px;align-items:flex-start;
+  transition:all .25s;position:relative;overflow:hidden;cursor:pointer;}
+.pay-high-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.pay-high-card.paid{border-color:rgba(48,209,88,.35);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(48,209,88,.05) 100%);}
+.pay-high-card.pending{border-color:rgba(255,159,10,.4);
+  background:linear-gradient(135deg,var(--surface) 0%,rgba(255,159,10,.05) 100%);}
+.pay-high-card.paid::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--success)}
+.pay-high-card.pending::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--warn)}
+.pay-high-card__icon{width:46px;height:46px;border-radius:13px;flex-shrink:0;
+  display:grid;place-items:center;font-size:18px;}
+.pay-high-card.paid .pay-high-card__icon{background:rgba(48,209,88,.15);color:var(--success)}
+.pay-high-card.pending .pay-high-card__icon{background:rgba(255,159,10,.15);color:#ffce8a}
+.pay-high-card__body{flex:1;min-width:0}
+.pay-high-card__lbl{font-size:10px;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:.4rem;}
+.pay-high-card.paid .pay-high-card__lbl{color:var(--success)}
+.pay-high-card.pending .pay-high-card__lbl{color:#ffce8a}
+.pay-high-card__amount{font-size:24px;font-weight:800;letter-spacing:-.02em;
+  line-height:1.15;color:var(--text);margin-bottom:4px;word-break:break-word;}
+.pay-high-card__meta{font-size:11.5px;font-weight:600;color:var(--text-muted);
+  display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.pay-high-card__meta strong{color:var(--text);font-weight:800}
+.pay-high-card__cta{margin-top:10px;font-size:11px;font-weight:800;
+  display:inline-flex;align-items:center;gap:5px;color:var(--text);
+  padding:6px 14px;border-radius:20px;background:var(--surface-3);
+  border:1px solid var(--border);transition:all .2s;cursor:pointer;}
+.pay-high-card.pending .pay-high-card__cta{background:var(--warn);color:#1a1000;border-color:var(--warn)}
+.pay-high-card.pending .pay-high-card__cta:hover{background:#e08c00;color:#fff}
+.pay-high-card.paid .pay-high-card__cta:hover{background:var(--success);color:#fff;border-color:var(--success)}
+
+/* PAYMENT REMINDERS */
+.pay-reminders{display:flex;flex-direction:column;gap:10px}
+.pay-reminder{display:flex;gap:14px;align-items:flex-start;
+  padding:16px 18px;background:var(--surface);
+  border:1.5px solid var(--warn);border-left-width:4px;
+  border-radius:var(--radius);transition:all .25s;}
+.pay-reminder.urgent{border-color:var(--accent);
+  background:linear-gradient(180deg,var(--surface),rgba(250,36,60,.04));}
+.pay-reminder__icon{width:42px;height:42px;border-radius:11px;flex-shrink:0;
+  background:rgba(255,159,10,.15);color:#ffce8a;
+  display:grid;place-items:center;font-size:15px;}
+.pay-reminder.urgent .pay-reminder__icon{background:rgba(250,36,60,.15);color:#ff8b98}
+.pay-reminder__body{flex:1;min-width:0}
+.pay-reminder__title{font-size:14px;font-weight:800;color:var(--text);
+  line-height:1.3;margin-bottom:3px;}
+.pay-reminder__desc{font-size:12.5px;color:var(--text-muted);font-weight:500;line-height:1.5}
+.pay-reminder__desc strong{color:var(--text);font-weight:800}
+.pay-reminder__meta{font-size:11px;color:var(--text-dim);font-weight:700;
+  margin-top:6px;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.pay-reminder__meta .urgent-tag{background:rgba(250,36,60,.15);color:#ff8b98;
+  padding:2px 8px;border-radius:999px;font-weight:800;font-size:9.5px;
+  letter-spacing:.04em;text-transform:uppercase;}
+.pay-reminder__amount{font-size:15px;font-weight:800;color:var(--text);
+  text-align:right;white-space:nowrap;flex-shrink:0;max-width:40%;}
+.pay-reminder__amount small{display:block;font-size:10px;color:var(--text-dim);
+  font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.pay-reminder__cta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pay-reminder__cta button{padding:7px 14px;border-radius:8px;
+  font-size:11.5px;font-weight:800;border:none;cursor:pointer;
+  transition:all .2s;display:inline-flex;align-items:center;gap:5px;font-family:inherit;}
+.pay-reminder__cta .btn-dep{background:var(--surface-3);color:var(--text);border:1.5px solid var(--border-2)}
+.pay-reminder__cta .btn-dep:hover{border-color:var(--text);background:var(--surface-4)}
+.pay-reminder__cta .btn-full{background:var(--accent);color:#fff;box-shadow:0 4px 12px var(--accent-glow)}
+.pay-reminder__cta .btn-full:hover{background:var(--accent-2);transform:translateY(-1px)}
+
 /* NOTIFICATIONS */
+.notif-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.notif-toolbar .pill-count{font-size:11px;font-weight:800;letter-spacing:.05em;
+  padding:6px 12px;border-radius:20px;background:rgba(250,36,60,.14);color:#ff9aa5;
+  border:1px solid rgba(250,36,60,.28);}
+.notif-toolbar .pill-count.zero{background:rgba(48,209,88,.14);color:#7ee89a;
+  border-color:rgba(48,209,88,.28);}
+.notif-toolbar button{font-size:12px;font-weight:800;padding:7px 14px;border-radius:20px;
+  background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .2s;font-family:inherit;}
+.notif-toolbar button:hover{background:var(--surface-4);border-color:var(--border)}
+.notif-toolbar button:disabled{opacity:.45;cursor:not-allowed;background:var(--surface-2)}
+
 .notif-feed{display:flex;flex-direction:column;gap:10px}
 .notif{display:flex;gap:13px;padding:14px 16px;background:var(--surface);
   border:1px solid var(--border);border-radius:var(--radius);
-  border-left:3px solid var(--border-2);transition:all .2s;align-items:flex-start;}
+  border-left:3px solid var(--border-2);transition:all .2s;align-items:flex-start;position:relative;}
 .notif:hover{border-color:var(--border-2);transform:translateX(2px);}
+.notif.read{opacity:.55;}
 .notif.info{border-left-color:var(--info);}
 .notif.success{border-left-color:var(--success);}
 .notif.warn{border-left-color:var(--warn);}
 .notif.error{border-left-color:var(--accent);}
-.notif.gold{border-left-color:#c9a961;}
+.notif.gold{border-left-color:var(--gold);}
+.notif.admin{border-left-color:var(--purple);background:linear-gradient(180deg,var(--surface),rgba(124,58,237,.05));}
+.notif.read.info,.notif.read.success,.notif.read.warn,.notif.read.error,
+.notif.read.gold,.notif.read.admin{background:var(--surface);}
 .notif__icon{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
   flex-shrink:0;font-size:14px;background:rgba(255,255,255,.05);color:var(--text-muted);}
 .notif.info .notif__icon{background:rgba(10,132,255,.14);color:#5ab0ff;}
@@ -237,13 +339,30 @@ body.z21-loading{overflow:hidden}
 .notif.warn .notif__icon{background:rgba(255,159,10,.14);color:#ffce8a;}
 .notif.error .notif__icon{background:rgba(250,36,60,.14);color:#ff9aa5;}
 .notif.gold .notif__icon{background:rgba(201,169,97,.14);color:#e0c891;}
+.notif.admin .notif__icon{background:rgba(124,58,237,.15);color:#b39dff;}
 .notif__body{flex:1;min-width:0}
 .notif__title{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em;
-  line-height:1.35;margin-bottom:3px;}
+  line-height:1.35;margin-bottom:3px;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .notif__desc{font-size:12.5px;color:var(--text-muted);font-weight:500;
   line-height:1.5;word-break:break-word;}
 .notif__time{font-size:11px;color:var(--text-dim);font-weight:700;margin-top:6px;
-  display:flex;align-items:center;gap:6px;}
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.notif__unread-dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);flex-shrink:0;box-shadow:0 0 0 2px rgba(250,36,60,.22);}
+.notif__action{margin-top:9px;background:var(--surface-3);color:#fff;
+  padding:7px 14px;border-radius:9px;border:1px solid var(--border-2);
+  cursor:pointer;font-size:11.5px;font-weight:800;letter-spacing:.02em;
+  display:inline-flex;align-items:center;gap:6px;transition:all .2s;font-family:inherit;}
+.notif__action:hover{background:var(--surface-4);transform:translateY(-1px);border-color:var(--border)}
+.notif.warn .notif__action{background:var(--warn);color:#1a1000;border-color:transparent}
+.notif.warn .notif__action:hover{background:#e08c00;color:#fff}
+.notif.success .notif__action{background:var(--success);color:#04140a;border-color:transparent}
+.notif.success .notif__action:hover{background:#3ee06a;color:#04140a}
+.notif.error .notif__action{background:var(--accent);color:#fff;border-color:transparent}
+.notif.error .notif__action:hover{background:var(--accent-2)}
+.notif.admin .notif__action{background:var(--purple);color:#fff;border-color:transparent}
+.notif.admin .notif__action:hover{background:#8b5cf6}
 
 /* TOOLS */
 .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
@@ -327,8 +446,16 @@ body.z21-loading{overflow:hidden}
 .req-card__status.approved{background:rgba(48,209,88,.14);color:#7ee89a;border-color:rgba(48,209,88,.28);}
 .req-card__status.declined{background:rgba(250,36,60,.14);color:#ff9aa5;border-color:rgba(250,36,60,.28);}
 .req-card__status.completed{background:rgba(255,255,255,.06);color:var(--text-dim);border-color:var(--border);}
+.req-card__actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.req-card__actions button{padding:6px 12px;border-radius:8px;
+  font-size:11px;font-weight:800;border:1px solid var(--border-2);
+  background:var(--surface-3);color:var(--text);cursor:pointer;
+  transition:all .2s;display:inline-flex;align-items:center;gap:5px;font-family:inherit;}
+.req-card__actions button.primary{background:var(--accent);color:#fff;border-color:transparent}
+.req-card__actions button.primary:hover{background:var(--accent-2)}
+.req-card__actions button:hover{border-color:var(--text)}
 
-/* EMPTY STATE */
+/* EMPTY */
 .empty{padding:48px 24px;text-align:center;
   border:1.5px dashed var(--border-2);border-radius:var(--radius-lg);
   background:rgba(255,255,255,.015);}
@@ -354,6 +481,10 @@ body.z21-loading{overflow:hidden}
 .z21-bottom-link i{font-size:16px}
 .z21-bottom-link span{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .z21-bottom-link.active{color:var(--accent)}
+.z21-bottom-link .b{position:absolute;top:6px;right:calc(50% - 18px);
+  min-width:16px;height:16px;padding:0 4px;border-radius:100px;
+  background:var(--accent);color:#fff;font-size:9px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;border:1.5px solid #000;}
 
 /* MODAL */
 .z21-modal{position:fixed;inset:0;z-index:1000;display:none;
@@ -470,7 +601,7 @@ body.z21-loading{overflow:hidden}
 .z21-check:has(input:checked){background:rgba(250,36,60,.08);
   border-color:rgba(250,36,60,.35);color:#fff;}
 
-/* SUCCESS SCREEN */
+/* SUCCESS */
 .z21-success{text-align:center;padding:14px 6px 4px;
   animation:z21PaneIn .4s cubic-bezier(.25,1,.5,1);}
 @keyframes z21PaneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -490,7 +621,7 @@ body.z21-loading{overflow:hidden}
   margin-bottom:22px;}
 .z21-ref-chip i{color:var(--accent);font-size:13px}
 
-/* BUDGET ROW */
+/* BUDGET */
 .z21-budget-row{display:grid;grid-template-columns:1fr 120px;gap:10px}
 .z21-budget-row input{padding-left:44px !important}
 .z21-budget-wrap{position:relative}
@@ -512,6 +643,45 @@ body.z21-loading{overflow:hidden}
 .z21-toast.error{border-color:rgba(250,36,60,.4);color:#ff9aa5}
 .z21-toast.error i{color:var(--accent)}
 .z21-toast.info i{color:var(--text-muted)}
+
+/* ADMIN TOAST */
+#z21AdminToastStack{position:fixed;top:80px;right:16px;z-index:9998;
+  display:flex;flex-direction:column;gap:10px;max-width:380px;
+  width:calc(100% - 32px);pointer-events:none;}
+.z21-admin-toast{position:relative;pointer-events:auto;
+  background:linear-gradient(135deg,#1e1b4b 0%,#4c1d95 45%,#6d28d9 100%);
+  border:1px solid rgba(139,92,246,.45);
+  border-radius:18px;padding:14px 16px 14px 14px;
+  display:flex;align-items:center;gap:12px;
+  box-shadow:0 18px 48px -12px rgba(139,92,246,.6),0 0 0 1px rgba(139,92,246,.18);
+  overflow:hidden;transform:translateX(120%);opacity:0;
+  animation:z21AdminToastIn .55s cubic-bezier(.22,1.2,.36,1) forwards;
+  transition:transform .25s,opacity .25s;cursor:pointer;}
+.z21-admin-toast.dismissing{animation:z21AdminToastOut .35s cubic-bezier(.4,0,.6,1) forwards}
+.z21-admin-toast__icon{width:46px;height:46px;border-radius:13px;
+  background:linear-gradient(135deg,#8b5cf6,#a855f7);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:19px;flex-shrink:0;
+  box-shadow:0 8px 22px -6px rgba(168,85,247,.65),inset 0 1px 0 rgba(255,255,255,.25);}
+.z21-admin-toast__body{flex:1;min-width:0}
+.z21-admin-toast__title{font-size:13.5px;font-weight:800;color:#fff;line-height:1.25;margin-bottom:3px}
+.z21-admin-toast__meta{font-size:12px;font-weight:600;color:rgba(255,255,255,.78);line-height:1.45;margin-bottom:8px}
+.z21-admin-toast__cta{background:#fff;color:#4c1d95;padding:7px 14px;border-radius:9px;
+  font-size:11.5px;font-weight:800;border:none;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;transition:.2s;font-family:inherit;}
+.z21-admin-toast__cta:hover{background:#f5f3ff;transform:translateY(-1px)}
+.z21-admin-toast__close{position:absolute;top:8px;right:8px;width:24px;height:24px;
+  border-radius:50%;background:transparent;color:rgba(255,255,255,.4);
+  display:grid;place-items:center;font-size:11px;cursor:pointer;
+  transition:.25s;z-index:2;border:none;}
+.z21-admin-toast__close:hover{background:rgba(255,255,255,.1);color:#fff}
+.z21-admin-toast__progress{position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:linear-gradient(90deg,#8b5cf6,#a855f7);
+  transform-origin:left;animation:z21AdminProgress 9s linear forwards;z-index:1;}
+@keyframes z21AdminToastIn{0%{transform:translateX(120%);opacity:0}60%{transform:translateX(-6px);opacity:1}100%{transform:translateX(0);opacity:1}}
+@keyframes z21AdminToastOut{0%{transform:translateX(0);opacity:1;max-height:200px}100%{transform:translateX(140%);opacity:0;max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0}}
+@keyframes z21AdminProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(max-width:640px){#z21AdminToastStack{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px));right:8px;left:8px;width:auto;max-width:none;}}
 
 /* SKELETON */
 .z21-skel{height:68px;border-radius:var(--radius);
@@ -544,6 +714,12 @@ body.z21-loading{overflow:hidden}
   .z21-bottom-link span{font-size:9px}
   .sub-banner{padding:14px 16px;gap:12px}
   .sub-banner__cta{padding:9px 16px;font-size:12px}
+  .pending-payment-banner{padding:14px 16px;gap:12px}
+  .pending-payment-banner i.ico{width:44px;height:44px;font-size:18px}
+  .pay-high-card__amount{font-size:19px}
+  .pay-reminder{padding:13px 14px;gap:10px;flex-wrap:wrap}
+  .pay-reminder__icon{width:36px;height:36px;font-size:13px}
+  .pay-reminder__amount{font-size:13px;max-width:100%;text-align:left}
 }
 @media(max-width:400px){.tools-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){
@@ -595,7 +771,7 @@ body.z21-loading{overflow:hidden}
 
 <!-- HERO -->
 <section class="z21-hero">
-  <div class="z21-hero-tag"><i class="fas fa-bolt"></i> Event Requests</div>
+  <div class="z21-hero-tag"><i class="fas fa-bolt"></i> School Dashboard</div>
   <h1 id="heroTitle">Tell us who you want.<br><span class="grad">We make it happen.</span></h1>
   <p id="heroSub">Post your event brief with the artist(s) you'd like to book. Our team sources them, negotiates the rate, and confirms everything for you.</p>
 
@@ -608,20 +784,21 @@ body.z21-loading{overflow:hidden}
     </a>
   </div>
 
-  <!-- Subscription banner mount -->
+  <div id="pendingPaymentMount"></div>
   <div id="subBannerMount"></div>
+  <div id="payHighlightsMount"></div>
 </section>
 
 <div class="z21-page">
 
-  <!-- NOTIFICATIONS -->
   <section id="notifSection" style="scroll-margin-top:80px">
     <div class="section-head">
-      <h2><i class="fas fa-bell"></i> Updates & Notifications</h2>
+      <h2><i class="fas fa-bell"></i> Updates &amp; Notifications</h2>
       <button class="link-action" id="refreshNotifsBtn">
         <i class="fas fa-rotate"></i> Refresh
       </button>
     </div>
+    <div class="notif-toolbar" id="notifToolbar"></div>
     <div class="notif-feed" id="notifFeed">
       <div class="z21-skel"></div>
       <div class="z21-skel"></div>
@@ -629,7 +806,16 @@ body.z21-loading{overflow:hidden}
     </div>
   </section>
 
-  <!-- TOOLS -->
+  <section id="payRemindersSection">
+    <div class="section-head">
+      <h2><i class="fas fa-exclamation-circle"></i> Payment Reminders</h2>
+      <span class="hint">Action needed to keep your events moving</span>
+    </div>
+    <div class="pay-reminders" id="payRemindersList">
+      <div class="z21-skel"></div>
+    </div>
+  </section>
+
   <section id="toolsSection">
     <div class="section-head">
       <h2><i class="fas fa-tools"></i> Event Tools</h2>
@@ -643,7 +829,6 @@ body.z21-loading{overflow:hidden}
     </div>
   </section>
 
-  <!-- MY REQUESTS -->
   <section id="requestsSection" style="margin-bottom:80px">
     <div class="section-head">
       <h2><i class="fas fa-clipboard-list"></i> My Event Requests</h2>
@@ -808,7 +993,6 @@ body.z21-loading{overflow:hidden}
 
       <form id="requestForm" autocomplete="on">
 
-        <!-- EVENT -->
         <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;
                     text-transform:uppercase;color:var(--accent);margin-bottom:12px">
           <i class="fas fa-calendar-day" style="margin-right:6px"></i> Event details
@@ -860,7 +1044,6 @@ body.z21-loading{overflow:hidden}
           </div>
         </div>
 
-        <!-- ARTIST -->
         <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;
                     text-transform:uppercase;color:var(--accent);margin:22px 0 12px">
           <i class="fas fa-microphone" style="margin-right:6px"></i> Artist you'd like to book
@@ -907,7 +1090,6 @@ body.z21-loading{overflow:hidden}
           <textarea id="reqArtistNotes" placeholder="Set list preferences, songs you'd love to hear, language, dress code, meet & greet…"></textarea>
         </div>
 
-        <!-- BUDGET -->
         <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;
                     text-transform:uppercase;color:var(--accent);margin:22px 0 12px">
           <i class="fas fa-wallet" style="margin-right:6px"></i> Budget &amp; requirements
@@ -922,7 +1104,7 @@ body.z21-loading{overflow:hidden}
             </div>
             <select id="reqCurrency" required aria-label="Currency"></select>
           </div>
-          <div class="z21-field-hint">Give a realistic figure — this helps us negotiate the best rate for you.</div>
+          <div class="z21-field-hint">Give a realistic figure — this helps us negotiate the best rate for you. The currency you pick here is what we'll use — it won't be converted.</div>
         </div>
 
         <label class="z21-toggle-row" for="reqFlexible">
@@ -963,7 +1145,6 @@ body.z21-loading{overflow:hidden}
           <textarea id="reqDescription" placeholder="Stage plot, sound requirements, curfew, sponsor obligations, anything else we should know…"></textarea>
         </div>
 
-        <!-- CONTACT -->
         <div style="font-size:11.5px;font-weight:800;letter-spacing:.1em;
                     text-transform:uppercase;color:var(--accent);margin:22px 0 12px">
           <i class="fas fa-user" style="margin-right:6px"></i> Contact
@@ -1001,7 +1182,6 @@ body.z21-loading{overflow:hidden}
         </button>
       </form>
 
-      <!-- SUCCESS -->
       <div class="z21-success" id="requestSuccess" style="display:none">
         <div class="z21-success-icon"><i class="fas fa-check"></i></div>
         <h3>Request submitted</h3>
@@ -1017,6 +1197,7 @@ body.z21-loading{overflow:hidden}
 </div>
 
 <div class="z21-toast-wrap" id="toastWrap"></div>
+<div id="z21AdminToastStack" aria-live="polite" aria-atomic="false"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -1031,7 +1212,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ═══════════════════════════════════════════════════════════
-   CONFIG
+   FIREBASE
    ═══════════════════════════════════════════════════════════ */
 const firebaseConfig = {
   apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
@@ -1045,14 +1226,13 @@ const firebaseConfig = {
 
 const PLAN_ID = 'annual';
 const PLAN = { id:'annual', name:'Full Access — Annual', months:12, prices:{ USD:150, ZAR:1200 } };
-const ADMIN_WHATSAPP = '263789912268';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
-   COUNTRY + CURRENCY (SILENT)
+   COUNTRY + CURRENCY — STRICT (no silent conversion)
    ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = {
   ZW:{ code:'ZW', name:'Zimbabwe', currency:'USD' },
@@ -1118,6 +1298,20 @@ async function refineCountryFromIP(){
 detectedCountry = detectCountrySync();
 detectedCurrency = currencyFor(detectedCountry);
 
+/* ─── STRICT currency formatter: never auto-converts ─── */
+function money(amount, currency){
+  const cur = currency || detectedCurrency;
+  const sym = CURRENCY_SYMBOLS[cur] || cur + ' ';
+  const n = Math.round(Number(amount) || 0);
+  return `${sym}${n.toLocaleString('en-US')}`;
+}
+/* Only used when we explicitly want a note like "USD" or "ZAR" next to a value */
+function curTag(currency){
+  const cur = (CURRENCIES[currency] ? currency : (currency || 'USD'));
+  return cur;
+}
+const CURRENCIES = { USD:{ sym:'$', code:'USD', label:'US Dollar' }, ZAR:{ sym:'R', code:'ZAR', label:'South African Rand' }, GBP:{ sym:'£', code:'GBP', label:'British Pound' }, EUR:{ sym:'€', code:'EUR', label:'Euro' } };
+
 /* ═══════════════════════════════════════════════════════════
    TOOLS
    ═══════════════════════════════════════════════════════════ */
@@ -1155,13 +1349,37 @@ setTimeout(hideLoader, FAILSAFE_MS);
 let currentUser = null;
 let userProfile = null;
 
-let subState = 'signed-out';   // 'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'inactive'
+let subState = 'signed-out';
 let subscription = null;
 let subscriptionExpiry = null;
 let subUnsub = null;
 
 let userBookings = [];
 let bookingsUnsub = null;
+
+let userInvoices = [];
+let invoicesUnsub = null;
+
+let adminNotifications = [];
+let adminNotifsUnsub = null;
+const seenAdminNotifIds = new Set();
+
+let pendingCart = null;
+
+/* Read-state for notifications */
+let readNotifIds = new Set();
+function readNotifStoreKey(){
+  return currentUser ? `zone21_schools_read_notifs_${currentUser.uid}` : 'zone21_schools_read_notifs_guest';
+}
+function loadReadNotifIds(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(readNotifStoreKey()) || '[]');
+    readNotifIds = new Set(Array.isArray(raw) ? raw.filter(Boolean) : []);
+  } catch(e){ readNotifIds = new Set(); }
+}
+function persistReadNotifIds(){
+  try { localStorage.setItem(readNotifStoreKey(), JSON.stringify(Array.from(readNotifIds))); } catch(e){}
+}
 
 let pendingActionAfterAuth = null;
 
@@ -1176,7 +1394,7 @@ function escapeHTML(s){
   return d.innerHTML;
 }
 function showToast(msg, type = 'info', duration = 3400){
-  const wrap = $('toastWrap');
+  const wrap = $('toastWrap'); if(!wrap) return;
   const t = document.createElement('div');
   t.className = `z21-toast ${type}`;
   const icon = type === 'success' ? 'fa-circle-check'
@@ -1185,8 +1403,7 @@ function showToast(msg, type = 'info', duration = 3400){
   t.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHTML(msg)}</span>`;
   wrap.appendChild(t);
   setTimeout(() => {
-    t.style.opacity = '0';
-    t.style.transform = 'translateY(-10px)';
+    t.style.opacity = '0'; t.style.transform = 'translateY(-10px)';
     t.style.transition = 'all .3s';
     setTimeout(() => t.remove(), 300);
   }, duration);
@@ -1238,72 +1455,30 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION EVALUATION  ★ THE FIX ★
-   ─────────────────────────────────────────────────────────
-   Matches bookingsub.html's renderStatus() exactly:
-
-     Doc path : subscriptions/{uid}_annual
-     Field    : `status`
-       'pending_payment' / 'pending' → pending
-       'rejected'                    → inactive
-       'expired'                     → expired
-       'active' / 'approved'         → ACTIVE ✅
-
-   We DO NOT check `deletedAt` (bookingsub writes it via
-   deleteField(), which can linger as a truthy sentinel on
-   some SDK versions — the cause of the false negative).
-
-   We DO NOT flip an explicitly-active status to 'expired'.
-   Expiry is used only for the "days remaining" display.
+   SUBSCRIPTION EVALUATION
    ═══════════════════════════════════════════════════════════ */
 function evaluateSubscription(sub){
-  if(!sub){
-    console.debug('[Zone21] No subscription document found.');
-    return { state:'inactive', sub:null, expiresAt:null };
-  }
-
-  console.debug('[Zone21] Subscription document:', sub);
-
-  const raw    = sub.status;
+  if(!sub) return { state:'inactive', sub:null, expiresAt:null };
+  const raw = sub.status;
   const status = String(raw || 'pending_payment').toLowerCase().trim();
-
-  if(status === 'rejected'){
-    return { state:'inactive', sub, expiresAt:null };
-  }
+  if(status === 'rejected') return { state:'inactive', sub, expiresAt:null };
   if(status === 'pending' || status === 'pending_payment' || status === 'pending_manual_transfer'){
     return { state:'pending', sub, expiresAt:null };
   }
-  if(status === 'expired'){
-    return { state:'expired', sub, expiresAt: toDate(sub.expiresAt) };
-  }
-
+  if(status === 'expired') return { state:'expired', sub, expiresAt: toDate(sub.expiresAt) };
   const isActive = (status === 'active' || status === 'approved');
-  if(!isActive){
-    console.warn('[Zone21] Unrecognised subscription status:', raw);
-    return { state:'inactive', sub, expiresAt:null };
-  }
-
-  /* Derive expiry for display only — never used to gate */
-  const approvedAt = toDate(sub.approvedAt)
-                  || toDate(sub.updatedAt)
-                  || toDate(sub.createdAt);
-  const expiresAt  = toDate(sub.expiresAt)
-                  || (approvedAt
-                        ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000)
-                        : null);
-
-  console.debug('[Zone21] Subscription ACTIVE. Expires:', expiresAt);
+  if(!isActive) return { state:'inactive', sub, expiresAt:null };
+  const approvedAt = toDate(sub.approvedAt) || toDate(sub.updatedAt) || toDate(sub.createdAt);
+  const expiresAt = toDate(sub.expiresAt)
+                 || (approvedAt ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000) : null);
   return { state:'active', sub, expiresAt };
 }
-
 function attachSubListener(uid){
   if(subUnsub){ try{ subUnsub(); }catch(_){} subUnsub = null; }
-
   subState = 'checking';
   subscription = null;
   subscriptionExpiry = null;
   renderEverything();
-
   subUnsub = onSnapshot(
     doc(db, 'subscriptions', `${uid}_${PLAN_ID}`),
     snap => {
@@ -1329,13 +1504,7 @@ function attachSubListener(uid){
    ═══════════════════════════════════════════════════════════ */
 function attachBookingsListener(uid){
   if(bookingsUnsub){ try{ bookingsUnsub(); }catch(_){} bookingsUnsub = null; }
-
-  const q = query(
-    collection(db, 'bookings'),
-    where('userId', '==', uid),
-    limit(50)
-  );
-
+  const q = query(collection(db, 'bookings'), where('userId','==',uid), limit(50));
   bookingsUnsub = onSnapshot(q, snap => {
     userBookings = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     userBookings.sort((a,b) => {
@@ -1352,10 +1521,131 @@ function attachBookingsListener(uid){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   INVOICES LISTENER
+   ═══════════════════════════════════════════════════════════ */
+function attachInvoicesListener(uid){
+  if(invoicesUnsub){ try{ invoicesUnsub(); }catch(_){} invoicesUnsub = null; }
+  try {
+    const q = query(collection(db, 'invoices'), where('userId','==',uid), limit(30));
+    invoicesUnsub = onSnapshot(q, snap => {
+      userInvoices = [];
+      snap.forEach(d => userInvoices.push({ id:d.id, ...d.data() }));
+      userInvoices.sort((a,b) => {
+        const at = a.createdAt?.toMillis?.() || 0;
+        const bt = b.createdAt?.toMillis?.() || 0;
+        return bt - at;
+      });
+      renderEverything();
+    }, err => {
+      console.warn('Invoices listener:', err.message);
+    });
+  } catch(e){ console.warn('Invoices listener failed:', e); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN NOTIFICATIONS LISTENER
+   ═══════════════════════════════════════════════════════════ */
+function attachAdminNotificationsListener(uid){
+  if(adminNotifsUnsub){ try{ adminNotifsUnsub(); }catch(_){} adminNotifsUnsub = null; }
+  try {
+    const q = query(collection(db, 'notifications'), where('userId','==',uid), limit(50));
+    adminNotifsUnsub = onSnapshot(q, snap => {
+      const fresh = [];
+      snap.forEach(d => {
+        const data = { id:d.id, ...d.data() };
+        if(!seenAdminNotifIds.has(d.id)){
+          seenAdminNotifIds.add(d.id);
+          fresh.push(data);
+        }
+      });
+      adminNotifications = [];
+      snap.forEach(d => adminNotifications.push({ id:d.id, ...d.data() }));
+      adminNotifications.sort((a,b) => {
+        const at = a.createdAt?.toMillis?.() || 0;
+        const bt = b.createdAt?.toMillis?.() || 0;
+        return bt - at;
+      });
+      fresh.forEach(n => {
+        if(n.read) return;
+        const created = n.createdAt?.toMillis?.() || Date.now();
+        if(Date.now() - created < 90000){
+          showAdminToast(n);
+        }
+      });
+      renderEverything();
+    }, err => {
+      console.warn('Admin notifications listener:', err.message);
+    });
+  } catch(e){ console.warn('Admin notifications subscription failed:', e); }
+}
+
+function showAdminToast(n){
+  const stack = $('z21AdminToastStack'); if(!stack) return;
+  const iconClass = /cashout|payout/i.test(n.type || '') ? 'fa-hand-holding-dollar'
+                  : /payment|approve/i.test(n.type || '') ? 'fa-file-invoice-dollar'
+                  : 'fa-bell';
+  const title = n.title || 'Zone21 Admin';
+  const body = n.body || '';
+
+  const el = document.createElement('div');
+  el.className = 'z21-admin-toast';
+  el.innerHTML = `
+    <div class="z21-admin-toast__icon"><i class="fas ${iconClass}"></i></div>
+    <div class="z21-admin-toast__body">
+      <div class="z21-admin-toast__title">${escapeHTML(title)}</div>
+      <div class="z21-admin-toast__meta">${escapeHTML(body)}</div>
+      <button class="z21-admin-toast__cta" type="button">
+        <i class="fas fa-arrow-right"></i> View
+      </button>
+    </div>
+    <button class="z21-admin-toast__close" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+    <div class="z21-admin-toast__progress"></div>`;
+  const dismiss = () => {
+    if(!el.parentNode) return;
+    el.classList.add('dismissing');
+    setTimeout(() => el.parentNode && el.parentNode.removeChild(el), 380);
+  };
+  el.querySelector('.z21-admin-toast__cta').addEventListener('click', (e) => {
+    e.stopPropagation(); dismiss();
+    if(/cashout|payout|payment/i.test(n.type || '')) window.location.href = 'bookingsub.html';
+    else document.getElementById('notifSection')?.scrollIntoView({behavior:'smooth'});
+  });
+  el.querySelector('.z21-admin-toast__close').addEventListener('click', (e) => {
+    e.stopPropagation(); dismiss();
+  });
+  el.addEventListener('click', (e) => {
+    if(e.target.closest('.z21-admin-toast__cta') || e.target.closest('.z21-admin-toast__close')) return;
+    dismiss();
+    document.getElementById('notifSection')?.scrollIntoView({behavior:'smooth'});
+  });
+  stack.appendChild(el);
+  const timer = setTimeout(dismiss, 9000);
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+  while(stack.children.length > 3) stack.removeChild(stack.firstChild);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PENDING CART
+   ═══════════════════════════════════════════════════════════ */
+function refreshPendingCart(){
+  try {
+    const raw = localStorage.getItem('zone21_payment_cart');
+    if(!raw){ pendingCart = null; return; }
+    const parsed = JSON.parse(raw);
+    if(!parsed || !parsed.lines?.length){ pendingCart = null; return; }
+    if(Date.now() - (parsed.timestamp || 0) > 86400000){ pendingCart = null; return; }
+    pendingCart = parsed;
+  } catch(e){ pendingCart = null; }
+}
+
+/* ═══════════════════════════════════════════════════════════
    RENDER EVERYTHING
    ═══════════════════════════════════════════════════════════ */
 function renderEverything(){
+  renderPendingPaymentBanner();
   renderSubBanner();
+  renderPaymentHighlights();
+  renderPaymentReminders();
   renderNotifications();
   renderTools();
   renderRequests();
@@ -1364,11 +1654,63 @@ function renderEverything(){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   PENDING PAYMENT BANNER — STRICT currency
+   ═══════════════════════════════════════════════════════════ */
+function renderPendingPaymentBanner(){
+  const mount = $('pendingPaymentMount'); if(!mount) return;
+  mount.innerHTML = '';
+
+  if(pendingCart && pendingCart.lines?.length){
+    const lines = pendingCart.lines || [];
+    const cartCur = (pendingCart.currency && CURRENCIES[pendingCart.currency]) ? pendingCart.currency : 'USD';
+    const subtotalUsd = pendingCart.subtotalUsd || lines.reduce((s,l)=>s+(l.amountUsd||0), 0);
+    // Amount in cart currency: if cart says USD we show USD; if cart says ZAR we show ZAR
+    const subtotalDisplay = (cartCur === 'ZAR') ? (subtotalUsd * 19) : subtotalUsd;
+    const eventName = pendingCart.eventData?.name || 'your event';
+
+    const div = document.createElement('div');
+    div.className = 'pending-payment-banner';
+    div.innerHTML = `
+      <i class="fas fa-coins ico"></i>
+      <div class="pp-txt">
+        <strong>You have a pending payment on file</strong>
+        <span>${lines.length} accepted service${lines.length===1?'':'s'} · ${escapeHTML(eventName)} · est. ${money(subtotalDisplay, cartCur)} (${cartCur}) · finish checkout to lock your vendors.</span>
+      </div>
+      <a href="vendorpayments.html" class="btn-continue">
+        <i class="fas fa-arrow-right"></i> Continue Payment
+      </a>`;
+    mount.appendChild(div);
+    return;
+  }
+
+  const pendingInv = userInvoices.find(i =>
+    i.status === 'pending' || i.status === 'pending_manual_transfer' || i.status === 'pending_payment'
+  );
+  if(pendingInv){
+    const invNum = pendingInv.invoiceNumber || pendingInv.id;
+    const amount = Number(pendingInv.payNow || pendingInv.total || 0);
+    const cur = (pendingInv.currency && CURRENCIES[pendingInv.currency]) ? pendingInv.currency : 'USD';
+
+    const div = document.createElement('div');
+    div.className = 'pending-payment-banner';
+    div.innerHTML = `
+      <i class="fas fa-file-invoice-dollar ico"></i>
+      <div class="pp-txt">
+        <strong>Invoice ${escapeHTML(invNum)} awaiting approval</strong>
+        <span>${money(amount, cur)} (${cur}) · Zone21 admin is verifying your payment. Access unlocks once approved.</span>
+      </div>
+      <a href="bookingsub.html" class="btn-continue">
+        <i class="fas fa-eye"></i> View Invoice
+      </a>`;
+    mount.appendChild(div);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    SUBSCRIPTION BANNER
    ═══════════════════════════════════════════════════════════ */
 function renderSubBanner(){
-  const mount = $('subBannerMount');
-  if(!mount) return;
+  const mount = $('subBannerMount'); if(!mount) return;
 
   if(!currentUser){
     mount.innerHTML = `
@@ -1444,7 +1786,6 @@ function renderSubBanner(){
     return;
   }
 
-  // inactive
   mount.innerHTML = `
     <div class="sub-banner">
       <div class="sub-banner__icon"><i class="fas fa-lock"></i></div>
@@ -1458,13 +1799,416 @@ function renderSubBanner(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   NOTIFICATIONS
+   PAYMENT HIGHLIGHTS — STRICT currency (per-currency totals)
    ═══════════════════════════════════════════════════════════ */
-function renderNotifications(){
-  const feed = $('notifFeed');
-  if(!feed) return;
+function renderPaymentHighlights(){
+  const mount = $('payHighlightsMount'); if(!mount) return;
+  if(!currentUser){ mount.innerHTML = ''; return; }
+
+  // Paid: group by invoice's own currency
+  let paidUSD = 0, paidZAR = 0, paidOther = {}; let paidCount = 0;
+  userInvoices.forEach(inv => {
+    const st = String(inv.status || '').toLowerCase();
+    if(st !== 'paid' && st !== 'approved') return;
+    const cur = (inv.currency && CURRENCIES[inv.currency]) ? inv.currency : 'USD';
+    const amt = Number(inv.payNow || inv.total || 0);
+    paidCount++;
+    if(cur === 'USD') paidUSD += amt;
+    else if(cur === 'ZAR') paidZAR += amt;
+    else paidOther[cur] = (paidOther[cur] || 0) + amt;
+  });
+
+  // Awaiting: pending invoices + quoted bookings (each in its own currency)
+  let awaitingUSD = 0, awaitingZAR = 0, awaitingOther = {}; let awaitingCount = 0;
+  userInvoices.forEach(inv => {
+    const st = String(inv.status || '').toLowerCase();
+    if(st !== 'pending' && st !== 'pending_manual_transfer' && st !== 'pending_payment') return;
+    const cur = (inv.currency && CURRENCIES[inv.currency]) ? inv.currency : 'USD';
+    const amt = Number(inv.payNow || inv.total || 0);
+    awaitingCount++;
+    if(cur === 'USD') awaitingUSD += amt;
+    else if(cur === 'ZAR') awaitingZAR += amt;
+    else awaitingOther[cur] = (awaitingOther[cur] || 0) + amt;
+  });
+  userBookings.forEach(b => {
+    const st = String(b.status || '').toLowerCase();
+    if(st === 'quoted' && b.quotedAmount && !b.depositPaid){
+      const cur = (b.quotedCurrency && CURRENCIES[b.quotedCurrency]) ? b.quotedCurrency : detectedCurrency;
+      const amt = Number(b.quotedAmount);
+      awaitingCount++;
+      if(cur === 'USD') awaitingUSD += amt;
+      else if(cur === 'ZAR') awaitingZAR += amt;
+      else awaitingOther[cur] = (awaitingOther[cur] || 0) + amt;
+    }
+  });
+
+  if(paidCount === 0 && awaitingCount === 0){
+    mount.innerHTML = '';
+    return;
+  }
+
+  // Build display strings: show each currency separately, joined with " + "
+  function stackTotals(usd, zar, other){
+    const parts = [];
+    if(usd > 0) parts.push(money(usd, 'USD'));
+    if(zar > 0) parts.push(money(zar, 'ZAR'));
+    Object.entries(other).forEach(([c, a]) => { if(a > 0) parts.push(money(a, c)); });
+    return parts.join(' + ') || money(0, 'USD');
+  }
+
+  const paidDisplay = stackTotals(paidUSD, paidZAR, paidOther);
+  const awaitingDisplay = stackTotals(awaitingUSD, awaitingZAR, awaitingOther);
+
+  mount.innerHTML = `
+    <div class="pay-highlights">
+      <div class="pay-high-card paid" onclick="window.location.href='bookingsub.html'">
+        <div class="pay-high-card__icon"><i class="fas fa-lock"></i></div>
+        <div class="pay-high-card__body">
+          <div class="pay-high-card__lbl"><i class="fas fa-check-circle"></i> Paid &amp; Locked</div>
+          <div class="pay-high-card__amount">${paidDisplay}</div>
+          <div class="pay-high-card__meta">
+            <strong>${paidCount}</strong> payment${paidCount===1?'':'s'} confirmed
+          </div>
+          <button class="pay-high-card__cta" type="button" onclick="event.stopPropagation();window.location.href='bookingsub.html'">
+            View Invoices <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+      <div class="pay-high-card pending" onclick="scrollToPayReminders()">
+        <div class="pay-high-card__icon"><i class="fas fa-hourglass-half"></i></div>
+        <div class="pay-high-card__body">
+          <div class="pay-high-card__lbl"><i class="fas fa-exclamation-circle"></i> Awaiting Payment</div>
+          <div class="pay-high-card__amount">${awaitingDisplay}</div>
+          <div class="pay-high-card__meta">
+            ${awaitingCount === 0
+              ? `All payments up to date — nice!`
+              : `<strong>${awaitingCount}</strong> item${awaitingCount===1?'':'s'} need payment`}
+          </div>
+          ${awaitingCount > 0
+            ? `<button class="pay-high-card__cta" type="button" onclick="event.stopPropagation();scrollToPayReminders()">Pay Now <i class="fas fa-arrow-right"></i></button>`
+            : `<button class="pay-high-card__cta" type="button" onclick="event.stopPropagation();window.location.href='bookingsub.html'">View <i class="fas fa-arrow-right"></i></button>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAYMENT REMINDERS — STRICT currency (each amount shows in its own currency)
+   ═══════════════════════════════════════════════════════════ */
+function renderPaymentReminders(){
+  const wrap = $('payRemindersList'); if(!wrap) return;
 
   if(!currentUser){
+    wrap.innerHTML = `
+      <div class="empty" style="padding:32px 20px">
+        <i class="fas fa-sign-in-alt big"></i>
+        <h4>Sign in to see payment reminders</h4>
+        <p>Once signed in, actions needed on your account will appear here.</p>
+      </div>`;
+    return;
+  }
+
+  const reminders = [];
+
+  if(pendingCart && pendingCart.lines?.length){
+    const cartCur = (pendingCart.currency && CURRENCIES[pendingCart.currency]) ? pendingCart.currency : 'USD';
+    const subtotalUsd = pendingCart.subtotalUsd || 0;
+    const subtotalDisplay = (cartCur === 'ZAR') ? (subtotalUsd * 19) : subtotalUsd;
+    reminders.push({
+      type: 'cart',
+      icon: 'fa-shopping-cart',
+      title: 'Finish your vendor checkout',
+      desc: `${pendingCart.lines.length} accepted service${pendingCart.lines.length===1?'':'s'} ready to pay for <strong>${escapeHTML(pendingCart.eventData?.name || 'your event')}</strong>.`,
+      amount: subtotalDisplay,
+      currency: cartCur,
+      urgent: false,
+      ctas: [
+        { label: 'Continue Payment', icon: 'fa-arrow-right', cls: 'btn-full', action: `window.location.href='vendorpayments.html'` }
+      ]
+    });
+  }
+
+  const pendingInv = userInvoices.find(i =>
+    i.status === 'pending' || i.status === 'pending_manual_transfer' || i.status === 'pending_payment'
+  );
+  if(pendingInv){
+    const invNum = pendingInv.invoiceNumber || pendingInv.id;
+    const amount = Number(pendingInv.payNow || pendingInv.total || 0);
+    const cur = (pendingInv.currency && CURRENCIES[pendingInv.currency]) ? pendingInv.currency : 'USD';
+    reminders.push({
+      type: 'subscription_pending',
+      icon: 'fa-file-invoice-dollar',
+      title: 'Subscription payment under review',
+      desc: `Invoice <strong>${escapeHTML(invNum)}</strong> is awaiting Zone21 admin approval. Full access unlocks once confirmed.`,
+      amount: amount,
+      currency: cur,
+      urgent: false,
+      ctas: [
+        { label: 'View Invoice', icon: 'fa-eye', cls: 'btn-dep', action: `window.location.href='bookingsub.html'` }
+      ]
+    });
+  }
+
+  if(subState === 'inactive' && !pendingInv){
+    reminders.push({
+      type: 'no_sub',
+      icon: 'fa-crown',
+      title: 'Subscribe to unlock Event Tools',
+      desc: `You need an active annual plan to post requests, blueprint events, book security, and use every Event Tool.`,
+      amount: null,
+      urgent: false,
+      ctas: [
+        { label: 'Choose a Plan', icon: 'fa-crown', cls: 'btn-full', action: `window.location.href='bookingsub.html'` }
+      ]
+    });
+  }
+
+  if(subState === 'expired'){
+    reminders.push({
+      type: 'expired',
+      icon: 'fa-hourglass-end',
+      title: 'Subscription expired',
+      desc: `Your annual plan expired. Renew to keep your access live and post new requests.`,
+      amount: null,
+      urgent: true,
+      ctas: [
+        { label: 'Renew Now', icon: 'fa-sync', cls: 'btn-full', action: `window.location.href='bookingsub.html'` }
+      ]
+    });
+  }
+
+  userBookings.forEach(b => {
+    const st = String(b.status || '').toLowerCase();
+    if(st === 'quoted' && b.quotedAmount && !b.depositPaid){
+      const cur = (b.quotedCurrency && CURRENCIES[b.quotedCurrency]) ? b.quotedCurrency : detectedCurrency;
+      reminders.push({
+        type: 'quote_deposit',
+        icon: 'fa-hand-holding-usd',
+        title: `Deposit needed for ${escapeHTML(b.eventName || 'your event')}`,
+        desc: `Zone21 has quoted <strong>${money(b.quotedAmount, cur)} (${cur})</strong>. Pay the deposit to lock in your artist.`,
+        amount: b.quotedAmount,
+        currency: cur,
+        urgent: true,
+        ctas: [
+          { label: 'Accept & Pay', icon: 'fa-check', cls: 'btn-full', action: `handleQuotePayment('${b.id}')` }
+        ]
+      });
+    }
+  });
+
+  if(!reminders.length){
+    wrap.innerHTML = `
+      <div class="empty" style="padding:32px 20px;border-color:rgba(48,209,88,.4);background:linear-gradient(180deg,rgba(255,255,255,.015),rgba(48,209,88,.03))">
+        <i class="fas fa-circle-check big" style="color:var(--success)"></i>
+        <h4 style="color:var(--success)">All payments up to date</h4>
+        <p>Nothing needs your attention right now. We'll surface reminders here the moment something changes.</p>
+      </div>`;
+    return;
+  }
+
+  reminders.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+
+  wrap.innerHTML = reminders.map(r => {
+    const amountHtml = (r.amount != null)
+      ? `<div class="pay-reminder__amount">${money(r.amount, r.currency)}<small>${escapeHTML(r.currency)}</small></div>`
+      : '';
+    return `
+    <div class="pay-reminder ${r.urgent ? 'urgent' : ''}">
+      <div class="pay-reminder__icon"><i class="fas ${r.icon}"></i></div>
+      <div class="pay-reminder__body">
+        <div class="pay-reminder__title">${r.title}</div>
+        <div class="pay-reminder__desc">${r.desc}</div>
+        ${r.amount != null ? `
+          <div class="pay-reminder__meta">
+            <i class="fas fa-clock"></i>
+            <span>Action needed</span>
+            ${r.urgent ? '<span class="urgent-tag">Urgent</span>' : ''}
+          </div>` : ''}
+        <div class="pay-reminder__cta">
+          ${r.ctas.map(c => `
+            <button class="${c.cls}" onclick="${c.action}">
+              <i class="fas ${c.icon}"></i> ${c.label}
+            </button>`).join('')}
+        </div>
+      </div>
+      ${amountHtml}
+    </div>`;
+  }).join('');
+
+  window.handleQuotePayment = (bookingId) => {
+    const b = userBookings.find(x => x.id === bookingId);
+    if(!b) return;
+    showToast('Opening quote payment flow…', 'info');
+    setTimeout(() => { window.location.href = `bookingsub.html?quote=${bookingId}`; }, 400);
+  };
+}
+function scrollToPayReminders(){
+  document.getElementById('payRemindersSection')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+window.scrollToPayReminders = scrollToPayReminders;
+
+/* ═══════════════════════════════════════════════════════════
+   NOTIFICATIONS — REAL DATA ONLY + MARK ALL READ
+   ═══════════════════════════════════════════════════════════ */
+function buildNotificationItems(){
+  const items = [];
+
+  // 1. From bookings (real, timestamped)
+  userBookings.forEach(b => {
+    const createdMs = b.createdAt?.toMillis?.() || 0;
+    const updatedMs = b.updatedAt?.toMillis?.() || createdMs;
+    if(!createdMs && !updatedMs) return; // skip anything without a real timestamp
+
+    const ref = b.ref || b.requestRef || b.id;
+    const evName = b.eventName || 'Your event';
+    const status = String(b.status || 'pending').toLowerCase();
+    const when = updatedMs || createdMs;
+    const idBase = `book-${b.id}-${status}`;
+
+    if(status === 'pending'){
+      items.push({ id:idBase, type:'info', icon:'fa-clock',
+        title:`Request received · ${ref}`,
+        desc:`We're reviewing your brief for ${evName}. Expect a reply within 24 hours.`,
+        time: when });
+    } else if(status === 'reviewing'){
+      items.push({ id:idBase, type:'info', icon:'fa-magnifying-glass',
+        title:`Sourcing artist · ${ref}`,
+        desc:`Our team is negotiating with the artist for ${evName}.`,
+        time: when });
+    } else if(status === 'quoted'){
+      const cur = (b.quotedCurrency && CURRENCIES[b.quotedCurrency]) ? b.quotedCurrency : detectedCurrency;
+      const amount = b.quotedAmount ? ` at ${money(b.quotedAmount, cur)} (${cur})` : '';
+      items.push({ id:idBase, type:'gold', icon:'fa-file-invoice-dollar',
+        title:`Quote ready · ${ref}`,
+        desc:`Final quote for ${evName}${amount}. Accept to lock in.`,
+        time: when,
+        action: { label:'View Quote', icon:'fa-arrow-right', href:`bookingsub.html?quote=${b.id}` } });
+    } else if(status === 'approved'){
+      items.push({ id:idBase, type:'success', icon:'fa-circle-check',
+        title:`Booking confirmed · ${ref}`,
+        desc:`The artist is locked in for ${evName}. Details in your inbox.`,
+        time: when });
+    } else if(status === 'declined'){
+      items.push({ id:idBase, type:'error', icon:'fa-circle-xmark',
+        title:`Request declined · ${ref}`,
+        desc:`${evName} couldn't be matched${b.declineReason ? ' · ' + b.declineReason : ''}. Try a new brief.`,
+        time: when });
+    } else if(status === 'completed'){
+      items.push({ id:idBase, type:'success', icon:'fa-flag-checkered',
+        title:`Event completed · ${ref}`,
+        desc:`Hope ${evName} was a success. Leave feedback from your inbox.`,
+        time: when });
+    }
+  });
+
+  // 2. From invoices (real)
+  userInvoices.forEach(inv => {
+    const createdMs = inv.createdAt?.toMillis?.() || 0;
+    const updatedMs = inv.updatedAt?.toMillis?.() || createdMs;
+    if(!createdMs && !updatedMs) return;
+
+    const cur = (inv.currency && CURRENCIES[inv.currency]) ? inv.currency : 'USD';
+    const amount = Number(inv.payNow || inv.total || 0);
+    const invNum = inv.invoiceNumber || inv.id;
+    const st = String(inv.status || '').toLowerCase();
+    const when = updatedMs || createdMs;
+    const idBase = `inv-${inv.id}-${st}`;
+
+    if(st === 'pending' || st === 'pending_manual_transfer' || st === 'pending_payment'){
+      items.push({
+        id:idBase, type:'warn', icon:'fa-clock',
+        title:`Invoice ${invNum} under review`,
+        desc:`${money(amount, cur)} (${cur}) · Zone21 admin will approve shortly.`,
+        time: when });
+    } else if(st === 'paid' || st === 'approved'){
+      items.push({
+        id:idBase, type:'success', icon:'fa-circle-check',
+        title:`Payment approved · ${invNum}`,
+        desc:`${money(amount, cur)} (${cur}) confirmed.`,
+        time: when });
+    }
+  });
+
+  // 3. Admin notifications (real, Firestore-backed)
+  adminNotifications.slice(0, 15).forEach(n => {
+    const when = n.createdAt?.toMillis?.() || 0;
+    if(!when) return;
+    const idBase = `admin-${n.id}`;
+    items.push({
+      id: idBase,
+      type: /cashout|payout|payment/i.test(n.type||'') ? 'admin' : 'admin',
+      icon: /payment|approve/i.test(n.type||'') ? 'fa-file-invoice-dollar'
+          : /cashout|payout/i.test(n.type||'') ? 'fa-hand-holding-dollar'
+          : 'fa-user-shield',
+      title: n.title || 'Zone21 Admin',
+      desc: n.body || '',
+      time: when,
+      action: {
+        label: 'Open',
+        icon: 'fa-arrow-right',
+        href: 'bookingsub.html'
+      }
+    });
+  });
+
+  // 4. Cart pending (real, local)
+  if(pendingCart && pendingCart.lines?.length){
+    const cartCur = (pendingCart.currency && CURRENCIES[pendingCart.currency]) ? pendingCart.currency : 'USD';
+    const subUsd = pendingCart.subtotalUsd || 0;
+    const subDisplay = cartCur === 'ZAR' ? subUsd * 19 : subUsd;
+    items.push({
+      id: `cart-${pendingCart.timestamp || pendingCart.sessionId || 'pending'}`,
+      type: 'warn', icon: 'fa-cart-shopping',
+      title: `Payment cart waiting · ${pendingCart.eventData?.name || 'your event'}`,
+      desc: `${pendingCart.lines.length} service${pendingCart.lines.length===1?'':'s'} · est. ${money(subDisplay, cartCur)} (${cartCur})`,
+      time: pendingCart.timestamp || Date.now(),
+      action: { label:'Finish Checkout', icon:'fa-arrow-right', href:'vendorpayments.html' }
+    });
+  }
+
+  // 5. Subscription state (real, subscription doc)
+  if(subState === 'pending' && subscription){
+    const when = toDate(subscription.createdAt)?.getTime() || 0;
+    if(when){
+      items.push({ id:`sub-${subscription.id||'annual'}-pending`, type:'warn', icon:'fa-clock',
+        title:'Subscription payment under review',
+        desc:`Invoice ${subscription.invoiceNumber || '—'} is being verified.`,
+        time: when,
+        action: { label:'View', icon:'fa-eye', href:'bookingsub.html' } });
+    }
+  } else if(subState === 'active' && subscription){
+    const when = toDate(subscription.approvedAt)?.getTime()
+              || toDate(subscription.createdAt)?.getTime() || 0;
+    if(when){
+      items.push({ id:`sub-${subscription.id||'annual'}-active`, type:'success', icon:'fa-crown',
+        title:'Subscription active',
+        desc:'Full Access is live. Post unlimited event requests and use every Event Tool.',
+        time: when });
+    }
+  } else if(subState === 'expired'){
+    items.push({ id:'sub-expired', type:'warn', icon:'fa-hourglass-end',
+      title:'Subscription expired',
+      desc:'Renew to keep posting requests and using Event Tools.',
+      time: Date.now(),
+      action: { label:'Renew', icon:'fa-sync', href:'bookingsub.html' } });
+  } else if(subState === 'inactive'){
+    items.push({ id:'sub-inactive', type:'warn', icon:'fa-lock',
+      title:'No active subscription',
+      desc:'Subscribe to the annual plan to post requests and unlock all tools.',
+      time: Date.now(),
+      action: { label:'View Plans', icon:'fa-crown', href:'bookingsub.html' } });
+  }
+
+  items.sort((a, b) => b.time - a.time);
+  return items;
+}
+
+function renderNotifications(){
+  const feed = $('notifFeed'); if(!feed) return;
+  const toolbar = $('notifToolbar'); if(!toolbar) return;
+
+  if(!currentUser){
+    toolbar.innerHTML = '';
     feed.innerHTML = `
       <div class="empty">
         <i class="fas fa-bell-slash big"></i>
@@ -1474,68 +2218,41 @@ function renderNotifications(){
     return;
   }
 
-  const items = [];
+  const items = buildNotificationItems();
+  items.forEach(it => { it.read = readNotifIds.has(it.id); });
+  const unread = items.filter(i => !i.read);
 
-  userBookings.forEach(b => {
-    const when = b.createdAt?.toMillis?.() || Date.now();
-    const ref = b.ref || b.requestRef || '—';
-    const evName = b.eventName || 'Your event';
-    const status = (b.status || 'pending').toLowerCase();
+  toolbar.innerHTML = `
+    <span class="pill-count ${unread.length === 0 ? 'zero' : ''}">
+      ${unread.length === 0 ? 'All caught up' : `${unread.length} unread`}
+    </span>
+    <button id="markAllReadBtn" ${unread.length === 0 ? 'disabled' : ''}>
+      <i class="fas fa-check-double"></i> Mark All Read
+    </button>
+    <button id="clearNotifsBtn" ${items.length === 0 ? 'disabled' : ''}>
+      <i class="fas fa-eraser"></i> Clear All
+    </button>
+  `;
 
-    if(status === 'pending'){
-      items.push({ type:'info', icon:'fa-clock',
-        title:`Request received · ${ref}`,
-        desc:`We're reviewing your brief for ${evName}. Expect a reply within 24 hours.`,
-        time: when });
-    } else if(status === 'reviewing'){
-      items.push({ type:'info', icon:'fa-magnifying-glass',
-        title:`Sourcing artist · ${ref}`,
-        desc:`Our team is negotiating with the artist for ${evName}.`,
-        time: b.updatedAt?.toMillis?.() || when });
-    } else if(status === 'quoted'){
-      const amount = b.quotedAmount ? ` at ${money(b.quotedAmount, b.quotedCurrency || b.currency || detectedCurrency)}` : '';
-      items.push({ type:'gold', icon:'fa-file-invoice-dollar',
-        title:`Quote ready · ${ref}`,
-        desc:`Final quote for ${evName}${amount}. Check your inbox to accept or discuss.`,
-        time: b.updatedAt?.toMillis?.() || when });
-    } else if(status === 'approved'){
-      items.push({ type:'success', icon:'fa-circle-check',
-        title:`Booking confirmed · ${ref}`,
-        desc:`The artist is locked in for ${evName}. Details in your inbox.`,
-        time: b.updatedAt?.toMillis?.() || when });
-    } else if(status === 'declined'){
-      items.push({ type:'error', icon:'fa-circle-xmark',
-        title:`Request declined · ${ref}`,
-        desc:`${evName} couldn't be matched${b.declineReason ? ' · ' + b.declineReason : ''}. Try a new brief.`,
-        time: b.updatedAt?.toMillis?.() || when });
-    } else if(status === 'completed'){
-      items.push({ type:'success', icon:'fa-flag-checkered',
-        title:`Event completed · ${ref}`,
-        desc:`Hope ${evName} was a success. Leave feedback from your inbox.`,
-        time: b.updatedAt?.toMillis?.() || when });
-    }
-  });
-
-  if(subState === 'pending' && subscription){
-    items.push({ type:'warn', icon:'fa-clock',
-      title:'Payment under review',
-      desc:`Invoice ${subscription.invoiceNumber || '—'} is being verified. Full access unlocks automatically.`,
-      time: toDate(subscription.createdAt)?.getTime() || Date.now() });
-  } else if(subState === 'active' && subscription){
-    items.push({ type:'success', icon:'fa-crown',
-      title:'Subscription active',
-      desc:'Full Access is live. Post unlimited event requests and use every Event Tool.',
-      time: toDate(subscription.approvedAt)?.getTime()
-          || toDate(subscription.createdAt)?.getTime()
-          || Date.now() });
-  } else if(subState === 'expired'){
-    items.push({ type:'warn', icon:'fa-hourglass-end',
-      title:'Subscription expired',
-      desc:'Renew to keep posting requests and using Event Tools.',
-      time: Date.now() });
+  const markBtn = $('markAllReadBtn');
+  if(markBtn && unread.length > 0){
+    markBtn.onclick = () => {
+      items.forEach(it => readNotifIds.add(it.id));
+      persistReadNotifIds();
+      renderNotifications();
+      showToast('All notifications marked as read.', 'success');
+    };
   }
-
-  items.sort((a,b) => b.time - a.time);
+  const clearBtn = $('clearNotifsBtn');
+  if(clearBtn && items.length > 0){
+    clearBtn.onclick = () => {
+      if(!confirm('Clear all notifications? They will disappear from your feed (the underlying records stay).')) return;
+      items.forEach(it => readNotifIds.add(it.id));
+      persistReadNotifIds();
+      renderNotifications();
+      showToast('Notifications cleared.', 'info');
+    };
+  }
 
   if(!items.length){
     feed.innerHTML = `
@@ -1550,15 +2267,39 @@ function renderNotifications(){
     return;
   }
 
-  feed.innerHTML = items.slice(0, 10).map(it => `
-    <div class="notif ${it.type}">
-      <div class="notif__icon"><i class="fas ${it.icon}"></i></div>
-      <div class="notif__body">
-        <div class="notif__title">${escapeHTML(it.title)}</div>
-        <div class="notif__desc">${escapeHTML(it.desc)}</div>
-        <div class="notif__time"><i class="far fa-clock"></i> ${timeAgo(it.time)}</div>
-      </div>
-    </div>`).join('');
+  const limited = items.slice(0, 12);
+
+  feed.innerHTML = limited.map(it => {
+    const actionHtml = it.action
+      ? (it.action.href
+          ? `<a class="notif__action" href="${escapeHTML(it.action.href)}"><i class="fas ${escapeHTML(it.action.icon || 'fa-arrow-right')}"></i> ${escapeHTML(it.action.label)}</a>`
+          : `<button class="notif__action" onclick="${escapeHTML(it.action.action || '')}"><i class="fas ${escapeHTML(it.action.icon || 'fa-arrow-right')}"></i> ${escapeHTML(it.action.label)}</button>`)
+      : '';
+    return `
+      <div class="notif ${it.type} ${it.read?'read':''}">
+        <div class="notif__icon"><i class="fas ${it.icon}"></i></div>
+        <div class="notif__body">
+          <div class="notif__title">
+            ${!it.read ? '<span class="notif__unread-dot"></span>' : ''}
+            ${escapeHTML(it.title)}
+          </div>
+          <div class="notif__desc">${escapeHTML(it.desc)}</div>
+          ${actionHtml}
+          <div class="notif__time"><i class="far fa-clock"></i> ${timeAgo(it.time)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if(items.length > 12){
+    feed.innerHTML += `<div style="text-align:center;padding:.6rem 0;font-size:12px;color:var(--text-dim);font-weight:600">Showing 12 of ${items.length} notifications.</div>`;
+  }
+
+  // Update nav badge
+  const badge = $('navNotifBtn')?.querySelector('.b');
+  if(badge){
+    if(unread.length > 0){ badge.textContent = unread.length > 9 ? '9+' : unread.length; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1653,6 +2394,36 @@ function renderRequests(){
     const name = b.eventName || 'Untitled event';
     const artist = b.preferredArtistName || b.artistName || 'No preference';
     const dateStr = b.eventDate ? fmtDate(new Date(b.eventDate + 'T00:00:00')) : '—';
+
+    let actionsHtml = '';
+    if(status === 'quoted'){
+      const cur = (b.quotedCurrency && CURRENCIES[b.quotedCurrency]) ? b.quotedCurrency : detectedCurrency;
+      const amtStr = b.quotedAmount ? ` (${money(b.quotedAmount, cur)} ${cur})` : '';
+      actionsHtml = `
+        <div class="req-card__actions">
+          <button class="primary" onclick="window.location.href='bookingsub.html?quote=${b.id}'">
+            <i class="fas fa-check"></i> Accept${amtStr ? '' : ' & Pay'} Deposit
+          </button>
+          <button onclick="showToast('Quote details sent to your inbox.','info')">
+            <i class="fas fa-eye"></i> View Quote
+          </button>
+        </div>`;
+    } else if(status === 'pending' || status === 'reviewing'){
+      actionsHtml = `
+        <div class="req-card__actions">
+          <button onclick="window.location.href='bookinginbox.html'">
+            <i class="fas fa-comment"></i> Message Zone21
+          </button>
+        </div>`;
+    } else if(status === 'approved'){
+      actionsHtml = `
+        <div class="req-card__actions">
+          <button class="primary" onclick="window.location.href='bookinginbox.html'">
+            <i class="fas fa-circle-info"></i> View Confirmation
+          </button>
+        </div>`;
+    }
+
     return `
       <div class="req-card ${status}">
         <div class="req-card__icon"><i class="fas fa-calendar-day"></i></div>
@@ -1669,6 +2440,7 @@ function renderRequests(){
           <div class="req-card__footer">
             <span class="req-card__status ${status}">${statusLabel}</span>
           </div>
+          ${actionsHtml}
         </div>
       </div>`;
   }).join('');
@@ -1686,7 +2458,24 @@ function renderNavUser(){
     const avatarHtml = userProfile.avatarUrl
       ? `<img src="${escapeHTML(userProfile.avatarUrl)}" alt="">`
       : escapeHTML(initial);
-    zone.innerHTML = `<button class="z21-avatar" id="navAvatar" aria-label="Open account menu">${avatarHtml}</button>`;
+
+    // Compute unread count for badge
+    const items = buildNotificationItems();
+    const unreadCount = items.filter(i => !readNotifIds.has(i.id)).length;
+
+    zone.innerHTML = `
+      <button class="z21-icon-nav" id="navNotifBtn" title="Notifications">
+        <i class="fas fa-bell"></i>
+        ${unreadCount > 0 ? `<span class="b">${unreadCount > 9 ? '9+' : unreadCount}</span>` : ''}
+      </button>
+      <button class="z21-avatar" id="navAvatar" aria-label="Open account menu">${avatarHtml}</button>
+    `;
+
+    const nb = $('navNotifBtn');
+    if(nb) nb.addEventListener('click', () => {
+      document.getElementById('notifSection')?.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+
     const av = $('navAvatar');
     if(av){
       av.addEventListener('click', (e) => {
@@ -1739,11 +2528,17 @@ onAuthStateChanged(auth, async (user) => {
   if(!user){
     if(subUnsub){ try{ subUnsub(); }catch(_){} subUnsub = null; }
     if(bookingsUnsub){ try{ bookingsUnsub(); }catch(_){} bookingsUnsub = null; }
+    if(invoicesUnsub){ try{ invoicesUnsub(); }catch(_){} invoicesUnsub = null; }
+    if(adminNotifsUnsub){ try{ adminNotifsUnsub(); }catch(_){} adminNotifsUnsub = null; }
     userProfile = null;
     subscription = null;
     subscriptionExpiry = null;
     userBookings = [];
+    userInvoices = [];
+    adminNotifications = [];
     subState = 'signed-out';
+    readNotifIds = new Set();
+    refreshPendingCart();
     renderEverything();
     hideLoader();
     return;
@@ -1764,12 +2559,25 @@ onAuthStateChanged(auth, async (user) => {
     userProfile = { name: user.displayName || 'Member', email: user.email };
   }
 
+  loadReadNotifIds();
+  refreshPendingCart();
   attachSubListener(user.uid);
   attachBookingsListener(user.uid);
+  attachInvoicesListener(user.uid);
+  attachAdminNotificationsListener(user.uid);
   renderEverything();
   hideLoader();
 
   afterAuthResume();
+});
+
+window.addEventListener('storage', (e) => {
+  if(e.key === 'zone21_payment_cart'){
+    refreshPendingCart();
+    renderPendingPaymentBanner();
+    renderPaymentReminders();
+    renderNotifications();
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -1785,17 +2593,13 @@ function afterAuthResume(){
     attempts++;
     if(currentUser && userProfile && subState !== 'checking'){
       clearInterval(interval);
-
       if(subState !== 'active'){
         showToast('Subscribe first to post requests.', 'error');
         openGateModal('request');
         return;
       }
-      if(action.type === 'request'){
-        openRequestModal();
-      } else if(action.type === 'gate'){
-        openGateModal();
-      }
+      if(action.type === 'request'){ openRequestModal(); }
+      else if(action.type === 'gate'){ openGateModal(); }
       return;
     }
     if(attempts > 60){
@@ -1831,9 +2635,6 @@ async function startRequestFlow(){
     openAuthModal('signup');
     return;
   }
-
-  // Fresh check — re-read the doc directly so a stale subState can't
-  // block a legitimately-active user.
   try{
     const snap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${PLAN_ID}`));
     const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
@@ -1845,13 +2646,11 @@ async function startRequestFlow(){
   }catch(e){
     console.warn('Fresh subscription check failed:', e);
   }
-
   if(subState !== 'active'){
     showToast('Please subscribe first to post requests.', 'error');
     openGateModal('request');
     return;
   }
-
   openRequestModal();
 }
 
@@ -1862,7 +2661,6 @@ function openRequestModal(){
   clearFormMsg('reqMsg');
   $('requestForm').style.display = '';
   $('requestSuccess').style.display = 'none';
-
   $('requestForm').reset();
 
   const today = new Date();
@@ -1890,19 +2688,11 @@ function applyCurrencyToForm(){
   sel.value = detectedCurrency;
   updateBudgetSymbol();
 }
-
 function updateBudgetSymbol(){
   const cur = $('reqCurrency')?.value || detectedCurrency;
   const sym = CURRENCY_SYMBOLS[cur] || cur;
   const el = $('reqBudgetSym');
   if(el) el.textContent = sym;
-}
-
-function money(amount, currency){
-  const cur = currency || detectedCurrency;
-  const sym = CURRENCY_SYMBOLS[cur] || cur + ' ';
-  const n = Math.round(Number(amount) || 0);
-  return `${sym}${n.toLocaleString('en-US')}`;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1912,7 +2702,6 @@ $('requestForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('reqMsg');
 
-  // Fresh check right before submitting
   try{
     const snap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${PLAN_ID}`));
     const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
@@ -1940,6 +2729,8 @@ $('requestForm').addEventListener('submit', async (e) => {
       .map(i => i.value);
 
     const ref = genRef('ER');
+    const reqCurrency = $('reqCurrency').value || detectedCurrency;
+    const reqBudget = Number($('reqBudget').value) || 0;
 
     const payload = {
       ref,
@@ -1967,8 +2758,8 @@ $('requestForm').addEventListener('submit', async (e) => {
       performanceType: $('reqPerfType').value,
       artistNotes: $('reqArtistNotes').value.trim(),
 
-      budget: Number($('reqBudget').value) || 0,
-      currency: $('reqCurrency').value || detectedCurrency,
+      budget: reqBudget,
+      currency: reqCurrency,
       budgetFlexible: $('reqFlexible').checked,
       paymentMethod: $('reqPayment').value,
       requirements,
@@ -2001,7 +2792,7 @@ $('requestForm').addEventListener('submit', async (e) => {
         `Attendance: ${payload.attendance || '—'}`,
         `Artist wanted: ${payload.preferredArtistName}`,
         `Performance: ${payload.performanceType}${payload.genrePreference ? ' · ' + payload.genrePreference : ''}`,
-        `Budget: ${money(payload.budget, payload.currency)}${payload.budgetFlexible ? ' (flexible)' : ''}`,
+        `Budget: ${money(payload.budget, payload.currency)} (${payload.currency})${payload.budgetFlexible ? ' (flexible)' : ''}`,
         `Payment: ${payload.paymentMethod}`,
         `We arrange: ${requirements.length ? requirements.join(', ') : '—'}`,
         ``,
@@ -2051,7 +2842,6 @@ function openAuthModal(mode = 'signin'){
   populateSignupCountries();
   openModal('authModal');
 }
-
 function populateSignupCountries(){
   const sel = $('signupCountry');
   if(!sel) return;
@@ -2060,7 +2850,6 @@ function populateSignupCountries(){
   ).join('');
   if(COUNTRIES[detectedCountry]) sel.value = detectedCountry;
 }
-
 function hideResetPanel(){
   const panel = $('resetPanel');
   if(panel) panel.style.display = 'none';
@@ -2071,15 +2860,12 @@ function showResetPanel(){
   clearFormMsg('resetMsg');
   const typed = ($('signinEmail')?.value || '').trim();
   if(typed) $('resetEmail').value = typed;
-
   $('signinForm').style.display = 'none';
   $('signupForm').style.display = 'none';
   $('authTabs').style.display = 'none';
   $('resetPanel').style.display = '';
-
   $('authTitle').textContent = 'Reset your password';
   $('authSub').textContent = "We'll email you a secure link to set a new password.";
-
   setTimeout(() => { try{ $('resetEmail').focus(); }catch(_){} }, 60);
 }
 function switchAuthTab(mode){
@@ -2185,21 +2971,16 @@ $('signupForm').addEventListener('submit', async (e) => {
 });
 
 $('forgotPasswordBtn').addEventListener('click', showResetPanel);
-
-$('resetBackBtn').addEventListener('click', () => {
-  switchAuthTab('signin');
-});
+$('resetBackBtn').addEventListener('click', () => { switchAuthTab('signin'); });
 
 $('resetForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('resetMsg');
-
   const email = $('resetEmail').value.trim();
   if(!email){
     showFormMsg('resetMsg', 'Please enter the email address on your account.', 'error');
     return;
   }
-
   const btn = $('resetSubmit');
   if(btn.disabled) return;
   const orig = btn.innerHTML;
@@ -2272,6 +3053,7 @@ $('reqCurrency').addEventListener('change', updateBudgetSymbol);
    ═══════════════════════════════════════════════════════════ */
 detectedCountry = detectCountrySync();
 detectedCurrency = currencyFor(detectedCountry);
+refreshPendingCart();
 
 renderEverything();
 refineCountryFromIP();

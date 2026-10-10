@@ -12,6 +12,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
+<!--
+═══════════════════════════════════════════════════════════════════
+  ZONE21 · ORGANIZER DASHBOARD  (v2 — Multi-country + Multi-currency)
+
+  WHAT'S NEW
+  ──────────
+  · Silent location detection: timezone → language → IP
+  · Location banner under the hero + currency switcher (USD / ZAR)
+  · Global currency per event — set once at the top of the form
+  · Each ticket type's price input shows the correct symbol
+    (auto-updates when currency changes)
+  · Events store `currency` + ticket prices in that currency
+  · List view + commission box + terms modal render in the right
+    currency
+  · Pre-fill from user profile (name, email, country, currency)
+  · Existing flows (draft / pending / approved / cancellation
+    request / submit for review) all preserved
+═══════════════════════════════════════════════════════════════════
+-->
+
 <style>
 :root{
   --bg:#000;--surface:#101012;--surface-2:#18181b;--surface-3:#222226;--surface-4:#2a2a2e;
@@ -90,6 +110,52 @@ body.z21-loading{ overflow:hidden; }
 .z21-hero p{font-size:14.5px;color:var(--text-muted);line-height:1.55;max-width:520px;}
 .z21-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;}
 
+/* LOCATION + CURRENCY ROW */
+.z21-loc-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-top:16px;
+}
+.z21-loc-banner{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:8px 16px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:100px;
+  font-size:12.5px;color:var(--text-muted);font-weight:600;
+  transition:all .2s;
+}
+.z21-loc-banner .flag{font-size:16px;line-height:1}
+.z21-loc-banner strong{color:#fff;font-weight:700}
+.z21-loc-banner .cur-chip{
+  padding:3px 10px;border-radius:100px;
+  background:rgba(250,36,60,.14);
+  border:1px solid rgba(250,36,60,.3);
+  color:#ff9aa5;font-size:10.5px;font-weight:800;
+  letter-spacing:.06em;
+}
+.z21-cur-switch{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:5px 5px 5px 14px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:100px;
+}
+.z21-cur-switch__label{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10.5px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);white-space:nowrap;
+}
+.z21-cur-switch__label i{color:var(--accent);font-size:11px}
+.z21-cur-opts{display:flex;gap:3px;background:rgba(0,0,0,.4);border-radius:100px;padding:3px}
+.z21-cur-opts button{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;
+  font-size:12px;font-weight:800;letter-spacing:-.01em;
+  color:var(--text-muted);transition:all .2s;white-space:nowrap;
+}
+.z21-cur-opts button:hover{color:#fff}
+.z21-cur-opts button.active{
+  background:var(--accent);color:#fff;
+  box-shadow:0 6px 18px var(--accent-glow);
+}
+
 .z21-btn{padding:11px 22px;border-radius:100px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:8px;transition:all .2s;text-decoration:none;}
 .z21-btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 24px var(--accent-glow);}
 .z21-btn-primary:hover{background:var(--accent-2);transform:translateY(-1px);box-shadow:0 12px 32px var(--accent-glow)}
@@ -121,6 +187,16 @@ body.z21-loading{ overflow:hidden; }
 .z21-field input[type="file"]{padding:9px 12px;font-size:12.5px;color:var(--text-muted);cursor:pointer;}
 .z21-field input[type="file"]::file-selector-button{background:rgba(255,255,255,.08);color:var(--text);border:none;padding:5px 12px;border-radius:6px;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer;margin-right:10px;}
 
+/* CURRENCY PREFIX INPUT */
+.z21-price-wrap{position:relative}
+.z21-price-wrap .z21-price-sym{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:14px;font-weight:800;color:var(--text-dim);
+  pointer-events:none;transition:color .2s;
+}
+.z21-price-wrap input{padding-left:44px !important;}
+.z21-price-wrap input:focus ~ .z21-price-sym{color:var(--accent)}
+
 .z21-poster-preview{width:100%;max-width:280px;height:auto;border-radius:var(--radius);margin-top:10px;border:1px solid var(--border);}
 .z21-ticket-preview{max-width:120px;height:auto;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
 
@@ -128,6 +204,39 @@ body.z21-loading{ overflow:hidden; }
 .z21-mode-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(10,132,255,.08);border:1px solid rgba(10,132,255,.25);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12.5px;color:#7ab8ff;font-weight:600;}
 .z21-mode-banner i{font-size:14px}
 .z21-mode-banner.new{background:rgba(48,209,88,.08);border-color:rgba(48,209,88,.28);color:#7ee89a}
+
+/* EVENT CURRENCY PICKER */
+.z21-event-cur{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:14px;flex-wrap:wrap;
+  padding:16px 18px;margin-bottom:18px;
+  background:linear-gradient(135deg,rgba(250,36,60,.08),rgba(250,36,60,.02));
+  border:1px solid rgba(250,36,60,.28);border-radius:var(--radius);
+}
+.z21-event-cur-info{flex:1;min-width:200px}
+.z21-event-cur-info strong{
+  display:block;font-size:14px;font-weight:800;
+  color:var(--text);margin-bottom:4px;
+  display:flex;align-items:center;gap:8px;
+}
+.z21-event-cur-info strong i{color:var(--accent);font-size:13px}
+.z21-event-cur-info small{
+  display:block;font-size:12.5px;color:var(--text-muted);line-height:1.5;
+}
+.z21-event-cur-select{
+  display:flex;gap:4px;padding:4px;
+  background:rgba(0,0,0,.4);border-radius:100px;
+}
+.z21-event-cur-select button{
+  padding:9px 18px;border-radius:100px;
+  font-size:13px;font-weight:800;letter-spacing:-.01em;
+  color:var(--text-muted);transition:all .2s;white-space:nowrap;
+}
+.z21-event-cur-select button:hover{color:#fff}
+.z21-event-cur-select button.active{
+  background:var(--accent);color:#fff;
+  box-shadow:0 6px 18px var(--accent-glow);
+}
 
 /* TICKET ROWS */
 .z21-ticket-row{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;position:relative;transition:all .2s;}
@@ -150,6 +259,7 @@ body.z21-loading{ overflow:hidden; }
 .z21-commission .z21-label{font-weight:800;color:var(--text);font-size:14px;display:flex;align-items:center;gap:8px;}
 .z21-commission .z21-label i{color:var(--accent);font-size:13px;}
 .z21-commission .z21-detail{font-size:12.5px;color:var(--text-muted);margin-top:4px;}
+.z21-commission .z21-detail strong{color:#ff9aa5;font-weight:800;}
 .z21-commission .z21-rate{background:var(--accent);color:#fff;padding:8px 20px;border-radius:100px;font-weight:800;font-size:22px;letter-spacing:-.02em;box-shadow:0 8px 24px var(--accent-glow);}
 
 /* SUBMIT BUTTONS */
@@ -172,6 +282,13 @@ body.z21-loading{ overflow:hidden; }
 .z21-event-card .z21-ev-title-row strong{font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--text);}
 .z21-event-card .z21-ev-meta{font-size:12.5px;color:var(--text-dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .z21-event-card .z21-ev-meta i{font-size:11px;color:var(--text-dim);}
+.z21-event-card .z21-ev-currency{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10.5px;font-weight:800;letter-spacing:.06em;
+  padding:3px 9px;border-radius:100px;
+  background:rgba(10,132,255,.14);color:#7ab8ff;
+  border:1px solid rgba(10,132,255,.3);white-space:nowrap;
+}
 .z21-event-card .z21-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
 .z21-icon-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
 .z21-icon-btn:hover{background:rgba(255,255,255,.12);color:var(--text);border-color:var(--border-2);}
@@ -223,11 +340,13 @@ body.z21-loading{ overflow:hidden; }
 .z21-terms-highlight{background:linear-gradient(135deg,rgba(250,36,60,.08),rgba(250,36,60,.02));border:1px solid rgba(250,36,60,.28);border-radius:var(--radius);padding:16px 18px;margin:16px 0;font-size:13.5px;line-height:1.65;color:var(--text-muted);}
 .z21-terms-highlight strong{color:var(--text);font-weight:700;}
 .z21-terms-highlight i{color:var(--accent);}
+.z21-terms-highlight em{color:#ff9aa5;font-style:normal;font-weight:800;}
 .z21-modal-body h4{color:var(--text);font-size:14.5px;font-weight:800;margin-top:22px;margin-bottom:10px;letter-spacing:-.01em;}
 .z21-modal-body p{color:var(--text-muted);font-size:13.5px;line-height:1.65;margin-bottom:10px;}
 .z21-modal-body ul{list-style:none;padding-left:0;margin-bottom:14px;}
 .z21-modal-body ul li{padding-left:20px;position:relative;color:var(--text-muted);font-size:13.5px;line-height:1.6;margin-bottom:6px;}
 .z21-modal-body ul li::before{content:"▸";color:var(--accent);position:absolute;left:2px;font-weight:800;font-size:12px;}
+.z21-modal-body ul li strong{color:var(--text);font-weight:700;}
 .z21-modal-body hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
 .z21-btn-close-modal{background:var(--accent);color:#fff;border:none;padding:14px 24px;border-radius:100px;font-weight:800;font-size:14px;cursor:pointer;margin-top:16px;width:100%;transition:all .2s;box-shadow:0 8px 24px var(--accent-glow);}
 .z21-btn-close-modal:hover{background:var(--accent-2);transform:translateY(-1px);}
@@ -247,6 +366,13 @@ body.z21-loading{ overflow:hidden; }
   .z21-toast-wrap{top:auto;bottom:20px}
   .z21-modal-panel{border-radius:22px}
   .z21-modal-head,.z21-modal-body{padding-left:20px;padding-right:20px}
+  .z21-cur-switch{padding:5px}
+  .z21-cur-switch__label{display:none}
+  .z21-cur-opts{flex:1}
+  .z21-cur-opts button{flex:1;justify-content:center}
+  .z21-event-cur{flex-direction:column;align-items:flex-start}
+  .z21-event-cur-select{width:100%}
+  .z21-event-cur-select button{flex:1;justify-content:center}
 }
 </style>
 </head>
@@ -297,7 +423,25 @@ body.z21-loading{ overflow:hidden; }
   <section class="z21-hero">
     <div class="z21-hero-tag"><i class="fas fa-calendar-check"></i> Organizer</div>
     <h1>Your <span class="grad">event dashboard</span>.</h1>
-    <p>Create unlimited events, manage tickets, and track cancellation requests — all in one place.</p>
+    <p>Create unlimited events, manage tickets in USD or ZAR, and track cancellation requests — all in one place.</p>
+
+    <!-- Location + currency -->
+    <div class="z21-loc-row">
+      <button class="z21-loc-banner" id="locBanner" type="button" aria-label="Detected location">
+        <span class="flag" id="locFlag">🇿🇼</span>
+        <span>Showing <strong id="locCountry">Zimbabwe</strong></span>
+        <span class="cur-chip" id="locCurrencyChip">USD</span>
+      </button>
+
+      <div class="z21-cur-switch" id="currencySwitch">
+        <span class="z21-cur-switch__label"><i class="fas fa-globe"></i> Default Currency</span>
+        <div class="z21-cur-opts">
+          <button type="button" data-currency="USD">🇺🇸 USD $</button>
+          <button type="button" data-currency="ZAR">🇿🇦 ZAR R</button>
+        </div>
+      </div>
+    </div>
+
     <div class="z21-hero-actions">
       <button class="z21-btn z21-btn-primary" id="createEventBtn"><i class="fas fa-plus-circle"></i> Create New Event</button>
       <button class="z21-btn z21-btn-ghost" id="refreshBtn"><i class="fas fa-sync"></i> Refresh</button>
@@ -311,6 +455,19 @@ body.z21-loading{ overflow:hidden; }
       <i class="fas fa-circle-info"></i>
       <span id="form-mode-text">You are editing an existing event.</span>
     </div>
+
+    <!-- EVENT CURRENCY PICKER -->
+    <div class="z21-event-cur">
+      <div class="z21-event-cur-info">
+        <strong><i class="fas fa-coins"></i> Event Currency</strong>
+        <small>All ticket prices below will be billed in this currency. Once published, the currency is locked to protect ticket holders.</small>
+      </div>
+      <div class="z21-event-cur-select" id="eventCurrencySelect">
+        <button type="button" data-cur="USD">🇺🇸 USD $</button>
+        <button type="button" data-cur="ZAR">🇿🇦 ZAR R</button>
+      </div>
+    </div>
+
     <form id="event-form">
       <div class="z21-form-row">
         <div class="z21-field">
@@ -339,11 +496,11 @@ body.z21-loading{ overflow:hidden; }
       </div>
       <div class="z21-form-row">
         <div class="z21-field">
-          <label>Start Date & Time <span class="req">*</span></label>
+          <label>Start Date &amp; Time <span class="req">*</span></label>
           <input type="datetime-local" id="startDate" required />
         </div>
         <div class="z21-field">
-          <label>End Date & Time <span class="req">*</span></label>
+          <label>End Date &amp; Time <span class="req">*</span></label>
           <input type="datetime-local" id="endDate" required />
         </div>
       </div>
@@ -406,23 +563,23 @@ body.z21-loading{ overflow:hidden; }
     <button type="button" class="z21-add-ticket-btn" id="add-ticket-btn">
       <i class="fas fa-plus"></i> Add Ticket Type
     </button>
-    <p class="z21-field" style="margin-top:12px;"><span class="helper">Add at least one ticket type. Each type can have its own price, quantity, and custom design.</span></p>
+    <p class="z21-field" style="margin-top:12px;"><span class="helper">Add at least one ticket type. All prices use the event currency selected above.</span></p>
   </div>
 
   <!-- TERMS & SUBMIT -->
   <div class="z21-card z21-hidden" id="terms-submit-card">
-    <h2><i class="fas fa-file-signature"></i> Terms & Submission</h2>
+    <h2><i class="fas fa-file-signature"></i> Terms &amp; Submission</h2>
     <div class="z21-commission">
       <div>
         <div class="z21-label"><i class="fas fa-percent"></i> Zone21 Ticketing Fee</div>
-        <div class="z21-detail">2% commission on every ticket sold through the platform</div>
+        <div class="z21-detail">2% commission on every ticket sold — <strong id="commissionExample">2% of $100 = $2</strong></div>
       </div>
       <div class="z21-rate">2%</div>
     </div>
 
     <label class="z21-checkbox" for="agreeTerms">
       <input type="checkbox" id="agreeTerms" required />
-      <span>I agree to the <span class="z21-terms-link" id="open-terms">Zone21 Organizer Terms & Conditions</span>, including the <strong>2% ticketing commission</strong> on all ticket sales. <span style="color:var(--accent)">*</span></span>
+      <span>I agree to the <span class="z21-terms-link" id="open-terms">Zone21 Organizer Terms &amp; Conditions</span>, including the <strong>2% ticketing commission</strong> on all ticket sales. <span style="color:var(--accent)">*</span></span>
     </label>
 
     <label class="z21-checkbox" for="agreeRights">
@@ -501,27 +658,28 @@ body.z21-loading{ overflow:hidden; }
     <div class="z21-modal-body">
       <div class="z21-terms-highlight">
         <strong><i class="fas fa-percent"></i> 2% ZONE21 TICKETING COMMISSION</strong><br><br>
-        For every ticket sold through the Zone21 platform, the Organizer agrees that Zone21 will receive a <strong>2% ticketing commission</strong>. The commission is calculated on the ticket price paid by the customer.
+        For every ticket sold through the Zone21 platform, the Organizer agrees that Zone21 will receive a <strong>2% ticketing commission</strong>. The commission is calculated on the ticket price paid by the customer and is deducted in the same currency as the ticket.
       </div>
-      <h4>Example</h4>
-      <p>If a customer purchases a ticket for US$100:</p>
+
+      <h4>Example (<span id="termsCurrencyLabel">USD</span>)</h4>
+      <p>If a customer purchases a ticket for <strong id="termsTicketPrice">US$100</strong>:</p>
       <ul>
-        <li><strong>Ticket price:</strong> US$100</li>
-        <li><strong>Zone21 commission (2%):</strong> US$2</li>
-        <li><strong>Amount remaining:</strong> US$98</li>
+        <li><strong>Ticket price:</strong> <span id="termsTicketPrice2">US$100</span></li>
+        <li><strong>Zone21 commission (2%):</strong> <span id="termsCommission">US$2</span></li>
+        <li><strong>Amount remaining:</strong> <span id="termsRemaining">US$98</span></li>
       </ul>
-      <p>If 1,000 tickets are sold at US$100 each:</p>
+      <p>If 1,000 tickets are sold at <span id="termsTicketPrice3">US$100</span> each:</p>
       <ul>
-        <li><strong>Total ticket sales:</strong> US$100,000</li>
-        <li><strong>Zone21 2% commission:</strong> US$2,000</li>
-        <li><strong>Remaining amount:</strong> US$98,000</li>
+        <li><strong>Total ticket sales:</strong> <span id="termsTotal">US$100,000</span></li>
+        <li><strong>Zone21 2% commission:</strong> <span id="termsTotalCommission">US$2,000</span></li>
+        <li><strong>Remaining amount:</strong> <span id="termsTotalRemaining">US$98,000</span></li>
       </ul>
       <hr>
       <h4>Ticket Sales and Settlement</h4>
-      <p>Where Zone21 receives ticket payments on behalf of the Organizer, Zone21 may deduct its 2% ticketing commission before transferring the applicable balance to the Organizer.</p>
+      <p>Where Zone21 receives ticket payments on behalf of the Organizer, Zone21 may deduct its 2% ticketing commission before transferring the applicable balance to the Organizer. All settlements are made in the currency the tickets were sold in.</p>
       <h4>Organiser Acknowledgement</h4>
       <p>By accepting this Agreement, the Organizer expressly acknowledges and agrees that Zone21 charges a 2% commission on every ticket sold through the Zone21 platform.</p>
-      <button class="z21-btn-close-modal" id="accept-terms-btn">I Understand & Agree</button>
+      <button class="z21-btn-close-modal" id="accept-terms-btn">I Understand &amp; Agree</button>
     </div>
   </div>
 </div>
@@ -547,13 +705,225 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 /* ═══════════════════════════════════════════════════════════
+   CURRENCY + COUNTRY CATALOGS
+   ═══════════════════════════════════════════════════════════ */
+const CURRENCIES = {
+  USD: { symbol: '$',  code: 'USD', label: 'USD (US Dollar)' },
+  ZAR: { symbol: 'R',  code: 'ZAR', label: 'ZAR (South African Rand)' }
+};
+
+/* Common Monetary Area — bill in ZAR */
+const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
+
+const TIMEZONE_COUNTRY = {
+  'Africa/Johannesburg': 'ZA', 'Africa/Maseru': 'LS', 'Africa/Mbabane': 'SZ',
+  'Africa/Windhoek': 'NA', 'Africa/Harare': 'ZW', 'Africa/Lusaka': 'ZM',
+  'Africa/Gaborone': 'BW', 'Africa/Maputo': 'MZ', 'Africa/Lagos': 'NG',
+  'Africa/Nairobi': 'KE', 'Africa/Accra': 'GH', 'Africa/Cairo': 'EG',
+  'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
+  'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL',
+  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
+  'America/Los_Angeles': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
+  'Asia/Dubai': 'AE', 'Asia/Kolkata': 'IN', 'Asia/Singapore': 'SG',
+  'Australia/Sydney': 'AU', 'Australia/Perth': 'AU', 'Australia/Melbourne': 'AU',
+  'Pacific/Auckland': 'NZ'
+};
+
+const COUNTRY_META = {
+  ZW: { flag:'🇿🇼', name:'Zimbabwe' },
+  ZA: { flag:'🇿🇦', name:'South Africa' },
+  NA: { flag:'🇳🇦', name:'Namibia' },
+  LS: { flag:'🇱🇸', name:'Lesotho' },
+  SZ: { flag:'🇸🇿', name:'Eswatini' },
+  BW: { flag:'🇧🇼', name:'Botswana' },
+  ZM: { flag:'🇿🇲', name:'Zambia' },
+  MW: { flag:'🇲🇼', name:'Malawi' },
+  MZ: { flag:'🇲🇿', name:'Mozambique' },
+  GB: { flag:'🇬🇧', name:'United Kingdom' },
+  US: { flag:'🇺🇸', name:'United States' },
+  OTHER: { flag:'🌍', name:'Other' }
+};
+
+/* ═══════════════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════════════ */
 let currentOrganizerId = null;
+let userProfile = null;
 let editingEventId = null;
 let cancelRequestEventId = null;
-let formMode = 'edit'; // 'edit' | 'new'
+let formMode = 'edit';           // 'edit' | 'new'
 let allEventCount = 0;
+
+/* Multi-currency state */
+let activeCurrency = 'USD';      // default browsing currency
+let eventCurrency  = 'USD';      // currency of the event currently being edited
+let manualCurrency = false;      // user tapped the switcher
+let detectedCountry = null;
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT CURRENCY (runs before Firebase resolves)
+   ═══════════════════════════════════════════════════════════ */
+function detectCountrySync(){
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if(TIMEZONE_COUNTRY[tz]) return TIMEZONE_COUNTRY[tz];
+  }catch(_){}
+  try{
+    const langs = [navigator.language, ...(navigator.languages || [])].filter(Boolean);
+    for(const lang of langs){
+      const m = /[-_]([A-Za-z]{2})\b/.exec(lang);
+      if(m) return m[1].toUpperCase();
+    }
+  }catch(_){}
+  return null;
+}
+
+async function detectCountryViaIP(){
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch('https://ipapi.co/country/', { signal: ctrl.signal });
+    clearTimeout(timer);
+    if(!res.ok) return null;
+    const code = (await res.text()).trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  }catch(_){
+    return null;
+  }
+}
+
+function currencyForCountry(code){
+  return ZAR_COUNTRIES.has(code) ? 'ZAR' : 'USD';
+}
+
+(function bootCurrency(){
+  try{
+    manualCurrency = localStorage.getItem('zone21_currency_manual') === '1';
+    const stored = localStorage.getItem('zone21_currency');
+    if(manualCurrency && CURRENCIES[stored]) activeCurrency = stored;
+  }catch(_){}
+
+  if(!manualCurrency){
+    detectedCountry = detectCountrySync();
+    if(detectedCountry) activeCurrency = currencyForCountry(detectedCountry);
+
+    detectCountryViaIP().then(code => {
+      if(!code || manualCurrency) return;
+      detectedCountry = code;
+      const next = currencyForCountry(code);
+      if(next !== activeCurrency){
+        activeCurrency = next;
+        try{ localStorage.setItem('zone21_currency', next); }catch(_){}
+        applyCurrencyUI();
+        applyLocationBanner();
+      }
+    }).catch(() => {});
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+
+function currencySymbol(c){ return CURRENCIES[c]?.symbol || '$'; }
+function currencyLabel(c){ return CURRENCIES[c]?.label || 'USD (US Dollar)'; }
+
+function formatMoney(amount, currency = activeCurrency){
+  const num = Number(amount) || 0;
+  const s = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${currencySymbol(currency)}${s}`;
+}
+function formatCompact(amount, currency = activeCurrency){
+  return formatMoney(amount, currency).replace(/\.00$/, '');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CURRENCY UI (browsing preference)
+   ═══════════════════════════════════════════════════════════ */
+function setCurrency(currency, isManual = true){
+  if(!CURRENCIES[currency]) return;
+  activeCurrency = currency;
+  if(isManual){
+    manualCurrency = true;
+    try{ localStorage.setItem('zone21_currency_manual', '1'); }catch(_){}
+  }
+  try{ localStorage.setItem('zone21_currency', currency); }catch(_){}
+
+  applyCurrencyUI();
+  applyLocationBanner();
+
+  // Default the event currency to match (only if form not yet showing an existing event)
+  if(formMode === 'new' || eventFormCard.classList.contains('z21-hidden')){
+    setEventCurrency(currency, false);
+  }
+
+  // Persist to Firestore
+  if(currentOrganizerId){
+    db.collection('users').doc(currentOrganizerId).set({
+      preferredCurrency: currency,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(e => console.warn('Could not save currency preference:', e));
+  }
+}
+
+function applyCurrencyUI(){
+  document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
+  });
+}
+
+function applyLocationBanner(){
+  const code = detectedCountry || (manualCurrency ? (activeCurrency === 'ZAR' ? 'ZA' : 'ZW') : 'ZW');
+  const meta = COUNTRY_META[code] || COUNTRY_META.OTHER;
+
+  $('locFlag').textContent = meta.flag;
+  $('locCountry').textContent = meta.name;
+  $('locCurrencyChip').textContent = activeCurrency;
+}
+
+document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
+  btn.addEventListener('click', () => setCurrency(btn.dataset.currency, true));
+});
+
+$('locBanner').addEventListener('click', () => {
+  $('currencySwitch')?.scrollIntoView({ behavior:'smooth', block:'center' });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   EVENT CURRENCY (inside the form)
+   ═══════════════════════════════════════════════════════════ */
+function setEventCurrency(currency, isUserTap = true){
+  if(!CURRENCIES[currency]) return;
+  eventCurrency = currency;
+
+  document.querySelectorAll('#eventCurrencySelect button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cur === currency);
+  });
+
+  // Update all price prefixes in ticket rows
+  document.querySelectorAll('.z21-price-sym').forEach(sym => {
+    sym.textContent = currencySymbol(currency);
+  });
+
+  // Update the commission example line
+  const ex = $('commissionExample');
+  if(ex){
+    const sample = currency === 'ZAR' ? 1000 : 100;
+    const fee = sample * 0.02;
+    ex.textContent = `2% of ${formatCompact(sample, currency)} = ${formatCompact(fee, currency)}`;
+  }
+}
+
+document.querySelectorAll('#eventCurrencySelect button').forEach(btn => {
+  btn.addEventListener('click', () => setEventCurrency(btn.dataset.cur, true));
+});
 
 /* ═══════════════════════════════════════════════════════════
    LOADER
@@ -582,11 +952,11 @@ setTimeout(hideLoader, FAILSAFE_MS);
    TOAST
    ═══════════════════════════════════════════════════════════ */
 function showToast(message, type = 'success') {
-  const wrap = document.getElementById('toastWrap');
+  const wrap = $('toastWrap');
   const t = document.createElement('div');
   t.className = `z21-toast z21-${type}`;
   const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-info';
-  t.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+  t.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHtml(message)}</span>`;
   wrap.appendChild(t);
   setTimeout(() => {
     t.style.opacity = '0';
@@ -599,17 +969,17 @@ function showToast(message, type = 'success') {
    NAV USER
    ═══════════════════════════════════════════════════════════ */
 function renderNavUser(){
-  const zone = document.getElementById('navUser');
+  const zone = $('navUser');
   if(currentOrganizerId){
     const user = auth.currentUser;
     if(!user){ zone.innerHTML = `<a href="discover.html" class="z21-btn-nav">Sign In</a>`; return; }
     const initial = ((user.displayName || user.email || 'U').charAt(0) || 'U').toUpperCase();
     zone.innerHTML = `<button class="z21-avatar" id="navAvatar">${initial}</button>`;
-    document.getElementById('navAvatar').addEventListener('click', (e) => {
+    $('navAvatar').addEventListener('click', (e) => {
       e.stopPropagation();
-      document.getElementById('menuName').textContent = user.displayName || (user.email || '').split('@')[0];
-      document.getElementById('menuEmail').textContent = user.email || '';
-      document.getElementById('userMenu').classList.toggle('open');
+      $('menuName').textContent = user.displayName || (user.email || '').split('@')[0];
+      $('menuEmail').textContent = user.email || '';
+      $('userMenu').classList.toggle('open');
     });
   } else {
     zone.innerHTML = `<a href="discover.html" class="z21-btn-nav">Sign In</a>`;
@@ -617,29 +987,29 @@ function renderNavUser(){
 }
 
 document.addEventListener('click', (e) => {
-  const menu = document.getElementById('userMenu');
+  const menu = $('userMenu');
   if(menu.classList.contains('open') && !menu.contains(e.target) && !e.target.closest('#navAvatar')){
     menu.classList.remove('open');
   }
 });
 
-document.getElementById('menuSignOut').addEventListener('click', async () => {
+$('menuSignOut').addEventListener('click', async () => {
   try { await auth.signOut(); window.location.href = 'discover.html'; }
   catch(e){ showToast('Logout failed', 'error'); }
 });
 
 /* ═══════════════════════════════════════════════════════════
-   UI HELPERS — FORM MODE
+   FORM MODE
    ═══════════════════════════════════════════════════════════ */
-const eventFormCard = document.getElementById('event-form-card');
-const ticketTypesCard = document.getElementById('ticket-types-card');
-const termsSubmitCard = document.getElementById('terms-submit-card');
-const cancelEditBtn = document.getElementById('cancel-edit');
-const formHeading = document.getElementById('form-heading');
-const formModeBanner = document.getElementById('form-mode-banner');
-const formModeText = document.getElementById('form-mode-text');
-const submitEventBtn = document.getElementById('submit-event');
-const submitReviewBtn = document.getElementById('submit-review-event');
+const eventFormCard = $('event-form-card');
+const ticketTypesCard = $('ticket-types-card');
+const termsSubmitCard = $('terms-submit-card');
+const cancelEditBtn = $('cancel-edit');
+const formHeading = $('form-heading');
+const formModeBanner = $('form-mode-banner');
+const formModeText = $('form-mode-text');
+const submitEventBtn = $('submit-event');
+const submitReviewBtn = $('submit-review-event');
 
 function showForm(mode){
   formMode = mode;
@@ -681,20 +1051,23 @@ cancelEditBtn.addEventListener('click', hideForm);
    CREATE NEW EVENT
    ═══════════════════════════════════════════════════════════ */
 function createNewEvent() {
-  // Reset the form
-  document.getElementById('event-form').reset();
-  document.getElementById('posterPreview').style.display = 'none';
-  document.getElementById('posterPreview').src = '';
-  document.getElementById('ticket-types-container').innerHTML = '';
+  $('event-form').reset();
+  $('posterPreview').style.display = 'none';
+  $('posterPreview').src = '';
+  $('ticket-types-container').innerHTML = '';
   ticketCount = 0;
   addTicketType();
 
   // Pre-fill organizer details from signed-in user
   const user = auth.currentUser;
   if (user) {
-    document.getElementById('organizerEmail').value = user.email || '';
-    document.getElementById('organizerName').value = user.displayName || '';
+    $('organizerEmail').value = user.email || '';
+    $('organizerName').value = user.displayName || (userProfile?.name || '');
   }
+  if (userProfile?.phone) $('organizerPhone').value = userProfile.phone;
+
+  // Default event currency to the user's active currency
+  setEventCurrency(activeCurrency, false);
 
   editingEventId = null;
   submitEventBtn.dataset.editId = '';
@@ -704,8 +1077,8 @@ function createNewEvent() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-document.getElementById('createEventBtn').addEventListener('click', createNewEvent);
-document.getElementById('refreshBtn').addEventListener('click', () => loadMyEvents());
+$('createEventBtn').addEventListener('click', createNewEvent);
+$('refreshBtn').addEventListener('click', () => loadMyEvents());
 
 /* ═══════════════════════════════════════════════════════════
    IMAGE HELPERS
@@ -744,8 +1117,8 @@ async function handlePosterUpload(file) {
   if (!file) return null;
   try {
     const base64 = await fileToBase64(file, 800, 0.7);
-    document.getElementById('posterPreview').src = base64;
-    document.getElementById('posterPreview').style.display = 'block';
+    $('posterPreview').src = base64;
+    $('posterPreview').style.display = 'block';
     return base64;
   } catch (_) {
     showToast('Failed to process poster image.', 'error');
@@ -771,32 +1144,42 @@ async function handleTicketImageUpload(file, previewId) {
    ═══════════════════════════════════════════════════════════ */
 let ticketCount = 0;
 
-function addTicketType() {
+function addTicketType(data = null) {
   ticketCount++;
-  const container = document.getElementById('ticket-types-container');
+  const container = $('ticket-types-container');
   const ticketDiv = document.createElement('div');
   ticketDiv.className = 'z21-ticket-row';
   ticketDiv.id = `ticket-row-${ticketCount}`;
+
+  const sym = currencySymbol(eventCurrency);
+  const priceVal = data?.price != null ? data.price : 0;
+  const qtyVal = data?.quantity != null ? data.quantity : 100;
+  const nameVal = data?.name || '';
+  const descVal = data?.description || '';
+
   ticketDiv.innerHTML = `
     <button type="button" class="z21-remove-btn" onclick="removeTicketType(${ticketCount})" title="Remove"><i class="fas fa-times"></i></button>
     <div class="z21-form-row">
       <div class="z21-field">
         <label>Ticket Name <span class="req">*</span></label>
-        <input type="text" class="ticket-name" placeholder="e.g. Ordinary, VIP" required />
+        <input type="text" class="ticket-name" placeholder="e.g. Ordinary, VIP" required value="${escapeHtml(nameVal)}" />
       </div>
       <div class="z21-field">
-        <label>Price (USD) <span class="req">*</span></label>
-        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required />
+        <label>Price (<span class="cur-label">${escapeHtml(eventCurrency)}</span>) <span class="req">*</span></label>
+        <div class="z21-price-wrap">
+          <input type="number" class="ticket-price" min="0" step="0.01" value="${priceVal}" required />
+          <span class="z21-price-sym">${escapeHtml(sym)}</span>
+        </div>
       </div>
     </div>
     <div class="z21-form-row">
       <div class="z21-field">
         <label>Quantity <span class="req">*</span></label>
-        <input type="number" class="ticket-quantity" min="1" value="100" required />
+        <input type="number" class="ticket-quantity" min="1" value="${qtyVal}" required />
       </div>
       <div class="z21-field">
         <label>Description</label>
-        <input type="text" class="ticket-description" placeholder="e.g. Includes VIP lounge access" />
+        <input type="text" class="ticket-description" placeholder="e.g. Includes VIP lounge access" value="${escapeHtml(descVal)}" />
       </div>
     </div>
     <div class="z21-field">
@@ -806,6 +1189,11 @@ function addTicketType() {
     </div>
   `;
   container.appendChild(ticketDiv);
+
+  if (data?.imageBase64) {
+    const preview = ticketDiv.querySelector(`#ticket-preview-${ticketCount}`);
+    if (preview) { preview.src = data.imageBase64; preview.style.display = 'block'; }
+  }
 }
 
 function removeTicketType(id) {
@@ -840,16 +1228,27 @@ async function collectTicketTypes() {
     const imageInput = row.querySelector('.ticket-image-upload');
     let imageBase64 = null;
     if (imageInput.files && imageInput.files[0]) {
-      imageBase64 = await handleTicketImageUpload(imageInput.files[0], `ticket-preview-${row.id.split('-')[2]}`);
+      const previewId = `ticket-preview-${row.id.split('-')[2]}`;
+      imageBase64 = await handleTicketImageUpload(imageInput.files[0], previewId);
+    } else {
+      // Keep existing preview if there was one
+      const preview = row.querySelector('.z21-ticket-preview');
+      if (preview && preview.src && preview.src.startsWith('data:')) {
+        imageBase64 = preview.src;
+      }
     }
     if (!name || isNaN(price) || isNaN(quantity)) {
       showToast('Please fill all required ticket fields.', 'error');
       return null;
     }
     ticketTypes.push({
-      name, price, quantity, description,
+      name,
+      price,
+      quantity,
+      description,
+      currency: eventCurrency,
       imageBase64: imageBase64 || null,
-      template: document.getElementById('ticketTemplate').value || 'classic'
+      template: $('ticketTemplate').value || 'classic'
     });
   }
   return ticketTypes;
@@ -859,13 +1258,13 @@ async function collectTicketTypes() {
    VALIDATE FIELDS
    ═══════════════════════════════════════════════════════════ */
 function validateEventFields() {
-  const name = document.getElementById('eventName').value.trim();
-  const location = document.getElementById('location').value.trim();
-  const start = document.getElementById('startDate').value;
-  const end = document.getElementById('endDate').value;
-  const capacity = parseInt(document.getElementById('capacity').value);
-  const organizerName = document.getElementById('organizerName').value.trim();
-  const organizerEmail = document.getElementById('organizerEmail').value.trim();
+  const name = $('eventName').value.trim();
+  const location = $('location').value.trim();
+  const start = $('startDate').value;
+  const end = $('endDate').value;
+  const capacity = parseInt($('capacity').value);
+  const organizerName = $('organizerName').value.trim();
+  const organizerEmail = $('organizerEmail').value.trim();
   if (!name) { showToast('Event Name is required.', 'error'); return false; }
   if (!location) { showToast('Location is required.', 'error'); return false; }
   if (!start || !end) { showToast('Start and End dates are required.', 'error'); return false; }
@@ -887,18 +1286,17 @@ function validateEventFields() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SHARED SAVE (create or update)
-   status: 'draft' | 'pending'
+   SAVE EVENT DATA (create or update)
    ═══════════════════════════════════════════════════════════ */
 async function saveEventData(status) {
-  if (!document.getElementById('agreeTerms').checked) {
+  if (!$('agreeTerms').checked) {
     showToast('You must agree to the Terms & Conditions.', 'error');
     return null;
   }
   if (!validateEventFields()) return null;
 
-  const posterInput = document.getElementById('posterUpload');
-  let posterBase64 = document.getElementById('posterPreview').src || null;
+  const posterInput = $('posterUpload');
+  let posterBase64 = $('posterPreview').src || null;
   if (posterInput.files && posterInput.files[0]) {
     posterBase64 = await handlePosterUpload(posterInput.files[0]);
   } else if (!posterBase64 || (posterBase64.indexOf('data:image') === -1 && posterBase64.indexOf('http') === -1)) {
@@ -909,32 +1307,31 @@ async function saveEventData(status) {
   if (!ticketTypes) return null;
 
   const eventData = {
-    eventName: document.getElementById('eventName').value.trim(),
-    type: document.getElementById('eventType').value,
-    description: document.getElementById('eventDescription').value.trim(),
-    startDate: document.getElementById('startDate').value,
-    endDate: document.getElementById('endDate').value,
-    location: document.getElementById('location').value.trim(),
-    capacity: parseInt(document.getElementById('capacity').value),
-    organizerName: document.getElementById('organizerName').value.trim(),
-    organizerEmail: document.getElementById('organizerEmail').value.trim(),
-    organizerPhone: document.getElementById('organizerPhone').value.trim(),
-    ageRestriction: document.getElementById('ageRestriction').value.trim(),
-    dressCode: document.getElementById('dressCode').value.trim(),
+    eventName: $('eventName').value.trim(),
+    type: $('eventType').value,
+    description: $('eventDescription').value.trim(),
+    startDate: $('startDate').value,
+    endDate: $('endDate').value,
+    location: $('location').value.trim(),
+    capacity: parseInt($('capacity').value),
+    organizerName: $('organizerName').value.trim(),
+    organizerEmail: $('organizerEmail').value.trim(),
+    organizerPhone: $('organizerPhone').value.trim(),
+    ageRestriction: $('ageRestriction').value.trim(),
+    dressCode: $('dressCode').value.trim(),
     posterImage: posterBase64,
     ticketTypes: ticketTypes,
+    currency: eventCurrency,          // event-wide currency
     status: status,
     updatedAt: new Date().toISOString()
   };
 
   if (formMode === 'new') {
-    // CREATE a brand-new event document
     eventData.organizerId = currentOrganizerId;
     eventData.createdAt = new Date().toISOString();
     const ref = await db.collection('events').add(eventData);
     return ref.id;
   } else {
-    // UPDATE existing event
     if (!editingEventId) throw new Error('No event selected for editing.');
     await db.collection('events').doc(editingEventId).update(eventData);
     return editingEventId;
@@ -1007,36 +1404,36 @@ submitReviewBtn.addEventListener('click', async function() {
    ═══════════════════════════════════════════════════════════ */
 function openCancelModal(eventId) {
   cancelRequestEventId = eventId;
-  document.getElementById('cancelReason').value = '';
-  document.getElementById('cancelPhone').value = '';
-  document.getElementById('cancelEmail').value = '';
-  document.getElementById('cancellation-modal').classList.add('open');
+  $('cancelReason').value = '';
+  $('cancelPhone').value = '';
+  $('cancelEmail').value = '';
+  $('cancellation-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 
 function closeCancelModal() {
-  document.getElementById('cancellation-modal').classList.remove('open');
+  $('cancellation-modal').classList.remove('open');
   document.body.style.overflow = '';
   cancelRequestEventId = null;
 }
 
-document.getElementById('close-cancel-modal').addEventListener('click', closeCancelModal);
-document.getElementById('cancel-cancel-btn').addEventListener('click', closeCancelModal);
-document.getElementById('cancellation-modal').addEventListener('click', function(e) {
+$('close-cancel-modal').addEventListener('click', closeCancelModal);
+$('cancel-cancel-btn').addEventListener('click', closeCancelModal);
+$('cancellation-modal').addEventListener('click', function(e) {
   if (e.target === this) closeCancelModal();
 });
 
 /* ═══════════════════════════════════════════════════════════
    SUBMIT CANCELLATION REQUEST
    ═══════════════════════════════════════════════════════════ */
-document.getElementById('cancellation-form').addEventListener('submit', async function(e) {
+$('cancellation-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   const eventId = cancelRequestEventId;
   if (!eventId) { showToast('No event selected.', 'error'); return; }
 
-  const reason = document.getElementById('cancelReason').value.trim();
-  const phone = document.getElementById('cancelPhone').value.trim();
-  const email = document.getElementById('cancelEmail').value.trim();
+  const reason = $('cancelReason').value.trim();
+  const phone = $('cancelPhone').value.trim();
+  const email = $('cancelEmail').value.trim();
 
   if (!reason) { showToast('Please provide a reason for cancellation.', 'error'); return; }
   if (!phone) { showToast('Please provide your phone number.', 'error'); return; }
@@ -1091,12 +1488,12 @@ async function deleteEvent(eventId) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   LOAD MY EVENTS (unlimited)
+   LOAD MY EVENTS
    ═══════════════════════════════════════════════════════════ */
 function loadMyEvents() {
   if (!currentOrganizerId) return;
-  const listDiv = document.getElementById('my-events-list');
-  const noMsg = document.getElementById('no-events-msg');
+  const listDiv = $('my-events-list');
+  const noMsg = $('no-events-msg');
   listDiv.innerHTML = '<div class="z21-loading-msg">Loading your events…</div>';
   noMsg.style.display = 'none';
 
@@ -1116,7 +1513,7 @@ function loadMyEvents() {
       });
 
       allEventCount = events.length;
-      document.getElementById('eventsCount').textContent = allEventCount;
+      $('eventsCount').textContent = allEventCount;
 
       if (events.length === 0) {
         listDiv.innerHTML = '';
@@ -1135,11 +1532,11 @@ function loadMyEvents() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DISPLAY EVENTS
+   DISPLAY EVENTS — currency-aware
    ═══════════════════════════════════════════════════════════ */
 function displayEvents(events) {
-  const listDiv = document.getElementById('my-events-list');
-  const noMsg = document.getElementById('no-events-msg');
+  const listDiv = $('my-events-list');
+  const noMsg = $('no-events-msg');
   listDiv.innerHTML = '';
   noMsg.style.display = 'none';
 
@@ -1155,21 +1552,16 @@ function displayEvents(events) {
     card.className = 'z21-event-card';
 
     let actionsHtml = '';
-
-    // Edit — always available
     actionsHtml += `<button class="z21-icon-btn" title="Edit" onclick="editEvent('${eventId}')"><i class="fas fa-pen"></i></button>`;
 
-    // Submit for review — only when not pending / approved / cancellation requested
     if (hasRequiredFields && ev.status !== 'pending' && ev.status !== 'approved' && ev.status !== 'cancellation_requested') {
       actionsHtml += `<button class="z21-icon-btn z21-submit" title="Submit for Review" onclick="submitForReview('${eventId}')"><i class="fas fa-paper-plane"></i></button>`;
     }
 
-    // Delete — only drafts
     if (ev.status === 'draft') {
       actionsHtml += `<button class="z21-icon-btn z21-delete" title="Delete Draft" onclick="deleteEvent('${eventId}')"><i class="fas fa-trash"></i></button>`;
     }
 
-    // Cancel — only live (pending / approved)
     if (hasRequiredFields && (ev.status === 'approved' || ev.status === 'pending')) {
       actionsHtml += `<button class="z21-icon-btn z21-cancel" title="Request Cancellation" onclick="openCancelModal('${eventId}')"><i class="fas fa-times-circle"></i></button>`;
     }
@@ -1199,6 +1591,27 @@ function displayEvents(events) {
       statusClass = `z21-status-${ev.status || 'draft'}`;
     }
 
+    // Event currency — derive from event doc; fall back to ticket[0]; default USD
+    const evCurrency = ev.currency
+      || (Array.isArray(ev.ticketTypes) && ev.ticketTypes[0]?.currency)
+      || 'USD';
+
+    // Lowest ticket price chip
+    let priceChip = '';
+    if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length) {
+      const prices = ev.ticketTypes
+        .map(t => Number(t.price))
+        .filter(p => !isNaN(p) && p > 0);
+      if (prices.length) {
+        const lowest = Math.min(...prices);
+        priceChip = `<span class="z21-ev-currency"><i class="fas fa-tag"></i> From ${formatCompact(lowest, evCurrency)}</span>`;
+      } else {
+        priceChip = `<span class="z21-ev-currency"><i class="fas fa-coins"></i> ${escapeHtml(evCurrency)}</span>`;
+      }
+    } else {
+      priceChip = `<span class="z21-ev-currency"><i class="fas fa-coins"></i> ${escapeHtml(evCurrency)}</span>`;
+    }
+
     const displayName = ev.eventName && ev.eventName.trim() !== '' ? ev.eventName : 'Untitled Event';
     const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : 'No date';
     const locStr = ev.location || 'No location';
@@ -1208,6 +1621,7 @@ function displayEvents(events) {
         <div class="z21-ev-title-row">
           <strong>${escapeHtml(displayName)}</strong>
           <span class="z21-status ${statusClass}" data-event-id="${eventId}" style="${!hasRequiredFields ? 'cursor:pointer;' : ''}">${statusLabel}</span>
+          ${priceChip}
         </div>
         <div class="z21-ev-meta">
           <span><i class="fas fa-calendar"></i> ${escapeHtml(dateStr)}</span>
@@ -1231,12 +1645,6 @@ function displayEvents(events) {
   });
 }
 
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
 /* ═══════════════════════════════════════════════════════════
    EDIT EVENT
    ═══════════════════════════════════════════════════════════ */
@@ -1246,43 +1654,36 @@ window.editEvent = function(eventId) {
     if (!doc.exists) { showToast('Event not found.', 'error'); return; }
     const ev = doc.data();
 
-    document.getElementById('eventName').value = ev.eventName || '';
-    document.getElementById('eventType').value = ev.type || '';
-    document.getElementById('eventDescription').value = ev.description || '';
-    document.getElementById('startDate').value = ev.startDate || '';
-    document.getElementById('endDate').value = ev.endDate || '';
-    document.getElementById('location').value = ev.location || '';
-    document.getElementById('capacity').value = ev.capacity || '';
-    document.getElementById('organizerName').value = ev.organizerName || '';
-    document.getElementById('organizerEmail').value = ev.organizerEmail || '';
-    document.getElementById('organizerPhone').value = ev.organizerPhone || '';
-    document.getElementById('ageRestriction').value = ev.ageRestriction || '';
-    document.getElementById('dressCode').value = ev.dressCode || '';
+    $('eventName').value = ev.eventName || '';
+    $('eventType').value = ev.type || '';
+    $('eventDescription').value = ev.description || '';
+    $('startDate').value = ev.startDate || '';
+    $('endDate').value = ev.endDate || '';
+    $('location').value = ev.location || '';
+    $('capacity').value = ev.capacity || '';
+    $('organizerName').value = ev.organizerName || '';
+    $('organizerEmail').value = ev.organizerEmail || '';
+    $('organizerPhone').value = ev.organizerPhone || '';
+    $('ageRestriction').value = ev.ageRestriction || '';
+    $('dressCode').value = ev.dressCode || '';
+
+    // Restore event currency
+    const evCur = ev.currency
+      || (Array.isArray(ev.ticketTypes) && ev.ticketTypes[0]?.currency)
+      || 'USD';
+    setEventCurrency(evCur, false);
 
     if (ev.posterImage) {
-      document.getElementById('posterPreview').src = ev.posterImage;
-      document.getElementById('posterPreview').style.display = 'block';
+      $('posterPreview').src = ev.posterImage;
+      $('posterPreview').style.display = 'block';
     } else {
-      document.getElementById('posterPreview').style.display = 'none';
+      $('posterPreview').style.display = 'none';
     }
 
-    document.getElementById('ticket-types-container').innerHTML = '';
+    $('ticket-types-container').innerHTML = '';
     ticketCount = 0;
     if (ev.ticketTypes && ev.ticketTypes.length) {
-      ev.ticketTypes.forEach(tt => {
-        addTicketType();
-        const lastRow = document.querySelector('.z21-ticket-row:last-child');
-        if (lastRow) {
-          lastRow.querySelector('.ticket-name').value = tt.name || '';
-          lastRow.querySelector('.ticket-price').value = tt.price || 0;
-          lastRow.querySelector('.ticket-quantity').value = tt.quantity || 0;
-          lastRow.querySelector('.ticket-description').value = tt.description || '';
-          if (tt.imageBase64) {
-            const preview = lastRow.querySelector('.z21-ticket-preview');
-            if (preview) { preview.src = tt.imageBase64; preview.style.display = 'block'; }
-          }
-        }
-      });
+      ev.ticketTypes.forEach(tt => addTicketType(tt));
     } else {
       addTicketType();
     }
@@ -1328,49 +1729,100 @@ window.submitForReview = async function(eventId) {
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   EXPOSE
-   ═══════════════════════════════════════════════════════════ */
 window.deleteEvent = deleteEvent;
 
 /* ═══════════════════════════════════════════════════════════
    TERMS MODAL
    ═══════════════════════════════════════════════════════════ */
-document.getElementById('open-terms').addEventListener('click', (e) => {
+function updateTermsExample(currency){
+  const cur = CURRENCIES[currency] ? currency : 'USD';
+  const unit = cur === 'ZAR' ? 1000 : 100;
+
+  $('termsCurrencyLabel').textContent = cur;
+
+  const ticketStr = formatCompact(unit, cur);
+  const feeStr = formatCompact(unit * 0.02, cur);
+  const remainStr = formatCompact(unit * 0.98, cur);
+
+  const bulkTicket = unit;
+  const bulkTotal = bulkTicket * 1000;
+  const bulkFee = bulkTotal * 0.02;
+  const bulkRemain = bulkTotal * 0.98;
+
+  $('termsTicketPrice').textContent = ticketStr;
+  $('termsTicketPrice2').textContent = ticketStr;
+  $('termsCommission').textContent = feeStr;
+  $('termsRemaining').textContent = remainStr;
+
+  $('termsTicketPrice3').textContent = ticketStr;
+  $('termsTotal').textContent = formatCompact(bulkTotal, cur);
+  $('termsTotalCommission').textContent = formatCompact(bulkFee, cur);
+  $('termsTotalRemaining').textContent = formatCompact(bulkRemain, cur);
+}
+
+$('open-terms').addEventListener('click', (e) => {
   e.preventDefault();
-  document.getElementById('terms-modal').classList.add('open');
+  updateTermsExample(eventCurrency);
+  $('terms-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
 });
-document.getElementById('close-terms').addEventListener('click', () => {
-  document.getElementById('terms-modal').classList.remove('open');
+$('close-terms').addEventListener('click', () => {
+  $('terms-modal').classList.remove('open');
   document.body.style.overflow = '';
 });
-document.getElementById('terms-modal').addEventListener('click', function(e) {
+$('terms-modal').addEventListener('click', function(e) {
   if (e.target === this) {
     this.classList.remove('open');
     document.body.style.overflow = '';
   }
 });
-document.getElementById('accept-terms-btn').addEventListener('click', () => {
-  document.getElementById('terms-modal').classList.remove('open');
+$('accept-terms-btn').addEventListener('click', () => {
+  $('terms-modal').classList.remove('open');
   document.body.style.overflow = '';
-  document.getElementById('agreeTerms').checked = true;
+  $('agreeTerms').checked = true;
 });
 
 /* ═══════════════════════════════════════════════════════════
    INIT
    ═══════════════════════════════════════════════════════════ */
-document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
-document.getElementById('posterUpload').addEventListener('change', async function() {
+$('add-ticket-btn').addEventListener('click', () => addTicketType());
+$('posterUpload').addEventListener('change', async function() {
   if (this.files[0]) await handlePosterUpload(this.files[0]);
 });
+
+/* Boot the currency UI immediately */
+applyCurrencyUI();
+applyLocationBanner();
+setEventCurrency(activeCurrency, false);
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentOrganizerId = user.uid;
+
+    // Pull user profile for country + currency + phone
+    try{
+      const uSnap = await db.collection('users').doc(user.uid).get();
+      userProfile = uSnap.exists ? uSnap.data() : {};
+    }catch(e){
+      console.warn('Profile load failed:', e);
+      userProfile = {};
+    }
+
+    // Adopt profile currency / country unless manual override exists
+    if(!manualCurrency){
+      if(userProfile?.preferredCurrency && CURRENCIES[userProfile.preferredCurrency]){
+        activeCurrency = userProfile.preferredCurrency;
+      }
+      if(userProfile?.country){
+        detectedCountry = userProfile.country;
+      }
+      applyCurrencyUI();
+      applyLocationBanner();
+    }
+
     renderNavUser();
     loadMyEvents();
-    // Pre-seed one blank ticket row so the form isn't empty when opened
+
     if (document.querySelectorAll('.z21-ticket-row').length === 0) {
       addTicketType();
     }
@@ -1385,12 +1837,12 @@ auth.onAuthStateChanged(async (user) => {
           .then(() => { showToast("Login successful!", "success"); hideLoader(); })
           .catch((err) => {
             document.body.classList.remove('z21-loading');
-            document.getElementById('z21Loader')?.remove();
+            $('z21Loader')?.remove();
             document.body.innerHTML =
               `<div style="padding:40px 20px; font-family: 'Plus Jakarta Sans', sans-serif; background:#000; color:#fff; min-height:100vh; display:flex; align-items:center; justify-content:center; text-align:center;">
                 <div>
                   <h1 style="color:#fa243c; margin-bottom:16px; font-size:28px; letter-spacing:-.03em;">Access Denied</h1>
-                  <p style="color:rgba(255,255,255,.6); max-width:400px; margin:0 auto; line-height:1.6;">${err.message}</p>
+                  <p style="color:rgba(255,255,255,.6); max-width:400px; margin:0 auto; line-height:1.6;">${escapeHtml(err.message)}</p>
                   <a href="discover.html" style="display:inline-block; margin-top:24px; padding:12px 28px; background:#fa243c; color:#fff; border-radius:100px; font-weight:700; text-decoration:none;">Back to Zone21</a>
                 </div>
               </div>`;
@@ -1421,4 +1873,4 @@ auth.onAuthStateChanged(async (user) => {
 });
 </script>
 </body>
-                                                                        </html>
+</html>

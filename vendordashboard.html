@@ -95,6 +95,7 @@ img{max-width:100%;display:block}
 .gate-banner.trial .gate-banner__icon{background:rgba(124,58,237,.2);color:#C4B5FD}
 .gate-banner.expired .gate-banner__icon{background:rgba(217,45,32,.2);color:#FCA5A5}
 .gate-banner.pending .gate-banner__icon{background:rgba(245,180,0,.2);color:#FCD34D}
+.gate-banner.warn .gate-banner__icon{background:rgba(245,180,0,.2);color:#FCD34D}
 .gate-banner__body{flex:1;min-width:220px}
 .gate-banner__body h3{font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:3px}
 .gate-banner__body p{font-size:.82rem;color:rgba(255,255,255,.72);font-weight:500;line-height:1.5}
@@ -105,10 +106,11 @@ img{max-width:100%;display:block}
 .btn-outline-banner{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.25);padding:10px 20px;border-radius:10px;font-weight:700;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;transition:var(--t);cursor:pointer;white-space:nowrap}
 .btn-outline-banner:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.4)}
 
-/* STATS */
+/* STATS — now clickable */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:22px}
-.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px;position:relative;overflow:hidden;transition:var(--t)}
-.stat:hover{box-shadow:var(--shadow-sm);border-color:var(--line-strong)}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px;position:relative;overflow:hidden;transition:var(--t);cursor:pointer;text-align:left;width:100%;font-family:inherit;display:block;color:inherit}
+.stat:hover{box-shadow:var(--shadow-md);border-color:var(--line-strong);transform:translateY(-2px)}
+.stat:active{transform:translateY(0)}
 .stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-strong)}
 .stat.gold::before{background:var(--gold)}
 .stat.green::before{background:var(--green)}
@@ -124,6 +126,10 @@ img{max-width:100%;display:block}
 .stat.blue .stat__lbl i{color:var(--blue)}
 .stat__num{font-family:'Fraunces',Georgia,serif;font-size:1.75rem;font-weight:700;color:var(--navy);letter-spacing:-.02em;line-height:1}
 .stat__sub{font-size:.68rem;color:var(--muted);font-weight:600;margin-top:4px}
+.stat__chev{position:absolute;top:14px;right:14px;color:var(--line-strong);font-size:.7rem;transition:var(--t)}
+.stat:hover .stat__chev{color:var(--gold-deep);transform:translateX(2px)}
+.stat.has-count .stat__num{color:var(--navy)}
+.stat.amber.has-count::before{background:var(--amber)}
 
 /* CARDS */
 .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px 22px;box-shadow:var(--shadow-sm);margin-bottom:18px}
@@ -164,6 +170,12 @@ img{max-width:100%;display:block}
 .assign.s-completed::before{background:var(--navy)}
 .assign.locked{border-color:var(--danger);background:linear-gradient(180deg,#fff,#FFF8F8)}
 .assign.locked::before{background:var(--danger)}
+.assign.assign-new{animation:newPulse 2s ease}
+@keyframes newPulse{
+  0%{box-shadow:0 0 0 0 rgba(192,200,0,.5)}
+  70%{box-shadow:0 0 0 14px rgba(192,200,0,0)}
+  100%{box-shadow:0 0 0 0 rgba(192,200,0,0)}
+}
 .assign__top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px}
 .assign__svc{font-size:.95rem;font-weight:800;color:var(--navy);letter-spacing:-.015em;line-height:1.3}
 .assign__event{font-size:.75rem;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
@@ -173,6 +185,7 @@ img{max-width:100%;display:block}
 .assign__meta div i{color:var(--gold-deep);font-size:.72rem;width:14px;text-align:center;flex-shrink:0}
 .assign__meta div strong{color:var(--navy);margin-left:auto;font-weight:800}
 .assign__badge{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;padding:4px 11px;border-radius:999px;white-space:nowrap}
+.assign__badge.is-new{background:var(--lime);color:var(--navy);margin-left:6px;box-shadow:0 0 0 3px rgba(192,200,0,.22)}
 .b-invited{background:var(--amber-soft);color:#9A6E00}
 .b-accepted{background:var(--blue-soft);color:var(--blue)}
 .b-declined{background:var(--coral-soft);color:var(--coral)}
@@ -469,7 +482,7 @@ img{max-width:100%;display:block}
     <a href="manageprofile.html"><i class="fas fa-user"></i> My Profile</a>
     <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
   </nav>
-  <div class="sidebar__foot">Zone21 · Vendor Hub v5.4</div>
+  <div class="sidebar__foot">Zone21 · Vendor Hub v5.5</div>
 </aside>
 
 <!-- MAIN -->
@@ -498,15 +511,38 @@ img{max-width:100%;display:block}
     <section class="view active" id="view-dashboard">
       <div id="dashGateBannerMount"></div>
       <div class="page-head">
-        <h1>Welcome back</h1>
+        <h1 id="dashWelcome">Welcome back</h1>
         <p id="dashGreeting">Here's what's happening with your bookings.</p>
       </div>
+
+      <!-- Clickable stat cards -->
       <div class="stats" id="statsStrip">
-        <div class="stat amber"><div class="stat__lbl"><i class="fas fa-hourglass-half"></i> Pending</div><div class="stat__num" id="statPending">0</div><div class="stat__sub">awaiting your reply</div></div>
-        <div class="stat blue"><div class="stat__lbl"><i class="fas fa-circle-check"></i> Accepted</div><div class="stat__num" id="statAccepted">0</div><div class="stat__sub">confirmed jobs</div></div>
-        <div class="stat gold"><div class="stat__lbl"><i class="fas fa-coins"></i> Deposit Paid</div><div class="stat__num" id="statDeposit">0</div><div class="stat__sub">50% received</div></div>
-        <div class="stat green"><div class="stat__lbl"><i class="fas fa-sack-dollar"></i> Fully Paid</div><div class="stat__num" id="statPaidFull">0</div><div class="stat__sub">100% received</div></div>
+        <button type="button" class="stat amber" data-stat="pending" onclick="openStatCard('pending')">
+          <i class="fas fa-chevron-right stat__chev"></i>
+          <div class="stat__lbl"><i class="fas fa-hourglass-half"></i> Pending</div>
+          <div class="stat__num" id="statPending">0</div>
+          <div class="stat__sub">awaiting your reply</div>
+        </button>
+        <button type="button" class="stat blue" data-stat="accepted" onclick="openStatCard('accepted')">
+          <i class="fas fa-chevron-right stat__chev"></i>
+          <div class="stat__lbl"><i class="fas fa-circle-check"></i> Accepted</div>
+          <div class="stat__num" id="statAccepted">0</div>
+          <div class="stat__sub">confirmed jobs</div>
+        </button>
+        <button type="button" class="stat gold" data-stat="deposit" onclick="openStatCard('deposit')">
+          <i class="fas fa-chevron-right stat__chev"></i>
+          <div class="stat__lbl"><i class="fas fa-coins"></i> Deposit Paid</div>
+          <div class="stat__num" id="statDeposit">0</div>
+          <div class="stat__sub">50% received</div>
+        </button>
+        <button type="button" class="stat green" data-stat="paidFull" onclick="openStatCard('paidFull')">
+          <i class="fas fa-chevron-right stat__chev"></i>
+          <div class="stat__lbl"><i class="fas fa-sack-dollar"></i> Fully Paid</div>
+          <div class="stat__num" id="statPaidFull">0</div>
+          <div class="stat__sub">100% received</div>
+        </button>
       </div>
+
       <div class="card">
         <div class="card__head">
           <h3><i class="fas fa-bolt"></i> Upcoming Activity</h3>
@@ -528,7 +564,7 @@ img{max-width:100%;display:block}
       <div id="assignGateBannerMount"></div>
       <div class="page-head">
         <h1>Assignments</h1>
-        <p>Every organiser request that came through the blueprint engine.</p>
+        <p id="assignSubtitle">Every organiser request that came through the blueprint engine.</p>
       </div>
       <div class="card" style="padding:12px 18px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <span style="font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:.4rem">Filter:</span>
@@ -647,7 +683,6 @@ img{max-width:100%;display:block}
 
       <div class="settings-grid">
 
-        <!-- Account Info -->
         <div class="settings-card">
           <div class="settings-card__head">
             <div class="sc-icon"><i class="fas fa-id-card"></i></div>
@@ -657,30 +692,15 @@ img{max-width:100%;display:block}
             </div>
           </div>
           <div>
-            <div class="account-info-row">
-              <span class="ail">Email Address</span>
-              <span class="aiv" id="acctEmail">—</span>
-            </div>
-            <div class="account-info-row">
-              <span class="ail">Account Type</span>
-              <span class="aiv" id="acctType">—</span>
-            </div>
-            <div class="account-info-row">
-              <span class="ail">User ID</span>
-              <span class="aiv mono" id="acctUid">—</span>
-            </div>
-            <div class="account-info-row">
-              <span class="ail">Last Sign-in</span>
-              <span class="aiv" id="acctLastSignin">—</span>
-            </div>
-            <div class="account-info-row">
-              <span class="ail">Account Created</span>
-              <span class="aiv" id="acctCreated">—</span>
-            </div>
+            <div class="account-info-row"><span class="ail">Email Address</span><span class="aiv" id="acctEmail">—</span></div>
+            <div class="account-info-row"><span class="ail">Account Type</span><span class="aiv" id="acctType">—</span></div>
+            <div class="account-info-row"><span class="ail">Profile Doc ID</span><span class="aiv mono" id="acctProfileDoc">—</span></div>
+            <div class="account-info-row"><span class="ail">User ID</span><span class="aiv mono" id="acctUid">—</span></div>
+            <div class="account-info-row"><span class="ail">Last Sign-in</span><span class="aiv" id="acctLastSignin">—</span></div>
+            <div class="account-info-row"><span class="ail">Account Created</span><span class="aiv" id="acctCreated">—</span></div>
           </div>
         </div>
 
-        <!-- Change Email -->
         <div class="settings-card">
           <div class="settings-card__head">
             <div class="sc-icon"><i class="fas fa-envelope"></i></div>
@@ -707,7 +727,6 @@ img{max-width:100%;display:block}
           </form>
         </div>
 
-        <!-- Change Password -->
         <div class="settings-card">
           <div class="settings-card__head">
             <div class="sc-icon"><i class="fas fa-key"></i></div>
@@ -739,7 +758,6 @@ img{max-width:100%;display:block}
           </form>
         </div>
 
-        <!-- Sessions -->
         <div class="settings-card">
           <div class="settings-card__head">
             <div class="sc-icon"><i class="fas fa-desktop"></i></div>
@@ -749,14 +767,13 @@ img{max-width:100%;display:block}
             </div>
           </div>
           <p style="font-size:.82rem;color:var(--body);margin-bottom:14px;line-height:1.6;font-weight:500">
-            This will immediately sign you out on every device where you're currently logged in — phone, laptop, tablet. You'll need to sign in again with your email and password.
+            This will immediately sign you out on every device where you're currently logged in — phone, laptop, tablet.
           </p>
           <button class="btn btn-outline" id="btnSignOutAll" onclick="signOutAll()">
             <i class="fas fa-power-off"></i> Sign Out From All Devices
           </button>
         </div>
 
-        <!-- Danger Zone -->
         <div class="settings-card danger-zone">
           <div class="settings-card__head">
             <div class="sc-icon"><i class="fas fa-triangle-exclamation"></i></div>
@@ -979,6 +996,9 @@ let calCursor = new Date();
 let activeDeclineId = null;
 let selectedTrialPlan = null;
 
+// Track which assignment IDs we've already seen, to detect fresh arrivals
+let seenAssignmentIds = new Set();
+
 const $ = id => document.getElementById(id);
 
 /* ============================================================
@@ -1085,34 +1105,92 @@ auth.onAuthStateChanged(async user => {
   if(!user){ window.location.href = 'index.html'; return; }
   currentUser = user;
   $('topName').textContent = user.email || 'Vendor';
-  await loadProvider();
-  subscribeAssignments();
+
+  await loadProvider();          // ← MUST complete first, so subscribeAssignments can read providerDocId
+  subscribeAssignments();        // ← now uses multi-ID query
   subscribeSubscriptions();
   subscribeTrial();
   subscribeCashouts();
   updateHubCurrencyUI();
   renderAccountInfo();
+  renderDashboardWelcome();
   setInterval(renderReminders, 60000);
 });
 
+/* ============================================================
+   LOAD PROVIDER  (ROBUST DISCOVERY)
+   – tries doc(authUID), then where('uid','==',authUID), then where('email','==',email)
+   – across both serviceProviders and venues
+============================================================ */
+async function tryCollection(colName){
+  // 1. Direct doc by auth uid
+  try {
+    const snap = await db.collection(colName).doc(currentUser.uid).get();
+    if(snap.exists){
+      return { id: snap.id, ...snap.data(), _col: colName, _match:'doc' };
+    }
+  } catch(e){ console.warn(`[${colName}] doc read failed:`, e.message); }
+
+  // 2. Query by uid field
+  try {
+    const q = await db.collection(colName).where('uid','==',currentUser.uid).limit(1).get();
+    if(!q.empty){
+      const d = q.docs[0];
+      return { id: d.id, ...d.data(), _col: colName, _match:'uid-field' };
+    }
+  } catch(e){ console.warn(`[${colName}] uid-field query failed:`, e.message); }
+
+  // 3. Query by email
+  if(currentUser.email){
+    try {
+      const q = await db.collection(colName).where('email','==',currentUser.email).limit(1).get();
+      if(!q.empty){
+        const d = q.docs[0];
+        return { id: d.id, ...d.data(), _col: colName, _match:'email' };
+      }
+    } catch(e){ console.warn(`[${colName}] email query failed:`, e.message); }
+  }
+
+  return null;
+}
+
 async function loadProvider(){
   try {
-    let snap = await db.collection('serviceProviders').doc(currentUser.uid).get();
-    if(snap.exists){
+    // Try serviceProviders first
+    let found = await tryCollection('serviceProviders');
+    if(found){
       providerType = 'service_provider';
-      providerDocId = snap.id;
-      providerData = snap.data();
+      providerDocId = found.id;
+      providerData = found;
     } else {
-      snap = await db.collection('venues').doc(currentUser.uid).get();
-      if(snap.exists){
+      // Try venues
+      found = await tryCollection('venues');
+      if(found){
         providerType = 'venue';
-        providerDocId = snap.id;
-        providerData = snap.data();
-      } else {
-        providerDocId = currentUser.uid;
-        providerData = { name: currentUser.email?.split('@')[0] || 'Vendor', email: currentUser.email };
+        providerDocId = found.id;
+        providerData = found;
       }
     }
+
+    if(!found){
+      // No provider doc — flag this so the dashboard shows a CTA
+      providerDocId = currentUser.uid;
+      providerData = {
+        name: currentUser.email?.split('@')[0] || 'Vendor',
+        email: currentUser.email,
+        _noProfile: true
+      };
+      providerType = 'service_provider';
+      console.warn('[Zone21] No provider profile found for', currentUser.email,
+        '— invitations will only match if providerId === auth uid.');
+    } else {
+      console.log('[Zone21] ✓ Provider loaded:',
+        `type=${providerType}`,
+        `docId=${providerDocId}`,
+        `matched-by=${found._match}`);
+    }
+
+    // Auto-detect currency from country field
     if(!manualCurrency){
       const countryKey = providerData.country || detectCountryFromLocation(providerData.location || '');
       if(countryKey){
@@ -1125,18 +1203,22 @@ async function loadProvider(){
       }
     }
     renderTopAvatar();
-  } catch(e){ console.warn('provider load:', e); }
+  } catch(e){
+    console.warn('provider load:', e);
+  }
 }
 
 function renderTopAvatar(){
   const el = $('topAvatar');
-  if(providerData?.avatar?.startsWith('data:image')){
-    el.innerHTML = `<img src="${providerData.avatar}" alt="">`;
+  if(!el) return;
+  if(providerData?.avatar?.startsWith('data:image') || (providerData?.avatarUrl && providerData.avatarUrl.startsWith('http'))){
+    const src = providerData.avatar || providerData.avatarUrl;
+    el.innerHTML = `<img src="${src}" alt="">`;
   } else {
-    const initials = (providerData?.name || 'V').split(' ').map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase();
+    const initials = (providerData?.name || providerData?.businessName || 'V').split(' ').map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase();
     el.textContent = initials;
   }
-  $('topName').textContent = providerData?.name || currentUser.email;
+  $('topName').textContent = providerData?.name || providerData?.businessName || currentUser.email;
 }
 
 /* ============================================================
@@ -1192,11 +1274,10 @@ function getTrialStatus(){
   const elapsed = now - start;
   const remaining = exp - now;
   const hoursRemaining = Math.max(0, Math.ceil(remaining / 3600000));
-  const daysRemaining = Math.max(0, Math.ceil(remaining / 86400000));
   const pct = totalMs > 0 ? Math.min(100, Math.max(0, (elapsed/totalMs)*100)) : 100;
   return {
     used:true, active: remaining > 0, expired: remaining <= 0,
-    hoursRemaining, daysRemaining, planId: trialData.planId || null,
+    hoursRemaining, planId: trialData.planId || null,
     startedAt: start, expiresAt: exp, pct
   };
 }
@@ -1217,7 +1298,7 @@ function getSubStateForPlan(planId){
 }
 
 function isVenueService(service){
-  return /venue|hall|reception|church\s*(?:site|ceremony)|conference\s*venue|ballroom|arena|stadium|auditorium/i.test(String(service||''));
+  return /venue|hall|reception|church\s*(?:site|ceremony)|conference\s*venue|ballroom|arena|stadium|auditorium|school hall|auditorium|grounds|field/i.test(String(service||''));
 }
 function getRequiredPlan(assignment){
   return isVenueService(assignment.service) ? 'venue' : 'service_provider';
@@ -1289,6 +1370,23 @@ function getGateDisplay(){
 
 function renderGateBanner(mountId){
   const mount = $(mountId); if(!mount) return;
+
+  // Profile setup prompt takes priority over subscription banner
+  if(providerData?._noProfile){
+    mount.innerHTML = `
+      <div class="gate-banner warn" style="background:linear-gradient(135deg,#7a4a00,#5a3500)">
+        <div class="gate-banner__icon" style="background:rgba(255,255,255,.15);color:#fff"><i class="fas fa-user-gear"></i></div>
+        <div class="gate-banner__body">
+          <h3>Set up your vendor profile</h3>
+          <p>Your profile isn't registered yet. Create it now so Zone21 organisers can find you and send booking invitations.</p>
+        </div>
+        <div class="gate-banner__actions">
+          <a href="manageprofile.html" class="btn-lime-banner" style="text-decoration:none"><i class="fas fa-plus-circle"></i> Create Profile</a>
+        </div>
+      </div>`;
+    return;
+  }
+
   const g = getGateDisplay();
   if(!g.banner){ mount.innerHTML = ''; return; }
   const b = g.banner;
@@ -1310,6 +1408,7 @@ function renderGateBanner(mountId){
 function renderSubPill(){
   const g = getGateDisplay();
   const el = $('subPill');
+  if(!el) return;
   el.textContent = g.label;
   el.className = 'pill';
   if(g.kind === 'active') el.classList.add('active');
@@ -1320,22 +1419,94 @@ function renderSubPill(){
 }
 
 /* ============================================================
-   ASSIGNMENTS
+   ASSIGNMENTS  (MULTI-ID SUBSCRIPTION — KEY FIX)
 ============================================================ */
+function buildAssignmentIdCandidates(){
+  const set = new Set();
+  if(currentUser?.uid) set.add(currentUser.uid);
+  if(providerDocId) set.add(providerDocId);
+  if(providerData?.uid) set.add(providerData.uid);
+  // Firestore "in" queries allow up to 10 values
+  return Array.from(set).filter(Boolean).slice(0, 10);
+}
+
 function subscribeAssignments(){
-  if(unsubAssign) unsubAssign();
-  unsubAssign = db.collection('assignments')
-    .where('providerId','==', currentUser.uid)
-    .onSnapshot(snap => {
-      assignments = [];
-      snap.forEach(d => assignments.push({ id:d.id, ...d.data() }));
-      assignments.sort((a,b) => {
-        const at = a.createdAt?.toMillis?.() || 0;
-        const bt = b.createdAt?.toMillis?.() || 0;
-        return bt - at;
-      });
-      renderAll();
+  if(unsubAssign){ try{ unsubAssign(); }catch(e){} unsubAssign = null; }
+  if(!currentUser) return;
+
+  const ids = buildAssignmentIdCandidates();
+  console.log('[Zone21] Subscribing to assignments with providerIds:', ids);
+
+  const handleSnapshot = snap => {
+    const previousIds = seenAssignmentIds;
+    const nextIds = new Set();
+    let newInvitationCount = 0;
+
+    const fresh = [];
+    snap.forEach(d => {
+      const a = { id:d.id, ...d.data() };
+      nextIds.add(d.id);
+      if(!previousIds.has(d.id) && a.status === 'invited'){
+        newInvitationCount++;
+        fresh.push(a);
+      }
+      fresh.push(); // noop to keep shape
     });
+
+    // Actually rebuild the list cleanly
+    assignments = [];
+    snap.forEach(d => assignments.push({ id:d.id, ...d.data() }));
+    assignments.sort((a,b) => {
+      const at = a.createdAt?.toMillis?.() || 0;
+      const bt = b.createdAt?.toMillis?.() || 0;
+      return bt - at;
+    });
+
+    // Detect brand-new invitations (only AFTER first snapshot)
+    if(previousIds.size > 0){
+      const brandNew = assignments.filter(a =>
+        !previousIds.has(a.id) && a.status === 'invited'
+      );
+      brandNew.forEach(a => {
+        pushNotif('ai',
+          `New invitation · ${a.service || 'Service'}`,
+          `${a.organizerName || 'An organiser'} wants you for ${a.eventName || 'an event'} on ${a.date || '—'}. Review and respond.`
+        );
+      });
+      if(brandNew.length){
+        toast(`🔔 ${brandNew.length} new invitation${brandNew.length>1?'s':''} arrived`, 'success');
+      }
+    }
+
+    seenAssignmentIds = nextIds;
+    renderAll();
+  };
+
+  const handleError = err => {
+    console.warn('assignments listener error:', err);
+  };
+
+  try {
+    if(ids.length === 1){
+      unsubAssign = db.collection('assignments')
+        .where('providerId','==', ids[0])
+        .onSnapshot(handleSnapshot, handleError);
+    } else {
+      unsubAssign = db.collection('assignments')
+        .where('providerId','in', ids)
+        .onSnapshot(handleSnapshot, err => {
+          console.warn('Multi-ID query failed, falling back to primary uid:', err);
+          // Fallback: query by primary auth uid only
+          try {
+            unsubAssign = db.collection('assignments')
+              .where('providerId','==', currentUser.uid)
+              .onSnapshot(handleSnapshot, handleError);
+          } catch(e){ console.error(e); }
+        });
+    }
+  } catch(e){
+    console.warn('assignments subscription failed:', e);
+  }
 }
 
 const STATUS_META = {
@@ -1352,6 +1523,9 @@ function assignCurrency(a){
   return currencyForCountry(k);
 }
 
+/* ============================================================
+   RENDER ALL
+============================================================ */
 function renderAll(){
   renderStats();
   renderDashboard();
@@ -1373,17 +1547,45 @@ function renderStats(){
     else if(a.status === 'paid_deposit') s.deposit++;
     else if(a.status === 'paid_full') s.paidFull++;
   });
-  $('statPending').textContent = s.pending;
-  $('statAccepted').textContent = s.accepted;
-  $('statDeposit').textContent = s.deposit;
-  $('statPaidFull').textContent = s.paidFull;
+  const setNum = (id, val) => {
+    const el = $(id); if(!el) return;
+    el.textContent = val;
+    const statEl = el.closest('.stat');
+    if(statEl) statEl.classList.toggle('has-count', val > 0);
+  };
+  setNum('statPending', s.pending);
+  setNum('statAccepted', s.accepted);
+  setNum('statDeposit', s.deposit);
+  setNum('statPaidFull', s.paidFull);
 }
 
+/* ============================================================
+   DASHBOARD WELCOME
+============================================================ */
+function renderDashboardWelcome(){
+  const name = providerData?.name || providerData?.businessName;
+  const el = $('dashWelcome');
+  if(el && name) el.textContent = `Welcome back, ${name.split(' ')[0]}`;
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
 function renderDashboard(){
   const recent = assignments.slice(0, 4);
   const list = $('dashAssignList');
   if(!recent.length){
-    list.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><h4>No activity yet</h4><p>Organiser requests from Zone21 blueprints will appear here.</p></div>`;
+    const hint = providerData?._noProfile
+      ? `<p>Set up your profile to start receiving invitations from Zone21 organisers.</p>
+         <div class="actions" style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem">
+           <a href="manageprofile.html" class="btn btn-lime btn-sm" style="text-decoration:none"><i class="fas fa-plus-circle"></i> Create Profile</a>
+         </div>`
+      : `<p>Organiser requests from Zone21 blueprints will appear here.</p>
+         <div class="actions" style="display:flex;gap:.5rem;justify-content:center;margin-top:1rem">
+           <button class="btn btn-outline btn-sm" onclick="switchView('subscription')"><i class="fas fa-crown"></i> Subscription</button>
+           <a href="manageprofile.html" class="btn btn-outline btn-sm" style="text-decoration:none"><i class="fas fa-user-gear"></i> My Profile</a>
+         </div>`;
+    list.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><h4>No activity yet</h4>${hint}</div>`;
   } else {
     list.innerHTML = `<div class="assign-list">${recent.map(renderAssignCard).join('')}</div>`;
   }
@@ -1398,7 +1600,10 @@ function renderAssignmentsView(){
   let filtered = assignments;
   if(assignFilter !== 'all') filtered = assignments.filter(a => a.status === assignFilter);
   if(!filtered.length){
-    list.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><h4>Nothing here</h4><p>${assignFilter==='all'?'You have no assignments yet.':'No assignments match this filter.'}</p></div>`;
+    const msg = assignFilter === 'all'
+      ? 'You have no assignments yet. Invitations from Zone21 blueprints will appear here.'
+      : `No assignments match this filter.`;
+    list.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><h4>Nothing here</h4><p>${msg}</p></div>`;
     return;
   }
   list.innerHTML = filtered.map(renderAssignCard).join('');
@@ -1414,6 +1619,7 @@ function setAssignFilter(f){
   });
   renderAssignmentsView();
 }
+window.setAssignFilter = setAssignFilter;
 
 function renderAssignCard(a){
   const m = statusMeta(a.status);
@@ -1427,6 +1633,9 @@ function renderAssignCard(a){
   const gate = canAcceptAssignment(a);
   const locked = isInvite && !gate.ok;
   const requiredPlan = PLANS[gate.plan];
+
+  // Highlight brand-new invitations
+  const isNew = isInvite && !isLocallyAcknowledged(a.id);
 
   let actions = '';
   if(isInvite && gate.ok){
@@ -1447,7 +1656,7 @@ function renderAssignCard(a){
       <button class="btn btn-red btn-sm" onclick="openDecline('${a.id}')"><i class="fas fa-rotate-left"></i> Withdraw</button>
     `;
   } else {
-    actions = `<button class="btn btn-outline btn-sm" onclick="showDetail('${a.id}')"><i class="fas fa-eye"></i> View Details</button>`;
+    actions = `<button class="btn btn-outline btn-sm" onclick="showDetail('${a.id}')"><i class="fas fa-eye"></i> Details</button>`;
   }
 
   let lockMsg = '';
@@ -1465,10 +1674,10 @@ function renderAssignCard(a){
   }
 
   return `
-    <div class="assign s-${a.status}${locked ? ' locked' : ''}">
+    <div class="assign s-${a.status}${locked ? ' locked' : ''}${isNew ? ' assign-new' : ''}">
       <div class="assign__top">
         <div style="min-width:0;flex:1">
-          <div class="assign__svc">${escapeHtml(svc)}</div>
+          <div class="assign__svc">${escapeHtml(svc)}${isNew ? '<span class="assign__badge is-new" style="margin-left:8px">NEW</span>' : ''}</div>
           <div class="assign__event"><i class="fas fa-calendar-star"></i> ${escapeHtml(eventName)} <span style="color:var(--line-strong)">•</span> <i class="fas fa-user"></i> ${escapeHtml(orgName)}</div>
         </div>
         <span class="assign__badge ${m.cls}">${m.label}</span>
@@ -1484,6 +1693,18 @@ function renderAssignCard(a){
       <div class="assign__actions">${actions}</div>
     </div>
   `;
+}
+
+/* Track which invitations the user has "seen" (per session) so NEW badge doesn't stick forever */
+const acknowledgedAssignments = new Set();
+function isLocallyAcknowledged(id){
+  // Mark as seen once it's been rendered
+  if(!acknowledgedAssignments.has(id)){
+    // Give it one render pass to show the NEW badge, then mark
+    setTimeout(() => acknowledgedAssignments.add(id), 4000);
+    return false;
+  }
+  return true;
 }
 
 async function acceptAssign(id){
@@ -1521,6 +1742,9 @@ function closeDecline(){
   activeDeclineId = null;
   $('declineModal').classList.remove('active');
 }
+window.closeDecline = closeDecline;
+window.openDecline = openDecline;
+
 $('declineConfirmBtn').addEventListener('click', async () => {
   if(!activeDeclineId) return;
   const id = activeDeclineId;
@@ -1577,9 +1801,42 @@ function showDetail(id){
   $('detailModal').classList.add('active');
 }
 function closeDetail(){ $('detailModal').classList.remove('active'); }
+window.closeDetail = closeDetail;
+window.showDetail = showDetail;
+window.acceptAssign = acceptAssign;
 
+/* ============================================================
+   STAT CARD CLICK → jump to assignments filtered
+============================================================ */
+function openStatCard(kind){
+  const map = {
+    pending: 'invited',
+    accepted: 'accepted',
+    deposit: 'paid_deposit',
+    paidFull: 'paid_full'
+  };
+  const filter = map[kind] || 'all';
+
+  // If no assignments for that status, gently tell the user
+  const filtered = filter === 'all' ? assignments : assignments.filter(a => a.status === filter);
+  if(!filtered.length){
+    const labels = { pending:'pending', accepted:'accepted', deposit:'deposit-paid', paidFull:'fully-paid' };
+    toast(`No ${labels[kind]||''} assignments yet.`, 'info');
+  }
+
+  setAssignFilter(filter);
+  switchView('assignments');
+}
+window.openStatCard = openStatCard;
+
+/* ============================================================
+   CALENDAR
+============================================================ */
 function calShift(n){ calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + n, 1); renderCalendar(); }
 function calToday(){ calCursor = new Date(); renderCalendar(); }
+window.calShift = calShift;
+window.calToday = calToday;
+
 function renderCalendar(){
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   const first = new Date(y, m, 1);
@@ -1611,6 +1868,9 @@ function renderCalendar(){
   $('calGrid').innerHTML = cells.join('');
 }
 
+/* ============================================================
+   PAYMENTS
+============================================================ */
 function renderPayments(){
   let held = 0, released = 0, pendingOut = 0, unpaid = 0;
   const rows = [];
@@ -1666,9 +1926,14 @@ async function requestCashout(){
     toast('Failed to request cashout: ' + e.message, 'error');
   }
 }
+window.requestCashout = requestCashout;
 
+/* ============================================================
+   REMINDERS
+============================================================ */
 function renderReminders(){
   const list = $('reminderList');
+  if(!list) return;
   const now = new Date();
   const reminders = [];
   assignments.forEach(a => {
@@ -1713,6 +1978,9 @@ function renderReminders(){
     </div>`).join('');
 }
 
+/* ============================================================
+   NOTIFICATIONS
+============================================================ */
 function pushNotif(type, title, desc){
   notifications.unshift({ type, title, desc, at: Date.now() });
   if(notifications.length > 50) notifications.length = 50;
@@ -1732,12 +2000,15 @@ function renderNotifCard(n){
 }
 function renderNotifications(){
   const list = $('notifFullList');
-  list.innerHTML = notifications.length
+  if(list) list.innerHTML = notifications.length
     ? notifications.map(renderNotifCard).join('')
     : `<div class="empty"><i class="fas fa-bell-slash"></i><h4>No notifications</h4><p>System updates will appear here.</p></div>`;
+
   const badge = $('notifBadge');
-  if(notifications.length){ badge.style.display='grid'; badge.textContent = Math.min(notifications.length, 99); }
-  else badge.style.display = 'none';
+  if(badge){
+    if(notifications.length){ badge.style.display='grid'; badge.textContent = Math.min(notifications.length, 99); }
+    else badge.style.display = 'none';
+  }
   const dashNotif = $('dashNotifs');
   if(dashNotif){
     const recent = notifications.slice(0, 4);
@@ -1748,7 +2019,8 @@ function renderNotifications(){
 
 function renderNavBadges(){
   const pending = assignments.filter(a => a.status === 'invited').length;
-  const b1 = $('navBadgeAssign'); b1.textContent = pending; b1.classList.toggle('visible', pending > 0);
+  const b1 = $('navBadgeAssign');
+  if(b1){ b1.textContent = pending; b1.classList.toggle('visible', pending > 0); }
   const urgent = assignments.filter(a => {
     if(a.status === 'invited') return true;
     if(a.status === 'accepted' && a.date){
@@ -1758,7 +2030,8 @@ function renderNavBadges(){
     }
     return false;
   }).length;
-  const b2 = $('navBadgeRem'); b2.textContent = urgent; b2.classList.toggle('visible', urgent > 0);
+  const b2 = $('navBadgeRem');
+  if(b2){ b2.textContent = urgent; b2.classList.toggle('visible', urgent > 0); }
 }
 
 /* ============================================================
@@ -1871,6 +2144,7 @@ function selectPlan(planId){
   } catch(e){}
   window.location.href = 'provider-checkout.html';
 }
+window.selectPlan = selectPlan;
 
 /* ============================================================
    INVOICE MODAL
@@ -2137,10 +2411,12 @@ function renderAccountInfo(){
   $('acctEmail').textContent = currentUser.email || '—';
   $('acctType').textContent = providerType === 'venue' ? 'Venue Account' : 'Service Provider Account';
   $('acctUid').textContent = currentUser.uid || '—';
-
+  const docEl = $('acctProfileDoc');
+  if(docEl){
+    docEl.textContent = providerData?._noProfile ? '(no profile doc)' : (providerDocId || '—');
+  }
   const last = currentUser.metadata?.lastSignInTime;
   $('acctLastSignin').textContent = last ? friendlyDateTime(new Date(last)) : '—';
-
   const created = currentUser.metadata?.creationTime;
   $('acctCreated').textContent = created ? friendlyDateTime(new Date(created)) : '—';
 }
@@ -2187,13 +2463,13 @@ async function changeEmail(){
 
     try {
       await db.collection('users').doc(currentUser.uid).set({ email: newEmail }, { merge: true });
-      if(providerDocId){
+      if(providerDocId && !providerData?._noProfile){
         const col = providerType === 'venue' ? 'venues' : 'serviceProviders';
         await db.collection(col).doc(providerDocId).set({ email: newEmail }, { merge: true });
       }
     } catch(e){ console.warn('firestore email sync:', e); }
 
-    toast('Email updated. Check your inbox to verify the new address.', 'success');
+    toast('Email updated. Check your inbox to verify.', 'success');
     $('newEmail').value = '';
     $('emailPassword').value = '';
     renderAccountInfo();
@@ -2243,7 +2519,7 @@ async function changePassword(){
     console.error('changePassword:', e);
     if(e.code === 'auth/wrong-password') toast('Current password is incorrect.', 'error');
     else if(e.code === 'auth/weak-password') toast('New password is too weak.', 'error');
-    else if(e.code === 'auth/requires-recent-login') toast('Please sign out and sign in again, then try.', 'error');
+    else if(e.code === 'auth/requires-recent-login') toast('Please sign out and sign in again.', 'error');
     else toast('Failed: ' + (e.message || 'Please try again.'), 'error');
   } finally {
     btn.disabled = false;
@@ -2314,13 +2590,15 @@ async function deleteAccount(){
       }, { merge: true });
     } catch(e){ console.warn('user delete flag:', e); }
 
-    try {
-      const col = providerType === 'venue' ? 'venues' : 'serviceProviders';
-      await db.collection(col).doc(uid).set({
-        deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: 'deleted'
-      }, { merge: true });
-    } catch(e){ console.warn('provider delete flag:', e); }
+    if(providerDocId && !providerData?._noProfile){
+      try {
+        const col = providerType === 'venue' ? 'venues' : 'serviceProviders';
+        await db.collection(col).doc(providerDocId).set({
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          status: 'deleted'
+        }, { merge: true });
+      } catch(e){ console.warn('provider delete flag:', e); }
+    }
 
     try {
       localStorage.removeItem('zone21_provider_plan_id');
@@ -2366,6 +2644,7 @@ function switchView(v){
   window.scrollTo({top:0,behavior:'smooth'});
   if(v === 'account') renderAccountInfo();
 }
+window.switchView = switchView;
 
 /* ============================================================
    WIRING
@@ -2396,7 +2675,7 @@ document.addEventListener('keydown', e => {
 updateHubCurrencyUI();
 renderSubscriptionView();
 renderAccountInfo();
-toast('Vendor Hub ready', 'success');
+console.log('[Zone21 Vendor Hub] Ready');
 </script>
 </body>
 </html>

@@ -9,7 +9,6 @@
     <!-- Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <!-- ADDED: Firebase Auth Script -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <style>
         :root {
@@ -85,10 +84,70 @@
         .status-unpublished { background: #e2e3e5; color: #383d41; }
         .actions { display: flex; gap: 8px; }
         .hidden { display: none; }
+
+        /* ─── NEW: currency chips and picker ─── */
+        .cur-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 9px; border-radius: 20px;
+            font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em;
+            background: #e8f0fe; color: #1a5fb4;
+            border: 1px solid #bfd3f5;
+            white-space: nowrap;
+        }
+        .cur-chip.zar {
+            background: #eafaf1; color: #0a7c50;
+            border-color: #b6e7cd;
+        }
+        .event-cur-box {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; flex-wrap: wrap;
+            background: linear-gradient(135deg, #fff8e6, #fff);
+            border: 1px solid #f0d68a;
+            border-radius: 12px;
+            padding: 16px 18px; margin-bottom: 20px;
+        }
+        .event-cur-box-info { flex: 1; min-width: 220px; }
+        .event-cur-box-info strong {
+            display: block; font-size: 0.95rem; font-weight: 800;
+            color: var(--navy); margin-bottom: 4px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .event-cur-box-info strong i { color: #d19b00; }
+        .event-cur-box-info small {
+            display: block; font-size: 0.8rem;
+            color: var(--text-muted); line-height: 1.5;
+        }
+        .event-cur-picker {
+            display: flex; gap: 4px; padding: 4px;
+            background: #f0f0f0; border-radius: 30px;
+        }
+        .event-cur-picker button {
+            padding: 9px 20px; border-radius: 30px; border: none;
+            font-size: 0.85rem; font-weight: 800; letter-spacing: -0.01em;
+            background: transparent; color: var(--text-muted);
+            cursor: pointer; transition: 0.2s; white-space: nowrap;
+        }
+        .event-cur-picker button:hover { color: var(--navy); }
+        .event-cur-picker button.active {
+            background: var(--navy); color: var(--lime);
+            box-shadow: 0 4px 12px rgba(16, 40, 56, 0.2);
+        }
+        .price-prefix-wrap { position: relative; }
+        .price-prefix {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            font-size: 0.85rem; font-weight: 800; color: var(--text-muted);
+            pointer-events: none; transition: 0.2s;
+        }
+        .price-prefix-wrap input { padding-left: 40px; }
+        .price-prefix-wrap input:focus ~ .price-prefix { color: var(--navy); }
+
         @media (max-width: 768px) {
             .form-row { grid-template-columns: 1fr; }
             .header { flex-direction: column; align-items: flex-start; }
             .event-item { flex-direction: column; align-items: flex-start; }
+            .event-cur-box { flex-direction: column; align-items: flex-start; }
+            .event-cur-picker { width: 100%; }
+            .event-cur-picker button { flex: 1; justify-content: center; }
         }
     </style>
 </head>
@@ -102,6 +161,19 @@
         <!-- Event Creation Form (hidden by default) -->
         <div class="card hidden" id="event-form-card">
             <h2>Event Information</h2>
+
+            <!-- EVENT CURRENCY PICKER -->
+            <div class="event-cur-box">
+                <div class="event-cur-box-info">
+                    <strong><i class="fas fa-coins"></i> Event Currency</strong>
+                    <small>All ticket prices below are billed in this currency. This locks in when the event is saved to protect ticket holders from FX drift.</small>
+                </div>
+                <div class="event-cur-picker" id="eventCurrencyPicker">
+                    <button type="button" data-cur="USD">🇺🇸 USD $</button>
+                    <button type="button" data-cur="ZAR">🇿🇦 ZAR R</button>
+                </div>
+            </div>
+
             <form id="event-form">
                 <div class="form-row">
                     <div class="form-group">
@@ -130,11 +202,11 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Start Date & Time *</label>
+                        <label>Start Date &amp; Time *</label>
                         <input type="datetime-local" id="startDate" required>
                     </div>
                     <div class="form-group">
-                        <label>End Date & Time *</label>
+                        <label>End Date &amp; Time *</label>
                         <input type="datetime-local" id="endDate" required>
                     </div>
                 </div>
@@ -191,7 +263,7 @@
             <h2>Ticket Types</h2>
             <div id="ticket-types-container"></div>
             <button type="button" class="add-ticket-btn" id="add-ticket-btn"><i class="fas fa-plus"></i> Add Ticket Type</button>
-            <p class="helper" style="margin-top:10px;">Add at least one ticket type. Each can have its own price, quantity, description, and custom image.</p>
+            <p class="helper" style="margin-top:10px;">Add at least one ticket type. All prices use the event currency selected above.</p>
         </div>
 
         <!-- Submit -->
@@ -222,14 +294,29 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        
-        // ADDED: Initialize Auth
-        const auth = firebase.auth(); 
+        const auth = firebase.auth();
+
+        // ============ CURRENCY CATALOG ============
+        const CURRENCIES = {
+            USD: { symbol: '$', code: 'USD', label: 'USD (US Dollar)' },
+            ZAR: { symbol: 'R', code: 'ZAR', label: 'ZAR (South African Rand)' }
+        };
+
+        function currencySymbol(c){ return CURRENCIES[c]?.symbol || '$'; }
+        function formatMoney(amount, currency = 'USD'){
+            const num = Number(amount) || 0;
+            const s = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return `${currencySymbol(currency)}${s}`;
+        }
+        function formatCompact(amount, currency = 'USD'){
+            return formatMoney(amount, currency).replace(/\.00$/, '');
+        }
 
         // ============ STATE ============
         let ticketCount = 0;
         let isEditing = false;
         let editingEventId = null;
+        let eventCurrency = 'USD';
 
         // ============ DOM ============
         const showCreateBtn = document.getElementById('show-create-form');
@@ -238,6 +325,30 @@
         const submitCard = document.getElementById('submit-card');
         const cancelCreateBtn = document.getElementById('cancel-create');
         const eventForm = document.getElementById('event-form');
+
+        // ============ EVENT CURRENCY ============
+        function setEventCurrency(currency){
+            if(!CURRENCIES[currency]) return;
+            eventCurrency = currency;
+
+            document.querySelectorAll('#eventCurrencyPicker button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.cur === currency);
+            });
+
+            // Update ticket price prefixes
+            document.querySelectorAll('.price-prefix').forEach(el => {
+                el.textContent = currencySymbol(currency);
+            });
+
+            // Update the "Price (USD/ZAR)" labels on each ticket row
+            document.querySelectorAll('.ticket-cur-label').forEach(el => {
+                el.textContent = currency;
+            });
+        }
+
+        document.querySelectorAll('#eventCurrencyPicker button').forEach(btn => {
+            btn.addEventListener('click', () => setEventCurrency(btn.dataset.cur));
+        });
 
         // ============ SHOW/HIDE FORM ============
         showCreateBtn.addEventListener('click', () => {
@@ -265,6 +376,7 @@
             document.getElementById('submit-event').innerHTML = '<i class="fas fa-paper-plane"></i> Save Event';
             isEditing = false;
             editingEventId = null;
+            setEventCurrency('USD');
             addTicketType();
         }
 
@@ -326,32 +438,42 @@
         }
 
         // ============ TICKET TYPES ============
-        function addTicketType() {
+        function addTicketType(data = null) {
             ticketCount++;
             const container = document.getElementById('ticket-types-container');
             const div = document.createElement('div');
             div.className = 'ticket-type-row';
             div.id = `ticket-row-${ticketCount}`;
+
+            const sym = currencySymbol(eventCurrency);
+            const priceVal = data?.price != null ? data.price : 0;
+            const qtyVal = data?.quantity != null ? data.quantity : 100;
+            const nameVal = data?.name || '';
+            const descVal = data?.description || '';
+
             div.innerHTML = `
                 <button type="button" class="remove-btn" onclick="removeTicketType(${ticketCount})"><i class="fas fa-times"></i></button>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Ticket Name *</label>
-                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP, VVIP" required>
+                        <input type="text" class="ticket-name" placeholder="e.g., Ordinary, VIP, VVIP" required value="${escapeHtml(nameVal)}">
                     </div>
                     <div class="form-group">
-                        <label>Price (USD) *</label>
-                        <input type="number" class="ticket-price" min="0" step="0.01" value="0" required>
+                        <label>Price (<span class="ticket-cur-label">${escapeHtml(eventCurrency)}</span>) *</label>
+                        <div class="price-prefix-wrap">
+                            <input type="number" class="ticket-price" min="0" step="0.01" value="${priceVal}" required>
+                            <span class="price-prefix">${escapeHtml(sym)}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Quantity Available *</label>
-                        <input type="number" class="ticket-quantity" min="1" value="100" required>
+                        <input type="number" class="ticket-quantity" min="1" value="${qtyVal}" required>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge">
+                        <input type="text" class="ticket-description" placeholder="e.g., Includes VIP lounge" value="${escapeHtml(descVal)}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -361,6 +483,17 @@
                 </div>
             `;
             container.appendChild(div);
+
+            if (data?.imageBase64) {
+                const preview = div.querySelector(`#ticket-preview-${ticketCount}`);
+                if (preview) { preview.src = data.imageBase64; preview.style.display = 'block'; }
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function removeTicketType(id) {
@@ -394,12 +527,22 @@
                 let imageBase64 = null;
                 if (imageInput.files && imageInput.files[0]) {
                     imageBase64 = await handleTicketImageUpload(imageInput.files[0], `ticket-preview-${row.id.split('-')[2]}`);
+                } else {
+                    const preview = row.querySelector('.ticket-preview');
+                    if (preview && preview.src && preview.src.startsWith('data:')) {
+                        imageBase64 = preview.src;
+                    }
                 }
                 if (!name || isNaN(price) || isNaN(quantity)) {
                     alert('Fill all required ticket fields.');
                     return null;
                 }
-                ticketTypes.push({ name, price, quantity, description, imageBase64, template: 'classic' });
+                ticketTypes.push({
+                    name, price, quantity, description,
+                    currency: eventCurrency,      // per-ticket currency for redundancy
+                    imageBase64,
+                    template: 'classic'
+                });
             }
             return ticketTypes;
         }
@@ -433,11 +576,9 @@
                 dressCode: document.getElementById('dressCode').value.trim(),
                 posterImage: posterBase64,
                 ticketTypes: ticketTypes,
-                
-                // ADDED: Pass the logged-in user's ID as the organizerId to pass Firestore Rules
-                organizerId: auth.currentUser.uid,
-                
-                status: 'approved',            // admin-created events are automatically approved
+                currency: eventCurrency,           // event-wide currency
+                organizerId: auth.currentUser ? auth.currentUser.uid : null,
+                status: 'approved',
                 published: document.getElementById('publishStatus').value === 'published' ? true : false,
                 createdAt: isEditing ? (await db.collection('events').doc(editingEventId).get()).data().createdAt : new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -480,15 +621,44 @@
                     ev.id = doc.id;
                     const div = document.createElement('div');
                     div.className = 'event-item';
-                    const posterHtml = ev.posterImage ? `<img src="${ev.posterImage}" alt="${ev.eventName}">` : '<div style="width:70px;height:70px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-image"></i></div>';
+
+                    const posterHtml = ev.posterImage
+                        ? `<img src="${ev.posterImage}" alt="${escapeHtml(ev.eventName)}">`
+                        : '<div style="width:70px;height:70px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-image"></i></div>';
+
                     const published = ev.published === true;
+
+                    // Currency — from event doc, or fallback to first ticket, default USD
+                    const evCurrency = ev.currency
+                        || (Array.isArray(ev.ticketTypes) && ev.ticketTypes[0]?.currency)
+                        || 'USD';
+                    const isZar = evCurrency === 'ZAR';
+
+                    // Lowest ticket price chip
+                    let priceChip = '';
+                    if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length) {
+                        const prices = ev.ticketTypes
+                            .map(t => Number(t.price))
+                            .filter(p => !isNaN(p) && p > 0);
+                        if (prices.length) {
+                            const lowest = Math.min(...prices);
+                            priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-tag"></i> From ${formatCompact(lowest, evCurrency)}</span>`;
+                        } else {
+                            priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-coins"></i> ${evCurrency}</span>`;
+                        }
+                    } else {
+                        priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-coins"></i> ${evCurrency}</span>`;
+                    }
+
                     div.innerHTML = `
                         ${posterHtml}
                         <div class="event-info">
-                            <div class="name">${ev.eventName}</div>
+                            <div class="name">${escapeHtml(ev.eventName)}
+                                <span style="margin-left:8px;">${priceChip}</span>
+                            </div>
                             <div class="meta">
                                 <i class="far fa-calendar-alt"></i> ${new Date(ev.startDate).toLocaleDateString()} ·
-                                <i class="fas fa-map-marker-alt"></i> ${ev.location}
+                                <i class="fas fa-map-marker-alt"></i> ${escapeHtml(ev.location)}
                             </div>
                         </div>
                         <span class="status-badge ${published ? 'status-published' : 'status-unpublished'}">${published ? 'Published' : 'Unpublished'}</span>
@@ -533,28 +703,31 @@
                     document.getElementById('ageRestriction').value = ev.ageRestriction || '';
                     document.getElementById('dressCode').value = ev.dressCode || '';
                     document.getElementById('publishStatus').value = ev.published ? 'published' : 'unpublished';
+
+                    // Restore currency
+                    const evCur = ev.currency
+                        || (Array.isArray(ev.ticketTypes) && ev.ticketTypes[0]?.currency)
+                        || 'USD';
+                    setEventCurrency(evCur);
+
                     if (ev.posterImage) {
                         document.getElementById('posterPreview').src = ev.posterImage;
                         document.getElementById('posterPreview').style.display = 'block';
                     } else {
                         document.getElementById('posterPreview').style.display = 'none';
                     }
+
                     // ticket types
                     document.getElementById('ticket-types-container').innerHTML = '';
                     ticketCount = 0;
-                    ev.ticketTypes.forEach(tt => {
+                    if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length) {
+                        ev.ticketTypes.forEach(tt => addTicketType(tt));
+                    } else {
                         addTicketType();
-                        const lastRow = document.querySelector('.ticket-type-row:last-child');
-                        lastRow.querySelector('.ticket-name').value = tt.name;
-                        lastRow.querySelector('.ticket-price').value = tt.price;
-                        lastRow.querySelector('.ticket-quantity').value = tt.quantity;
-                        lastRow.querySelector('.ticket-description').value = tt.description || '';
-                        if (tt.imageBase64) {
-                            lastRow.querySelector('.ticket-preview').src = tt.imageBase64;
-                            lastRow.querySelector('.ticket-preview').style.display = 'block';
-                        }
-                    });
+                    }
                     document.getElementById('submit-event').innerHTML = '<i class="fas fa-save"></i> Update Event';
+
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             });
         };
@@ -580,19 +753,19 @@
         };
 
         // ============ INIT & AUTH CHECK ============
-        document.getElementById('add-ticket-btn').addEventListener('click', addTicketType);
+        document.getElementById('add-ticket-btn').addEventListener('click', () => addTicketType());
         document.getElementById('posterUpload').addEventListener('change', async function() {
             if (this.files[0]) await handlePosterUpload(this.files[0]);
         });
 
-        // ADDED: Listen for Auth State before loading data
+        // Boot currency picker defaults
+        setEventCurrency('USD');
+
         auth.onAuthStateChanged((user) => {
             if (user) {
                 console.log("Logged in as:", user.uid);
-                // Only load events if the user is authenticated
                 loadEvents();
             } else {
-                // Prompt for login to access the admin panel
                 const email = prompt("Admin Login - Enter your email:");
                 if (email) {
                     const password = prompt("Enter your password:");
@@ -609,7 +782,6 @@
                 }
             }
         });
-        
     </script>
 </body>
 </html>

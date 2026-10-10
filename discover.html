@@ -11,24 +11,20 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 · DISCOVER / EVENT REQUESTS  (v3)
+  ZONE21 · DISCOVER / EVENT REQUESTS  (v4 — subscription gate fixed)
 
-  REWRITE SUMMARY
-  ───────────────
-  · Artist listing REMOVED — the page now revolves around
-    posting event requests. Schools describe the artist(s) they
-    want; Zone21 sources and negotiates.
-  · SUBSCRIPTION CHECK fixed — realtime onSnapshot on
-    subscriptions/{uid}_annual with the same evaluateSub logic
-    used by zone21tools.html. No more false negatives.
-  · NOTIFICATIONS FEED added — mirrors the dashboard.html pattern,
-    derived from the user's bookings + subscription state.
-  · EVENT TOOLS grid added — pulled from zone21tools.html and
-    gated by the annual subscription.
-  · SILENT location detection — country is read quietly for
-    currency purposes only; no visible banner.
-  · MY REQUESTS list — a clean timeline of every request the
-    user has posted, with status + reference.
+  FIXES v3 → v4
+  ─────────────
+  · REMOVED the `deletedAt` check from subscription evaluation.
+    bookingsub.html writes `deletedAt: deleteField()` on invoices
+    and depending on SDK version this lingers as a truthy
+    sentinel, causing a false "no active plan" reading.
+    bookingsub.html itself never checks deletedAt — it only
+    reads `status`. We now match that exactly.
+  · TRUST the `status` field for the gate. Expiry is used only
+    for the "X days remaining" display — never to flip an
+    explicitly-active sub to expired.
+  · Console diagnostics added so any future mismatch is visible.
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -193,10 +189,13 @@ body.z21-loading{overflow:hidden}
   border-color:rgba(48,209,88,.3);border-left-color:var(--success);}
 .sub-banner.pending{background:linear-gradient(135deg,rgba(255,159,10,.09),rgba(255,159,10,.02));
   border-color:rgba(255,159,10,.3);border-left-color:var(--warn);}
+.sub-banner.expired{background:linear-gradient(135deg,rgba(10,132,255,.09),rgba(10,132,255,.02));
+  border-color:rgba(10,132,255,.3);border-left-color:var(--info);}
 .sub-banner__icon{width:48px;height:48px;border-radius:13px;display:grid;place-items:center;
   font-size:18px;flex-shrink:0;background:rgba(250,36,60,.14);color:var(--accent);}
 .sub-banner.active .sub-banner__icon{background:rgba(48,209,88,.14);color:var(--success);}
 .sub-banner.pending .sub-banner__icon{background:rgba(255,159,10,.14);color:var(--warn);}
+.sub-banner.expired .sub-banner__icon{background:rgba(10,132,255,.14);color:var(--info);}
 .sub-banner__body{flex:1;min-width:220px}
 .sub-banner__body h3{font-size:15px;font-weight:800;letter-spacing:-.01em;color:#fff;margin-bottom:4px}
 .sub-banner__body p{font-size:13px;color:var(--text-muted);line-height:1.55;font-weight:500}
@@ -209,10 +208,16 @@ body.z21-loading{overflow:hidden}
   color:#7ee89a;border-color:rgba(48,209,88,.32);}
 .sub-banner.pending .sub-banner__badge{background:rgba(255,159,10,.18);
   color:#ffce8a;border-color:rgba(255,159,10,.32);}
+.sub-banner.expired .sub-banner__badge{background:rgba(10,132,255,.18);
+  color:#5ab0ff;border-color:rgba(10,132,255,.32);}
 .sub-banner__cta{padding:10px 20px;border-radius:100px;
   background:var(--accent);color:#fff;font-size:13px;font-weight:700;
   white-space:nowrap;transition:all .2s;}
 .sub-banner__cta:hover{background:var(--accent-2);transform:translateY(-1px)}
+.sub-banner.active .sub-banner__cta{background:var(--success);color:#04140a}
+.sub-banner.active .sub-banner__cta:hover{background:#3ee06a}
+.sub-banner.pending .sub-banner__cta{background:var(--warn);color:#3d2800}
+.sub-banner.expired .sub-banner__cta{background:var(--info);color:#fff}
 
 /* NOTIFICATIONS */
 .notif-feed{display:flex;flex-direction:column;gap:10px}
@@ -666,9 +671,7 @@ body.z21-loading{overflow:hidden}
   </div>
 </nav>
 
-<!-- ═══════════════════════════════════════════════════════════
-     AUTH MODAL
-     ═══════════════════════════════════════════════════════════ -->
+<!-- AUTH MODAL -->
 <div class="z21-modal" id="authModal">
   <div class="z21-modal-panel">
     <div class="z21-modal-head">
@@ -760,9 +763,7 @@ body.z21-loading{overflow:hidden}
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     GATE MODAL
-     ═══════════════════════════════════════════════════════════ -->
+<!-- GATE MODAL -->
 <div class="z21-modal" id="gateModal">
   <div class="z21-modal-panel" style="max-width:480px">
     <div class="z21-modal-head">
@@ -790,9 +791,7 @@ body.z21-loading{overflow:hidden}
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     EVENT REQUEST MODAL — single straightforward form
-     ═══════════════════════════════════════════════════════════ -->
+<!-- EVENT REQUEST MODAL -->
 <div class="z21-modal" id="requestModal">
   <div class="z21-modal-panel wide">
 
@@ -1054,8 +1053,6 @@ const db = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
    COUNTRY + CURRENCY (SILENT)
-   Location is used ONLY for default currency in the request
-   form. Nothing is shown on screen.
    ═══════════════════════════════════════════════════════════ */
 const COUNTRIES = {
   ZW:{ code:'ZW', name:'Zimbabwe', currency:'USD' },
@@ -1122,7 +1119,7 @@ detectedCountry = detectCountrySync();
 detectedCurrency = currencyFor(detectedCountry);
 
 /* ═══════════════════════════════════════════════════════════
-   TOOLS (from zone21tools.html — Vendors excluded)
+   TOOLS
    ═══════════════════════════════════════════════════════════ */
 const TOOLS = [
   { id:'blueprint', icon:'fa-brain',       title:'Blueprint',      desc:'Generate detailed event blueprints with budget analysis, vendor matching, and export options.', link:'blueprint.html' },
@@ -1158,16 +1155,14 @@ setTimeout(hideLoader, FAILSAFE_MS);
 let currentUser = null;
 let userProfile = null;
 
-/* Subscription state machine */
-let subState = 'signed-out';   // 'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'none'
+let subState = 'signed-out';   // 'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'inactive'
 let subscription = null;
+let subscriptionExpiry = null;
 let subUnsub = null;
 
-/* Bookings (event requests) */
 let userBookings = [];
 let bookingsUnsub = null;
 
-/* Post-auth resume */
 let pendingActionAfterAuth = null;
 
 /* ═══════════════════════════════════════════════════════════
@@ -1243,67 +1238,94 @@ function friendlyAuthError(err){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION EVALUATION (from zone21tools.html — the
-   reliable version that fixes the "false negative" bug)
+   SUBSCRIPTION EVALUATION  ★ THE FIX ★
+   ─────────────────────────────────────────────────────────
+   Matches bookingsub.html's renderStatus() exactly:
+
+     Doc path : subscriptions/{uid}_annual
+     Field    : `status`
+       'pending_payment' / 'pending' → pending
+       'rejected'                    → inactive
+       'expired'                     → expired
+       'active' / 'approved'         → ACTIVE ✅
+
+   We DO NOT check `deletedAt` (bookingsub writes it via
+   deleteField(), which can linger as a truthy sentinel on
+   some SDK versions — the cause of the false negative).
+
+   We DO NOT flip an explicitly-active status to 'expired'.
+   Expiry is used only for the "days remaining" display.
    ═══════════════════════════════════════════════════════════ */
-function evaluateSub(s){
-  if(!s) return { state:'none', sub:null };
-  if(s.deletedAt) return { state:'none', sub:null };
-
-  const status = String(s.status || '').toLowerCase();
-
-  if(status === 'pending_payment' || status === 'pending'){
-    return { state:'pending', sub:s };
+function evaluateSubscription(sub){
+  if(!sub){
+    console.debug('[Zone21] No subscription document found.');
+    return { state:'inactive', sub:null, expiresAt:null };
   }
+
+  console.debug('[Zone21] Subscription document:', sub);
+
+  const raw    = sub.status;
+  const status = String(raw || 'pending_payment').toLowerCase().trim();
+
   if(status === 'rejected'){
-    return { state:'none', sub:s };
+    return { state:'inactive', sub, expiresAt:null };
   }
-  if(status !== 'active' && status !== 'approved'){
-    return { state:'none', sub:s };
+  if(status === 'pending' || status === 'pending_payment' || status === 'pending_manual_transfer'){
+    return { state:'pending', sub, expiresAt:null };
+  }
+  if(status === 'expired'){
+    return { state:'expired', sub, expiresAt: toDate(sub.expiresAt) };
   }
 
-  let exp = toDate(s.expiresAt);
-  if(!exp){
-    const anchor = toDate(s.approvedAt) || toDate(s.createdAt);
-    if(anchor) exp = new Date(anchor.getTime() + 12 * 30 * 24 * 60 * 60 * 1000);
+  const isActive = (status === 'active' || status === 'approved');
+  if(!isActive){
+    console.warn('[Zone21] Unrecognised subscription status:', raw);
+    return { state:'inactive', sub, expiresAt:null };
   }
-  if(!exp){
-    // No date info at all — trust the status
-    return { state:'active', sub:s, expiresAt:null };
-  }
-  if(exp.getTime() <= Date.now()){
-    return { state:'expired', sub:s, expiresAt:exp };
-  }
-  return { state:'active', sub:s, expiresAt:exp };
+
+  /* Derive expiry for display only — never used to gate */
+  const approvedAt = toDate(sub.approvedAt)
+                  || toDate(sub.updatedAt)
+                  || toDate(sub.createdAt);
+  const expiresAt  = toDate(sub.expiresAt)
+                  || (approvedAt
+                        ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000)
+                        : null);
+
+  console.debug('[Zone21] Subscription ACTIVE. Expires:', expiresAt);
+  return { state:'active', sub, expiresAt };
 }
 
 function attachSubListener(uid){
   if(subUnsub){ try{ subUnsub(); }catch(_){} subUnsub = null; }
 
   subState = 'checking';
+  subscription = null;
+  subscriptionExpiry = null;
   renderEverything();
 
   subUnsub = onSnapshot(
     doc(db, 'subscriptions', `${uid}_${PLAN_ID}`),
     snap => {
       const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
-      const result = evaluateSub(data);
+      const result = evaluateSubscription(data);
       subState = result.state;
       subscription = result.sub || null;
-      subscription._expiresAt = result.expiresAt || null;
+      subscriptionExpiry = result.expiresAt || null;
       renderEverything();
     },
     err => {
-      console.warn('Subscription listener error:', err);
-      subState = 'none';
+      console.error('[Zone21] Subscription listener error:', err);
+      subState = 'inactive';
       subscription = null;
+      subscriptionExpiry = null;
       renderEverything();
     }
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BOOKINGS LISTENER — realtime feed of the user's requests
+   BOOKINGS LISTENER
    ═══════════════════════════════════════════════════════════ */
 function attachBookingsListener(uid){
   if(bookingsUnsub){ try{ bookingsUnsub(); }catch(_){} bookingsUnsub = null; }
@@ -1377,14 +1399,15 @@ function renderSubBanner(){
   }
 
   if(subState === 'active'){
-    const exp = subscription?._expiresAt;
-    const days = exp ? Math.max(0, Math.ceil((exp - Date.now())/86400000)) : null;
+    const days = subscriptionExpiry
+      ? Math.max(0, Math.ceil((subscriptionExpiry - Date.now())/86400000))
+      : null;
     mount.innerHTML = `
       <div class="sub-banner active">
         <div class="sub-banner__icon"><i class="fas fa-circle-check"></i></div>
         <div class="sub-banner__body">
           <h3>Full Access — Active</h3>
-          <p>You can post unlimited event requests and use all Event Tools.${days!=null ? ` Renews in <strong>${days} day${days===1?'':'s'}</strong>.` : ''}</p>
+          <p>You can post unlimited event requests and use all Event Tools.${days != null ? ` Renews in <strong>${days} day${days===1?'':'s'}</strong>.` : ''}</p>
         </div>
         <span class="sub-banner__badge">Active</span>
         <a href="bookingsub.html" class="sub-banner__cta">Manage</a>
@@ -1409,7 +1432,7 @@ function renderSubBanner(){
 
   if(subState === 'expired'){
     mount.innerHTML = `
-      <div class="sub-banner">
+      <div class="sub-banner expired">
         <div class="sub-banner__icon"><i class="fas fa-hourglass-end"></i></div>
         <div class="sub-banner__body">
           <h3>Subscription Expired</h3>
@@ -1421,7 +1444,7 @@ function renderSubBanner(){
     return;
   }
 
-  // none
+  // inactive
   mount.innerHTML = `
     <div class="sub-banner">
       <div class="sub-banner__icon"><i class="fas fa-lock"></i></div>
@@ -1435,7 +1458,7 @@ function renderSubBanner(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   NOTIFICATIONS FEED (derived from bookings + subscription)
+   NOTIFICATIONS
    ═══════════════════════════════════════════════════════════ */
 function renderNotifications(){
   const feed = $('notifFeed');
@@ -1453,7 +1476,6 @@ function renderNotifications(){
 
   const items = [];
 
-  // Derive notifications from bookings
   userBookings.forEach(b => {
     const when = b.createdAt?.toMillis?.() || Date.now();
     const ref = b.ref || b.requestRef || '—';
@@ -1494,7 +1516,6 @@ function renderNotifications(){
     }
   });
 
-  // Subscription notifications
   if(subState === 'pending' && subscription){
     items.push({ type:'warn', icon:'fa-clock',
       title:'Payment under review',
@@ -1504,20 +1525,16 @@ function renderNotifications(){
     items.push({ type:'success', icon:'fa-crown',
       title:'Subscription active',
       desc:'Full Access is live. Post unlimited event requests and use every Event Tool.',
-      time: toDate(subscription.approvedAt)?.getTime() || toDate(subscription.createdAt)?.getTime() || Date.now() });
+      time: toDate(subscription.approvedAt)?.getTime()
+          || toDate(subscription.createdAt)?.getTime()
+          || Date.now() });
   } else if(subState === 'expired'){
     items.push({ type:'warn', icon:'fa-hourglass-end',
       title:'Subscription expired',
       desc:'Renew to keep posting requests and using Event Tools.',
       time: Date.now() });
-  } else if(subState === 'none' && subscription){
-    items.push({ type:'error', icon:'fa-circle-exclamation',
-      title:'Last payment not approved',
-      desc:'Try again or contact support if you believe this is a mistake.',
-      time: Date.now() });
   }
 
-  // Sort newest first
   items.sort((a,b) => b.time - a.time);
 
   if(!items.length){
@@ -1573,7 +1590,6 @@ function renderTools(){
       </div>`;
   }).join('');
 
-  // Wire locked tools → gate modal
   grid.querySelectorAll('.tool.locked').forEach(el => {
     const open = () => {
       if(!currentUser){ pendingActionAfterAuth = { type:'gate' }; openAuthModal('signin'); return; }
@@ -1725,6 +1741,7 @@ onAuthStateChanged(auth, async (user) => {
     if(bookingsUnsub){ try{ bookingsUnsub(); }catch(_){} bookingsUnsub = null; }
     userProfile = null;
     subscription = null;
+    subscriptionExpiry = null;
     userBookings = [];
     subState = 'signed-out';
     renderEverything();
@@ -1738,7 +1755,6 @@ onAuthStateChanged(auth, async (user) => {
     if(!userProfile.email) userProfile.email = user.email || '';
     if(!userProfile.name)  userProfile.name  = user.displayName || (user.email || '').split('@')[0];
 
-    // Silently adopt the user's currency if we haven't already
     if(userProfile.preferredCurrency && CURRENCY_LIST.includes(userProfile.preferredCurrency)){
       detectedCurrency = userProfile.preferredCurrency;
       applyCurrencyToForm();
@@ -1816,15 +1832,19 @@ async function startRequestFlow(){
     return;
   }
 
-  // Re-verify subscription right now
+  // Fresh check — re-read the doc directly so a stale subState can't
+  // block a legitimately-active user.
   try{
     const snap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${PLAN_ID}`));
     const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
-    const result = evaluateSub(data);
+    const result = evaluateSubscription(data);
     subState = result.state;
     subscription = result.sub || null;
-    subscription._expiresAt = result.expiresAt || null;
-  }catch(e){ /* keep current state */ }
+    subscriptionExpiry = result.expiresAt || null;
+    renderEverything();
+  }catch(e){
+    console.warn('Fresh subscription check failed:', e);
+  }
 
   if(subState !== 'active'){
     showToast('Please subscribe first to post requests.', 'error');
@@ -1836,24 +1856,21 @@ async function startRequestFlow(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   REQUEST MODAL — OPEN / RESET
+   REQUEST MODAL
    ═══════════════════════════════════════════════════════════ */
 function openRequestModal(){
   clearFormMsg('reqMsg');
   $('requestForm').style.display = '';
   $('requestSuccess').style.display = 'none';
 
-  // Reset form
   $('requestForm').reset();
 
-  // Date min = today
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
   $('reqDate').min = `${yyyy}-${mm}-${dd}`;
 
-  // Prefill contact from profile
   if(userProfile){
     $('reqContactName').value  = userProfile.name || '';
     $('reqContactEmail').value = userProfile.email || currentUser.email || '';
@@ -1895,14 +1912,14 @@ $('requestForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('reqMsg');
 
-  // Re-verify subscription one final time
+  // Fresh check right before submitting
   try{
     const snap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${PLAN_ID}`));
     const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
-    const result = evaluateSub(data);
+    const result = evaluateSubscription(data);
     subState = result.state;
     subscription = result.sub || null;
-    subscription._expiresAt = result.expiresAt || null;
+    subscriptionExpiry = result.expiresAt || null;
     renderEverything();
   }catch(e){ /* keep state */ }
 
@@ -1925,7 +1942,6 @@ $('requestForm').addEventListener('submit', async (e) => {
     const ref = genRef('ER');
 
     const payload = {
-      /* identity */
       ref,
       requestRef: ref,
       isEventRequest: true,
@@ -1935,7 +1951,6 @@ $('requestForm').addEventListener('submit', async (e) => {
       userPhone: userProfile?.phone || $('reqContactPhone').value.trim() || '',
       organization: $('reqOrganization').value.trim() || '',
 
-      /* event */
       eventName: $('reqEventName').value.trim(),
       eventType: $('reqEventType').value,
       eventDate: $('reqDate').value,
@@ -1946,14 +1961,12 @@ $('requestForm').addEventListener('submit', async (e) => {
       countryName: COUNTRIES[detectedCountry]?.name || '',
       attendance: $('reqAttendance').value ? Number($('reqAttendance').value) : null,
 
-      /* artist */
       preferredArtistName: $('reqArtistName').value.trim(),
       artistName: $('reqArtistName').value.trim(),
       genrePreference: $('reqGenre').value || '',
       performanceType: $('reqPerfType').value,
       artistNotes: $('reqArtistNotes').value.trim(),
 
-      /* budget */
       budget: Number($('reqBudget').value) || 0,
       currency: $('reqCurrency').value || detectedCurrency,
       budgetFlexible: $('reqFlexible').checked,
@@ -1961,12 +1974,10 @@ $('requestForm').addEventListener('submit', async (e) => {
       requirements,
       description: $('reqDescription').value.trim(),
 
-      /* contact */
       contactName: $('reqContactName').value.trim(),
       contactPhone: $('reqContactPhone').value.trim(),
       contactEmail: $('reqContactEmail').value.trim(),
 
-      /* meta */
       status: 'pending',
       source: 'web',
       createdAt: serverTimestamp()
@@ -1974,14 +1985,12 @@ $('requestForm').addEventListener('submit', async (e) => {
 
     const docRef = await addDoc(collection(db, 'bookings'), payload);
 
-    // Mirror into eventRequests
     try{
       await addDoc(collection(db, 'eventRequests'), { ...payload, bookingId: docRef.id });
     }catch(err){
       console.warn('eventRequests mirror failed:', err);
     }
 
-    // Drop into admin inbox
     try{
       const summary = [
         `New event request ${ref}`,
@@ -2020,7 +2029,6 @@ $('requestForm').addEventListener('submit', async (e) => {
       console.warn('Admin inbox write failed:', err);
     }
 
-    // Show success
     $('successRef').textContent = ref;
     $('requestForm').style.display = 'none';
     $('requestSuccess').style.display = '';
@@ -2035,7 +2043,7 @@ $('requestForm').addEventListener('submit', async (e) => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   AUTH MODAL — full flow with reset password
+   AUTH MODAL
    ═══════════════════════════════════════════════════════════ */
 function openAuthModal(mode = 'signin'){
   switchAuthTab(mode);
@@ -2161,7 +2169,6 @@ $('signupForm').addEventListener('submit', async (e) => {
       await setDoc(uRef, baseDoc, { merge: true });
     }
 
-    // Adopt their currency locally
     detectedCountry = country;
     detectedCurrency = c.currency;
     applyCurrencyToForm();

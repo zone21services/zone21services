@@ -11,21 +11,23 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  ZONE21 · EVENT TOOLS  (v2 — Multi-country + Multi-currency)
+  ZONE21 · EVENT TOOLS  (v3)
 
-  WHAT'S NEW
-  ──────────
-  · Vendors tool REMOVED (per request)
-  · Silent location detection: timezone → language → IP
-  · Location banner shows the detected country + billing currency
-  · Currency preference (USD / ZAR) with a switcher near the hero
-  · Signup modal now captures Country and sets preferredCurrency
-  · Subscription banner and gate modal show the price in the
-    user's local currency
-  · Subscription gate is strict — only `status: 'active'` and a
-    future expiry pass
-
-  TOOLS ARE LOCKED until an active subscription is detected.
+  CHANGES FROM v2
+  ───────────────
+  · REMOVED the visible location banner + currency switcher.
+    Country is still detected silently (timezone → locale → IP)
+    and used only as the default currency for the gate price.
+  · SUBSCRIPTION READ FIXED — evaluation now mirrors the exact
+    logic used in bookingsub.html's renderStatus():
+      status field (pending_payment | active | approved | rejected)
+      approvedAt / expiresAt / createdAt / deletedAt
+    This prevents the "false negative" (subscribed user seeing
+    'locked') that came from checking fields bookingsub never writes.
+  · Realtime onSnapshot listener stays — the banner updates live
+    the moment an admin approves payment.
+  · 4-state machine: active · pending · expired · inactive.
+    Tools unlock ONLY on 'active'.
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -147,62 +149,22 @@ body.z21-loading{overflow:hidden}
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 .z21-hero p{font-size:clamp(15px,1.6vw,18px);color:var(--text-muted);max-width:600px;line-height:1.55;}
 
-/* LOCATION BANNER */
-.z21-loc-row{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  margin-top:22px;
-}
-.z21-loc-banner{
-  display:inline-flex;align-items:center;gap:10px;
-  padding:8px 16px;background:var(--surface-2);
-  border:1px solid var(--border);border-radius:100px;
-  font-size:12.5px;color:var(--text-muted);font-weight:600;
-  transition:all .2s;
-}
-.z21-loc-banner .flag{font-size:16px;line-height:1}
-.z21-loc-banner strong{color:#fff;font-weight:700}
-.z21-loc-banner .cur-chip{
-  padding:3px 10px;border-radius:100px;
-  background:rgba(250,36,60,.14);
-  border:1px solid rgba(250,36,60,.3);
-  color:#ff9aa5;font-size:10.5px;font-weight:800;
-  letter-spacing:.06em;
-}
-
-/* CURRENCY SWITCH */
-.z21-cur-switch{
-  display:inline-flex;align-items:center;gap:10px;
-  padding:5px 5px 5px 14px;
-  background:var(--surface-2);
-  border:1px solid var(--border);
-  border-radius:100px;
-}
-.z21-cur-switch__label{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:10.5px;font-weight:800;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--text-dim);white-space:nowrap;
-}
-.z21-cur-switch__label i{color:var(--accent);font-size:11px}
-.z21-cur-opts{display:flex;gap:3px;background:rgba(0,0,0,.4);border-radius:100px;padding:3px}
-.z21-cur-opts button{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:7px 14px;border-radius:100px;
-  font-size:12px;font-weight:800;letter-spacing:-.01em;
-  color:var(--text-muted);transition:all .2s;white-space:nowrap;
-}
-.z21-cur-opts button:hover{color:#fff}
-.z21-cur-opts button.active{
-  background:var(--accent);color:#fff;
-  box-shadow:0 6px 18px var(--accent-glow);
-}
-
 /* SUBSCRIPTION BANNER */
 .z21-sub-banner{margin-top:26px;display:flex;align-items:center;gap:14px;
   padding:14px 20px;
   background:linear-gradient(90deg,rgba(250,36,60,.14),rgba(250,36,60,.04));
   border:1px solid rgba(250,36,60,.28);border-radius:var(--radius);
   max-width:820px;flex-wrap:wrap;}
+.z21-sub-banner.active{background:linear-gradient(90deg,rgba(48,209,88,.14),rgba(48,209,88,.04));
+  border-color:rgba(48,209,88,.3);}
+.z21-sub-banner.pending{background:linear-gradient(90deg,rgba(255,159,10,.14),rgba(255,159,10,.04));
+  border-color:rgba(255,159,10,.3);}
+.z21-sub-banner.expired{background:linear-gradient(90deg,rgba(10,132,255,.14),rgba(10,132,255,.04));
+  border-color:rgba(10,132,255,.3);}
 .z21-sub-banner i.bi{color:var(--accent);font-size:18px;flex-shrink:0}
+.z21-sub-banner.active i.bi{color:var(--success)}
+.z21-sub-banner.pending i.bi{color:var(--warn)}
+.z21-sub-banner.expired i.bi{color:var(--info)}
 .z21-sub-banner-text{flex:1;min-width:220px;font-size:14px;line-height:1.45}
 .z21-sub-banner-text strong{color:#fff;font-weight:700}
 .z21-sub-banner-text span{color:var(--text-muted)}
@@ -210,6 +172,10 @@ body.z21-loading{overflow:hidden}
 .z21-sub-banner a{padding:9px 18px;background:var(--accent);border-radius:100px;
   font-size:13px;font-weight:700;white-space:nowrap;transition:all .2s;color:#fff;}
 .z21-sub-banner a:hover{background:var(--accent-2);transform:translateY(-1px)}
+.z21-sub-banner.active a{background:var(--success);color:#04140a}
+.z21-sub-banner.active a:hover{background:#3ee06a}
+.z21-sub-banner.pending a{background:var(--warn);color:#3d2800}
+.z21-sub-banner.expired a{background:var(--info);color:#fff}
 
 .z21-active-badge{display:inline-flex;align-items:center;gap:8px;
   margin-top:22px;padding:8px 16px;
@@ -435,10 +401,6 @@ body.z21-loading{overflow:hidden}
   .z21-toast-wrap{top:auto;bottom:calc(var(--bottom-nav-h) + 20px + env(safe-area-inset-bottom,0px))}
   .z21-bottom-link i{font-size:15px}
   .z21-bottom-link span{font-size:9px}
-  .z21-cur-switch{padding:5px}
-  .z21-cur-switch__label{display:none}
-  .z21-cur-opts{flex:1}
-  .z21-cur-opts button{flex:1;justify-content:center}
   .z21-gate-plan{flex-direction:column;align-items:flex-start}
   .z21-gate-plan-right{text-align:left;width:100%}
 }
@@ -491,23 +453,7 @@ body.z21-loading{overflow:hidden}
   <h1>Plan, create, and <span class="grad">celebrate</span> your event.</h1>
   <p>Every Zone21 tool in one place — blueprints, security, guests, revenue, and analytics.</p>
 
-  <!-- Location + currency -->
-  <div class="z21-loc-row">
-    <button class="z21-loc-banner" id="locBanner" type="button" aria-label="Detected location">
-      <span class="flag" id="locFlag">🇿🇼</span>
-      <span>Showing <strong id="locCountry">Zimbabwe</strong></span>
-      <span class="cur-chip" id="locCurrencyChip">USD</span>
-    </button>
-
-    <div class="z21-cur-switch" id="currencySwitch">
-      <span class="z21-cur-switch__label"><i class="fas fa-globe"></i> Currency</span>
-      <div class="z21-cur-opts">
-        <button type="button" data-currency="USD">🇺🇸 USD $</button>
-        <button type="button" data-currency="ZAR">🇿🇦 ZAR R</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- Subscription state mount (no location / currency UI) -->
   <div id="subscriptionZone"></div>
 </section>
 
@@ -564,7 +510,6 @@ body.z21-loading{overflow:hidden}
         </button>
       </form>
 
-      <!-- UPGRADED SIGN UP -->
       <form id="signupForm" style="display:none" autocomplete="on">
         <div class="z21-field">
           <label>Full Name</label>
@@ -617,7 +562,6 @@ body.z21-loading{overflow:hidden}
         </div>
       </form>
 
-      <!-- RESET PASSWORD -->
       <div id="resetPanel" style="display:none">
         <div class="z21-reset-icon"><i class="fas fa-key"></i></div>
         <div class="z21-form-msg" id="resetMsg"></div>
@@ -662,7 +606,6 @@ body.z21-loading{overflow:hidden}
         </div>
       </div>
 
-      <!-- Local-priced plan summary -->
       <div class="z21-gate-plan">
         <div class="z21-gate-plan-left">
           <small>Full Access — Annual</small>
@@ -719,43 +662,34 @@ const PLAN = {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   CURRENCY + COUNTRY CATALOGS
+   CURRENCY (SILENT) — used only for the gate modal price.
+   No UI surfaces this to the user.
    ═══════════════════════════════════════════════════════════ */
 const CURRENCIES = {
-  USD: { symbol: '$', label: 'USD (US Dollar)' },
-  ZAR: { symbol: 'R', label: 'ZAR (South African Rand)' }
+  USD: { symbol: '$' },
+  ZAR: { symbol: 'R' }
 };
-
-/* CMA — bill in ZAR */
-const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
+const ZAR_COUNTRIES = new Set(['ZA','LS','SZ','NA']);
 
 const TIMEZONE_COUNTRY = {
-  'Africa/Johannesburg': 'ZA', 'Africa/Maseru': 'LS', 'Africa/Mbabane': 'SZ',
-  'Africa/Windhoek': 'NA', 'Africa/Harare': 'ZW', 'Africa/Lusaka': 'ZM',
-  'Africa/Gaborone': 'BW', 'Africa/Maputo': 'MZ', 'Africa/Lagos': 'NG',
-  'Africa/Nairobi': 'KE', 'Africa/Accra': 'GH', 'Africa/Cairo': 'EG',
-  'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
-  'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL',
-  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
-  'America/Los_Angeles': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
-  'Asia/Dubai': 'AE', 'Asia/Kolkata': 'IN', 'Asia/Singapore': 'SG',
-  'Australia/Sydney': 'AU', 'Australia/Perth': 'AU', 'Australia/Melbourne': 'AU',
-  'Pacific/Auckland': 'NZ'
+  'Africa/Johannesburg':'ZA','Africa/Maseru':'LS','Africa/Mbabane':'SZ',
+  'Africa/Windhoek':'NA','Africa/Harare':'ZW','Africa/Lusaka':'ZM',
+  'Africa/Gaborone':'BW','Africa/Maputo':'MZ','Africa/Lagos':'NG',
+  'Africa/Nairobi':'KE','Africa/Accra':'GH','Africa/Cairo':'EG',
+  'Europe/London':'GB','Europe/Dublin':'IE','Europe/Paris':'FR',
+  'Europe/Berlin':'DE','Europe/Madrid':'ES','Europe/Amsterdam':'NL',
+  'America/New_York':'US','America/Chicago':'US','America/Denver':'US',
+  'America/Los_Angeles':'US','America/Toronto':'CA','America/Vancouver':'CA',
+  'Asia/Dubai':'AE','Asia/Kolkata':'IN','Asia/Singapore':'SG',
+  'Australia/Sydney':'AU','Australia/Perth':'AU','Australia/Melbourne':'AU',
+  'Pacific/Auckland':'NZ'
 };
 
 const COUNTRY_META = {
-  ZW: { flag:'🇿🇼', name:'Zimbabwe' },
-  ZA: { flag:'🇿🇦', name:'South Africa' },
-  NA: { flag:'🇳🇦', name:'Namibia' },
-  LS: { flag:'🇱🇸', name:'Lesotho' },
-  SZ: { flag:'🇸🇿', name:'Eswatini' },
-  BW: { flag:'🇧🇼', name:'Botswana' },
-  ZM: { flag:'🇿🇲', name:'Zambia' },
-  MW: { flag:'🇲🇼', name:'Malawi' },
-  MZ: { flag:'🇲🇿', name:'Mozambique' },
-  GB: { flag:'🇬🇧', name:'United Kingdom' },
-  US: { flag:'🇺🇸', name:'United States' },
-  OTHER: { flag:'🌍', name:'Other' }
+  ZW:{ name:'Zimbabwe' }, ZA:{ name:'South Africa' }, NA:{ name:'Namibia' },
+  LS:{ name:'Lesotho' }, SZ:{ name:'Eswatini' }, BW:{ name:'Botswana' },
+  ZM:{ name:'Zambia' }, MW:{ name:'Malawi' }, MZ:{ name:'Mozambique' },
+  GB:{ name:'United Kingdom' }, US:{ name:'United States' }, OTHER:{ name:'Other' }
 };
 
 const app  = initializeApp(firebaseConfig);
@@ -763,7 +697,7 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 /* ═══════════════════════════════════════════════════════════
-   TOOLS — Vendors removed
+   TOOLS
    ═══════════════════════════════════════════════════════════ */
 const TOOLS = [
   { id:'blueprint', icon:'fa-brain',       title:'Blueprint',      desc:'Generate detailed event blueprints with budget analysis, vendor matching, and export options.', link:'blueprint.html' },
@@ -775,7 +709,7 @@ const TOOLS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════
-   BOOT CURRENCY (runs before Firebase resolves)
+   SILENT CURRENCY BOOT
    ═══════════════════════════════════════════════════════════ */
 let activeCurrency = 'USD';
 let manualCurrency = false;
@@ -831,9 +765,6 @@ function currencyForCountry(code){
       if(next !== activeCurrency){
         activeCurrency = next;
         try{ localStorage.setItem('zone21_currency', next); }catch(_){}
-        applyCurrencyUI();
-        applyLocationBanner();
-        renderSubscriptionZone();
         updateGatePrice();
       }
     }).catch(() => {});
@@ -869,11 +800,13 @@ setTimeout(hideLoader, FAILSAFE_MS);
 let currentUser = null;
 let userProfile = null;
 
-/* Subscription state machine — tools are only accessible when
-   this is exactly 'active'. */
-let subState = 'signed-out'; // 'signed-out' | 'checking' | 'active' | 'inactive'
+/* Subscription state machine:
+     'signed-out' | 'checking' | 'active' | 'pending' | 'expired' | 'inactive'
+   Tools unlock ONLY on 'active'. */
+let subState = 'signed-out';
 let subUnsub = null;
 let currentSub = null;
+let currentSubExpiry = null;
 
 /* ═══════════════════════════════════════════════════════════
    UTILITIES
@@ -891,7 +824,6 @@ function getPrice(currency = activeCurrency){
   return PLAN.prices[currency] != null ? PLAN.prices[currency] : PLAN.prices.USD;
 }
 function currencySymbol(c){ return CURRENCIES[c]?.symbol || '$'; }
-function currencyLabel(c){ return CURRENCIES[c]?.label || 'USD (US Dollar)'; }
 function formatMoney(amount, currency = activeCurrency){
   const num = Number(amount) || 0;
   const s = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -920,11 +852,13 @@ function showToast(msg, type = 'info'){
 
 function showFormMsg(elId, msg, type = 'error'){
   const el = $(elId);
+  if(!el) return;
   el.textContent = msg;
   el.className = `z21-form-msg show ${type}`;
 }
 function clearFormMsg(elId){
   const el = $(elId);
+  if(!el) return;
   el.textContent = '';
   el.className = 'z21-form-msg';
 }
@@ -957,82 +891,49 @@ function friendlyAuthError(err){
   return err?.message || 'Something went wrong. Please try again.';
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CURRENCY UI
-   ═══════════════════════════════════════════════════════════ */
-function setCurrency(currency, isManual = true){
-  if(!CURRENCIES[currency]) return;
-  activeCurrency = currency;
-  if(isManual){
-    manualCurrency = true;
-    try{ localStorage.setItem('zone21_currency_manual', '1'); }catch(_){}
-  }
-  try{ localStorage.setItem('zone21_currency', currency); }catch(_){}
-
-  applyCurrencyUI();
-  applyLocationBanner();
-  renderSubscriptionZone();
-  updateGatePrice();
-
-  // Persist to Firestore if signed in
-  if(currentUser){
-    setDoc(doc(db, 'users', currentUser.uid), {
-      preferredCurrency: currency,
-      updatedAt: serverTimestamp()
-    }, { merge: true }).catch(e => console.warn('Could not save currency preference:', e));
-  }
-}
-
-function applyCurrencyUI(){
-  document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
-  });
-}
-
-function applyLocationBanner(){
-  const code = detectedCountry || (manualCurrency ? (activeCurrency === 'ZAR' ? 'ZA' : 'ZW') : 'ZW');
-  const meta = COUNTRY_META[code] || COUNTRY_META.OTHER;
-
-  const flagEl = $('locFlag');
-  const nameEl = $('locCountry');
-  const chipEl = $('locCurrencyChip');
-  if(flagEl) flagEl.textContent = meta.flag;
-  if(nameEl) nameEl.textContent = meta.name;
-  if(chipEl) chipEl.textContent = activeCurrency;
-}
-
 function updateGatePrice(){
   const el = $('gatePrice');
   if(el) el.textContent = formatCompact(getPrice(), activeCurrency);
 }
 
-document.querySelectorAll('#currencySwitch .z21-cur-opts button').forEach(btn => {
-  btn.addEventListener('click', () => setCurrency(btn.dataset.currency, true));
-});
-
-$('locBanner').addEventListener('click', () => {
-  document.getElementById('currencySwitch')?.scrollIntoView({ behavior:'smooth', block:'center' });
-});
-
 /* ═══════════════════════════════════════════════════════════
-   SUBSCRIPTION EVALUATION — STRICT
+   SUBSCRIPTION EVALUATION
+   ─────────────────────────────────────────────────────────
+   Mirrors bookingsub.html's own status logic EXACTLY:
+     · Doc path   : subscriptions/{uid}_annual
+     · Status     : 'pending_payment' | 'active' | 'approved' | 'rejected'
+     · Dates      : approvedAt (set on admin approval), expiresAt
+                    (optional — derived from approvedAt + 12 months),
+                    createdAt (fallback anchor), deletedAt (soft delete)
+   Returns { state, sub, expiresAt } so the UI can render rich states.
    ═══════════════════════════════════════════════════════════ */
-function evaluateSub(s){
-  if(!s) return false;
-  if(s.deletedAt) return false;
+function evaluateSubscription(sub){
+  if(!sub)        return { state:'inactive', sub:null, expiresAt:null };
+  if(sub.deletedAt) return { state:'inactive', sub:null, expiresAt:null };
 
-  const status = String(s.status || '').toLowerCase();
-  if(status !== 'active' && status !== 'approved') return false;
+  const status = String(sub.status || 'pending_payment').toLowerCase();
 
-  let exp = toDate(s.expiresAt);
-  if(!exp){
-    const anchor = toDate(s.approvedAt) || toDate(s.createdAt);
-    if(anchor) exp = new Date(anchor.getTime() + 12 * 30 * 24 * 60 * 60 * 1000);
+  if(status === 'rejected')                       return { state:'inactive', sub, expiresAt:null };
+  if(status === 'pending_payment' || status === 'pending'){
+    return { state:'pending', sub, expiresAt:null };
   }
-  if(!exp) return false;
-  if(exp.getTime() <= Date.now()) return false;
+  if(status !== 'active' && status !== 'approved'){
+    return { state:'inactive', sub, expiresAt:null };
+  }
 
-  return true;
+  // Active / approved — derive expiry using the SAME anchor logic
+  // bookingsub.html uses when it renders the status card.
+  const approvedAt = toDate(sub.approvedAt);
+  const expiresAt  = toDate(sub.expiresAt)
+                  || (approvedAt ? new Date(approvedAt.getTime() + PLAN.months * 30 * 86400000) : null)
+                  || (toDate(sub.createdAt)
+                        ? new Date(toDate(sub.createdAt).getTime() + PLAN.months * 30 * 86400000)
+                        : null);
+
+  if(expiresAt && expiresAt.getTime() <= Date.now()){
+    return { state:'expired', sub, expiresAt };
+  }
+  return { state:'active', sub, expiresAt };
 }
 
 function attachSubListener(uid){
@@ -1040,22 +941,22 @@ function attachSubListener(uid){
 
   subState = 'checking';
   currentSub = null;
+  currentSubExpiry = null;
   updateToolsLockUI();
 
   const ref = doc(db, 'subscriptions', `${uid}_${PLAN_ID}`);
   subUnsub = onSnapshot(ref, (snap) => {
-    if(!snap.exists()){
-      subState = 'inactive';
-      currentSub = null;
-    } else {
-      currentSub = snap.data() || {};
-      subState = evaluateSub(currentSub) ? 'active' : 'inactive';
-    }
+    const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
+    const result = evaluateSubscription(data);
+    subState = result.state;
+    currentSub = result.sub || null;
+    currentSubExpiry = result.expiresAt || null;
     updateToolsLockUI();
   }, (err) => {
     console.warn('Subscription listener error:', err);
     subState = 'inactive';
     currentSub = null;
+    currentSubExpiry = null;
     updateToolsLockUI();
   });
 }
@@ -1063,6 +964,7 @@ function attachSubListener(uid){
 function detachSubListener(){
   if(subUnsub){ try{ subUnsub(); }catch(_){} subUnsub = null; }
   currentSub = null;
+  currentSubExpiry = null;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1138,10 +1040,13 @@ function updateToolsLockUI(){
    ═══════════════════════════════════════════════════════════ */
 function renderSubscriptionZone(){
   const zone = $('subscriptionZone');
+  if(!zone) return;
+
   if(!currentUser){
     zone.innerHTML = '';
     return;
   }
+
   if(subState === 'checking'){
     zone.innerHTML = `
       <div class="z21-active-badge checking">
@@ -1150,14 +1055,50 @@ function renderSubscriptionZone(){
       </div>`;
     return;
   }
+
   if(subState === 'active'){
+    const days = currentSubExpiry
+      ? Math.max(0, Math.ceil((currentSubExpiry - Date.now()) / 86400000))
+      : null;
+    const daysTxt = days != null
+      ? ` · ${days} day${days === 1 ? '' : 's'} remaining`
+      : '';
     zone.innerHTML = `
       <div class="z21-active-badge">
         <i class="fas fa-circle-check"></i>
-        Subscription active — all tools unlocked
+        Subscription active — all tools unlocked${daysTxt}
       </div>`;
     return;
   }
+
+  if(subState === 'pending'){
+    const inv = currentSub?.invoiceNumber || '';
+    zone.innerHTML = `
+      <div class="z21-sub-banner pending">
+        <i class="fas fa-clock bi"></i>
+        <div class="z21-sub-banner-text">
+          <strong>Payment under review.</strong>
+          <span>Your invoice${inv ? ` (${escapeHTML(inv)})` : ''} is being verified by the Zone21 team. Tools unlock automatically once approved.</span>
+        </div>
+        <a href="bookingsub.html">View Status</a>
+      </div>`;
+    return;
+  }
+
+  if(subState === 'expired'){
+    zone.innerHTML = `
+      <div class="z21-sub-banner expired">
+        <i class="fas fa-hourglass-end bi"></i>
+        <div class="z21-sub-banner-text">
+          <strong>Subscription expired.</strong>
+          <span>Renew your annual plan to keep using the Event Tools.</span>
+        </div>
+        <a href="bookingsub.html">Renew</a>
+      </div>`;
+    return;
+  }
+
+  // inactive / none
   const priceStr = formatCompact(getPrice(), activeCurrency);
   zone.innerHTML = `
     <div class="z21-sub-banner">
@@ -1293,7 +1234,6 @@ $('signinForm').addEventListener('submit', async (e) => {
   }
 });
 
-/* UPGRADED SIGN UP */
 $('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   clearFormMsg('authMsg');
@@ -1348,14 +1288,10 @@ $('signupForm').addEventListener('submit', async (e) => {
       }, { merge: true });
     }
 
-    // Adopt the country currency if the user hasn't manually overridden
     if(!manualCurrency){
       activeCurrency = userCurrency;
       detectedCountry = country;
       try{ localStorage.setItem('zone21_currency', userCurrency); }catch(_){}
-      applyCurrencyUI();
-      applyLocationBanner();
-      renderSubscriptionZone();
       updateGatePrice();
     }
 
@@ -1404,21 +1340,15 @@ $('resetForm').addEventListener('submit', async (e) => {
     const code = err?.code || '';
     if(code.includes('network-request-failed')){
       showFormMsg('resetMsg', 'Network error. Please check your connection and try again.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      return;
+      btn.disabled = false; btn.innerHTML = orig; return;
     }
     if(code.includes('too-many-requests')){
       showFormMsg('resetMsg', 'Too many attempts. Please wait a few minutes and try again.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      return;
+      btn.disabled = false; btn.innerHTML = orig; return;
     }
     if(code.includes('invalid-email')){
       showFormMsg('resetMsg', "That email address doesn't look valid. Please check and try again.", 'error');
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      return;
+      btn.disabled = false; btn.innerHTML = orig; return;
     }
     console.warn('Password reset request handled privately:', code || err?.message);
   }
@@ -1466,17 +1396,12 @@ onAuthStateChanged(auth, async (user) => {
     userProfile = { name: user.displayName || 'Member', email: user.email };
   }
 
-  // Adopt the profile's currency / country unless manual override
   if(!manualCurrency){
     if(userProfile.preferredCurrency && CURRENCIES[userProfile.preferredCurrency]){
       activeCurrency = userProfile.preferredCurrency;
-      applyCurrencyUI();
+      updateGatePrice();
     }
-    if(userProfile.country){
-      detectedCountry = userProfile.country;
-      applyLocationBanner();
-    }
-    updateGatePrice();
+    if(userProfile.country) detectedCountry = userProfile.country;
   }
 
   renderNavUser();
@@ -1502,8 +1427,6 @@ document.addEventListener('keydown', (e) => {
 /* ═══════════════════════════════════════════════════════════
    BOOT
    ═══════════════════════════════════════════════════════════ */
-applyCurrencyUI();
-applyLocationBanner();
 updateGatePrice();
 renderTools();
 bindToolGate();

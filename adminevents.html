@@ -7,12 +7,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js">
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+      ZONE21 · ADMIN APPROVALS  (v2 — Multi-currency)
+
+      WHAT'S NEW
+      ──────────
+      · Currency catalogs (USD / ZAR) matching the rest of the platform
+      · Currency chip on every event card ("From $50" / "From R400")
+      · Ticket prices render with the correct symbol in the detail modal
+      · Copy-as-Text and Copy-as-HTML exports include the currency
+      · Details modal shows the event currency explicitly
+      · Filter to view events by currency (All / USD / ZAR)
+      · Everything else (approve / reject / cancel / delete) unchanged
+    ═══════════════════════════════════════════════════════════════════
+    -->
 
     <style>
         :root {
@@ -112,6 +125,45 @@
             background: #eef0f4;
         }
 
+        /* ─── Currency filter row ─── */
+        .currency-filter-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            background: #fff8e6;
+            border: 1px solid #f0d68a;
+            border-radius: 12px;
+        }
+        .currency-filter-row .label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #8a6d00;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .currency-filter-row .label i { color: #d19b00; }
+        .cur-filter-btn {
+            padding: 6px 14px;
+            border-radius: 30px;
+            border: 1px solid #e0c976;
+            background: white;
+            color: #8a6d00;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .cur-filter-btn:hover { background: #fff6dd; }
+        .cur-filter-btn.active {
+            background: #d19b00;
+            color: #fff;
+            border-color: #d19b00;
+        }
+
         .event-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -141,6 +193,10 @@
             font-weight: 700;
             color: var(--navy);
             margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .event-card .event-meta {
             font-size: 0.85rem;
@@ -182,6 +238,28 @@
         .status-pending_payment {
             background: #cce5ff;
             color: #004085;
+        }
+
+        /* ─── Currency chip on cards ─── */
+        .cur-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            background: #e8f0fe;
+            color: #1a5fb4;
+            border: 1px solid #bfd3f5;
+            white-space: nowrap;
+            text-transform: uppercase;
+        }
+        .cur-chip.zar {
+            background: #eafaf1;
+            color: #0a7c50;
+            border-color: #b6e7cd;
         }
 
         .event-actions {
@@ -343,6 +421,18 @@
             padding: 15px;
             margin-bottom: 10px;
         }
+        .ticket-detail .ticket-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .ticket-detail .ticket-price {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
         .ticket-detail .ticket-img {
             max-width: 120px;
             height: auto;
@@ -373,23 +463,11 @@
             flex-wrap: wrap;
             margin-top: 10px;
         }
-        .badge-pill {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-left: 6px;
-        }
         .text-muted {
             color: var(--text-muted);
         }
-        .mt-10 {
-            margin-top: 10px;
-        }
-        .mb-10 {
-            margin-bottom: 10px;
-        }
+        .mt-10 { margin-top: 10px; }
+        .mb-10 { margin-bottom: 10px; }
         .flex-between {
             display: flex;
             justify-content: space-between;
@@ -406,6 +484,29 @@
             display: block;
             color: #6c5200;
         }
+
+        /* Modal currency banner */
+        .modal-cur-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            background: #e8f0fe;
+            border: 1px solid #bfd3f5;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            font-size: 0.86rem;
+            color: #1a5fb4;
+            font-weight: 600;
+        }
+        .modal-cur-banner.zar {
+            background: #eafaf1;
+            border-color: #b6e7cd;
+            color: #0a7c50;
+        }
+        .modal-cur-banner i { font-size: 0.95rem; }
 
         @media (max-width: 600px) {
             .detail-grid {
@@ -461,6 +562,14 @@
             <button class="filter-btn" data-filter="cancellation_requested">⏳ Cancellation Requests</button>
         </div>
 
+        <!-- CURRENCY FILTER -->
+        <div class="currency-filter-row" id="currency-filter-row">
+            <span class="label"><i class="fas fa-coins"></i> Currency</span>
+            <button class="cur-filter-btn active" data-cur-filter="all">All</button>
+            <button class="cur-filter-btn" data-cur-filter="USD">🇺🇸 USD</button>
+            <button class="cur-filter-btn" data-cur-filter="ZAR">🇿🇦 ZAR</button>
+        </div>
+
         <!-- EVENTS LIST -->
         <div id="events-list" class="event-list">
             <div class="loading">Authenticating &amp; loading events…</div>
@@ -494,12 +603,42 @@
         const auth = firebase.auth();
 
         // ============================================================
+        //  CURRENCY CATALOG
+        // ============================================================
+        const CURRENCIES = {
+            USD: { symbol: '$', code: 'USD', label: 'USD (US Dollar)',          flag: '🇺🇸' },
+            ZAR: { symbol: 'R', code: 'ZAR', label: 'ZAR (South African Rand)', flag: '🇿🇦' }
+        };
+
+        function currencySymbol(c){ return CURRENCIES[c]?.symbol || '$'; }
+        function currencyLabel(c){ return CURRENCIES[c]?.label || 'USD (US Dollar)'; }
+        function currencyFlag(c){ return CURRENCIES[c]?.flag || '🌍'; }
+
+        function formatMoney(amount, currency = 'USD'){
+            const num = Number(amount) || 0;
+            const s = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return `${currencySymbol(currency)}${s}`;
+        }
+        function formatCompact(amount, currency = 'USD'){
+            return formatMoney(amount, currency).replace(/\.00$/, '');
+        }
+
+        // Resolve the effective currency for an event
+        function eventCurrency(ev) {
+            if (ev && ev.currency && CURRENCIES[ev.currency]) return ev.currency;
+            if (ev && Array.isArray(ev.ticketTypes) && ev.ticketTypes[0]?.currency && CURRENCIES[ev.ticketTypes[0].currency]) {
+                return ev.ticketTypes[0].currency;
+            }
+            return 'USD';
+        }
+
+        // ============================================================
         //  STATE
         // ============================================================
         let allEvents = [];
         let currentFilter = 'all';
+        let currentCurrencyFilter = 'all';
 
-        // Allowed statuses for this page: pending, approved, cancellation_requested
         const ALLOWED_STATUSES = new Set(['pending', 'approved', 'cancellation_requested']);
 
         // ─── Helper: check if event is complete ───
@@ -567,17 +706,22 @@
         }
 
         // ============================================================
-        //  APPLY FILTER
+        //  APPLY FILTER (status + currency)
         // ============================================================
         function applyFilter() {
             const listDiv = document.getElementById('events-list');
             listDiv.innerHTML = '';
 
-            let filtered;
-            if (currentFilter === 'all') {
-                filtered = allEvents;
-            } else {
-                filtered = allEvents.filter(e => e.status === currentFilter);
+            let filtered = allEvents;
+
+            // Status filter
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(e => e.status === currentFilter);
+            }
+
+            // Currency filter
+            if (currentCurrencyFilter !== 'all') {
+                filtered = filtered.filter(e => eventCurrency(e) === currentCurrencyFilter);
             }
 
             if (filtered.length === 0) {
@@ -602,6 +746,9 @@
             const card = document.createElement('div');
             card.className = 'event-card';
 
+            const cur = eventCurrency(event);
+            const isZar = cur === 'ZAR';
+
             const posterHtml = event.posterImage ?
                 `<img src="${event.posterImage}" class="poster" alt="${event.eventName}">` :
                 `<div class="poster" style="display:flex;align-items:center;justify-content:center;color:#ccc;background:#f7f7f7;">
@@ -614,10 +761,25 @@
                 event.status === 'cancellation_requested' ? 'Cancellation Requested' :
                 event.status.replace(/_/g, ' ').toUpperCase();
 
+            // ─── Currency chip (lowest ticket price) ───
+            let priceChip = '';
+            if (Array.isArray(event.ticketTypes) && event.ticketTypes.length) {
+                const prices = event.ticketTypes
+                    .map(t => Number(t.price))
+                    .filter(p => !isNaN(p) && p > 0);
+                if (prices.length) {
+                    const lowest = Math.min(...prices);
+                    priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-tag"></i> From ${formatCompact(lowest, cur)}</span>`;
+                } else {
+                    priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-coins"></i> ${cur}</span>`;
+                }
+            } else {
+                priceChip = `<span class="cur-chip ${isZar ? 'zar' : ''}"><i class="fas fa-coins"></i> ${cur}</span>`;
+            }
+
             // Actions based on status
             let actionsHtml = '';
 
-            // Always include Details and Delete (with warnings)
             actionsHtml += `
                 <button class="btn btn-view" onclick="viewEventDetails('${event.id}')"><i class="fas fa-eye"></i> Details</button>
             `;
@@ -639,7 +801,6 @@
                 `;
             }
 
-            // Delete button always with triple warning
             actionsHtml += `
                 <button class="btn btn-danger" onclick="deleteEvent('${event.id}')"><i class="fas fa-trash"></i> Delete</button>
             `;
@@ -653,7 +814,10 @@
             card.innerHTML = `
                 ${posterHtml}
                 <div class="event-body">
-                    <div class="event-name">${event.eventName || 'Untitled Event'}</div>
+                    <div class="event-name">
+                        ${event.eventName || 'Untitled Event'}
+                        ${priceChip}
+                    </div>
                     <div class="event-meta">
                         <span><i class="far fa-calendar-alt"></i> ${dateStr}</span><br>
                         <span><i class="fas fa-map-marker-alt"></i> ${event.location || 'No location'}</span>
@@ -666,10 +830,9 @@
         }
 
         // ============================================================
-        //  ACTION FUNCTIONS
+        //  ACTION FUNCTIONS (unchanged, currency is not involved)
         // ============================================================
 
-        // ---- Approve (pending → approved) ----
         async function approveEvent(id) {
             if (!confirm('Approve this event? It will be published and visible to the public.')) return;
             try {
@@ -686,7 +849,6 @@
             }
         }
 
-        // ---- Reject (pending → rejected) ----
         async function rejectEvent(id) {
             const reason = prompt('Reason for rejection (optional):');
             try {
@@ -704,7 +866,6 @@
             }
         }
 
-        // ---- Unpublish (approved → pending) ----
         async function unpublishEvent(id) {
             if (!confirm('Reject publication? This will set the event back to "In Review" and the organizer can edit it again.')) return;
             try {
@@ -721,9 +882,7 @@
             }
         }
 
-        // ---- Cancel (approved → cancelled) with 3 warnings ----
         async function cancelApprovedEvent(id) {
-            // Triple confirm
             if (!confirm('⚠️ WARNING 1/3: You are about to CANCEL this published event. This will remove it from public view. Proceed?')) return;
             if (!confirm('⚠️ WARNING 2/3: This action is permanent unless you later re-approve it. Continue?')) return;
             if (!confirm('⚠️ WARNING 3/3: Are you absolutely sure you want to cancel this event?')) return;
@@ -740,7 +899,6 @@
             }
         }
 
-        // ---- Approve Cancellation (cancellation_requested → cancelled) ----
         async function approveCancellation(id) {
             if (!confirm('Approve the cancellation request? The event will be cancelled and removed from public view.')) return;
             try {
@@ -757,7 +915,6 @@
             }
         }
 
-        // ---- Reject Cancellation (cancellation_requested → approved) ----
         async function rejectCancellation(id) {
             if (!confirm('Reject the cancellation request? The event will remain published.')) return;
             try {
@@ -774,7 +931,6 @@
             }
         }
 
-        // ---- Delete (permanent) with 3 warnings ----
         async function deleteEvent(id) {
             if (!confirm('⚠️ WARNING 1/3: You are about to PERMANENTLY DELETE this event. This cannot be undone. Proceed?')) return;
             if (!confirm('⚠️ WARNING 2/3: All ticket data and sales records will be removed. Continue?')) return;
@@ -790,7 +946,7 @@
         }
 
         // ============================================================
-        //  VIEW DETAILS MODAL (includes cancellation reason/contact)
+        //  VIEW DETAILS MODAL — currency aware
         // ============================================================
         async function viewEventDetails(id) {
             const event = allEvents.find(e => e.id === id);
@@ -799,15 +955,23 @@
                 return;
             }
 
+            const cur = eventCurrency(event);
+            const isZar = cur === 'ZAR';
+
             const modal = document.getElementById('event-detail-modal');
             const content = document.getElementById('modal-content');
 
+            // ─── Ticket detail blocks with correct currency ───
             let ticketDetails = '';
             if (event.ticketTypes && event.ticketTypes.length > 0) {
                 event.ticketTypes.forEach((t, idx) => {
+                    const tCur = (t.currency && CURRENCIES[t.currency]) ? t.currency : cur;
                     ticketDetails += `
                         <div class="ticket-detail">
-                            <strong>${t.name || 'Ticket'}</strong> — $${t.price || 0} (${t.quantity || 0} available)
+                            <div class="ticket-title-row">
+                                <strong>${t.name || 'Ticket'}</strong>
+                                <span class="ticket-price">${formatMoney(t.price, tCur)} <span class="text-muted" style="font-weight:500;font-size:0.85rem">· ${t.quantity || 0} available</span></span>
+                            </div>
                             <p style="font-size:0.9rem;margin-top:5px;">${t.description || 'No description'}</p>
                             ${t.imageBase64 ? `
                                 <img src="${t.imageBase64}" class="ticket-img" alt="${t.name} ticket">
@@ -823,7 +987,7 @@
                 ticketDetails = '<p class="text-muted">No ticket types defined.</p>';
             }
 
-            // Plain text and HTML for copying
+            // Plain text + HTML exports include the currency
             const plainText = getEventAsPlainText(event);
             const htmlText = getEventAsHTML(event);
 
@@ -832,7 +996,6 @@
                 event.status === 'cancellation_requested' ? 'Cancellation Requested' :
                 event.status.replace(/_/g, ' ').toUpperCase();
 
-            // Cancellation request details (if any)
             let cancelDetails = '';
             if (event.status === 'cancellation_requested') {
                 cancelDetails = `
@@ -852,6 +1015,12 @@
                     <button class="modal-close" onclick="closeDetailModal()">&times;</button>
                 </div>
 
+                <!-- Currency banner -->
+                <div class="modal-cur-banner ${isZar ? 'zar' : ''}">
+                    <span><i class="fas fa-coins"></i> Billed in <strong>${currencyLabel(cur)}</strong></span>
+                    <span class="cur-chip ${isZar ? 'zar' : ''}" style="background:#fff;border-color:inherit;">${currencyFlag(cur)} ${cur}</span>
+                </div>
+
                 <div class="button-group" style="margin-bottom:18px;">
                     <button class="btn btn-copy btn-sm" onclick="copyText(\`${plainText.replace(/`/g,'\\`')}\`, 'Event details copied as text!')"><i class="fas fa-copy"></i> Copy as Text</button>
                     <button class="btn btn-copy btn-sm" onclick="copyText(\`${htmlText.replace(/`/g,'\\`')}\`, 'Event details copied as HTML!')"><i class="fas fa-code"></i> Copy as HTML</button>
@@ -861,6 +1030,7 @@
 
                 <div class="detail-grid">
                     <div class="detail-item"><label>Status</label><span class="status-badge status-${event.status}">${statusLabel}</span></div>
+                    <div class="detail-item"><label>Currency</label><p>${currencyFlag(cur)} ${currencyLabel(cur)}</p></div>
                     <div class="detail-item"><label>Organizer</label><p>${event.organizerName || 'N/A'} <span class="text-muted">${event.organizerEmail ? '('+event.organizerEmail+')' : ''}</span></p></div>
                     <div class="detail-item"><label>Type</label><p>${event.type || 'N/A'}</p></div>
                     <div class="detail-item"><label>Location</label><p>${event.location || 'N/A'}</p></div>
@@ -883,7 +1053,10 @@
                     ` : '<p class="text-muted">No poster uploaded.</p>'}
                 </div>
 
-                <h3 style="margin:20px 0 10px;color:var(--navy);"><i class="fas fa-ticket-alt"></i> Ticket Types</h3>
+                <h3 style="margin:20px 0 10px;color:var(--navy);">
+                    <i class="fas fa-ticket-alt"></i> Ticket Types
+                    <span class="cur-chip ${isZar ? 'zar' : ''}" style="margin-left:8px;">${cur}</span>
+                </h3>
                 ${ticketDetails}
 
                 ${event.rejectionReason ? `
@@ -902,9 +1075,8 @@
         }
 
         // ============================================================
-        //  HELPERS: copy, download, plain/text, HTML
+        //  HELPERS
         // ============================================================
-
         function downloadBase64(base64, filename) {
             if (!base64) { alert('No image to download.'); return; }
             const a = document.createElement('a');
@@ -930,8 +1102,10 @@
         }
 
         function getEventAsPlainText(event) {
+            const cur = eventCurrency(event);
             let txt = `Event: ${event.eventName || 'Untitled'}\n`;
             txt += `Status: ${event.status}\n`;
+            txt += `Currency: ${currencyLabel(cur)} (${cur})\n`;
             txt += `Type: ${event.type || 'N/A'}\n`;
             txt += `Description: ${event.description || 'N/A'}\n`;
             txt += `Start: ${event.startDate ? new Date(event.startDate).toLocaleString() : 'N/A'}\n`;
@@ -943,7 +1117,8 @@
             txt += `Ticket Types:\n`;
             if (event.ticketTypes && event.ticketTypes.length) {
                 event.ticketTypes.forEach(t => {
-                    txt += `  - ${t.name || 'Unnamed'}: $${t.price || 0} (${t.quantity || 0} avail) ${t.description || ''}\n`;
+                    const tCur = (t.currency && CURRENCIES[t.currency]) ? t.currency : cur;
+                    txt += `  - ${t.name || 'Unnamed'}: ${formatMoney(t.price, tCur)} (${t.quantity || 0} avail) ${t.description || ''}\n`;
                 });
             } else {
                 txt += '  None\n';
@@ -958,8 +1133,10 @@
         }
 
         function getEventAsHTML(event) {
+            const cur = eventCurrency(event);
             let html = `<h2>${event.eventName || 'Untitled'}</h2>`;
             html += `<p><strong>Status:</strong> ${event.status}</p>`;
+            html += `<p><strong>Currency:</strong> ${currencyLabel(cur)}</p>`;
             html += `<p><strong>Type:</strong> ${event.type || 'N/A'}</p>`;
             html += `<p><strong>Description:</strong> ${event.description || 'N/A'}</p>`;
             html += `<p><strong>Start:</strong> ${event.startDate ? new Date(event.startDate).toLocaleString() : 'N/A'}</p>`;
@@ -982,8 +1159,9 @@
             html += `<h3>Ticket Types</h3>`;
             if (event.ticketTypes && event.ticketTypes.length) {
                 event.ticketTypes.forEach(t => {
+                    const tCur = (t.currency && CURRENCIES[t.currency]) ? t.currency : cur;
                     html += `<div style="padding:8px 0;border-bottom:1px solid #eee;">`;
-                    html += `<strong>${t.name || 'Unnamed'}</strong> — $${t.price || 0} (${t.quantity || 0} avail)`;
+                    html += `<strong>${t.name || 'Unnamed'}</strong> — ${formatMoney(t.price, tCur)} (${t.quantity || 0} avail)`;
                     if (t.description) html += `<br><span style="font-size:0.9rem;">${t.description}</span>`;
                     if (t.imageBase64) {
                         html += `<br><img src="${t.imageBase64}" style="max-width:100px;height:auto;margin-top:4px;" />`;
@@ -997,13 +1175,25 @@
         }
 
         // ============================================================
-        //  FILTER BUTTONS
+        //  FILTER BUTTONS (status)
         // ============================================================
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 currentFilter = this.dataset.filter;
+                applyFilter();
+            });
+        });
+
+        // ============================================================
+        //  FILTER BUTTONS (currency)
+        // ============================================================
+        document.querySelectorAll('.cur-filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.cur-filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentCurrencyFilter = this.dataset.curFilter;
                 applyFilter();
             });
         });

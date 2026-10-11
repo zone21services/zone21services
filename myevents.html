@@ -742,6 +742,84 @@
         window.loadEvents = loadEvents;
 
         /* ============================================================
+           🧹 GHOST-EVENT FILTER
+           ------------------------------------------------------------
+           A "ghost event" is a placeholder that gets auto-created when
+           the user subscribes/re-subscribes to a plan. It has:
+             · A default name like "My Small Event Package"
+             · No real event details (no date, attendees, venue, etc.)
+           Real events created by the user (e.g. "Jason's Party") have
+           custom names AND real event details. We always keep those.
+        ============================================================ */
+
+        const PLACEHOLDER_NAME_RE = /^My\s+(Small|Medium|Large)(\s*\/\s*Enterprise)?\s+(Event\s+)?Package$/i;
+
+        function isPlaceholderName(name) {
+            return PLACEHOLDER_NAME_RE.test(String(name || '').trim());
+        }
+
+        function hasRealDetails(e) {
+            return !!(
+                e.date || e.eventDate || e.startDate || e.eventStart ||
+                e.attendees || e.guestCount || e.expectedGuests ||
+                e.location || e.venue || e.eventLocation ||
+                e.theme || e.notes || e.description ||
+                e.budget || e.startTime
+            );
+        }
+
+        function isGhostEvent(e) {
+            // Explicit placeholder flags (in case the backend ever sets them)
+            if (e.isPlaceholder === true) return true;
+            if (e.autoCreated === true) return true;
+            if (e.createdFromSubscription === true) return true;
+            if (e.isSubscriptionEvent === true) return true;
+            if (e.isGhost === true) return true;
+            if (e.source === 'subscription' || e.source === 'plan_placeholder' || e.source === 'auto') return true;
+
+            // Default name AND no real details → ghost placeholder
+            if (isPlaceholderName(e.name) && !hasRealDetails(e)) return true;
+
+            return false;
+        }
+
+        /* De-duplicate placeholder-named events — keeps the newest of each
+           (planName + package) pair. Real user-named events are untouched. */
+        function dedupePlaceholders(events) {
+            const byKey = new Map();
+            for (const e of events) {
+                if (!isPlaceholderName(e.name)) continue;
+                const key = String(e.name).toLowerCase().trim() + '|' +
+                            String(e.package || '').toLowerCase().trim() + '|' +
+                            String(e.status || '').toLowerCase().trim();
+                const eTs = e.createdAt?.seconds
+                    || (e.createdAt?.toMillis ? Math.floor(e.createdAt.toMillis() / 1000) : 0)
+                    || 0;
+                const prev = byKey.get(key);
+                if (!prev || prev.ts < eTs) {
+                    byKey.set(key, { id: e.id, ts: eTs });
+                }
+            }
+            const keepIds = new Set(Array.from(byKey.values()).map(x => x.id));
+            return events.filter(e => !isPlaceholderName(e.name) || keepIds.has(e.id));
+        }
+
+        /* Master filter: applies deleted-sub hiding + ghost filter + dedupe. */
+        function filterVisibleEvents(events, deletedInvoiceNumbers, deletedPlanIds, deletedPlanNames) {
+            const afterDeleted = events.filter(e => {
+                const evInv = e.invoiceNumber ? String(e.invoiceNumber) : '';
+                const evPlanId = e.packageId ? String(e.packageId).toLowerCase() : '';
+                const evPkgName = e.package ? String(e.package).toLowerCase() : '';
+                if (evInv && deletedInvoiceNumbers.has(evInv)) return false;
+                if (evPlanId && deletedPlanIds.has(evPlanId)) return false;
+                if (evPkgName && deletedPlanNames.has(evPkgName)) return false;
+                return true;
+            });
+            const withoutGhosts = afterDeleted.filter(e => !isGhostEvent(e));
+            return dedupePlaceholders(withoutGhosts);
+        }
+
+        /* ============================================================
            REALTIME LISTENER — listens to BOTH events AND subs
         ============================================================ */
         async function setupRealtimeListener() {
@@ -750,7 +828,6 @@
             if (unsubscribeEvents) { unsubscribeEvents(); unsubscribeEvents = null; }
             if (unsubscribeSubs) { unsubscribeSubs(); unsubscribeSubs = null; }
 
-            /* Events listener */
             const eq = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
             unsubscribeEvents = onSnapshot(eq, async (snapshot) => {
                 const events = [];
@@ -768,7 +845,6 @@
                 subsSnap.forEach(docSnap => {
                     const sub = docSnap.data();
                     if (sub.deletedAt) {
-                        /* Soft-deleted — remember so we can hide its events */
                         if (sub.invoiceNumber) deletedInvoiceNumbers.add(String(sub.invoiceNumber));
                         if (sub.planId) deletedPlanIds.add(String(sub.planId).toLowerCase());
                         if (sub.planName) deletedPlanNames.add(String(sub.planName).toLowerCase());
@@ -780,34 +856,28 @@
                     }
                 });
 
-                /* 🚫 HIDE events from soft-deleted subs (match by invoice, planId, OR name) */
-                const visible = events.filter(e => {
-                    const evInv = e.invoiceNumber ? String(e.invoiceNumber) : '';
-                    const evPlanId = e.packageId ? String(e.packageId).toLowerCase() : '';
-                    const evPkgName = e.package ? String(e.package).toLowerCase() : '';
-                    if (evInv && deletedInvoiceNumbers.has(evInv)) return false;
-                    if (evPlanId && deletedPlanIds.has(evPlanId)) return false;
-                    if (evPkgName && deletedPlanNames.has(evPkgName)) return false;
-                    return true;
-                });
+                /* 🚫 Apply master filter (deleted subs + ghosts + dedupe) */
+                const visible = filterVisibleEvents(
+                    events,
+                    deletedInvoiceNumbers,
+                    deletedPlanIds,
+                    deletedPlanNames
+                );
 
                 /* Self-heal: promote pending events whose invoice is now active */
                 const pendingEvents = visible.filter(e => (e.status || '').toLowerCase() === 'pending_payment');
                 if (pendingEvents.length > 0 && activeInvoiceNumbers.size > 0) {
-                    let promotedCount = 0;
                     for (const event of pendingEvents) {
                         if (event.invoiceNumber && activeInvoiceNumbers.has(String(event.invoiceNumber))) {
                             console.log(`Self-heal: Promoting event ${event.id} to approved`);
                             try {
                                 await updateDoc(doc(db, 'events', event.id), { status: 'approved' });
                                 event.status = 'approved';
-                                promotedCount++;
                             } catch (e) {
                                 console.error('Failed to promote event:', event.id, e);
                             }
                         }
                     }
-                    /* If promoted, data will re-arrive via the listener — no manual refresh needed */
                 }
 
                 renderEvents(visible);
@@ -846,15 +916,12 @@
                     }
                 });
 
-                const visible = events.filter(e => {
-                    const evInv = e.invoiceNumber ? String(e.invoiceNumber) : '';
-                    const evPlanId = e.packageId ? String(e.packageId).toLowerCase() : '';
-                    const evPkgName = e.package ? String(e.package).toLowerCase() : '';
-                    if (evInv && deletedInvoiceNumbers.has(evInv)) return false;
-                    if (evPlanId && deletedPlanIds.has(evPlanId)) return false;
-                    if (evPkgName && deletedPlanNames.has(evPkgName)) return false;
-                    return true;
-                });
+                const visible = filterVisibleEvents(
+                    events,
+                    deletedInvoiceNumbers,
+                    deletedPlanIds,
+                    deletedPlanNames
+                );
 
                 renderEvents(visible);
             } catch (error) {

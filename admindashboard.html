@@ -184,7 +184,6 @@
             padding:3px 9px;border-radius:20px;background:var(--bg);color:var(--text-muted);
             border:1px solid var(--border);
         }
-        .type-badge.subscription{background:rgba(10,132,255,.08);color:var(--blue);border-color:rgba(10,132,255,.2)}
         .type-badge.blueprint{background:var(--gold-soft);color:var(--gold);border-color:rgba(201,169,97,.3)}
         .type-badge.deposit{background:var(--amber-soft);color:#9A6E00;border-color:rgba(245,158,11,.3)}
         .type-badge.balance{background:var(--purple-soft);color:var(--purple);border-color:rgba(124,58,237,.25)}
@@ -256,7 +255,7 @@
         .toast.warn{border-left-color:var(--amber)}
         @keyframes slIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
 
-        /* FLOATING ACTIVITY FEED (top-right) */
+        /* FLOATING ACTIVITY FEED */
         #activityStack{
             position:fixed;top:82px;right:16px;z-index:9998;
             display:flex;flex-direction:column;gap:10px;
@@ -399,7 +398,7 @@
         <a class="nav-item" href="adminpayments.html"><i class="fas fa-credit-card"></i> Payments</a>
         <a class="nav-item" href="scantickets.html"><i class="fas fa-qrcode"></i> Scan Tickets</a>
     </nav>
-    <div class="sidebar-footer">Admin Panel v3.3 · Blueprint</div>
+    <div class="sidebar-footer">Admin Panel v3.4 · Blueprint</div>
 </aside>
 
 <!-- MAIN -->
@@ -463,7 +462,7 @@
                     <span class="stat-trend danger" id="payments-trend">Pending</span>
                 </div>
                 <div class="value" id="stat-pending-payments">0</div>
-                <div class="label">Payments to Approve</div>
+                <div class="label">Vendor Payments to Approve</div>
             </div>
             <div class="stat-card s6">
                 <div class="stat-accent"></div>
@@ -500,30 +499,29 @@
             <a href="ticketsmanagement.html" class="quick-action-btn"><i class="fas fa-ticket-alt"></i><div class="label">Manage Tickets</div><div class="sub">View & export</div></a>
             <a href="adminpublishevents.html" class="quick-action-btn"><i class="fas fa-globe"></i><div class="label">Publish Events</div><div class="sub">Go live</div></a>
             <a href="managevendors.html" class="quick-action-btn"><i class="fas fa-store"></i><div class="label">Vendors</div><div class="sub">Manage providers</div></a>
-            <a href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')" class="quick-action-btn blueprint-action"><i class="fas fa-file-invoice-dollar"></i><div class="label">Payments</div><div class="sub">Approve transfers</div></a>
+            <a href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')" class="quick-action-btn blueprint-action"><i class="fas fa-file-invoice-dollar"></i><div class="label">Vendor Payments</div><div class="sub">Approve transfers</div></a>
             <a href="#vendorPayouts" onclick="scrollToSection('vendorPayouts')" class="quick-action-btn blueprint-action"><i class="fas fa-hand-holding-dollar"></i><div class="label">Payouts</div><div class="sub">Pay vendors</div></a>
             <a href="adminbookings.html" class="quick-action-btn featured-action"><i class="fas fa-microphone"></i><div class="label">Artists</div><div class="sub">Roster & bookings</div></a>
         </div>
 
-        <!-- ═════════ PAYMENT APPROVALS ═════════ -->
+        <!-- ═════════ VENDOR PAYMENT APPROVALS ═════════ -->
         <section id="paymentApprovals" style="scroll-margin-top:80px">
             <div class="section-head">
-                <h2><i class="fas fa-file-invoice-dollar"></i> Payment Approvals <span class="count-pill" id="paymentCount">0</span></h2>
-                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Approving confirms the manual transfer and unlocks the next step</span>
+                <h2><i class="fas fa-file-invoice-dollar"></i> Vendor Payment Approvals <span class="count-pill" id="paymentCount">0</span></h2>
+                <span class="hint" style="font-size:.75rem;color:var(--text-muted);font-weight:600">Approving confirms the organiser's manual transfer and updates their vendor bookings</span>
             </div>
             <div class="bp-panel">
                 <div class="bp-panel__head" style="padding:12px 22px">
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                         <span style="font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)">Filter:</span>
                         <button class="btn btn-outline" data-pay-filter="all" onclick="setPaymentFilter('all')" style="background:var(--navy);color:#fff;border-color:var(--navy)">All</button>
-                        <button class="btn btn-outline" data-pay-filter="subscription" onclick="setPaymentFilter('subscription')">Subscriptions</button>
                         <button class="btn btn-outline" data-pay-filter="deposit" onclick="setPaymentFilter('deposit')">Deposits</button>
                         <button class="btn btn-outline" data-pay-filter="balance" onclick="setPaymentFilter('balance')">Balances</button>
                         <button class="btn btn-outline" data-pay-filter="full" onclick="setPaymentFilter('full')">Full Payments</button>
                     </div>
                 </div>
                 <div class="bp-panel__body" id="paymentList">
-                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading payments…</h4><p>Fetching pending manual transfers</p></div>
+                    <div class="bp-empty"><i class="fas fa-spinner fa-spin"></i><h4>Loading payments…</h4><p>Fetching pending vendor payments</p></div>
                 </div>
             </div>
         </section>
@@ -675,6 +673,31 @@ function scrollToSection(id){
     if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 window.scrollToSection = scrollToSection;
+
+/* ============================================================
+   ⚠️ KEY FIX: Only blueprint/vendor payments belong here.
+   ------------------------------------------------------------
+   Blueprint invoices (created by vendorpayments.html):
+     · Have `lines[]` (services being paid for)
+     · Have `eventId` (the event session id)
+     · Have `payType`: deposit | balance | full
+     · Have `payNowUsd` + `payNowDisplay`
+     · Have `userId` = the ORGANISER's uid
+
+   Subscription invoices (created by provider-checkout.html):
+     · Have `planId` / `planName` / `packageDetails`
+     · Have NO lines[], NO eventId, NO payType
+     · Have `userId` = the VENDOR's uid
+   ============================================================ */
+function isBlueprintInvoice(inv){
+    if(!inv) return false;
+    // Must have services (lines) — subscription invoices never do
+    if(Array.isArray(inv.lines) && inv.lines.length > 0) return true;
+    // OR must be explicitly tied to an event
+    if(inv.eventId && inv.payType) return true;
+    // Otherwise it's a subscription (or something else) — keep off this dashboard
+    return false;
+}
 
 /* ============================================================
    ACTIVITY TOASTS
@@ -837,7 +860,6 @@ function listenEventsStats(){
         document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
     }, err => {
         console.warn('revenue listener:', err.message);
-        // fallback: query approved
         db.collection('invoices').where('status','==','approved').onSnapshot(snap2 => {
             let total = 0;
             snap2.forEach(d => {
@@ -850,13 +872,10 @@ function listenEventsStats(){
 }
 
 /* ============================================================
-   PAYMENT APPROVALS
-   Handles:
-   - Subscription invoices (from subscription.html / provider-checkout)
-   - Blueprint invoices (from vendorpayments.html) with payType:
-       'deposit' → set assignments to paid_deposit
-       'balance' → set assignments to paid_full (completes the deposit)
-       'full'    → set assignments to paid_full
+   VENDOR PAYMENT APPROVALS (BLUEPRINT ONLY)
+   ------------------------------------------------------------
+   Only shows invoices tied to an event (has lines[] or eventId + payType).
+   Subscriptions are filtered out entirely.
 ============================================================ */
 let paymentFilter = 'all';
 let cachedPayments = [];
@@ -873,69 +892,57 @@ function setPaymentFilter(f){
 }
 window.setPaymentFilter = setPaymentFilter;
 
-/* Return an object with all details we need to render + approve */
-function analyzeInvoice(inv){
+/* Return blueprint-only details. No 'subscription' category. */
+function analyzeBlueprintInvoice(inv){
     const lines = Array.isArray(inv.lines) ? inv.lines : [];
-    const isBlueprint = lines.length > 0 || (inv.eventName && inv.payType);
     const payType = String(inv.payType || '').toLowerCase(); // deposit | balance | full
-
-    let category = 'subscription';
-    if(isBlueprint){
-        if(payType === 'deposit') category = 'deposit';
-        else if(payType === 'balance') category = 'balance';
-        else if(payType === 'full') category = 'full';
-        else category = 'blueprint';
-    }
-    return {
-        isBlueprint,
-        payType,
-        category,
-        lines
-    };
+    let category = 'full'; // default for any blueprint invoice without payType
+    if(payType === 'deposit') category = 'deposit';
+    else if(payType === 'balance') category = 'balance';
+    else if(payType === 'full') category = 'full';
+    return { payType, category, lines };
 }
 
 function listenPayments(){
-    /* Listen for invoices awaiting manual transfer.
-       New vendorpayments.html uses status:'pending' + paymentStatus:'pending_manual_transfer'
-       Older subscription flow uses status:'pending_manual_transfer' */
+    /* Listen for invoices awaiting manual transfer. Client-side filter keeps
+       only blueprint/vendor payments. */
+    const processSnap = snap => {
+        const all = [];
+        snap.forEach(d => {
+            const data = { id: d.id, ...d.data() };
+            const st = String(data.status || '').toLowerCase();
+            /* Skip anything already processed */
+            if(st === 'paid' || st === 'approved' || st === 'rejected') return;
+            /* ⚠️ Keep ONLY blueprint/vendor payments */
+            if(!isBlueprintInvoice(data)) return;
+            all.push(data);
+        });
+        processInvoices(all);
+    };
+
     db.collection('invoices')
       .where('paymentStatus','==','pending_manual_transfer')
-      .onSnapshot(snap => {
-        handlePaymentsSnap(snap);
-      }, err => {
+      .onSnapshot(processSnap, err => {
         console.warn('payments listener (paymentStatus):', err.message);
         db.collection('invoices')
           .where('status','==','pending_manual_transfer')
-          .onSnapshot(snap => {
-            handlePaymentsSnap(snap);
-          }, err2 => {
+          .onSnapshot(processSnap, err2 => {
             console.warn('payments listener (status) failed, falling back to full scan:', err2.message);
             db.collection('invoices').onSnapshot(snap2 => {
-              const invoices = [];
-              snap2.forEach(d => {
-                const data = d.data();
-                const st = String(data.status || '').toLowerCase();
-                const ps = String(data.paymentStatus || '').toLowerCase();
-                if(st === 'pending' || st === 'pending_manual_transfer' || ps === 'pending_manual_transfer'){
-                  invoices.push({ id: d.id, ...data });
-                }
-              });
-              processInvoices(invoices);
+                const all = [];
+                snap2.forEach(d => {
+                    const data = { id: d.id, ...d.data() };
+                    const st = String(data.status || '').toLowerCase();
+                    const ps = String(data.paymentStatus || '').toLowerCase();
+                    if(st === 'paid' || st === 'approved' || st === 'rejected') return;
+                    if(st !== 'pending' && st !== 'pending_manual_transfer' && ps !== 'pending_manual_transfer') return;
+                    if(!isBlueprintInvoice(data)) return;
+                    all.push(data);
+                });
+                processInvoices(all);
             }, ()=>{});
           });
       });
-}
-
-function handlePaymentsSnap(snap){
-    const invoices = [];
-    snap.forEach(d => {
-        const data = d.data();
-        const st = String(data.status || '').toLowerCase();
-        /* Only include those still awaiting approval */
-        if(st === 'paid' || st === 'approved' || st === 'rejected') return;
-        invoices.push({ id: d.id, ...data });
-    });
-    processInvoices(invoices);
 }
 
 function processInvoices(invoices){
@@ -958,20 +965,19 @@ function detectNewPayments(invoices){
     invoices.forEach(inv => {
         if(seenIds.payments.has(inv.id)) return;
         seenIds.payments.add(inv.id);
-        const a = analyzeInvoice(inv);
-        const cust = inv.customerInfo || {};
-        const name = `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || cust.email || inv.userName || inv.userId || 'Organizer';
-        const total = inv.payNow || inv.total || inv.payNowUsd || 0;
+        const a = analyzeBlueprintInvoice(inv);
+        const name = inv.organizerName || inv.userName || inv.userEmail || inv.userId || 'Organiser';
+        const total = Number(inv.payNowUsd || inv.subtotalUsd || 0);
         const cur = inv.currency || 'USD';
-        let kind = 'pay', title = '💰 New payment';
+        const displayAmt = cur === 'ZAR' ? total * 19 : total;
+        let kind = 'pay', title = '💰 New vendor payment';
         if(a.category === 'deposit'){ kind = 'deposit'; title = '💵 Deposit invoice submitted'; }
         else if(a.category === 'balance'){ kind = 'balance'; title = '🎯 Balance invoice submitted'; }
-        else if(a.category === 'subscription'){ title = '💰 New subscription payment'; }
-        else if(a.category === 'full' || a.category === 'blueprint'){ title = '💰 New event payment'; }
+        else { title = '💰 Full payment invoice submitted'; }
 
         showActivityToast(kind, {
             title,
-            meta: `<strong>${escapeHtml(safe(name,40))}</strong> · ${escapeHtml(fmtMoney(total, cur))}${inv.eventName?` · ${escapeHtml(safe(inv.eventName,30))}`:''} · <span style="color:#a7f3d0">pending approval</span>`,
+            meta: `<strong>${escapeHtml(safe(name,40))}</strong> · ${escapeHtml(fmtMoney(displayAmt, cur))}${inv.eventName?` · ${escapeHtml(safe(inv.eventName,30))}`:''} · <span style="color:#a7f3d0">pending approval</span>`,
             onClick: () => scrollToSection('paymentApprovals')
         });
     });
@@ -985,12 +991,8 @@ function renderPayments(invoices){
     let filtered = invoices;
     if(paymentFilter !== 'all'){
         filtered = invoices.filter(inv => {
-            const a = analyzeInvoice(inv);
-            if(paymentFilter === 'subscription') return a.category === 'subscription';
-            if(paymentFilter === 'deposit') return a.category === 'deposit';
-            if(paymentFilter === 'balance') return a.category === 'balance';
-            if(paymentFilter === 'full') return a.category === 'full' || a.category === 'blueprint';
-            return true;
+            const a = analyzeBlueprintInvoice(inv);
+            return a.category === paymentFilter;
         });
     }
 
@@ -1002,15 +1004,14 @@ function renderPayments(invoices){
     }
 
     if(filtered.length === 0){
-        list.innerHTML = `<div class="bp-empty"><i class="fas fa-check-circle"></i><h4>No pending payments</h4><p>${invoices.length === 0 ? 'All manual transfers have been processed.' : 'No invoices match this filter.'}</p></div>`;
+        list.innerHTML = `<div class="bp-empty"><i class="fas fa-check-circle"></i><h4>No pending vendor payments</h4><p>${invoices.length === 0 ? 'All vendor payments have been processed.' : 'No invoices match this filter.'}</p></div>`;
         return;
     }
 
     list.innerHTML = filtered.map(inv => {
-        const a = analyzeInvoice(inv);
-        const cust = inv.customerInfo || {};
-        const fullName = `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || cust.email || inv.userName || 'Unknown';
-        const email = cust.email || inv.userEmail || '—';
+        const a = analyzeBlueprintInvoice(inv);
+        const organiserName = inv.organizerName || inv.userName || inv.customerInfo?.name || 'Organiser';
+        const email = inv.userEmail || inv.customerInfo?.email || '—';
         const cur = inv.currency || 'USD';
         const invNo = inv.invoiceNumber || inv.id;
         const userId = inv.userId || '';
@@ -1018,51 +1019,39 @@ function renderPayments(invoices){
         const eventName = inv.eventName || '';
         const dateStr = toDate(inv.createdAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
 
-        /* Amounts */
-        const payNow = Number(inv.payNow || inv.total || inv.payNowUsd || 0);
-        const subtotal = Number(inv.subtotalUsd || inv.subtotal || 0);
+        /* Amounts — prefer payNowUsd for blueprint invoices */
+        const payNowUsd = Number(inv.payNowUsd || 0);
+        const subtotalUsd = Number(inv.subtotalUsd || 0);
         const balanceUsd = Number(inv.balanceUsd || 0);
+        const payNowDisplay = cur === 'ZAR' ? payNowUsd * 19 : payNowUsd;
+        const subtotalDisplay = cur === 'ZAR' ? subtotalUsd * 19 : subtotalUsd;
+        const balanceDisplay = cur === 'ZAR' ? balanceUsd * 19 : balanceUsd;
 
         /* Category badge */
         let badgeClass = 'blueprint';
         let badgeLabel = 'Blueprint';
         let iconClass = 'green';
         let iconFa = 'fa-file-invoice-dollar';
-        if(a.category === 'subscription'){ badgeClass = 'subscription'; badgeLabel = 'Subscription'; iconClass = 'blue'; iconFa = 'fa-crown'; }
-        else if(a.category === 'deposit'){ badgeClass = 'deposit'; badgeLabel = 'Deposit'; iconClass = 'amber'; iconFa = 'fa-hand-holding-usd'; }
+        if(a.category === 'deposit'){ badgeClass = 'deposit'; badgeLabel = 'Deposit'; iconClass = 'amber'; iconFa = 'fa-hand-holding-usd'; }
         else if(a.category === 'balance'){ badgeClass = 'balance'; badgeLabel = 'Balance'; iconClass = 'purple'; iconFa = 'fa-flag-checkered'; }
         else if(a.category === 'full'){ badgeClass = 'full'; badgeLabel = 'Full Payment'; iconClass = 'green'; iconFa = 'fa-circle-check'; }
 
-        /* Meta block */
-        let contextHtml = '';
-        if(a.category === 'subscription'){
-            const planId = (inv.packageDetails && inv.packageDetails.id) || inv.planId || '';
-            const planName = inv.planName || (inv.packageDetails && inv.packageDetails.name) || 'Subscription';
-            const months = inv.months || 1;
-            contextHtml = `<div class="bp-row__meta">
-                <span><i class="fas fa-crown"></i> ${escapeHtml(planName)}</span>
-                <span><i class="fas fa-calendar"></i> ${months} month${months>1?'s':''}</span>
-                ${planId ? `<span><i class="fas fa-hashtag"></i> ${escapeHtml(planId)}</span>` : ''}
-            </div>`;
-        } else {
-            /* Blueprint invoice — show services chips */
-            const lineCount = a.lines.length;
-            const eventChip = eventName
-              ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(safe(eventName, 40))}</span>`
-              : '';
-            const svcChips = a.lines.slice(0, 5).map(l => `<span class="svc-chip">${escapeHtml(safe(l.service || 'Service', 22))}</span>`).join('');
-            const moreChip = a.lines.length > 5 ? `<span class="svc-chip more">+${a.lines.length - 5} more</span>` : '';
+        /* Services & event context */
+        const lineCount = a.lines.length;
+        const eventChip = eventName
+          ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(safe(eventName, 40))}</span>`
+          : '';
+        const svcChips = a.lines.slice(0, 5).map(l => `<span class="svc-chip">${escapeHtml(safe(l.service || 'Service', 22))}</span>`).join('');
+        const moreChip = a.lines.length > 5 ? `<span class="svc-chip more">+${a.lines.length - 5} more</span>` : '';
 
-            contextHtml = `<div class="bp-row__meta">
+        const contextHtml = `<div class="bp-row__meta">
                 ${eventChip}
                 <span><i class="fas fa-list"></i> ${lineCount} service${lineCount===1?'':'s'}</span>
                 ${inv.depositRate ? `<span><i class="fas fa-percent"></i> ${Math.round(inv.depositRate*100)}% deposit</span>` : ''}
-                ${subtotal ? `<span><i class="fas fa-coins"></i> Subtotal ${escapeHtml(fmtFromUSD(subtotal, cur))}</span>` : ''}
+                ${subtotalUsd ? `<span><i class="fas fa-coins"></i> Subtotal ${escapeHtml(fmtMoney(subtotalDisplay, cur))}</span>` : ''}
             </div>
             ${svcChips ? `<div class="svc-chips">${svcChips}${moreChip}</div>` : ''}`;
-        }
 
-        /* Approve button payload */
         const approveArgs = [
             JSON.stringify(invNo),
             JSON.stringify(userId),
@@ -1076,9 +1065,9 @@ function renderPayments(invoices){
                 <div class="bp-row__icon ${iconClass}"><i class="fas ${iconFa}"></i></div>
                 <div class="bp-row__body">
                     <div class="bp-row__title">
-                        ${escapeHtml(fullName)}
+                        ${escapeHtml(safe(organiserName, 50))}
                         <span class="type-badge ${badgeClass}">${badgeLabel}</span>
-                        ${balanceUsd > 0 ? `<span class="type-badge" style="background:var(--gold-soft);color:var(--gold-deep);border-color:rgba(201,169,97,.35)"><i class="fas fa-hourglass-half" style="font-size:.5rem"></i> Balance ${escapeHtml(fmtFromUSD(balanceUsd, cur))} due</span>` : ''}
+                        ${balanceUsd > 0 ? `<span class="type-badge" style="background:var(--gold-soft);color:var(--gold-deep);border-color:rgba(201,169,97,.35)"><i class="fas fa-hourglass-half" style="font-size:.5rem"></i> Balance ${escapeHtml(fmtMoney(balanceDisplay, cur))} due</span>` : ''}
                     </div>
                     <div class="bp-row__sub">
                         <span><i class="fas fa-envelope"></i> ${escapeHtml(safe(email,40))}</span>
@@ -1089,7 +1078,7 @@ function renderPayments(invoices){
                 </div>
                 <div class="bp-row__right">
                     <span class="status-chip pending">Pending Transfer</span>
-                    <span class="bp-row__amount">${fmtMoney(payNow, cur)}</span>
+                    <span class="bp-row__amount">${fmtMoney(payNowDisplay, cur)}</span>
                     <button class="btn btn-green" onclick='approvePayment(${approveArgs})'>
                         <i class="fas fa-check"></i> Approve
                     </button>
@@ -1101,40 +1090,36 @@ function renderPayments(invoices){
     }).join('');
 }
 
-/* ─── Approve Payment ─── */
+/* ─── Approve Blueprint Payment ─── */
 async function approvePayment(invoiceNumber, userId, eventId, category, payType){
-    const catLabel = {
-        subscription: 'subscription',
-        deposit: 'deposit',
-        balance: 'balance',
-        full: 'full payment',
-        blueprint: 'event/blueprint'
-    }[category] || 'event';
-
-    // Fetch the invoice to show real numbers
+    // Fetch the invoice
     let invData = null;
     try {
         const d = await db.collection('invoices').doc(invoiceNumber).get();
         if(d.exists) invData = d.data();
     } catch(e){}
 
-    const cur = (invData && invData.currency) || 'USD';
-    const payNow = (invData && (invData.payNow || invData.total || invData.payNowUsd)) || 0;
-    const balanceUsd = (invData && invData.balanceUsd) || 0;
+    /* Safety guard: refuse to approve subscription invoices via this panel. */
+    if(invData && !isBlueprintInvoice(invData)){
+        toast('This invoice is not a vendor payment — approve it from the appropriate page.', 'warn');
+        return;
+    }
 
-    /* Body content per category */
+    const cur = (invData && invData.currency) || 'USD';
+    const payNowUsd = (invData && Number(invData.payNowUsd)) || 0;
+    const payNowDisplay = cur === 'ZAR' ? payNowUsd * 19 : payNowUsd;
+    const balanceUsd = (invData && Number(invData.balanceUsd)) || 0;
+    const balanceDisplay = cur === 'ZAR' ? balanceUsd * 19 : balanceUsd;
+
+    const catLabel = { deposit: 'deposit', balance: 'balance', full: 'full payment' }[category] || 'vendor payment';
+
     let bodyHtml = '';
-    if(category === 'subscription'){
-        bodyHtml = `<strong>What happens:</strong><br>
-            • Subscription activated<br>
-            • Organizer gets full tool access<br>
-            • Confirmation notification sent`;
-    } else if(category === 'deposit'){
+    if(category === 'deposit'){
         bodyHtml = `<strong>What happens:</strong><br>
             • Invoice marked as paid<br>
             • All vendor assignments → <strong>Deposit Paid</strong><br>
             • Vendors notified (cashout unlocked at their 50%)<br>
-            • Organizer notified: <strong>${fmtFromUSD(balanceUsd, cur)}</strong> balance now due
+            • Organiser notified: <strong>${fmtMoney(balanceDisplay, cur)}</strong> balance now due
         `;
     } else if(category === 'balance'){
         bodyHtml = `<strong>What happens:</strong><br>
@@ -1157,7 +1142,7 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
         body: `
             <p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">
                 You're about to approve <strong>invoice ${escapeHtml(invoiceNumber)}</strong> for
-                <strong>${escapeHtml(fmtMoney(payNow, cur))}</strong>.
+                <strong>${escapeHtml(fmtMoney(payNowDisplay, cur))}</strong>.
                 This action is <strong>immediate and cannot be undone</strong>.
             </p>
             <div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6">
@@ -1176,170 +1161,118 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
                     approvedBy: auth.currentUser?.uid || 'admin'
                 });
 
-                if(category === 'subscription'){
-                    // ───── SUBSCRIPTION ACTIVATION ─────
-                    const planId = (invData && invData.packageDetails && invData.packageDetails.id)
-                                 || (invData && invData.planId) || '';
-                    if(userId && planId){
-                        const directId = `${userId}_${planId}`;
-                        try {
-                            const subDoc = await db.collection('subscriptions').doc(directId).get();
-                            if(subDoc.exists){
-                                await db.collection('subscriptions').doc(directId).update({
-                                    status: 'active',
-                                    approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                    approvedBy: auth.currentUser?.uid || 'admin'
-                                });
-                            } else {
-                                const q = await db.collection('subscriptions')
-                                    .where('userId','==',userId)
-                                    .where('planId','==',planId)
-                                    .limit(1).get();
-                                if(!q.empty){
-                                    await q.docs[0].ref.update({
-                                        status: 'active',
-                                        approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                        approvedBy: auth.currentUser?.uid || 'admin'
-                                    });
-                                }
-                            }
-                        } catch(e){ console.warn('sub activate:', e); }
+                // 2. Update linked assignments
+                const newStatus = (category === 'deposit') ? 'paid_deposit' : 'paid_full';
+
+                let linkedAssignments = [];
+                try {
+                    let snap;
+                    if(eventId){
+                        snap = await db.collection('assignments')
+                            .where('eventId','==',eventId).get();
+                    } else if(userId){
+                        snap = await db.collection('assignments')
+                            .where('organizerId','==',userId)
+                            .where('status','in',['accepted','paid_deposit']).get();
                     }
+                    if(snap) snap.forEach(d => linkedAssignments.push({ id: d.id, ref: d.ref, data: d.data() }));
+                } catch(e){
+                    console.warn('assignment lookup:', e.message);
+                }
 
-                    // Notify organizer
-                    if(userId){
-                        try {
-                            await db.collection('messages').add({
-                                sender: 'admin', senderId: auth.currentUser?.uid || 'admin',
-                                senderType: 'admin', senderName: 'Zone21 Admin',
-                                subject: 'Subscription Activated',
-                                message: `Your payment for invoice ${invoiceNumber} has been approved. Your subscription is now active.`,
-                                type: 'subscription_approved',
-                                recipientId: userId, status: 'unread', invoiceNumber,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        } catch(e){}
+                const batch = db.batch();
+                const now = firebase.firestore.FieldValue.serverTimestamp();
+
+                linkedAssignments.forEach(a => {
+                    const update = {
+                        status: newStatus,
+                        updatedAt: now,
+                        lastPaymentAt: now,
+                        lastPaymentInvoice: invoiceNumber
+                    };
+                    if(category === 'deposit'){
+                        update.depositPaid = true;
+                        update.depositPaidAt = now;
+                        update.depositInvoice = invoiceNumber;
+                        update.balanceDueUsd = balanceUsd;
+                        update.paymentProgress = 'deposit_paid';
+                    } else if(category === 'balance'){
+                        update.fullyPaid = true;
+                        update.fullyPaidAt = now;
+                        update.balanceInvoice = invoiceNumber;
+                        update.paymentProgress = 'fully_paid';
+                    } else {
+                        update.fullyPaid = true;
+                        update.fullyPaidAt = now;
+                        update.fullInvoice = invoiceNumber;
+                        update.paymentProgress = 'fully_paid';
                     }
+                    batch.update(a.ref, update);
+                });
 
-                } else {
-                    // ───── BLUEPRINT PAYMENT (deposit / balance / full) ─────
-                    const newStatus = (category === 'deposit') ? 'paid_deposit' : 'paid_full';
+                if(linkedAssignments.length > 0) await batch.commit();
 
-                    /* Find linked assignments:
-                       - Prefer eventId (this is exactly the print2 sessionId)
-                       - Fall back to organizerId + accepted/paid_deposit */
-                    let linkedAssignments = [];
+                // 3. Notify each vendor
+                for(const a of linkedAssignments){
                     try {
-                        let snap;
-                        if(eventId){
-                            snap = await db.collection('assignments')
-                                .where('eventId','==',eventId).get();
-                        } else if(userId){
-                            snap = await db.collection('assignments')
-                                .where('organizerId','==',userId)
-                                .where('status','in',['accepted','paid_deposit']).get();
-                        }
-                        if(snap) snap.forEach(d => linkedAssignments.push({ id: d.id, ref: d.ref, data: d.data() }));
-                    } catch(e){
-                        console.warn('assignment lookup:', e.message);
-                    }
-
-                    const batch = db.batch();
-                    const now = firebase.firestore.FieldValue.serverTimestamp();
-
-                    linkedAssignments.forEach(a => {
-                        const update = {
-                            status: newStatus,
-                            updatedAt: now,
-                            lastPaymentAt: now,
-                            lastPaymentInvoice: invoiceNumber
-                        };
-                        if(category === 'deposit'){
-                            update.depositPaid = true;
-                            update.depositPaidAt = now;
-                            update.depositInvoice = invoiceNumber;
-                            update.balanceDueUsd = balanceUsd;
-                            update.paymentProgress = 'deposit_paid';
-                        } else if(category === 'balance'){
-                            update.fullyPaid = true;
-                            update.fullyPaidAt = now;
-                            update.balanceInvoice = invoiceNumber;
-                            update.paymentProgress = 'fully_paid';
-                        } else {
-                            update.fullyPaid = true;
-                            update.fullyPaidAt = now;
-                            update.fullInvoice = invoiceNumber;
-                            update.paymentProgress = 'fully_paid';
-                        }
-                        batch.update(a.ref, update);
-                    });
-
-                    if(linkedAssignments.length > 0){
-                        await batch.commit();
-                    }
-
-                    /* Notify each vendor */
-                    for(const a of linkedAssignments){
-                        try {
-                            const vendorId = a.data.providerId || a.data.providerUid || '';
-                            if(!vendorId) continue;
-                            await db.collection('notifications').add({
-                                userId: vendorId,
-                                title: category === 'deposit' ? '💰 Deposit received' : '🎉 Fully paid',
-                                body: (category === 'deposit'
-                                    ? `A 50% deposit was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now available for the deposit portion.`
-                                    : `Full payment was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now fully unlocked.`),
-                                type: 'payment_received',
-                                assignmentId: a.id,
-                                read: false,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        } catch(e){}
-                    }
-
-                    /* Notify organizer */
-                    if(userId){
-                        try {
-                            const orgSubject = category === 'deposit'
-                                ? `Deposit Confirmed · ${invoiceNumber}`
-                                : category === 'balance'
-                                    ? `Balance Confirmed · Booking Complete · ${invoiceNumber}`
-                                    : `Payment Confirmed · ${invoiceNumber}`;
-                            const orgMessage = category === 'deposit'
-                                ? `Your deposit of ${fmtMoney(payNow, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated. Balance of ${fmtFromUSD(balanceUsd, cur)} is now available to pay.`
-                                : category === 'balance'
-                                    ? `Your balance payment of ${fmtMoney(payNow, cur)} has been confirmed. All ${linkedAssignments.length} vendor booking${linkedAssignments.length===1?'':'s'} are now fully paid.`
-                                    : `Your full payment of ${fmtMoney(payNow, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated.`;
-
-                            await db.collection('messages').add({
-                                sender: 'admin', senderId: auth.currentUser?.uid || 'admin',
-                                senderType: 'admin', senderName: 'Zone21 Admin',
-                                subject: orgSubject,
-                                message: orgMessage,
-                                type: 'blueprint_payment_confirmed',
-                                recipientId: userId, status: 'unread', invoiceNumber,
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        } catch(e){}
-                    }
-
-                    /* Firestore mirror of payment event for audits */
-                    try {
-                        await db.collection('paymentEvents').add({
-                            invoiceNumber,
-                            eventId, userId,
-                            category, payType,
-                            amountUsd: payNow,
-                            currency: cur,
-                            assignmentsUpdated: linkedAssignments.length,
-                            newStatus,
-                            approvedBy: auth.currentUser?.uid || 'admin',
+                        const vendorId = a.data.providerId || a.data.providerUid || '';
+                        if(!vendorId) continue;
+                        await db.collection('notifications').add({
+                            userId: vendorId,
+                            title: category === 'deposit' ? '💰 Deposit received' : '🎉 Fully paid',
+                            body: (category === 'deposit'
+                                ? `A 50% deposit was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now available for the deposit portion.`
+                                : `Full payment was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now fully unlocked.`),
+                            type: 'payment_received',
+                            assignmentId: a.id,
+                            read: false,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     } catch(e){}
                 }
 
-                toast('Payment approved successfully', 'success');
+                // 4. Notify the organiser
+                if(userId){
+                    try {
+                        const orgSubject = category === 'deposit'
+                            ? `Deposit Confirmed · ${invoiceNumber}`
+                            : category === 'balance'
+                                ? `Balance Confirmed · Booking Complete · ${invoiceNumber}`
+                                : `Payment Confirmed · ${invoiceNumber}`;
+                        const orgMessage = category === 'deposit'
+                            ? `Your deposit of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated. Balance of ${fmtMoney(balanceDisplay, cur)} is now available to pay.`
+                            : category === 'balance'
+                                ? `Your balance payment of ${fmtMoney(payNowDisplay, cur)} has been confirmed. All ${linkedAssignments.length} vendor booking${linkedAssignments.length===1?'':'s'} are now fully paid.`
+                                : `Your full payment of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated.`;
+
+                        await db.collection('messages').add({
+                            sender: 'admin', senderId: auth.currentUser?.uid || 'admin',
+                            senderType: 'admin', senderName: 'Zone21 Admin',
+                            subject: orgSubject,
+                            message: orgMessage,
+                            type: 'blueprint_payment_confirmed',
+                            recipientId: userId, status: 'unread', invoiceNumber,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch(e){}
+                }
+
+                // 5. Audit log
+                try {
+                    await db.collection('paymentEvents').add({
+                        invoiceNumber,
+                        eventId, userId,
+                        category, payType,
+                        amountUsd: payNowUsd,
+                        currency: cur,
+                        assignmentsUpdated: linkedAssignments.length,
+                        newStatus,
+                        approvedBy: auth.currentUser?.uid || 'admin',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch(e){}
+
+                toast('Vendor payment approved successfully', 'success');
                 loadRecentActivity();
 
             }catch(e){
@@ -1356,7 +1289,7 @@ async function rejectPayment(invoiceNumber){
         title: 'Reject this payment?',
         body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">
             The invoice <strong>${escapeHtml(invoiceNumber)}</strong> will be marked as rejected.
-            The organizer will need to resubmit proof of payment.</p>`,
+            The organiser will need to resubmit proof of payment.</p>`,
         btnLabel: '<i class="fas fa-xmark"></i> Reject Payment',
         btnClass: 'btn-red',
         onConfirm: async () => {
@@ -1455,9 +1388,13 @@ function renderPayouts(){
 
     list.innerHTML = payouts.map(a => {
         const currency = a.currency || 'USD';
-        const budgetUsd = Number(a.budget)||0;
-        const tierUsd = a.selectedTier && Number(a.selectedTier.priceUsd) || 0;
-        const lineUsd = tierUsd || budgetUsd;
+        // STRICT: read priceUsd (written by the inviteAll fix) — never fall back to event budget
+        const explicitUsd = Number(a.priceUsd);
+        const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
+        const legacyUsd = Number(a.agreedAmount || a.price || 0);
+        const lineUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0)
+            ? explicitUsd
+            : (tierUsd || legacyUsd);
         const st = String(a.status).toLowerCase();
         const paidPct = st === 'paid_deposit' ? 0.5 : 1;
         const amountDueUsd = lineUsd * paidPct;
@@ -1838,7 +1775,13 @@ function renderCoordination(){
             not_sent:'Not sent', cancelled:'Cancelled'
         }[st] || st;
         const currency = a.currency || 'USD';
-        const budgetUsd = Number(a.selectedTier && a.selectedTier.priceUsd) || Number(a.budget) || 0;
+        // STRICT: read priceUsd — never fall back to event budget
+        const explicitUsd = Number(a.priceUsd);
+        const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
+        const legacyUsd = Number(a.agreedAmount || a.price || 0);
+        const budgetUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0)
+            ? explicitUsd
+            : (tierUsd || legacyUsd);
         const amount = budgetUsd ? fmtFromUSD(budgetUsd, currency) : '—';
         const eventName = a.eventName || 'Event';
         const vendorName = a.providerName || 'Unassigned';
@@ -1957,7 +1900,6 @@ if(window.innerWidth > 768){
     sidebar.classList.add('closed');
 }
 
-/* Escape key */
 document.addEventListener('keydown', e => {
     if(e.key === 'Escape') closeConfirm();
 });

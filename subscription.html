@@ -1626,752 +1626,834 @@
         </section>
 
     </main>
+                                <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+        authDomain: "zone21.firebaseapp.com",
+        projectId: "zone21",
+        storageBucket: "zone21.firebasestorage.app",
+        messagingSenderId: "405963057292",
+        appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+        measurementKind: "G-KE007Y89F1"
+    };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
-            authDomain: "zone21.firebaseapp.com",
-            projectId: "zone21",
-            storageBucket: "zone21.firebasestorage.app",
-            messagingSenderId: "405963057292",
-            appId: "1:405963057292:web:80e9923ae84eb7029073a9",
-            measurementKind: "G-KE007Y89F1"
-        };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    /* ============================================================
+       PLAN CATALOG + CURRENCY ENGINE
+       ============================================================ */
+    const PLAN_CATALOG = {
+        small:  { id: 'small',  name: 'Small Event Package',        prices: { USD: 10,  ZAR: 120  } },
+        medium: { id: 'medium', name: 'Medium Event Package',       prices: { USD: 125, ZAR: 1000 } },
+        large:  { id: 'large',  name: 'Large / Enterprise Package', prices: { USD: 300, ZAR: 2000 } }
+    };
+    const PLAN_ORDER = ['small', 'medium', 'large'];
 
-        /* ============================================================
-           PLAN CATALOG + CURRENCY ENGINE
-           ============================================================ */
-        const PLAN_CATALOG = {
-            small:  { id: 'small',  name: 'Small Event Package',        prices: { USD: 10,  ZAR: 120  } },
-            medium: { id: 'medium', name: 'Medium Event Package',       prices: { USD: 125, ZAR: 1000 } },
-            large:  { id: 'large',  name: 'Large / Enterprise Package', prices: { USD: 300, ZAR: 2000 } }
-        };
-        const PLAN_ORDER = ['small', 'medium', 'large'];
+    const CURRENCIES = {
+        USD: { symbol: '$', label: 'USD (US Dollar)' },
+        ZAR: { symbol: 'R', label: 'ZAR (South African Rand)' }
+    };
 
-        const CURRENCIES = {
-            USD: { symbol: '$', label: 'USD (US Dollar)' },
-            ZAR: { symbol: 'R', label: 'ZAR (South African Rand)' }
-        };
+    /* ============================================================
+       SILENT GEO DETECTION
+       ============================================================ */
+    const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
 
-        /* ============================================================
-           SILENT GEO DETECTION
-           ============================================================ */
-        const ZAR_COUNTRIES = new Set(['ZA', 'LS', 'SZ', 'NA']);
+    const TIMEZONE_COUNTRY = {
+        'Africa/Johannesburg': 'ZA', 'Africa/Maseru': 'LS', 'Africa/Mbabane': 'SZ',
+        'Africa/Windhoek': 'NA', 'Africa/Harare': 'ZW', 'Africa/Lusaka': 'ZM',
+        'Africa/Gaborone': 'BW', 'Africa/Maputo': 'MZ', 'Africa/Lagos': 'NG',
+        'Africa/Nairobi': 'KE', 'Africa/Accra': 'GH', 'Africa/Cairo': 'EG',
+        'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
+        'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL',
+        'Europe/Lisbon': 'PT', 'Europe/Rome': 'IT', 'Europe/Zurich': 'CH',
+        'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
+        'America/Los_Angeles': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
+        'America/Sao_Paulo': 'BR', 'America/Mexico_City': 'MX',
+        'Asia/Dubai': 'AE', 'Asia/Kolkata': 'IN', 'Asia/Singapore': 'SG',
+        'Asia/Tokyo': 'JP', 'Asia/Hong_Kong': 'HK', 'Asia/Shanghai': 'CN',
+        'Australia/Sydney': 'AU', 'Australia/Perth': 'AU', 'Australia/Melbourne': 'AU',
+        'Pacific/Auckland': 'NZ'
+    };
 
-        const TIMEZONE_COUNTRY = {
-            'Africa/Johannesburg': 'ZA', 'Africa/Maseru': 'LS', 'Africa/Mbabane': 'SZ',
-            'Africa/Windhoek': 'NA', 'Africa/Harare': 'ZW', 'Africa/Lusaka': 'ZM',
-            'Africa/Gaborone': 'BW', 'Africa/Maputo': 'MZ', 'Africa/Lagos': 'NG',
-            'Africa/Nairobi': 'KE', 'Africa/Accra': 'GH', 'Africa/Cairo': 'EG',
-            'Europe/London': 'GB', 'Europe/Dublin': 'IE', 'Europe/Paris': 'FR',
-            'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES', 'Europe/Amsterdam': 'NL',
-            'Europe/Lisbon': 'PT', 'Europe/Rome': 'IT', 'Europe/Zurich': 'CH',
-            'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
-            'America/Los_Angeles': 'US', 'America/Toronto': 'CA', 'America/Vancouver': 'CA',
-            'America/Sao_Paulo': 'BR', 'America/Mexico_City': 'MX',
-            'Asia/Dubai': 'AE', 'Asia/Kolkata': 'IN', 'Asia/Singapore': 'SG',
-            'Asia/Tokyo': 'JP', 'Asia/Hong_Kong': 'HK', 'Asia/Shanghai': 'CN',
-            'Australia/Sydney': 'AU', 'Australia/Perth': 'AU', 'Australia/Melbourne': 'AU',
-            'Pacific/Auckland': 'NZ'
-        };
+    const COUNTRY_NAMES = {
+        ZA: 'South Africa', ZW: 'Zimbabwe', ZM: 'Zambia', BW: 'Botswana',
+        MZ: 'Mozambique', NA: 'Namibia', LS: 'Lesotho', SZ: 'Eswatini',
+        NG: 'Nigeria', KE: 'Kenya', GH: 'Ghana', GB: 'United Kingdom',
+        US: 'United States', CA: 'Canada', AU: 'Australia', NZ: 'New Zealand',
+        AE: 'United Arab Emirates', IN: 'India', DE: 'Germany', FR: 'France'
+    };
 
-        const COUNTRY_NAMES = {
-            ZA: 'South Africa', ZW: 'Zimbabwe', ZM: 'Zambia', BW: 'Botswana',
-            MZ: 'Mozambique', NA: 'Namibia', LS: 'Lesotho', SZ: 'Eswatini',
-            NG: 'Nigeria', KE: 'Kenya', GH: 'Ghana', GB: 'United Kingdom',
-            US: 'United States', CA: 'Canada', AU: 'Australia', NZ: 'New Zealand',
-            AE: 'United Arab Emirates', IN: 'India', DE: 'Germany', FR: 'France'
-        };
-
-        function detectCountrySync() {
-            try {
-                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-                if (TIMEZONE_COUNTRY[tz]) return TIMEZONE_COUNTRY[tz];
-            } catch (e) { /* silent */ }
-
-            try {
-                const langs = [navigator.language, ...(navigator.languages || [])].filter(Boolean);
-                for (const lang of langs) {
-                    const m = /[-_]([A-Za-z]{2})\b/.exec(lang);
-                    if (m) return m[1].toUpperCase();
-                }
-            } catch (e) { /* silent */ }
-
-            return null;
-        }
-
-        async function detectCountryViaIP() {
-            try {
-                const ctrl = new AbortController();
-                const timer = setTimeout(() => ctrl.abort(), 3000);
-                const res = await fetch('https://ipapi.co/country/', { signal: ctrl.signal });
-                clearTimeout(timer);
-                if (!res.ok) return null;
-                const code = (await res.text()).trim().toUpperCase();
-                return /^[A-Z]{2}$/.test(code) ? code : null;
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function currencyForCountry(code) {
-            return ZAR_COUNTRIES.has(code) ? 'ZAR' : 'USD';
-        }
-
-        let activeCurrency = 'USD';
-        let manualCurrency = false;
-        let detectedCountry = null;
-
+    function detectCountrySync() {
         try {
-            manualCurrency = localStorage.getItem('zone21_currency_manual') === '1';
-            const stored = localStorage.getItem('zone21_currency');
-            if (manualCurrency && CURRENCIES[stored]) activeCurrency = stored;
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            if (TIMEZONE_COUNTRY[tz]) return TIMEZONE_COUNTRY[tz];
         } catch (e) { /* silent */ }
 
-        if (!manualCurrency) {
-            detectedCountry = detectCountrySync();
-            if (detectedCountry) activeCurrency = currencyForCountry(detectedCountry);
-
-            detectCountryViaIP().then(code => {
-                if (!code) return;
-                detectedCountry = code;
-                if (manualCurrency) return;
-                const next = currencyForCountry(code);
-                if (next !== activeCurrency) {
-                    activeCurrency = next;
-                    try { localStorage.setItem('zone21_currency', next); } catch (e) {}
-                    applyCurrencyUI();
-                    updatePlanButtons();
-                }
-            }).catch(() => {});
-        }
-
-        /* ============================================================
-           HELPERS
-           ============================================================ */
-        function getPlan(planId) { return PLAN_CATALOG[planId] || null; }
-
-        function getPrice(planId, currency = activeCurrency) {
-            const plan = getPlan(planId);
-            if (!plan) return 0;
-            return plan.prices[currency] != null ? plan.prices[currency] : plan.prices.USD;
-        }
-
-        function currencySymbol(c) { return (CURRENCIES[c] && CURRENCIES[c].symbol) || '$'; }
-        function currencyLabel(c) { return (CURRENCIES[c] && CURRENCIES[c].label) || 'USD (US Dollar)'; }
-
-        function formatMoney(amount, currency = activeCurrency) {
-            const num = Number(amount) || 0;
-            const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return `${currencySymbol(currency)}${formatted}`;
-        }
-
-        function formatCompact(amount, currency = activeCurrency) {
-            return formatMoney(amount, currency).replace(/\.00$/, '');
-        }
-
-        let currentUser = null;
-        let selectedPlan = { id: '', name: '', price: 0, currency: 'USD' };
-
-        /* ============================================================
-           CURRENCY SWITCHING
-           ============================================================ */
-        window.setCurrency = function (currency, isManual = true) {
-            if (!CURRENCIES[currency]) return;
-
-            activeCurrency = currency;
-
-            if (isManual) {
-                manualCurrency = true;
-                try { localStorage.setItem('zone21_currency_manual', '1'); } catch (e) {}
+        try {
+            const langs = [navigator.language, ...(navigator.languages || [])].filter(Boolean);
+            for (const lang of langs) {
+                const m = /[-_]([A-Za-z]{2})\b/.exec(lang);
+                if (m) return m[1].toUpperCase();
             }
-            try { localStorage.setItem('zone21_currency', currency); } catch (e) {}
+        } catch (e) { /* silent */ }
 
-            applyCurrencyUI();
-            updatePlanButtons();
+        return null;
+    }
 
-            const step3 = document.getElementById('step-3');
-            if (step3 && !step3.classList.contains('hidden') && selectedPlan.id) {
-                selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
-                selectedPlan.currency = activeCurrency;
-                window.goToStep(3);
-            }
-        };
-
-        function applyCurrencyUI() {
-            document.querySelectorAll('#currency-switch .currency-options button').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
-            });
-            PLAN_ORDER.forEach(id => {
-                const el = document.getElementById(`price-${id}`);
-                if (el) el.textContent = formatCompact(getPrice(id), activeCurrency);
-            });
+    async function detectCountryViaIP() {
+        try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 3000);
+            const res = await fetch('https://ipapi.co/country/', { signal: ctrl.signal });
+            clearTimeout(timer);
+            if (!res.ok) return null;
+            const code = (await res.text()).trim().toUpperCase();
+            return /^[A-Z]{2}$/.test(code) ? code : null;
+        } catch (e) {
+            return null;
         }
+    }
 
-        function applyDetectedCountryToForm() {
-            const sel = document.getElementById('cust-country');
-            if (!sel || !detectedCountry) return;
-            const name = COUNTRY_NAMES[detectedCountry];
-            if (!name) return;
-            const match = Array.from(sel.options).find(o => o.value === name);
-            if (match) sel.value = name;
-        }
+    function currencyForCountry(code) {
+        return ZAR_COUNTRIES.has(code) ? 'ZAR' : 'USD';
+    }
 
-        /* ============================================================
-           AUTH
-           ============================================================ */
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                const emailInput = document.getElementById('cust-email');
-                if (emailInput) {
-                    emailInput.value = user.email;
-                    emailInput.readOnly = true;
-                }
-                applyDetectedCountryToForm();
-                await updatePlanButtons();
-                await renderUserEvents();
-            } else {
-                window.location.href = "index.html";
+    let activeCurrency = 'USD';
+    let manualCurrency = false;
+    let detectedCountry = null;
+
+    try {
+        manualCurrency = localStorage.getItem('zone21_currency_manual') === '1';
+        const stored = localStorage.getItem('zone21_currency');
+        if (manualCurrency && CURRENCIES[stored]) activeCurrency = stored;
+    } catch (e) { /* silent */ }
+
+    if (!manualCurrency) {
+        detectedCountry = detectCountrySync();
+        if (detectedCountry) activeCurrency = currencyForCountry(detectedCountry);
+
+        detectCountryViaIP().then(code => {
+            if (!code) return;
+            detectedCountry = code;
+            if (manualCurrency) return;
+            const next = currencyForCountry(code);
+            if (next !== activeCurrency) {
+                activeCurrency = next;
+                try { localStorage.setItem('zone21_currency', next); } catch (e) {}
+                applyCurrencyUI();
+                updatePlanButtons();
             }
+        }).catch(() => {});
+    }
+
+    /* ============================================================
+       HELPERS
+       ============================================================ */
+    function getPlan(planId) { return PLAN_CATALOG[planId] || null; }
+
+    function getPrice(planId, currency = activeCurrency) {
+        const plan = getPlan(planId);
+        if (!plan) return 0;
+        return plan.prices[currency] != null ? plan.prices[currency] : plan.prices.USD;
+    }
+
+    function currencySymbol(c) { return (CURRENCIES[c] && CURRENCIES[c].symbol) || '$'; }
+    function currencyLabel(c) { return (CURRENCIES[c] && CURRENCIES[c].label) || 'USD (US Dollar)'; }
+
+    function formatMoney(amount, currency = activeCurrency) {
+        const num = Number(amount) || 0;
+        const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${currencySymbol(currency)}${formatted}`;
+    }
+
+    function formatCompact(amount, currency = activeCurrency) {
+        return formatMoney(amount, currency).replace(/\.00$/, '');
+    }
+
+    let currentUser = null;
+    let selectedPlan = { id: '', name: '', price: 0, currency: 'USD' };
+
+    /* ============================================================
+       CURRENCY SWITCHING
+       ============================================================ */
+    window.setCurrency = function (currency, isManual = true) {
+        if (!CURRENCIES[currency]) return;
+
+        activeCurrency = currency;
+
+        if (isManual) {
+            manualCurrency = true;
+            try { localStorage.setItem('zone21_currency_manual', '1'); } catch (e) {}
+        }
+        try { localStorage.setItem('zone21_currency', currency); } catch (e) {}
+
+        applyCurrencyUI();
+        updatePlanButtons();
+
+        const step3 = document.getElementById('step-3');
+        if (step3 && !step3.classList.contains('hidden') && selectedPlan.id) {
+            selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+            selectedPlan.currency = activeCurrency;
+            window.goToStep(3);
+        }
+    };
+
+    function applyCurrencyUI() {
+        document.querySelectorAll('#currency-switch .currency-options button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.currency === activeCurrency);
         });
+        PLAN_ORDER.forEach(id => {
+            const el = document.getElementById(`price-${id}`);
+            if (el) el.textContent = formatCompact(getPrice(id), activeCurrency);
+        });
+    }
 
-        window.showToast = function (msg, type = 'info') {
-            const c = document.getElementById('toast-container');
-            const t = document.createElement('div');
-            t.className = 'toast';
-            t.style.background = { error: '#D92D20', success: '#0F9D6E', info: '#102838' }[type] || '#102838';
-            t.textContent = msg;
-            c.appendChild(t);
-            setTimeout(() => {
-                t.style.opacity = '0';
-                t.style.transition = '0.3s';
-                setTimeout(() => t.remove(), 300);
-            }, 4500);
-        };
+    function applyDetectedCountryToForm() {
+        const sel = document.getElementById('cust-country');
+        if (!sel || !detectedCountry) return;
+        const name = COUNTRY_NAMES[detectedCountry];
+        if (!name) return;
+        const match = Array.from(sel.options).find(o => o.value === name);
+        if (match) sel.value = name;
+    }
 
-        /* ============================================================
-           RENDER USER EVENTS
-           ============================================================ */
-        async function renderUserEvents() {
-            const grid = document.getElementById('user-events-grid');
-            if (!currentUser) {
-                grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i><h4>Session required</h4><p>Please log in to see your events.</p></div>`;
+    /* ============================================================
+       AUTH
+       ============================================================ */
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            const emailInput = document.getElementById('cust-email');
+            if (emailInput) {
+                emailInput.value = user.email;
+                emailInput.readOnly = true;
+            }
+            applyDetectedCountryToForm();
+            await updatePlanButtons();
+            await renderUserEvents();
+        } else {
+            window.location.href = "index.html";
+        }
+    });
+
+    window.showToast = function (msg, type = 'info') {
+        const c = document.getElementById('toast-container');
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.style.background = { error: '#D92D20', success: '#0F9D6E', info: '#102838' }[type] || '#102838';
+        t.textContent = msg;
+        c.appendChild(t);
+        setTimeout(() => {
+            t.style.opacity = '0';
+            t.style.transition = '0.3s';
+            setTimeout(() => t.remove(), 300);
+        }, 4500);
+    };
+
+    /* ============================================================
+       EVENT VISIBILITY FILTER (matches dashboard + myevents.html)
+       ------------------------------------------------------------
+       An event is only shown when ALL of these are true:
+
+         1. A non-deleted subscription exists for this user whose
+            status is active/approved/completed AND whose
+            invoiceNumber matches the event's invoiceNumber
+            (or whose planId matches the event's packageId).
+
+         2. If the event carries an invoiceNumber, that invoice
+            must still exist as a live document in the `invoices`
+            collection for this user. This filters the orphaned
+            cache events (like the Oct 4 ghost).
+
+         3. The event must NOT be tied to any soft-deleted
+            subscription (invoice / planId / planName block-list).
+       ============================================================ */
+    async function buildEventVisibilityFilter() {
+        const subsQuery = query(
+            collection(db, 'subscriptions'),
+            where('userId', '==', currentUser.uid)
+        );
+        const subsSnapshot = await getDocs(subsQuery);
+
+        const activeInvoiceNumbers = new Set();
+        const activePlanIds        = new Set();
+
+        const deletedInvoices      = new Set();
+        const deletedPlanIds       = new Set();
+        const deletedPlanNames     = new Set();
+
+        subsSnapshot.forEach(docSnap => {
+            const sub = docSnap.data() || {};
+            const inv = sub.invoiceNumber ? String(sub.invoiceNumber) : '';
+            const pid = sub.planId        ? String(sub.planId).toLowerCase() : '';
+            const pnm = sub.planName      ? String(sub.planName).toLowerCase() : '';
+
+            if (sub.deletedAt) {
+                if (inv) deletedInvoices.add(inv);
+                if (pid) deletedPlanIds.add(pid);
+                if (pnm) deletedPlanNames.add(pnm);
                 return;
             }
 
-            grid.innerHTML = `
-                <div class="events-loading">
-                    <i class="fas fa-circle-notch"></i>
-                    <p>Loading your events…</p>
-                </div>
-            `;
-
-            const getSafeDate = (timestamp) => {
-                if (!timestamp) return new Date(0);
-                if (typeof timestamp.toDate === 'function') return timestamp.toDate();
-                if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
-                if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
-                return new Date(timestamp);
-            };
-
-            try {
-                const subsQ = query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid));
-                const subsSnapshot = await getDocs(subsQ);
-
-                const activeInvoices = [];
-                const deletedInvoices = new Set();
-                const deletedPlanIds = new Set();
-                const deletedPlanNames = new Set();
-
-                subsSnapshot.forEach(docSnap => {
-                    const sub = docSnap.data();
-                    if (sub.deletedAt) {
-                        if (sub.invoiceNumber) deletedInvoices.add(String(sub.invoiceNumber));
-                        if (sub.planId) deletedPlanIds.add(String(sub.planId).toLowerCase());
-                        if (sub.planName) deletedPlanNames.add(String(sub.planName).toLowerCase());
-                    } else if (sub.status === 'active' || sub.status === 'approved') {
-                        if (sub.invoiceNumber) activeInvoices.push(String(sub.invoiceNumber));
-                    }
-                });
-
-                const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
-                const querySnapshot = await getDocs(q);
-                const events = [];
-
-                querySnapshot.forEach(docSnap => {
-                    let eventData = docSnap.data();
-                    const eventId = docSnap.id;
-
-                    const evInv = eventData.invoiceNumber ? String(eventData.invoiceNumber) : '';
-                    const evPlanId = eventData.packageId ? String(eventData.packageId).toLowerCase() : '';
-                    const evPkgName = eventData.package ? String(eventData.package).toLowerCase() : '';
-
-                    if ((evInv && deletedInvoices.has(evInv)) ||
-                        (evPlanId && deletedPlanIds.has(evPlanId)) ||
-                        (evPkgName && deletedPlanNames.has(evPkgName))) {
-                        return;
-                    }
-
-                    if (eventData.status === 'pending_payment' && eventData.invoiceNumber &&
-                        activeInvoices.includes(String(eventData.invoiceNumber))) {
-                        eventData.status = 'approved';
-                        setDoc(doc(db, 'events', eventId), { status: 'approved' }, { merge: true })
-                            .catch(err => console.log('Self-heal error:', err));
-                    }
-
-                    events.push({ id: eventId, ...eventData });
-                });
-
-                const validEvents = events.filter(e => e.status !== 'pending_payment');
-
-                if (validEvents.length === 0) {
-                    grid.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-plus"></i>
-                            <h4>No active events yet</h4>
-                            <p>Your events will appear here once payment has been approved.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                validEvents.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
-
-                grid.innerHTML = validEvents.map(event => {
-                    const packageName = event.package || 'Unknown Package';
-                    let status = event.status || 'approved';
-                    if (status.toLowerCase() === 'draft') status = 'approved';
-                    const dateObj = getSafeDate(event.createdAt);
-                    const dateStr = dateObj.getTime() > 0
-                        ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : '—';
-
-                    return `
-                        <article class="event-card">
-                            <div class="event-name">${event.name || 'Untitled Event'}</div>
-                            <div class="event-package"><i class="fas fa-tag"></i> ${packageName}</div>
-                            <div class="event-status"><i class="fas fa-circle"></i> ${status}</div>
-                            <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
-                            <a href="manageevent.html?eventId=${event.id}" class="btn btn-primary">
-                                Manage Event <i class="fas fa-arrow-right"></i>
-                            </a>
-                        </article>
-                    `;
-                }).join('');
-
-            } catch (error) {
-                console.error('Error loading events:', error);
-                grid.innerHTML = `
-                    <div class="error-state">
-                        <i class="fas fa-triangle-exclamation"></i>
-                        <h4>Could not load events</h4>
-                        <p>Please check your connection and try again.</p>
-                        <button class="btn btn-outline" style="margin-top:1rem; max-width:220px;"
-                                onclick="renderUserEvents()"><i class="fas fa-rotate"></i> Retry</button>
-                    </div>
-                `;
+            const status = String(sub.status || '').toLowerCase();
+            if (status === 'active' || status === 'approved' || status === 'completed') {
+                if (inv) activeInvoiceNumbers.add(inv);
+                if (pid) activePlanIds.add(pid);
             }
+        });
+
+        /* Live invoices — this is what catches the ghost */
+        const liveInvoiceNumbers = new Set();
+        try {
+            const invQuery = query(
+                collection(db, 'invoices'),
+                where('userId', '==', currentUser.uid)
+            );
+            const invSnap = await getDocs(invQuery);
+            invSnap.forEach(d => {
+                const inv = d.data() || {};
+                if (inv.invoiceNumber) liveInvoiceNumbers.add(String(inv.invoiceNumber));
+                liveInvoiceNumbers.add(String(d.id));
+                if (inv.subscriptionId) liveInvoiceNumbers.add(String(inv.subscriptionId));
+            });
+        } catch (e) {
+            console.warn('Invoice lookup failed — falling back to subs only:', e);
         }
 
-        /* ============================================================
-           PLAN BUTTONS
-           ============================================================ */
-        function selectPlanButtonHtml(planId) {
-            const priceTxt = formatCompact(getPrice(planId), activeCurrency);
-            return `<button class="btn btn-primary" onclick="startCheckout('${planId}')">
-                        Select Plan · ${priceTxt}
-                    </button>`;
+        return {
+            activeInvoiceNumbers,
+            activePlanIds,
+            deletedInvoices,
+            deletedPlanIds,
+            deletedPlanNames,
+            liveInvoiceNumbers
+        };
+    }
+
+    function isEventVisible(event, filter) {
+        const evInv    = event.invoiceNumber ? String(event.invoiceNumber) : '';
+        const evPlanId = event.packageId     ? String(event.packageId).toLowerCase() : '';
+        const evPkgNm  = event.package       ? String(event.package).toLowerCase()   : '';
+
+        /* Rule 3 — hard-block anything tied to a deleted sub */
+        if (evInv    && filter.deletedInvoices.has(evInv))    return false;
+        if (evPlanId && filter.deletedPlanIds.has(evPlanId))  return false;
+        if (evPkgNm  && filter.deletedPlanNames.has(evPkgNm)) return false;
+
+        /* Rule 1 — must be tied to a live active sub */
+        const invoiceOnActiveSub = evInv    && filter.activeInvoiceNumbers.has(evInv);
+        const planOnActiveSub    = evPlanId && filter.activePlanIds.has(evPlanId);
+        if (!invoiceOnActiveSub && !planOnActiveSub) return false;
+
+        /* Rule 2 — if it has an invoice, that invoice must exist */
+        if (evInv && !filter.liveInvoiceNumbers.has(evInv)) {
+            if (filter.liveInvoiceNumbers.size > 0) return false;
         }
 
-        async function updatePlanButtons() {
-            if (!currentUser) return;
+        return true;
+    }
 
-            for (const planId of PLAN_ORDER) {
-                const container = document.getElementById(`action-${planId}`);
-                if (!container) continue;
-
-                try {
-                    const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                    let buttonHtml = selectPlanButtonHtml(planId);
-
-                    if (subSnap.exists() && !subSnap.data().deletedAt) {
-                        const subData = subSnap.data();
-
-                        if (subData.status === 'pending_payment') {
-                            buttonHtml = `
-                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-outline" disabled>
-                                        <i class="fas fa-clock"></i> Pending Payment
-                                    </button>
-                                    <button class="btn btn-outline" onclick="viewExistingInvoice('${planId}')">
-                                        <i class="fas fa-file-invoice"></i> View Invoice
-                                    </button>
-                                </div>
-                            `;
-                        } else if (subData.status === 'active' || subData.status === 'approved') {
-                            buttonHtml = `
-                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-success" disabled>
-                                        <i class="fas fa-circle-check"></i> Package Approved
-                                    </button>
-                                    <button class="btn btn-outline" onclick="window.location.href='myevents.html'">
-                                        <i class="fas fa-list"></i> Go To Your Events
-                                    </button>
-                                    <button class="btn btn-primary" onclick="startCheckout('${planId}')">
-                                        <i class="fas fa-plus"></i> Create Another
-                                    </button>
-                                </div>
-                            `;
-                        } else if (subData.status === 'rejected') {
-                            buttonHtml = `
-                                <div style="display:flex; gap:0.5rem; flex-direction:column;">
-                                    <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);">
-                                        <i class="fas fa-xmark"></i> Payment Rejected
-                                    </button>
-                                    <button class="btn btn-primary" onclick="startCheckout('${planId}')">Try Again</button>
-                                </div>
-                            `;
-                        }
-                    }
-
-                    container.innerHTML = buttonHtml;
-
-                } catch (error) {
-                    console.error("Read skipped (Rules/Network):", error);
-                    container.innerHTML = selectPlanButtonHtml(planId);
-                }
-            }
+    /* ============================================================
+       RENDER USER EVENTS
+       ============================================================ */
+    async function renderUserEvents() {
+        const grid = document.getElementById('user-events-grid');
+        if (!currentUser) {
+            grid.innerHTML = `<div class="empty-state"><i class="fas fa-lock"></i><h4>Session required</h4><p>Please log in to see your events.</p></div>`;
+            return;
         }
 
-        /* ============================================================
-           NAVIGATION
-           ============================================================ */
-        window.showView = function (viewId) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        grid.innerHTML = `
+            <div class="events-loading">
+                <i class="fas fa-circle-notch"></i>
+                <p>Loading your events…</p>
+            </div>
+        `;
+
+        const getSafeDate = (timestamp) => {
+            if (!timestamp) return new Date(0);
+            if (typeof timestamp.toDate === 'function') return timestamp.toDate();
+            if (typeof timestamp.toMillis === 'function') return new Date(timestamp.toMillis());
+            if (timestamp.seconds) return new Date(timestamp.seconds * 1000);
+            return new Date(timestamp);
         };
 
-        window.startCheckout = async function (planId) {
-            if (!currentUser) { window.location.href = "index.html"; return; }
+        try {
+            const filter = await buildEventVisibilityFilter();
 
-            const plan = getPlan(planId);
-            if (!plan) { showToast('Unknown package selected.', 'error'); return; }
+            const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
+            const querySnapshot = await getDocs(q);
+            const events = [];
+
+            querySnapshot.forEach(docSnap => {
+                const eventData = { id: docSnap.id, ...docSnap.data() };
+
+                if (!isEventVisible(eventData, filter)) return;
+
+                /* Self-heal: promote pending_payment when invoice is active */
+                if (
+                    (eventData.status || '').toLowerCase() === 'pending_payment' &&
+                    eventData.invoiceNumber &&
+                    filter.activeInvoiceNumbers.has(String(eventData.invoiceNumber))
+                ) {
+                    eventData.status = 'approved';
+                    setDoc(doc(db, 'events', eventData.id), { status: 'approved' }, { merge: true })
+                        .catch(err => console.log('Self-heal error:', err));
+                }
+
+                events.push(eventData);
+            });
+
+            /* Only show approved/active events here (this page is about
+               managing live events — pending ones live on myevents.html). */
+            const validEvents = events.filter(e => {
+                const s = (e.status || '').toLowerCase();
+                return s === 'approved' || s === 'active';
+            });
+
+            if (validEvents.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-plus"></i>
+                        <h4>No active events yet</h4>
+                        <p>Your events will appear here once payment has been approved.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            validEvents.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
+
+            grid.innerHTML = validEvents.map(event => {
+                const packageName = event.package || 'Unknown Package';
+                const status = event.status || 'approved';
+                const dateObj = getSafeDate(event.createdAt);
+                const dateStr = dateObj.getTime() > 0
+                    ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—';
+
+                return `
+                    <article class="event-card">
+                        <div class="event-name">${event.name || 'Untitled Event'}</div>
+                        <div class="event-package"><i class="fas fa-tag"></i> ${packageName}</div>
+                        <div class="event-status"><i class="fas fa-circle"></i> ${status}</div>
+                        <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
+                        <a href="manageevent.html?eventId=${event.id}" class="btn btn-primary">
+                            Manage Event <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </article>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading events:', error);
+            grid.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <h4>Could not load events</h4>
+                    <p>Please check your connection and try again.</p>
+                    <button class="btn btn-outline" style="margin-top:1rem; max-width:220px;"
+                            onclick="renderUserEvents()"><i class="fas fa-rotate"></i> Retry</button>
+                </div>
+            `;
+        }
+    }
+
+    /* ============================================================
+       PLAN BUTTONS
+       ============================================================ */
+    function selectPlanButtonHtml(planId) {
+        const priceTxt = formatCompact(getPrice(planId), activeCurrency);
+        return `<button class="btn btn-primary" onclick="startCheckout('${planId}')">
+                    Select Plan · ${priceTxt}
+                </button>`;
+    }
+
+    async function updatePlanButtons() {
+        if (!currentUser) return;
+
+        for (const planId of PLAN_ORDER) {
+            const container = document.getElementById(`action-${planId}`);
+            if (!container) continue;
 
             try {
                 const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                const subData = subSnap.exists() ? subSnap.data() : null;
-                if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
-                    showToast('You already have a pending invoice for this plan.', 'error');
-                    return;
-                }
-            } catch (error) { console.error(error); }
+                let buttonHtml = selectPlanButtonHtml(planId);
 
-            const price = getPrice(planId, activeCurrency);
+                if (subSnap.exists() && !subSnap.data().deletedAt) {
+                    const subData = subSnap.data();
 
-            selectedPlan.id = planId;
-            selectedPlan.name = plan.name;
-            selectedPlan.price = price;
-            selectedPlan.currency = activeCurrency;
-
-            document.getElementById('main-header').style.display = 'none';
-            document.getElementById('display-plan-name').innerText =
-                `${plan.name} — ${formatMoney(price, activeCurrency)}`;
-
-            window.showView('view-checkout');
-            window.goToStep(1);
-        };
-
-        window.goBackToPricing = function () {
-            document.getElementById('main-header').style.display = 'block';
-            window.showView('view-pricing');
-            applyCurrencyUI();
-            renderUserEvents();
-            updatePlanButtons();
-        };
-
-        window.goToStep = function (stepNum) {
-            document.querySelectorAll('.step').forEach(step => {
-                const sNum = parseInt(step.getAttribute('data-step'));
-                step.classList.remove('active', 'done');
-                if (sNum < stepNum) step.classList.add('done');
-                if (sNum === stepNum) step.classList.add('active');
-            });
-
-            document.querySelectorAll('.step-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(`step-${stepNum}`).classList.remove('hidden');
-
-            if (stepNum === 3) {
-                const fName = document.getElementById('cust-fname').value;
-                const lName = document.getElementById('cust-lname').value;
-
-                if (selectedPlan.id) {
-                    selectedPlan.currency = activeCurrency;
-                    selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+                    if (subData.status === 'pending_payment') {
+                        buttonHtml = `
+                            <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                <button class="btn btn-outline" disabled>
+                                    <i class="fas fa-clock"></i> Pending Payment
+                                </button>
+                                <button class="btn btn-outline" onclick="viewExistingInvoice('${planId}')">
+                                    <i class="fas fa-file-invoice"></i> View Invoice
+                                </button>
+                            </div>
+                        `;
+                    } else if (subData.status === 'active' || subData.status === 'approved') {
+                        buttonHtml = `
+                            <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                <button class="btn btn-success" disabled>
+                                    <i class="fas fa-circle-check"></i> Package Approved
+                                </button>
+                                <button class="btn btn-outline" onclick="window.location.href='myevents.html'">
+                                    <i class="fas fa-list"></i> Go To Your Events
+                                </button>
+                                <button class="btn btn-primary" onclick="startCheckout('${planId}')">
+                                    <i class="fas fa-plus"></i> Create Another
+                                </button>
+                            </div>
+                        `;
+                    } else if (subData.status === 'rejected') {
+                        buttonHtml = `
+                            <div style="display:flex; gap:0.5rem; flex-direction:column;">
+                                <button class="btn btn-outline" disabled style="border-color:var(--pink); color:var(--pink);">
+                                    <i class="fas fa-xmark"></i> Payment Rejected
+                                </button>
+                                <button class="btn btn-primary" onclick="startCheckout('${planId}')">Try Again</button>
+                            </div>
+                        `;
+                    }
                 }
 
-                document.getElementById('summary-plan').innerText = selectedPlan.name;
-                document.getElementById('summary-currency').innerText = currencyLabel(selectedPlan.currency);
-                document.getElementById('summary-name').innerText = `${fName} ${lName}`;
-                document.getElementById('summary-unit-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
-                document.getElementById('summary-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
+                container.innerHTML = buttonHtml;
+
+            } catch (error) {
+                console.error("Read skipped (Rules/Network):", error);
+                container.innerHTML = selectPlanButtonHtml(planId);
             }
-        };
-
-        window.validateAndNext = function (currentStep, nextStep) {
-            const stepContainer = document.getElementById(`step-${currentStep}`);
-            const inputs = stepContainer.querySelectorAll('input[required], select[required]');
-            let valid = true;
-
-            inputs.forEach(input => {
-                if (!input.checkValidity()) {
-                    input.reportValidity();
-                    valid = false;
-                }
-            });
-
-            if (currentStep === 2) {
-                const checkbox = document.getElementById('agreement');
-                if (!checkbox.checked) {
-                    showToast("Please agree to the manual payment terms to proceed.", "error");
-                    valid = false;
-                }
-            }
-
-            if (valid) window.goToStep(nextStep);
-        };
-
-        /* ============================================================
-           INVOICE CURRENCY RENDERING
-           ============================================================ */
-        function applyInvoiceCurrency(currency) {
-            const isZar = currency === 'ZAR';
-
-            document.getElementById('payment-methods-usd').classList.toggle('hidden', isZar);
-            document.getElementById('payment-methods-zar').classList.toggle('hidden', !isZar);
-            document.getElementById('payment-instructions-usd').classList.toggle('hidden', isZar);
-            document.getElementById('payment-instructions-zar').classList.toggle('hidden', !isZar);
-
-            const curEl = document.getElementById('inv-currency');
-            if (curEl) curEl.innerText = currencyLabel(currency);
         }
+    }
 
-        /* ============================================================
-           GENERATE INVOICE
-           ============================================================ */
-        window.generateInvoice = async function () {
-            if (!currentUser) { window.location.href = "index.html"; return; }
+    /* ============================================================
+       NAVIGATION
+       ============================================================ */
+    window.showView = function (viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.startCheckout = async function (planId) {
+        if (!currentUser) { window.location.href = "index.html"; return; }
+
+        const plan = getPlan(planId);
+        if (!plan) { showToast('Unknown package selected.', 'error'); return; }
+
+        try {
+            const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+            const subData = subSnap.exists() ? subSnap.data() : null;
+            if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
+                showToast('You already have a pending invoice for this plan.', 'error');
+                return;
+            }
+        } catch (error) { console.error(error); }
+
+        const price = getPrice(planId, activeCurrency);
+
+        selectedPlan.id = planId;
+        selectedPlan.name = plan.name;
+        selectedPlan.price = price;
+        selectedPlan.currency = activeCurrency;
+
+        document.getElementById('main-header').style.display = 'none';
+        document.getElementById('display-plan-name').innerText =
+            `${plan.name} — ${formatMoney(price, activeCurrency)}`;
+
+        window.showView('view-checkout');
+        window.goToStep(1);
+    };
+
+    window.goBackToPricing = function () {
+        document.getElementById('main-header').style.display = 'block';
+        window.showView('view-pricing');
+        applyCurrencyUI();
+        renderUserEvents();
+        updatePlanButtons();
+    };
+
+    window.goToStep = function (stepNum) {
+        document.querySelectorAll('.step').forEach(step => {
+            const sNum = parseInt(step.getAttribute('data-step'));
+            step.classList.remove('active', 'done');
+            if (sNum < stepNum) step.classList.add('done');
+            if (sNum === stepNum) step.classList.add('active');
+        });
+
+        document.querySelectorAll('.step-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById(`step-${stepNum}`).classList.remove('hidden');
+
+        if (stepNum === 3) {
+            const fName = document.getElementById('cust-fname').value;
+            const lName = document.getElementById('cust-lname').value;
 
             if (selectedPlan.id) {
                 selectedPlan.currency = activeCurrency;
                 selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
             }
 
-            try {
-                const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
-                const subSnap = await getDoc(subRef);
-                const subData = subSnap.exists() ? subSnap.data() : null;
-                if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
-                    showToast('You already have a pending invoice for this plan.', 'error');
-                    return;
-                }
-            } catch (error) {
-                console.warn("Duplicate check bypassed:", error);
+            document.getElementById('summary-plan').innerText = selectedPlan.name;
+            document.getElementById('summary-currency').innerText = currencyLabel(selectedPlan.currency);
+            document.getElementById('summary-name').innerText = `${fName} ${lName}`;
+            document.getElementById('summary-unit-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
+            document.getElementById('summary-price').innerText = formatMoney(selectedPlan.price, selectedPlan.currency);
+        }
+    };
+
+    window.validateAndNext = function (currentStep, nextStep) {
+        const stepContainer = document.getElementById(`step-${currentStep}`);
+        const inputs = stepContainer.querySelectorAll('input[required], select[required]');
+        let valid = true;
+
+        inputs.forEach(input => {
+            if (!input.checkValidity()) {
+                input.reportValidity();
+                valid = false;
             }
+        });
 
-            const btn = document.getElementById('btn-generate-invoice');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Generating…';
-            btn.disabled = true;
+        if (currentStep === 2) {
+            const checkbox = document.getElementById('agreement');
+            if (!checkbox.checked) {
+                showToast("Please agree to the manual payment terms to proceed.", "error");
+                valid = false;
+            }
+        }
 
-            try {
-                const fName = document.getElementById('cust-fname').value;
-                const lName = document.getElementById('cust-lname').value;
-                const email = document.getElementById('cust-email').value;
-                const phone = document.getElementById('cust-phone').value;
-                const company = document.getElementById('cust-company').value;
-                const zip = document.getElementById('cust-zip').value;
-                const street = document.getElementById('cust-street').value;
-                const city = document.getElementById('cust-city').value;
-                const country = document.getElementById('cust-country').value;
-                const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+        if (valid) window.goToStep(nextStep);
+    };
 
-                const currency = selectedPlan.currency;
-                const price = selectedPlan.price;
+    /* ============================================================
+       INVOICE CURRENCY RENDERING
+       ============================================================ */
+    function applyInvoiceCurrency(currency) {
+        const isZar = currency === 'ZAR';
 
-                const subId = `${currentUser.uid}_${selectedPlan.id}`;
-                const subRef = doc(db, 'subscriptions', subId);
+        document.getElementById('payment-methods-usd').classList.toggle('hidden', isZar);
+        document.getElementById('payment-methods-zar').classList.toggle('hidden', !isZar);
+        document.getElementById('payment-instructions-usd').classList.toggle('hidden', isZar);
+        document.getElementById('payment-instructions-zar').classList.toggle('hidden', !isZar);
 
-                /* 1 — Invoice */
-                await setDoc(doc(db, "invoices", invNumber), {
-                    userId: currentUser.uid,
-                    invoiceNumber: invNumber,
-                    currency,
-                    packageDetails: { name: selectedPlan.name, price, currency },
-                    customerInfo: {
-                        firstName: fName, lastName: lName, email, phone, company, zip,
-                        address: { street, city, country }
-                    },
-                    paymentStatus: 'pending_manual_transfer',
-                    status: 'pending',
-                    createdAt: serverTimestamp()
-                });
+        const curEl = document.getElementById('inv-currency');
+        if (curEl) curEl.innerText = currencyLabel(currency);
+    }
 
-                /* 2 — Subscription (create or revive) */
-                const subSnap = await getDoc(subRef);
-                const subPayload = {
-                    userId: currentUser.uid,
-                    planId: selectedPlan.id,
-                    planName: selectedPlan.name,
-                    price,
-                    currency,
-                    invoiceNumber: invNumber,
-                    status: 'pending_payment',
-                    updatedAt: serverTimestamp(),
-                    customerInfo: {
-                        firstName: fName, lastName: lName, email, phone, company, zip,
-                        address: { street, city, country }
-                    }
-                };
+    /* ============================================================
+       GENERATE INVOICE
+       ============================================================ */
+    window.generateInvoice = async function () {
+        if (!currentUser) { window.location.href = "index.html"; return; }
 
-                if (subSnap.exists()) {
-                    await setDoc(subRef, {
-                        ...subPayload,
-                        deletedAt: deleteField(),
-                        deletedBy: deleteField(),
-                        deletedByEmail: deleteField()
-                    }, { merge: true });
-                } else {
-                    await setDoc(subRef, { ...subPayload, createdAt: serverTimestamp() });
+        if (selectedPlan.id) {
+            selectedPlan.currency = activeCurrency;
+            selectedPlan.price = getPrice(selectedPlan.id, activeCurrency);
+        }
+
+        try {
+            const subRef = doc(db, 'subscriptions', `${currentUser.uid}_${selectedPlan.id}`);
+            const subSnap = await getDoc(subRef);
+            const subData = subSnap.exists() ? subSnap.data() : null;
+            if (subData && !subData.deletedAt && subData.status === 'pending_payment') {
+                showToast('You already have a pending invoice for this plan.', 'error');
+                return;
+            }
+        } catch (error) {
+            console.warn("Duplicate check bypassed:", error);
+        }
+
+        const btn = document.getElementById('btn-generate-invoice');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Generating…';
+        btn.disabled = true;
+
+        try {
+            const fName = document.getElementById('cust-fname').value;
+            const lName = document.getElementById('cust-lname').value;
+            const email = document.getElementById('cust-email').value;
+            const phone = document.getElementById('cust-phone').value;
+            const company = document.getElementById('cust-company').value;
+            const zip = document.getElementById('cust-zip').value;
+            const street = document.getElementById('cust-street').value;
+            const city = document.getElementById('cust-city').value;
+            const country = document.getElementById('cust-country').value;
+            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            const invNumber = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+
+            const currency = selectedPlan.currency;
+            const price = selectedPlan.price;
+
+            const subId = `${currentUser.uid}_${selectedPlan.id}`;
+            const subRef = doc(db, 'subscriptions', subId);
+
+            /* 1 — Invoice */
+            await setDoc(doc(db, "invoices", invNumber), {
+                userId: currentUser.uid,
+                invoiceNumber: invNumber,
+                currency,
+                packageDetails: { name: selectedPlan.name, price, currency },
+                customerInfo: {
+                    firstName: fName, lastName: lName, email, phone, company, zip,
+                    address: { street, city, country }
+                },
+                paymentStatus: 'pending_manual_transfer',
+                status: 'pending',
+                createdAt: serverTimestamp()
+            });
+
+            /* 2 — Subscription (create or revive) */
+            const subSnap = await getDoc(subRef);
+            const subPayload = {
+                userId: currentUser.uid,
+                planId: selectedPlan.id,
+                planName: selectedPlan.name,
+                price,
+                currency,
+                invoiceNumber: invNumber,
+                status: 'pending_payment',
+                updatedAt: serverTimestamp(),
+                customerInfo: {
+                    firstName: fName, lastName: lName, email, phone, company, zip,
+                    address: { street, city, country }
                 }
+            };
 
-                /* 3 — User */
-                await setDoc(doc(db, "users", currentUser.uid), {
-                    activePlan: selectedPlan.name,
-                    subscriptionStatus: 'pending_payment',
-                    latestInvoiceId: invNumber,
-                    preferredCurrency: currency
+            if (subSnap.exists()) {
+                await setDoc(subRef, {
+                    ...subPayload,
+                    deletedAt: deleteField(),
+                    deletedBy: deleteField(),
+                    deletedByEmail: deleteField()
                 }, { merge: true });
-
-                /* 4 — Event */
-                const eventsRef = collection(db, 'events');
-                const newEventRef = await addDoc(eventsRef, {
-                    organizerId: currentUser.uid,
-                    name: `My ${selectedPlan.name}`,
-                    package: selectedPlan.name,
-                    packageId: selectedPlan.id,
-                    currency,
-                    price,
-                    status: 'pending_payment',
-                    createdAt: serverTimestamp(),
-                    location: '', date: null, budget: 0, attendees: 0, notes: '',
-                    ticketsSold: 0, grossRevenue: 0, blueprint: null,
-                    invoiceNumber: invNumber
-                });
-                localStorage.setItem('zone21_latest_event', newEventRef.id);
-
-                /* 5 & 6 — Link event id */
-                await setDoc(doc(db, "invoices", invNumber), { eventId: newEventRef.id }, { merge: true });
-                await setDoc(subRef, { eventId: newEventRef.id }, { merge: true });
-
-                /* 7 — Render invoice */
-                document.getElementById('inv-number').innerText = invNumber;
-                document.getElementById('inv-name').innerText = `${fName} ${lName}`;
-                document.getElementById('inv-email').innerText = email;
-                document.getElementById('inv-date').innerText = dateStr;
-                document.getElementById('inv-item').innerText = selectedPlan.name;
-                document.getElementById('inv-item-price').innerText = formatMoney(price, currency);
-                document.getElementById('inv-total').innerText = formatMoney(price, currency);
-
-                applyInvoiceCurrency(currency);
-
-                localStorage.setItem('zone21_package', selectedPlan.name);
-                localStorage.setItem('zone21_invoice', invNumber);
-                localStorage.setItem('zone21_currency', currency);
-
-                showToast('Invoice generated successfully.', 'success');
-                window.showView('view-invoice');
-                updatePlanButtons();
-
-            } catch (error) {
-                console.error("Database Error:", error);
-                showToast('Failed to generate invoice: ' + error.message, 'error');
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+            } else {
+                await setDoc(subRef, { ...subPayload, createdAt: serverTimestamp() });
             }
-        };
 
-        /* ============================================================
-           VIEW EXISTING INVOICE
-           ============================================================ */
-        window.viewExistingInvoice = async function (planId) {
-            if (!currentUser) { window.location.href = "index.html"; return; }
+            /* 3 — User */
+            await setDoc(doc(db, "users", currentUser.uid), {
+                activePlan: selectedPlan.name,
+                subscriptionStatus: 'pending_payment',
+                latestInvoiceId: invNumber,
+                preferredCurrency: currency
+            }, { merge: true });
 
-            try {
-                const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
-                if (!subSnap.exists()) return;
+            /* 4 — Event */
+            const eventsRef = collection(db, 'events');
+            const newEventRef = await addDoc(eventsRef, {
+                organizerId: currentUser.uid,
+                name: `My ${selectedPlan.name}`,
+                package: selectedPlan.name,
+                packageId: selectedPlan.id,
+                currency,
+                price,
+                status: 'pending_payment',
+                createdAt: serverTimestamp(),
+                location: '', date: null, budget: 0, attendees: 0, notes: '',
+                ticketsSold: 0, grossRevenue: 0, blueprint: null,
+                invoiceNumber: invNumber
+            });
+            localStorage.setItem('zone21_latest_event', newEventRef.id);
 
-                const subData = subSnap.data();
-                if (subData.deletedAt) {
-                    showToast('This package has been removed by the admin.', 'error');
-                    return;
-                }
+            /* 5 & 6 — Link event id */
+            await setDoc(doc(db, "invoices", invNumber), { eventId: newEventRef.id }, { merge: true });
+            await setDoc(subRef, { eventId: newEventRef.id }, { merge: true });
 
-                const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
-                if (!invSnap.exists()) { showToast('Invoice not found.', 'error'); return; }
-                const invData = invSnap.data();
+            /* 7 — Render invoice */
+            document.getElementById('inv-number').innerText = invNumber;
+            document.getElementById('inv-name').innerText = `${fName} ${lName}`;
+            document.getElementById('inv-email').innerText = email;
+            document.getElementById('inv-date').innerText = dateStr;
+            document.getElementById('inv-item').innerText = selectedPlan.name;
+            document.getElementById('inv-item-price').innerText = formatMoney(price, currency);
+            document.getElementById('inv-total').innerText = formatMoney(price, currency);
 
-                const invCurrency = invData.currency
-                    || (invData.packageDetails && invData.packageDetails.currency)
-                    || 'USD';
-                const invPrice = (invData.packageDetails && invData.packageDetails.price) || 0;
+            applyInvoiceCurrency(currency);
 
-                const getSafeDate = (ts) => {
-                    if (!ts) return new Date();
-                    if (typeof ts.toDate === 'function') return ts.toDate();
-                    if (ts.seconds) return new Date(ts.seconds * 1000);
-                    return new Date(ts);
-                };
-                const dateStr = getSafeDate(invData.createdAt)
-                    .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            localStorage.setItem('zone21_package', selectedPlan.name);
+            localStorage.setItem('zone21_invoice', invNumber);
+            localStorage.setItem('zone21_currency', currency);
 
-                document.getElementById('inv-number').innerText = invData.invoiceNumber;
-                document.getElementById('inv-name').innerText =
-                    `${invData.customerInfo.firstName} ${invData.customerInfo.lastName}`;
-                document.getElementById('inv-email').innerText = invData.customerInfo.email;
-                document.getElementById('inv-date').innerText = dateStr;
-                document.getElementById('inv-item').innerText = invData.packageDetails.name;
-                document.getElementById('inv-item-price').innerText = formatMoney(invPrice, invCurrency);
-                document.getElementById('inv-total').innerText = formatMoney(invPrice, invCurrency);
+            showToast('Invoice generated successfully.', 'success');
+            window.showView('view-invoice');
+            updatePlanButtons();
 
-                applyInvoiceCurrency(invCurrency);
+        } catch (error) {
+            console.error("Database Error:", error);
+            showToast('Failed to generate invoice: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    };
 
-                document.getElementById('main-header').style.display = 'none';
-                window.showView('view-invoice');
+    /* ============================================================
+       VIEW EXISTING INVOICE
+       ============================================================ */
+    window.viewExistingInvoice = async function (planId) {
+        if (!currentUser) { window.location.href = "index.html"; return; }
 
-            } catch (error) {
-                console.error("Error viewing invoice:", error);
-                showToast("Failed to load invoice.", "error");
+        try {
+            const subSnap = await getDoc(doc(db, 'subscriptions', `${currentUser.uid}_${planId}`));
+            if (!subSnap.exists()) return;
+
+            const subData = subSnap.data();
+            if (subData.deletedAt) {
+                showToast('This package has been removed by the admin.', 'error');
+                return;
             }
-        };
 
-        /* Expose for retry handlers */
-        window.renderUserEvents = renderUserEvents;
-        window.updatePlanButtons = updatePlanButtons;
+            const invSnap = await getDoc(doc(db, "invoices", subData.invoiceNumber));
+            if (!invSnap.exists()) { showToast('Invoice not found.', 'error'); return; }
+            const invData = invSnap.data();
 
-        /* Paint currency UI immediately, before auth resolves */
-        applyCurrencyUI();
+            const invCurrency = invData.currency
+                || (invData.packageDetails && invData.packageDetails.currency)
+                || 'USD';
+            const invPrice = (invData.packageDetails && invData.packageDetails.price) || 0;
+
+            const getSafeDate = (ts) => {
+                if (!ts) return new Date();
+                if (typeof ts.toDate === 'function') return ts.toDate();
+                if (ts.seconds) return new Date(ts.seconds * 1000);
+                return new Date(ts);
+            };
+            const dateStr = getSafeDate(invData.createdAt)
+                .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            document.getElementById('inv-number').innerText = invData.invoiceNumber;
+            document.getElementById('inv-name').innerText =
+                `${invData.customerInfo.firstName} ${invData.customerInfo.lastName}`;
+            document.getElementById('inv-email').innerText = invData.customerInfo.email;
+            document.getElementById('inv-date').innerText = dateStr;
+            document.getElementById('inv-item').innerText = invData.packageDetails.name;
+            document.getElementById('inv-item-price').innerText = formatMoney(invPrice, invCurrency);
+            document.getElementById('inv-total').innerText = formatMoney(invPrice, invCurrency);
+
+            applyInvoiceCurrency(invCurrency);
+
+            document.getElementById('main-header').style.display = 'none';
+            window.showView('view-invoice');
+
+        } catch (error) {
+            console.error("Error viewing invoice:", error);
+            showToast("Failed to load invoice.", "error");
+        }
+    };
+
+    /* Expose for retry handlers */
+    window.renderUserEvents = renderUserEvents;
+    window.updatePlanButtons = updatePlanButtons;
+
+    /* Paint currency UI immediately, before auth resolves */
+    applyCurrencyUI();
     </script>
-</body>
-    </html>

@@ -729,6 +729,7 @@
         let activeEventIdToRename = null;
         let unsubscribeEvents = null;
         let unsubscribeSubs = null;
+        let unsubscribeInvoices = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -742,46 +743,45 @@
         window.loadEvents = loadEvents;
 
         /* ============================================================
-           SUBSCRIPTION-DRIVEN FILTER (mirrors dashboard-1.html)
+           LIVE VISIBILITY FILTER (mirrors adminpayments.html exactly)
            ------------------------------------------------------------
-           The dashboard only shows an event when there is a matching,
-           NON-DELETED subscription.  We replicate that here so ghost
-           events from deleted/old subscriptions never leak in.
+           An event is only shown when ALL of these are true:
 
-           Rules:
-             1. Fetch all subscriptions for this user.
-             2. Build an "active allow-list" of invoiceNumbers from
-                subs that are NOT deleted AND whose status is one of
-                active / approved / completed.
-             3. Build a "deleted block-list" of invoiceNumbers,
-                planIds and planNames from subs that DO have deletedAt.
-             4. Keep an event only if:
-                 · it has an invoiceNumber AND that invoice is in the
-                   active allow-list AND not in the deleted block-list,
-                 · OR (fallback) its packageId matches a currently
-                   active planId and its package name is not in the
-                   deleted plan-name block-list.
+             1. A non-deleted subscription exists for this user whose
+                status is active / approved / completed AND whose
+                invoiceNumber matches the event's invoiceNumber
+                (or whose planId matches the event's packageId).
+
+             2. That same invoiceNumber actually exists as a live
+                document in the `invoices` collection for this user.
+
+             3. The event is NOT tied to any soft-deleted subscription
+                (invoice / planId / planName block-list).
+
+           If an event has NO invoiceNumber at all AND no active
+           subscription is linked to it, we hide it — it's orphaned
+           cache, not a real live event.
            ============================================================ */
-        async function buildSubscriptionFilter() {
+        async function buildVisibilityFilter() {
+            /* ---- 1. Fetch all subscriptions for this user ---- */
             const subsQuery = query(
                 collection(db, 'subscriptions'),
                 where('userId', '==', currentUser.uid)
             );
             const subsSnap = await getDocs(subsQuery);
 
-            const activeInvoiceNumbers   = new Set();
-            const activePlanIds          = new Set();
-            const activePlanNames        = new Set();
+            const activeInvoiceNumbers = new Set();
+            const activePlanIds        = new Set();
 
-            const deletedInvoiceNumbers  = new Set();
-            const deletedPlanIds         = new Set();
-            const deletedPlanNames       = new Set();
+            const deletedInvoiceNumbers = new Set();
+            const deletedPlanIds        = new Set();
+            const deletedPlanNames      = new Set();
 
             subsSnap.forEach(docSnap => {
                 const sub = docSnap.data() || {};
                 const inv = sub.invoiceNumber ? String(sub.invoiceNumber) : '';
-                const pid = sub.planId        ? String(sub.planId).toLowerCase()    : '';
-                const pnm = sub.planName      ? String(sub.planName).toLowerCase()  : '';
+                const pid = sub.planId        ? String(sub.planId).toLowerCase() : '';
+                const pnm = sub.planName      ? String(sub.planName).toLowerCase() : '';
 
                 if (sub.deletedAt) {
                     if (inv) deletedInvoiceNumbers.add(inv);
@@ -794,70 +794,95 @@
                 if (status === 'active' || status === 'approved' || status === 'completed') {
                     if (inv) activeInvoiceNumbers.add(inv);
                     if (pid) activePlanIds.add(pid);
-                    if (pnm) activePlanNames.add(pnm);
                 }
             });
+
+            /* ---- 2. Fetch this user's live invoices ---- */
+            /* An event is only legit if its invoice still exists.
+               This is what filters the Oct 4 ghost. */
+            const liveInvoiceNumbers = new Set();
+            try {
+                const invQuery = query(
+                    collection(db, 'invoices'),
+                    where('userId', '==', currentUser.uid)
+                );
+                const invSnap = await getDocs(invQuery);
+                invSnap.forEach(d => {
+                    const inv = d.data() || {};
+                    /* Collect every plausible identifier an event
+                       might use to reference this invoice. */
+                    if (inv.invoiceNumber) liveInvoiceNumbers.add(String(inv.invoiceNumber));
+                    liveInvoiceNumbers.add(String(d.id));
+                    if (inv.subscriptionId) liveInvoiceNumbers.add(String(inv.subscriptionId));
+                });
+            } catch (e) {
+                console.warn('Invoice lookup failed — falling back to subs only:', e);
+            }
 
             return {
                 activeInvoiceNumbers,
                 activePlanIds,
-                activePlanNames,
                 deletedInvoiceNumbers,
                 deletedPlanIds,
-                deletedPlanNames
+                deletedPlanNames,
+                liveInvoiceNumbers
             };
         }
 
-        function filterEventsBySubscription(events, filter) {
-            return events.filter(e => {
-                const evInv    = e.invoiceNumber ? String(e.invoiceNumber) : '';
-                const evPlanId = e.packageId     ? String(e.packageId).toLowerCase()   : '';
-                const evPkgNm  = e.package       ? String(e.package).toLowerCase()     : '';
+        function isEventVisible(event, filter) {
+            const evInv    = event.invoiceNumber ? String(event.invoiceNumber) : '';
+            const evPlanId = event.packageId     ? String(event.packageId).toLowerCase() : '';
+            const evPkgNm  = event.package       ? String(event.package).toLowerCase()   : '';
 
-                /* Hard block: anything explicitly tied to a deleted sub */
-                if (evInv    && filter.deletedInvoiceNumbers.has(evInv))    return false;
-                if (evPlanId && filter.deletedPlanIds.has(evPlanId))        return false;
-                if (evPkgNm  && filter.deletedPlanNames.has(evPkgNm))       return false;
+            /* Rule 3: hard-block anything tied to a deleted sub */
+            if (evInv    && filter.deletedInvoiceNumbers.has(evInv)) return false;
+            if (evPlanId && filter.deletedPlanIds.has(evPlanId))     return false;
+            if (evPkgNm  && filter.deletedPlanNames.has(evPkgNm))    return false;
 
-                /* Preferred match: event has an invoice that's currently active */
-                if (evInv && filter.activeInvoiceNumbers.has(evInv))        return true;
+            /* Rule 1a: must have an invoice that's on an active sub */
+            const invoiceOnActiveSub = evInv && filter.activeInvoiceNumbers.has(evInv);
 
-                /* Fallback: event's packageId matches a currently active plan.
-                   Do NOT fall back on package *name* alone — that was the
-                   ghost-event bug. */
-                if (evPlanId && filter.activePlanIds.has(evPlanId))         return true;
+            /* Rule 1b: OR a packageId matching an active plan */
+            const planOnActiveSub = evPlanId && filter.activePlanIds.has(evPlanId);
 
-                /* Otherwise: not tied to any live subscription → hide it */
-                return false;
-            });
+            if (!invoiceOnActiveSub && !planOnActiveSub) return false;
+
+            /* Rule 2: if the event has an invoiceNumber, that invoice
+               must still exist as a live document.  If it doesn't,
+               the event is orphaned cache — hide it. */
+            if (evInv && !filter.liveInvoiceNumbers.has(evInv)) {
+                /* Exception: allow when there is no invoice collection
+                   access at all (offline / rules), fall back to sub match. */
+                if (filter.liveInvoiceNumbers.size > 0) return false;
+            }
+
+            return true;
         }
 
         /* ============================================================
-           REALTIME LISTENER — listens to BOTH events AND subs
+           REALTIME LISTENER — listens to events, subs, and invoices
         ============================================================ */
         async function setupRealtimeListener() {
             if (!currentUser) return;
 
-            if (unsubscribeEvents) { unsubscribeEvents(); unsubscribeEvents = null; }
-            if (unsubscribeSubs)   { unsubscribeSubs();   unsubscribeSubs   = null; }
+            if (unsubscribeEvents)   { unsubscribeEvents();   unsubscribeEvents   = null; }
+            if (unsubscribeSubs)     { unsubscribeSubs();     unsubscribeSubs     = null; }
+            if (unsubscribeInvoices) { unsubscribeInvoices(); unsubscribeInvoices = null; }
 
-            /* Events listener */
             const eq = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
             unsubscribeEvents = onSnapshot(eq, async (snapshot) => {
                 const events = [];
                 snapshot.forEach(d => events.push({ id: d.id, ...d.data() }));
 
-                /* Rebuild sub filter fresh so it always reflects latest state */
-                const filter = await buildSubscriptionFilter();
+                const filter = await buildVisibilityFilter();
+                const visible = events.filter(e => isEventVisible(e, filter));
 
-                const visible = filterEventsBySubscription(events, filter);
-
-                /* Self-heal: promote pending events whose invoice is now active */
+                /* Self-heal: promote pending_payment → approved when the
+                   invoice is confirmed active. */
                 const pendingEvents = visible.filter(e => (e.status || '').toLowerCase() === 'pending_payment');
                 if (pendingEvents.length > 0 && filter.activeInvoiceNumbers.size > 0) {
                     for (const event of pendingEvents) {
                         if (event.invoiceNumber && filter.activeInvoiceNumbers.has(String(event.invoiceNumber))) {
-                            console.log(`Self-heal: Promoting event ${event.id} to approved`);
                             try {
                                 await updateDoc(doc(db, 'events', event.id), { status: 'approved' });
                                 event.status = 'approved';
@@ -887,8 +912,8 @@
                 const events = [];
                 querySnapshot.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
 
-                const filter = await buildSubscriptionFilter();
-                const visible = filterEventsBySubscription(events, filter);
+                const filter = await buildVisibilityFilter();
+                const visible = events.filter(e => isEventVisible(e, filter));
 
                 renderEvents(visible);
             } catch (error) {

@@ -934,24 +934,16 @@ function subscribeEvents(){
 }
 
 /* ============================================================
-   EVENT SANITISERS  ★ FIX
+   EVENT SANITISERS
    ──────────────────────────────────────────────────────────
    The subscription checkout flow writes a lightweight
    "package" record into the events collection so the payment
    pipeline has something to attach to. Those records are NOT
    real events — they have no date, no guests and no blueprint.
 
-   They must never be surfaced as "My Events", never inflate
-   the event counter, and never raise a nav badge.
-
-   A record only counts as a real event when:
-     1. It is not soft-deleted (already handled upstream)
-     2. It carries no subscription-origin markers
-     3. Its name is not a bare package placeholder
-     4. Its status is approved / active
+   They must never be surfaced as "My Events" and never inflate
+   the event counter.
 ============================================================ */
-const PLACEHOLDER_NAME_RE = /^(new\s+)?(small|medium|large)(\s+event)?(\s+package)?\s*$/i;
-
 function isPlaceholderEvent(ev){
   if(!ev) return true;
 
@@ -975,11 +967,15 @@ function isPlaceholderEvent(ev){
   const type = String(ev.type || ev.recordType || '').toLowerCase();
   if(type === 'subscription' || type === 'subscription_record') return true;
 
-  // Name-based placeholder detection ("New Small Event Package", etc.)
-  const nm = String(ev.name || ev.eventName || '').trim();
-  if(nm && PLACEHOLDER_NAME_RE.test(nm)) return true;
+  // ★ FIX: Removed the restrictive name-based regex filter.
+  // Real users can legitimately name their event "Small Event" or "New Medium Event Package".
+  // The subscription metadata flags above are sufficient and reliable.
 
   return false;
+}
+
+function getRealEvents(){
+  return userEvents.filter(ev => !isPlaceholderEvent(ev));
 }
 
 function isApprovedEvent(ev){
@@ -990,11 +986,6 @@ function isApprovedEvent(ev){
 
 function getApprovedEvents(){
   return userEvents.filter(isApprovedEvent);
-}
-
-/* Real (non-placeholder) events in any status — used for pending hints */
-function getRealEvents(){
-  return userEvents.filter(ev => !isPlaceholderEvent(ev));
 }
 
 /* ============================================================
@@ -1287,11 +1278,11 @@ function renderStatusStrip(){
     }
   }
 
-  /* ★ FIX: count only real, approved events here */
+  /* Count all real events (including pending) */
   const hint = $('statusHint');
   if(hint){
-    const realApproved = getApprovedEvents().length;
-    hint.textContent = `${realApproved} event${realApproved===1?'':'s'} · ${records} service${records===1?'':'s'} coordinated`;
+    const realEventCount = getRealEvents().length;
+    hint.textContent = `${realEventCount} event${realEventCount===1?'':'s'} · ${records} service${records===1?'':'s'} coordinated`;
   }
 }
 
@@ -1334,8 +1325,8 @@ function buildNotificationItems(){
   }
 
   /* 2. Events — approved by admin only
-        ★ FIX: subscription placeholder records are skipped entirely
-        Pending events show up as a notification, not in the Events grid */
+        Pending events show up as a notification, not in the Events grid
+        ★ FIX: subscription placeholder records are skipped entirely */
   userEvents.forEach(ev => {
     if(isPlaceholderEvent(ev)) return;               // ★ FIX
     const when = ev.updatedAt?.toMillis?.() || ev.createdAt?.toMillis?.() || 0;
@@ -1610,38 +1601,34 @@ function gateAction(link){
 window.gateAction = gateAction;
 
 /* ============================================================
-   EVENTS PREVIEW — APPROVED, REAL EVENTS ONLY
+   EVENTS PREVIEW — SHOWS ALL REAL EVENTS (INCLUDING PENDING)
    ──────────────────────────────────────────────────────────
-   ★ FIX: subscription-derived "package" records are filtered
-   out entirely. Only genuine events that an admin approved via
-   adminpayments.html appear here. Pending real events continue
-   to live in the Notifications feed until approval.
+   ★ FIX: Previously this section only displayed events with
+   status 'approved', which hid newly created pending events.
+   Now it shows all genuine events (up to 4) with their
+   current status badge so you can see them immediately.
 ============================================================ */
 function renderEventsPreview(){
   const grid = $('eventsPreview'); if(!grid) return;
 
-  const approvedEvents = getApprovedEvents();          // ★ FIX
-  const realEvents = getRealEvents();                  // ★ FIX
+  const realEvents = getRealEvents(); // All non-placeholder events
 
-  if(!approvedEvents.length){
-    const pendingCount = realEvents.filter(ev => String(ev.status||'').toLowerCase() === 'pending').length;
+  if(!realEvents.length){
     grid.innerHTML = `
       <div class="empty">
         <i class="fas fa-calendar-plus big"></i>
-        <h4>${pendingCount ? 'Waiting for admin approval' : 'No approved events yet'}</h4>
-        <p>${pendingCount
-          ? `You have ${pendingCount} event${pendingCount===1?'':'s'} pending Zone21 admin review. Approved events will appear here automatically.`
-          : 'Create your first event to get started with Zone21.'}</p>
-        ${pendingCount ? '' : `<button class="btn-lime-solid" onclick="gateAction('subscription.html')">
+        <h4>No events yet</h4>
+        <p>Create your first event to get started with Zone21.</p>
+        <button class="btn-lime-solid" onclick="gateAction('subscription.html')">
           <i class="fas fa-plus-circle"></i> Create Event
-        </button>`}
+        </button>
       </div>`;
     return;
   }
 
-  const preview = approvedEvents.slice(0, 4);
+  const preview = realEvents.slice(0, 4);
   grid.innerHTML = preview.map(ev => {
-    const rawStatus = (ev.status || 'approved').toLowerCase();
+    const rawStatus = (ev.status || 'pending').toLowerCase();
     const safeStatus = rawStatus.replace(/[^a-z_]/g, '');
     const href = `manageevent.html?eventId=${encodeURIComponent(ev.id)}`;
     const date = formatEventDate(ev.createdAt);
@@ -1957,9 +1944,9 @@ function updateBadges(){
   }
 
   if(navEvents){
-    /* ★ FIX: only genuine, admin-approved events raise the badge */
-    const approvedCount = getApprovedEvents().length;
-    if(approvedCount){ navEvents.textContent = approvedCount; navEvents.classList.add('visible'); }
+    // ★ FIX: Count all real events (including pending) for the badge
+    const realEventCount = getRealEvents().length;
+    if(realEventCount){ navEvents.textContent = realEventCount; navEvents.classList.add('visible'); }
     else navEvents.classList.remove('visible');
   }
 }

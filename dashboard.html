@@ -850,9 +850,15 @@ auth.onAuthStateChanged(async user => {
 
 /* ============================================================
    SUBSCRIPTIONS  (one-time, no renewal)
-============================================================ */
+   ──────────────────────────────────────────────────────────
+   Loads from three sources and merges, so a subscription is
+   always found regardless of which doc ID format it was saved
+   under (deterministic {uid}_{planId}, plain userId query, or
+   organizerId query).
+   ============================================================ */
 async function subscribeSubscriptions(){
-  // Primary lookup: deterministic doc IDs {uid}_{planId}
+  // 1) Deterministic doc IDs {uid}_{planId}
+  const collected = new Map();  // id -> normalized sub
   try {
     const PLAN_IDS = ['small','medium','large'];
     for(const planId of PLAN_IDS){
@@ -861,53 +867,71 @@ async function subscribeSubscriptions(){
         if(!snap.exists) continue;
         const d = snap.data();
         if(d.deletedAt) continue;
-        subscriptionMap[planId] = { id: snap.id, ...d };
+        collected.set(snap.id, { id: snap.id, ...d });
       } catch(e){}
     }
   } catch(e){}
 
-  // Fallback: query by userId (multiple subscriptions, keep the newest per plan)
+  // 2) Query by userId
   try {
     const q = await db.collection('subscriptions').where('userId','==',currentUser.uid).get();
-    const seen = {};
     q.forEach(d => {
       const data = d.data();
       if(data.deletedAt) return;
-      const pid = data.planId || 'unknown';
-      const ts = data.createdAt?.toMillis?.() || 0;
-      if(!seen[pid] || ts > seen[pid].ts){
-        seen[pid] = { ts, data: { id: d.id, ...data } };
+      const existing = collected.get(d.id);
+      const existingTs = existing?.updatedAt?.toMillis?.() || existing?.createdAt?.toMillis?.() || 0;
+      const thisTs = data.updatedAt?.toMillis?.() || data.createdAt?.toMillis?.() || 0;
+      if(!existing || thisTs >= existingTs){
+        collected.set(d.id, { id: d.id, ...data });
       }
-    });
-    Object.entries(seen).forEach(([pid, {data}]) => {
-      // Prefer deterministic doc, but allow query fallback
-      if(!subscriptionMap[pid]) subscriptionMap[pid] = data;
     });
   } catch(e){}
 
+  // 3) Query by organizerId (some submissions use that field)
+  try {
+    const q = await db.collection('subscriptions').where('organizerId','==',currentUser.uid).get();
+    q.forEach(d => {
+      const data = d.data();
+      if(data.deletedAt) return;
+      if(!collected.has(d.id)) collected.set(d.id, { id: d.id, ...data });
+    });
+  } catch(e){}
+
+  // Fold into a planId-keyed map (keep newest per plan)
+  subscriptionMap = {};
+  Array.from(collected.values()).forEach(sub => {
+    const pid = sub.planId || sub.plan;
+    if(!pid) return;
+    const existing = subscriptionMap[pid];
+    const existingTs = existing?.updatedAt?.toMillis?.() || existing?.createdAt?.toMillis?.() || 0;
+    const thisTs = sub.updatedAt?.toMillis?.() || sub.createdAt?.toMillis?.() || 0;
+    if(!existing || thisTs >= existingTs){
+      subscriptionMap[pid] = sub;
+    }
+  });
+
+  // Realtime listener — merge, never clobber
   if(unsubSubs) unsubSubs();
-  unsubSubs = db.collection('subscriptions').where('userId','==',currentUser.uid)
-    .onSnapshot(snap => {
-      // Merge into a fresh map, prefer deterministic IDs
-      const fresh = {};
-      snap.forEach(d => {
-        const data = d.data();
-        if(data.deletedAt) return;
-        const pid = data.planId || 'unknown';
-        const ts = data.createdAt?.toMillis?.() || 0;
-        const existing = fresh[pid];
-        const existingTs = existing?.createdAt?.toMillis?.() || 0;
-        if(!existing || ts > existingTs){
-          fresh[pid] = { id: d.id, ...data };
-        }
-      });
-      // Preserve deterministic entries that weren't in the query
-      Object.entries(subscriptionMap).forEach(([pid, sub]) => {
-        if(!fresh[pid]) fresh[pid] = sub;
-      });
-      subscriptionMap = fresh;
-      renderEverything();
-    }, () => {});
+  try {
+    unsubSubs = db.collection('subscriptions').where('userId','==',currentUser.uid)
+      .onSnapshot(snap => {
+        const fresh = { ...subscriptionMap };
+        snap.forEach(d => {
+          const data = d.data();
+          if(data.deletedAt) return;
+          const pid = data.planId || data.plan;
+          if(!pid) return;
+          const existing = fresh[pid];
+          const existingTs = existing?.updatedAt?.toMillis?.() || existing?.createdAt?.toMillis?.() || 0;
+          const thisTs = data.updatedAt?.toMillis?.() || data.createdAt?.toMillis?.() || 0;
+          if(!existing || thisTs >= existingTs){
+            fresh[pid] = { id: d.id, ...data };
+          }
+        });
+        subscriptionMap = fresh;
+        renderEverything();
+      }, () => {});
+  } catch(e){}
 }
 
 /* ============================================================
@@ -1039,7 +1063,24 @@ function getPendingSub(){
   }
   return null;
 }
-function hasFullAccess(){ return !!getActiveSub(); }
+
+/* ⭐ SAFETY NET
+   Tools unlock if EITHER:
+     · the user has an active subscription, OR
+     · the user has at least one event with status approved/active.
+   This covers the case where the subscription doc has an unusual
+   ID format but the admin has clearly approved the event.
+   Admin soft-deleting a subscription (with cascade) sets the
+   event's deletedAt, which removes it from userEvents, which
+   drops hasFullAccess() back to false — correct behaviour.
+*/
+function hasFullAccess(){
+  if(getActiveSub()) return true;
+  return userEvents.some(ev => {
+    const s = String(ev.status || '').toLowerCase();
+    return s === 'approved' || s === 'active';
+  });
+}
 
 /* ============================================================
    PER-ASSIGNMENT CURRENCY + AMOUNT (STRICT)
@@ -1541,10 +1582,6 @@ window.gateAction = gateAction;
 
 /* ============================================================
    EVENTS PREVIEW — APPROVED ONLY
-   ──────────────────────────────────────────────────────────
-   Events only appear here when adminpayments.html has flipped
-   their status to `approved`. Pending events live in the
-   Notifications feed until then.
 ============================================================ */
 function renderEventsPreview(){
   const grid = $('eventsPreview'); if(!grid) return;
@@ -1555,7 +1592,10 @@ function renderEventsPreview(){
   });
 
   if(!approvedEvents.length){
-    const pendingCount = userEvents.filter(ev => String(ev.status||'').toLowerCase() === 'pending').length;
+    const pendingCount = userEvents.filter(ev => {
+      const s = String(ev.status || '').toLowerCase();
+      return s === 'pending' || s === 'pending_payment' || s === 'draft';
+    }).length;
     grid.innerHTML = `
       <div class="empty">
         <i class="fas fa-calendar-plus big"></i>
@@ -1583,7 +1623,7 @@ function renderEventsPreview(){
           <span class="ev-dot ${safeStatus}"></span>
         </div>
         <div class="ev-content">
-          <div class="ev-name">${escapeHtml(safe(ev.name || 'Untitled Event', 40))}</div>
+          <div class="ev-name">${escapeHtml(safe(ev.eventName || ev.name || 'Untitled Event', 40))}</div>
           <div class="ev-pkg"><i class="fas fa-tag"></i> ${escapeHtml(ev.package || 'Event Package')}</div>
           <div class="ev-footer">
             <span class="ev-date"><i class="fas fa-clock"></i> ${date}</span>
@@ -1943,4 +1983,4 @@ updateCurrencyUI();
 setSplashStep(0);
 </script>
 </body>
-  </html>
+</html>

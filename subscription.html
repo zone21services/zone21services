@@ -470,6 +470,12 @@
             width: 3px;
             background: linear-gradient(180deg, var(--lime), var(--lime-deep));
         }
+        .event-card.pending::before {
+            background: linear-gradient(180deg, #F5B400, #B37A00);
+        }
+        .event-card.rejected::before {
+            background: linear-gradient(180deg, var(--pink), var(--pink-deep));
+        }
         .event-card:hover {
             transform: translateY(-4px);
             box-shadow: var(--shadow-lg);
@@ -508,6 +514,16 @@
             padding: 0.22rem 0.6rem;
             border-radius: 999px;
             margin-bottom: 0.9rem;
+        }
+        .event-card.pending .event-status {
+            color: #8A6A00;
+            background: rgba(245, 180, 0, 0.12);
+            border-color: rgba(245, 180, 0, 0.28);
+        }
+        .event-card.rejected .event-status {
+            color: var(--pink-deep);
+            background: rgba(248, 0, 112, 0.1);
+            border-color: rgba(248, 0, 112, 0.22);
         }
         .event-card .event-status i { font-size: 0.4rem; }
         .event-card .event-date {
@@ -1222,7 +1238,7 @@
                     <span class="section-head__icon"><i class="fas fa-calendar-check"></i></span>
                     <div>
                         <h2>Your Events</h2>
-                        <p>Manage the events already linked to your account</p>
+                        <p>Events you've already purchased packages for</p>
                     </div>
                 </div>
             </div>
@@ -1626,7 +1642,8 @@
         </section>
 
     </main>
-                                <script type="module">
+
+    <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, addDoc, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -1858,110 +1875,25 @@
     };
 
     /* ============================================================
-       EVENT VISIBILITY FILTER (matches dashboard + myevents.html)
-       ------------------------------------------------------------
-       An event is only shown when ALL of these are true:
-
-         1. A non-deleted subscription exists for this user whose
-            status is active/approved/completed AND whose
-            invoiceNumber matches the event's invoiceNumber
-            (or whose planId matches the event's packageId).
-
-         2. If the event carries an invoiceNumber, that invoice
-            must still exist as a live document in the `invoices`
-            collection for this user. This filters the orphaned
-            cache events (like the Oct 4 ghost).
-
-         3. The event must NOT be tied to any soft-deleted
-            subscription (invoice / planId / planName block-list).
-       ============================================================ */
-    async function buildEventVisibilityFilter() {
-        const subsQuery = query(
-            collection(db, 'subscriptions'),
-            where('userId', '==', currentUser.uid)
-        );
-        const subsSnapshot = await getDocs(subsQuery);
-
-        const activeInvoiceNumbers = new Set();
-        const activePlanIds        = new Set();
-
-        const deletedInvoices      = new Set();
-        const deletedPlanIds       = new Set();
-        const deletedPlanNames     = new Set();
-
-        subsSnapshot.forEach(docSnap => {
-            const sub = docSnap.data() || {};
-            const inv = sub.invoiceNumber ? String(sub.invoiceNumber) : '';
-            const pid = sub.planId        ? String(sub.planId).toLowerCase() : '';
-            const pnm = sub.planName      ? String(sub.planName).toLowerCase() : '';
-
-            if (sub.deletedAt) {
-                if (inv) deletedInvoices.add(inv);
-                if (pid) deletedPlanIds.add(pid);
-                if (pnm) deletedPlanNames.add(pnm);
-                return;
-            }
-
-            const status = String(sub.status || '').toLowerCase();
-            if (status === 'active' || status === 'approved' || status === 'completed') {
-                if (inv) activeInvoiceNumbers.add(inv);
-                if (pid) activePlanIds.add(pid);
-            }
-        });
-
-        /* Live invoices — this is what catches the ghost */
-        const liveInvoiceNumbers = new Set();
-        try {
-            const invQuery = query(
-                collection(db, 'invoices'),
-                where('userId', '==', currentUser.uid)
-            );
-            const invSnap = await getDocs(invQuery);
-            invSnap.forEach(d => {
-                const inv = d.data() || {};
-                if (inv.invoiceNumber) liveInvoiceNumbers.add(String(inv.invoiceNumber));
-                liveInvoiceNumbers.add(String(d.id));
-                if (inv.subscriptionId) liveInvoiceNumbers.add(String(inv.subscriptionId));
-            });
-        } catch (e) {
-            console.warn('Invoice lookup failed — falling back to subs only:', e);
-        }
-
-        return {
-            activeInvoiceNumbers,
-            activePlanIds,
-            deletedInvoices,
-            deletedPlanIds,
-            deletedPlanNames,
-            liveInvoiceNumbers
-        };
-    }
-
-    function isEventVisible(event, filter) {
-        const evInv    = event.invoiceNumber ? String(event.invoiceNumber) : '';
-        const evPlanId = event.packageId     ? String(event.packageId).toLowerCase() : '';
-        const evPkgNm  = event.package       ? String(event.package).toLowerCase()   : '';
-
-        /* Rule 3 — hard-block anything tied to a deleted sub */
-        if (evInv    && filter.deletedInvoices.has(evInv))    return false;
-        if (evPlanId && filter.deletedPlanIds.has(evPlanId))  return false;
-        if (evPkgNm  && filter.deletedPlanNames.has(evPkgNm)) return false;
-
-        /* Rule 1 — must be tied to a live active sub */
-        const invoiceOnActiveSub = evInv    && filter.activeInvoiceNumbers.has(evInv);
-        const planOnActiveSub    = evPlanId && filter.activePlanIds.has(evPlanId);
-        if (!invoiceOnActiveSub && !planOnActiveSub) return false;
-
-        /* Rule 2 — if it has an invoice, that invoice must exist */
-        if (evInv && !filter.liveInvoiceNumbers.has(evInv)) {
-            if (filter.liveInvoiceNumbers.size > 0) return false;
-        }
-
-        return true;
-    }
-
-    /* ============================================================
        RENDER USER EVENTS
+       ──────────────────────────────────────────────────────────
+       Shows every event the organizer has purchased a package for.
+
+       Matching rules:
+         · Event is linked to a subscription if the event's
+           invoiceNumber appears in one of the user's subscriptions
+           (live or soft-deleted), OR its packageId matches a
+           subscribed plan.
+
+       Visibility rules:
+         · Hide events whose linked subscription was soft-deleted
+           (admin removed it).
+         · Show all other events — pending ones display an amber
+           "Awaiting admin approval" chip, approved ones display a
+           green "Approved" chip.
+         · Self-heal: if a subscription is now active/approved but
+           the linked event is still pending_payment, promote it to
+           approved on the fly.
        ============================================================ */
     async function renderUserEvents() {
         const grid = document.getElementById('user-events-grid');
@@ -1986,68 +1918,138 @@
         };
 
         try {
-            const filter = await buildEventVisibilityFilter();
+            /* ---- 1. Subscriptions for this user ---- */
+            const subsSnap = await getDocs(
+                query(collection(db, 'subscriptions'), where('userId', '==', currentUser.uid))
+            );
 
-            const q = query(collection(db, 'events'), where('organizerId', '==', currentUser.uid));
-            const querySnapshot = await getDocs(q);
+            const liveInvoiceNumbers = new Set();
+            const livePlanIds        = new Set();
+            const deletedInvoiceNumbers = new Set();
+            const deletedPlanIds        = new Set();
+
+            subsSnap.forEach(docSnap => {
+                const sub = docSnap.data() || {};
+                const inv = sub.invoiceNumber ? String(sub.invoiceNumber) : '';
+                const pid = sub.planId        ? String(sub.planId).toLowerCase() : '';
+
+                if (sub.deletedAt) {
+                    if (inv) deletedInvoiceNumbers.add(inv);
+                    if (pid) deletedPlanIds.add(pid);
+                    return;
+                }
+                if (inv) liveInvoiceNumbers.add(inv);
+                if (pid) livePlanIds.add(pid);
+            });
+
+            /* ---- 2. Events for this user ---- */
+            const eventsSnap = await getDocs(
+                query(collection(db, 'events'), where('organizerId', '==', currentUser.uid))
+            );
+
             const events = [];
+            const promotePromises = [];
 
-            querySnapshot.forEach(docSnap => {
-                const eventData = { id: docSnap.id, ...docSnap.data() };
+            eventsSnap.forEach(docSnap => {
+                const ev = { id: docSnap.id, ...docSnap.data() };
+                if (ev.deletedAt) return;
 
-                if (!isEventVisible(eventData, filter)) return;
+                const evInv    = ev.invoiceNumber ? String(ev.invoiceNumber) : '';
+                const evPlanId = ev.packageId     ? String(ev.packageId).toLowerCase() : '';
 
-                /* Self-heal: promote pending_payment when invoice is active */
+                /* Block events whose subscription was soft-deleted */
+                if (evInv    && deletedInvoiceNumbers.has(evInv))    return;
+                if (evPlanId && deletedPlanIds.has(evPlanId))        return;
+
+                /* Only keep events tied to one of the user's live subs
+                   (by invoice OR by planId) — plus any event without
+                   an invoice that was manually created */
+                const tiedByInvoice = evInv    && liveInvoiceNumbers.has(evInv);
+                const tiedByPlan    = evPlanId && livePlanIds.has(evPlanId);
+                const noLinkInfo    = !evInv && !evPlanId;
+
+                if (!tiedByInvoice && !tiedByPlan && !noLinkInfo) return;
+
+                /* Self-heal: promote pending_payment → approved when the
+                   linked subscription is now live (admin approved it) */
+                const st = String(ev.status || '').toLowerCase();
                 if (
-                    (eventData.status || '').toLowerCase() === 'pending_payment' &&
-                    eventData.invoiceNumber &&
-                    filter.activeInvoiceNumbers.has(String(eventData.invoiceNumber))
+                    (st === 'pending_payment' || st === 'pending') &&
+                    evInv &&
+                    liveInvoiceNumbers.has(evInv)
                 ) {
-                    eventData.status = 'approved';
-                    setDoc(doc(db, 'events', eventData.id), { status: 'approved' }, { merge: true })
-                        .catch(err => console.log('Self-heal error:', err));
+                    ev.status = 'approved';
+                    promotePromises.push(
+                        setDoc(doc(db, 'events', ev.id), { status: 'approved' }, { merge: true })
+                            .catch(err => console.warn('Self-heal failed:', ev.id, err))
+                    );
                 }
 
-                events.push(eventData);
+                events.push(ev);
             });
 
-            /* Only show approved/active events here (this page is about
-               managing live events — pending ones live on myevents.html). */
-            const validEvents = events.filter(e => {
-                const s = (e.status || '').toLowerCase();
-                return s === 'approved' || s === 'active';
-            });
+            if (promotePromises.length) {
+                await Promise.all(promotePromises);
+            }
 
-            if (validEvents.length === 0) {
+            if (events.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-calendar-plus"></i>
-                        <h4>No active events yet</h4>
-                        <p>Your events will appear here once payment has been approved.</p>
+                        <h4>No events yet</h4>
+                        <p>Purchase a package above to create your first event.</p>
                     </div>
                 `;
                 return;
             }
 
-            validEvents.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
+            events.sort((a, b) => getSafeDate(b.createdAt) - getSafeDate(a.createdAt));
 
-            grid.innerHTML = validEvents.map(event => {
-                const packageName = event.package || 'Unknown Package';
-                const status = event.status || 'approved';
+            grid.innerHTML = events.map(event => {
+                const packageName = event.package || event.packageName || 'Event Package';
+                const rawStatus   = String(event.status || 'pending').toLowerCase();
+
+                /* Friendly labels */
+                let cardClass = 'pending';
+                let statusLabel = 'Awaiting admin approval';
+                let statusIcon = 'fa-clock';
+                if (rawStatus === 'approved' || rawStatus === 'active') {
+                    cardClass = '';
+                    statusLabel = 'Approved';
+                    statusIcon = 'fa-circle';
+                } else if (rawStatus === 'rejected') {
+                    cardClass = 'rejected';
+                    statusLabel = 'Rejected';
+                    statusIcon = 'fa-circle';
+                } else if (rawStatus === 'cancelled') {
+                    cardClass = 'rejected';
+                    statusLabel = 'Cancelled';
+                    statusIcon = 'fa-circle';
+                }
+
                 const dateObj = getSafeDate(event.createdAt);
                 const dateStr = dateObj.getTime() > 0
                     ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     : '—';
 
+                const displayName = event.eventName || event.name || 'Untitled Event';
+                const isApproved = rawStatus === 'approved' || rawStatus === 'active';
+
                 return `
-                    <article class="event-card">
-                        <div class="event-name">${event.name || 'Untitled Event'}</div>
-                        <div class="event-package"><i class="fas fa-tag"></i> ${packageName}</div>
-                        <div class="event-status"><i class="fas fa-circle"></i> ${status}</div>
-                        <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${dateStr}</div>
-                        <a href="manageevent.html?eventId=${event.id}" class="btn btn-primary">
-                            Manage Event <i class="fas fa-arrow-right"></i>
-                        </a>
+                    <article class="event-card ${cardClass}">
+                        <div class="event-name">${escapeHTML(displayName)}</div>
+                        <div class="event-package"><i class="fas fa-tag"></i> ${escapeHTML(packageName)}</div>
+                        <div class="event-status"><i class="fas ${statusIcon}"></i> ${escapeHTML(statusLabel)}</div>
+                        <div class="event-date"><i class="far fa-calendar-alt"></i> Created ${escapeHTML(dateStr)}</div>
+                        ${isApproved ? `
+                            <a href="manageevent.html?eventId=${event.id}" class="btn btn-primary">
+                                Manage Event <i class="fas fa-arrow-right"></i>
+                            </a>
+                        ` : `
+                            <button class="btn btn-outline" disabled style="cursor:default;opacity:.85">
+                                <i class="fas fa-hourglass-half"></i> Pending Zone21 admin
+                            </button>
+                        `}
                     </article>
                 `;
             }).join('');
@@ -2064,6 +2066,14 @@
                 </div>
             `;
         }
+    }
+
+    /* Small helper to prevent XSS in innerHTML */
+    function escapeHTML(str){
+        if(str == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(str);
+        return div.innerHTML;
     }
 
     /* ============================================================
@@ -2352,11 +2362,13 @@
             const newEventRef = await addDoc(eventsRef, {
                 organizerId: currentUser.uid,
                 name: `My ${selectedPlan.name}`,
+                eventName: '',
                 package: selectedPlan.name,
                 packageId: selectedPlan.id,
                 currency,
                 price,
                 status: 'pending_payment',
+                needsSetup: true,
                 createdAt: serverTimestamp(),
                 location: '', date: null, budget: 0, attendees: 0, notes: '',
                 ticketsSold: 0, grossRevenue: 0, blueprint: null,
@@ -2457,3 +2469,5 @@
     /* Paint currency UI immediately, before auth resolves */
     applyCurrencyUI();
     </script>
+</body>
+</html>

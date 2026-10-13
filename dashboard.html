@@ -722,7 +722,8 @@ const TOOLS = [
    STATE
 ============================================================ */
 let currentUser = null;
-let subscriptionMap = {};
+let activeSubscriptions = [];  // Array of all active subscriptions
+let pendingSubscriptions = []; // Array of all pending subscriptions
 let userEvents = [];
 let userAssignments = [];
 let userInvoices = [];
@@ -850,8 +851,14 @@ auth.onAuthStateChanged(async user => {
 
 /* ============================================================
    SUBSCRIPTIONS  (one-time, no renewal)
+   ★ FIX: Now uses arrays to support multiple active plans,
+   even duplicates of the same plan type.
 ============================================================ */
 async function subscribeSubscriptions(){
+  // Clear arrays
+  activeSubscriptions = [];
+  pendingSubscriptions = [];
+
   // Primary lookup: deterministic doc IDs {uid}_{planId}
   try {
     const PLAN_IDS = ['small','medium','large'];
@@ -861,51 +868,59 @@ async function subscribeSubscriptions(){
         if(!snap.exists) continue;
         const d = snap.data();
         if(d.deletedAt) continue;
-        subscriptionMap[planId] = { id: snap.id, ...d };
+        const sub = { id: snap.id, ...d };
+        const c = classifySub(sub);
+        if(c.status === 'active') activeSubscriptions.push(sub);
+        else if(c.status === 'pending') pendingSubscriptions.push(sub);
       } catch(e){}
     }
   } catch(e){}
 
-  // Fallback: query by userId (multiple subscriptions, keep the newest per plan)
+  // Fallback: query by userId (multiple subscriptions)
   try {
     const q = await db.collection('subscriptions').where('userId','==',currentUser.uid).get();
-    const seen = {};
     q.forEach(d => {
       const data = d.data();
       if(data.deletedAt) return;
-      const pid = data.planId || 'unknown';
-      const ts = data.createdAt?.toMillis?.() || 0;
-      if(!seen[pid] || ts > seen[pid].ts){
-        seen[pid] = { ts, data: { id: d.id, ...data } };
-      }
-    });
-    Object.entries(seen).forEach(([pid, {data}]) => {
-      // Prefer deterministic doc, but allow query fallback
-      if(!subscriptionMap[pid]) subscriptionMap[pid] = data;
+      const sub = { id: d.id, ...data };
+      const c = classifySub(sub);
+      // Only add if not already in array (by id)
+      if(c.status === 'active' && !activeSubscriptions.find(s => s.id === sub.id)) activeSubscriptions.push(sub);
+      else if(c.status === 'pending' && !pendingSubscriptions.find(s => s.id === sub.id)) pendingSubscriptions.push(sub);
     });
   } catch(e){}
+
+  // Sort arrays by creation date (newest first)
+  const sortByDate = (a,b) => {
+    const at = a.createdAt?.toMillis?.() || 0;
+    const bt = b.createdAt?.toMillis?.() || 0;
+    return bt - at;
+  };
+  activeSubscriptions.sort(sortByDate);
+  pendingSubscriptions.sort(sortByDate);
 
   if(unsubSubs) unsubSubs();
   unsubSubs = db.collection('subscriptions').where('userId','==',currentUser.uid)
     .onSnapshot(snap => {
-      // Merge into a fresh map, prefer deterministic IDs
-      const fresh = {};
+      // Clear and rebuild arrays
+      activeSubscriptions = [];
+      pendingSubscriptions = [];
+
       snap.forEach(d => {
         const data = d.data();
         if(data.deletedAt) return;
-        const pid = data.planId || 'unknown';
-        const ts = data.createdAt?.toMillis?.() || 0;
-        const existing = fresh[pid];
-        const existingTs = existing?.createdAt?.toMillis?.() || 0;
-        if(!existing || ts > existingTs){
-          fresh[pid] = { id: d.id, ...data };
-        }
+        const sub = { id: d.id, ...data };
+        const c = classifySub(sub);
+        if(c.status === 'active') activeSubscriptions.push(sub);
+        else if(c.status === 'pending') pendingSubscriptions.push(sub);
       });
-      // Preserve deterministic entries that weren't in the query
-      Object.entries(subscriptionMap).forEach(([pid, sub]) => {
-        if(!fresh[pid]) fresh[pid] = sub;
-      });
-      subscriptionMap = fresh;
+
+      // Also check deterministic IDs that might not be in the query result (unlikely but safe)
+      // (Already handled by query, so skipping for simplicity)
+
+      activeSubscriptions.sort(sortByDate);
+      pendingSubscriptions.sort(sortByDate);
+
       renderEverything();
     }, () => {});
 }
@@ -1087,25 +1102,7 @@ function classifySub(sub){
   if(raw === 'rejected') return { status:'rejected' };
   return { status:'none' };
 }
-function getActiveSub(){
-  for(const p of ['large','medium','small']){
-    const sub = subscriptionMap[p];
-    if(!sub) continue;
-    const c = classifySub(sub);
-    if(c.status === 'active') return { planId: p, sub, cls: c };
-  }
-  return null;
-}
-function getPendingSub(){
-  for(const p of ['small','medium','large']){
-    const sub = subscriptionMap[p];
-    if(!sub) continue;
-    const c = classifySub(sub);
-    if(c.status === 'pending') return { planId: p, sub, cls: c };
-  }
-  return null;
-}
-function hasFullAccess(){ return !!getActiveSub(); }
+function hasFullAccess(){ return activeSubscriptions.length > 0; }
 
 /* ============================================================
    PER-ASSIGNMENT CURRENCY + AMOUNT (STRICT)
@@ -1155,27 +1152,36 @@ function renderEverything(){
 }
 
 /* ============================================================
-   SUBSCRIPTION BANNER — no countdown, no renewal
+   SUBSCRIPTION BANNER — Supports Multiple Active Plans
 ============================================================ */
 function renderSubBanner(){
   const mount = $('subBannerMount'); if(!mount) return;
-  const active = getActiveSub();
-  const pending = getPendingSub();
+  const activeSubs = activeSubscriptions;
+  const pendingSubs = pendingSubscriptions;
   let cls = '', icon = 'fa-rocket', title = '', desc = '', badge = '', actions = '';
 
-  if(active){
+  if(activeSubs.length > 0){
     cls = 'active'; icon = 'fa-circle-check';
-    const pkg = PACKAGES[active.planId];
-    const planLabel = pkg ? pkg.name : (active.sub.planName || 'Active Plan');
-    title = `${planLabel} — Active Plan`;
-    desc = `Full access to all tools. This package remains active until your event completes or an admin removes it.`;
+    const count = activeSubs.length;
+    const planNames = [...new Set(activeSubs.map(s => {
+      const pkg = PACKAGES[s.planId];
+      return pkg ? pkg.name : (s.planName || 'Plan');
+    }))];
+    const nameStr = planNames.join(', ');
+    title = `${count} Active Plan${count===1?'':'s'}`;
+    desc = `You have ${count} approved subscription${count===1?'':'s'}: ${nameStr}. Full access to all tools.`;
     badge = 'Active';
     actions = `<a href="subscription.html" class="btn btn-outline btn-sm" style="width:auto"><i class="fas fa-sync"></i> Manage</a>`;
-  } else if(pending){
+  } else if(pendingSubs.length > 0){
     cls = 'pending'; icon = 'fa-clock';
-    const pkg = PACKAGES[pending.planId];
-    title = `${pkg ? pkg.name : 'Plan'} — Payment Pending`;
-    desc = `Your payment is being verified by Zone21 admin. Full access unlocks automatically.`;
+    const count = pendingSubs.length;
+    const planNames = [...new Set(pendingSubs.map(s => {
+      const pkg = PACKAGES[s.planId];
+      return pkg ? pkg.name : (s.planName || 'Plan');
+    }))];
+    const nameStr = planNames.join(', ');
+    title = `${count} Pending Plan${count===1?'':'s'}`;
+    desc = `Your payment for ${nameStr} is being verified by Zone21 admin. Full access unlocks automatically.`;
     badge = 'Pending';
     actions = `<a href="subscription.html" class="btn btn-outline btn-sm" style="width:auto"><i class="fas fa-file-invoice"></i> View Status</a>`;
   } else {
@@ -1304,36 +1310,34 @@ function buildNotificationItems(){
   const items = [];
 
   /* 1. Subscription states */
-  const activeSub = getActiveSub();
-  const pendingSub = getPendingSub();
-
-  if(activeSub){
-    const plan = PACKAGES[activeSub.planId];
-    const when = toDate(activeSub.sub.approvedAt)?.getTime() || toDate(activeSub.sub.createdAt)?.getTime() || 0;
+  activeSubscriptions.forEach(sub => {
+    const pkg = PACKAGES[sub.planId];
+    const when = toDate(sub.approvedAt)?.getTime() || toDate(sub.createdAt)?.getTime() || 0;
     if(when){
       items.push({
-        id: `sub-active-${activeSub.planId}`,
+        id: `sub-active-${sub.id}`,
         type:'success', icon:'fa-crown',
-        title:`${plan ? plan.name : 'Plan'} is active`,
+        title:`${pkg ? pkg.name : 'Plan'} is active`,
         desc: `Full access unlocked. This package stays active until your event completes or an admin removes it.`,
         time: when
       });
     }
-  }
-  if(pendingSub){
-    const plan = PACKAGES[pendingSub.planId];
-    const when = toDate(pendingSub.sub.createdAt)?.getTime() || 0;
+  });
+
+  pendingSubscriptions.forEach(sub => {
+    const pkg = PACKAGES[sub.planId];
+    const when = toDate(sub.createdAt)?.getTime() || 0;
     if(when){
       items.push({
-        id: `sub-pending-${pendingSub.planId}`,
+        id: `sub-pending-${sub.id}`,
         type:'warn', icon:'fa-clock',
-        title:`${plan ? plan.name : 'Plan'} payment under review`,
+        title:`${pkg ? pkg.name : 'Plan'} payment under review`,
         desc:'Zone21 admin will approve shortly. You will receive a notification when ready.',
         time: when,
         action: { label:'View Invoice', icon:'fa-file-invoice', href:'subscription.html' }
       });
     }
-  }
+  });
 
   /* 2. Events — approved by admin only
         ★ FIX: subscription placeholder records are skipped entirely */
@@ -1611,37 +1615,32 @@ function gateAction(link){
 window.gateAction = gateAction;
 
 /* ============================================================
-   EVENTS PREVIEW — APPROVED ONLY
+   EVENTS PREVIEW — SHOWS REAL EVENTS (APPROVED OR PENDING)
    ──────────────────────────────────────────────────────────
-   ★ FIX: We now strictly use getApprovedEvents(), which
-   filters out any subscription placeholder packages using
-   the isPlaceholderEvent() logic above.
+   ★ FIX: We now show all genuine events with their status.
+   The subscription placeholder packages are filtered out.
 ============================================================ */
 function renderEventsPreview(){
   const grid = $('eventsPreview'); if(!grid) return;
 
-  const approvedEvents = getApprovedEvents();          // ★ FIX
-  const realEvents = getRealEvents();                  // For pending count hint
+  const realEvents = getRealEvents(); // All non-placeholder events
 
-  if(!approvedEvents.length){
-    const pendingCount = realEvents.filter(ev => String(ev.status||'').toLowerCase() === 'pending').length;
+  if(!realEvents.length){
     grid.innerHTML = `
       <div class="empty">
         <i class="fas fa-calendar-plus big"></i>
-        <h4>${pendingCount ? 'Waiting for admin approval' : 'No approved events yet'}</h4>
-        <p>${pendingCount
-          ? `You have ${pendingCount} event${pendingCount===1?'':'s'} pending Zone21 admin review. Approved events will appear here automatically.`
-          : 'Create your first event to get started with Zone21.'}</p>
-        ${pendingCount ? '' : `<button class="btn-lime-solid" onclick="gateAction('subscription.html')">
+        <h4>No events yet</h4>
+        <p>Create your first event to get started with Zone21.</p>
+        <button class="btn-lime-solid" onclick="gateAction('subscription.html')">
           <i class="fas fa-plus-circle"></i> Create Event
-        </button>`}
+        </button>
       </div>`;
     return;
   }
 
-  const preview = approvedEvents.slice(0, 4);
+  const preview = realEvents.slice(0, 4);
   grid.innerHTML = preview.map(ev => {
-    const rawStatus = (ev.status || 'approved').toLowerCase();
+    const rawStatus = (ev.status || 'pending').toLowerCase();
     const safeStatus = rawStatus.replace(/[^a-z_]/g, '');
     const href = `manageevent.html?eventId=${encodeURIComponent(ev.id)}`;
     const date = formatEventDate(ev.createdAt);
@@ -1684,21 +1683,33 @@ function labelForStatus(s){
 }
 
 /* ============================================================
-   PACKAGES
+   PACKAGES — ★ FIX: Shows count of active plans per package
 ============================================================ */
 function renderPackages(){
   const grid = $('packagesGrid'); if(!grid) return;
-  const active = getActiveSub();
-  const currentPlanId = active?.planId;
+
+  // Count how many active subscriptions exist for each plan ID
+  const activeCounts = {};
+  activeSubscriptions.forEach(sub => {
+    const pid = sub.planId || 'unknown';
+    activeCounts[pid] = (activeCounts[pid] || 0) + 1;
+  });
 
   grid.innerHTML = ['small','medium','large'].map(id => {
     const p = PACKAGES[id];
     const price = pkgPrice(id, displayCurrency);
-    const isCurrent = currentPlanId === id;
+    const count = activeCounts[id] || 0;
+    const isCurrent = count > 0;
+
+    let badgeHtml = '';
+    if (isCurrent) {
+      badgeHtml = `<span class="pkg-badge">Current Plan${count > 1 ? ` (${count})` : ''}</span>`;
+    }
+
     return `
       <div class="pkg-card ${p.featured ? 'popular':''} ${isCurrent ? 'is-current':''}">
         ${p.featured && !isCurrent ? '<span class="pkg-ribbon">Popular</span>' : ''}
-        ${isCurrent ? '<span class="pkg-badge">Current Plan</span>' : ''}
+        ${badgeHtml}
         <div class="pkg-name">${escapeHtml(p.name)}</div>
         <div class="pkg-price">${fmtIn(price, displayCurrency)}<small>/ event</small></div>
         <ul class="pkg-features">

@@ -307,7 +307,6 @@ img{max-width:100%;display:block}
 .ev-dot.pending,.ev-dot.pending_payment{background:var(--amber);animation:pulseEv 1.6s ease-in-out infinite}
 .ev-dot.draft{background:var(--cyan)}
 .ev-dot.rejected{background:var(--danger)}
-.ev-dot.setup{background:var(--blue);animation:pulseEv 1.6s ease-in-out infinite}
 @keyframes pulseEv{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
 .ev-content{flex:1;min-width:0}
 .ev-name{font-size:.88rem;font-weight:800;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;letter-spacing:-.01em}
@@ -320,7 +319,6 @@ img{max-width:100%;display:block}
 .ev-badge.pending,.ev-badge.pending_payment{background:var(--amber-soft);color:#9A6E00;border-color:rgba(245,180,0,.25)}
 .ev-badge.draft{background:var(--cyan-soft);color:var(--cyan);border-color:rgba(0,168,192,.25)}
 .ev-badge.rejected{background:var(--pink-soft);color:var(--danger);border-color:rgba(217,45,32,.25)}
-.ev-badge.setup{background:var(--blue-soft);color:var(--blue);border-color:rgba(10,132,255,.25)}
 
 .empty{padding:2.5rem 1.5rem;text-align:center;border:1.5px dashed var(--line-strong);border-radius:var(--radius);color:var(--muted);background:var(--canvas)}
 .empty i.big{font-size:2rem;display:block;margin-bottom:.7rem;color:var(--line-strong)}
@@ -853,8 +851,8 @@ auth.onAuthStateChanged(async user => {
 
 /* ============================================================
    SUBSCRIPTIONS  (one-time, no renewal)
-   ★ Now uses arrays to support multiple active plans,
-   including duplicates of the same plan type.
+   ★ FIX: Now uses arrays to support multiple active plans,
+   even duplicates of the same plan type.
 ============================================================ */
 async function subscribeSubscriptions(){
   // Clear arrays
@@ -917,6 +915,9 @@ async function subscribeSubscriptions(){
         else if(c.status === 'pending') pendingSubscriptions.push(sub);
       });
 
+      // Also check deterministic IDs that might not be in the query result (unlikely but safe)
+      // (Already handled by query, so skipping for simplicity)
+
       activeSubscriptions.sort(sortByDate);
       pendingSubscriptions.sort(sortByDate);
 
@@ -945,6 +946,72 @@ function subscribeEvents(){
       });
       renderEverything();
     }, () => {});
+}
+
+/* ============================================================
+   EVENT SANITISERS — THE FIX
+   ──────────────────────────────────────────────────────────
+   When a user subscribes, the checkout flow creates a
+   lightweight "package" record in the events collection so
+   the payment pipeline has something to attach to. Those
+   records are NOT real events. They have no date, no guests
+   and no blueprint.
+
+   We must filter these out so they never appear as real events.
+============================================================ */
+function isPlaceholderEvent(ev){
+  if(!ev) return true;
+
+  // 1. Explicit flags written by the subscription / checkout flow
+  if(ev.fromSubscription === true) return true;
+  if(ev.isSubscription === true) return true;
+  if(ev.subscriptionDerived === true) return true;
+  if(ev.isPlaceholder === true) return true;
+  if(ev.placeholder === true) return true;
+
+  // 2. Foreign keys pointing back at a subscription document
+  if(ev.subscriptionId) return true;
+  if(ev.subscriptionDocId) return true;
+  if(ev.planSubscriptionId) return true;
+
+  // 3. Origin markers
+  const src = String(ev.source || ev.origin || '').toLowerCase();
+  if(src === 'subscription' || src === 'subscription_purchase' || src === 'plan_checkout') return true;
+
+  // 4. Record type markers
+  const type = String(ev.type || ev.recordType || '').toLowerCase();
+  if(type === 'subscription' || type === 'subscription_record') return true;
+
+  // 5. Name-based placeholder detection ("New Small Event Package", etc.)
+  const nm = String(ev.name || ev.eventName || '').trim();
+  const PLACEHOLDER_NAME_RE = /^(new\s+)?(small|medium|large)(\s+event)?(\s+package)?\s*$/i;
+  if(nm && PLACEHOLDER_NAME_RE.test(nm)) return true;
+
+  // 6. Metadata heuristics: A real event MUST have some actual details.
+  // If it has no date, no location, no budget, no attendees, and no blueprint,
+  // it is almost certainly an empty shell created for a subscription.
+  const hasDate = ev.date || ev.eventDate || ev.startDate;
+  const hasLocation = ev.location || ev.venue;
+  const hasBudget = ev.budget || ev.eventBudget;
+  const hasAttendees = ev.attendees > 0;
+  const hasBlueprint = ev.blueprint || ev.blueprintId;
+  if(!hasDate && !hasLocation && !hasBudget && !hasAttendees && !hasBlueprint) return true;
+
+  return false;
+}
+
+function getRealEvents(){
+  return userEvents.filter(ev => !isPlaceholderEvent(ev));
+}
+
+function isApprovedEvent(ev){
+  if(!ev || isPlaceholderEvent(ev)) return false;
+  const s = String(ev.status || '').toLowerCase();
+  return s === 'approved' || s === 'active';
+}
+
+function getApprovedEvents(){
+  return userEvents.filter(isApprovedEvent);
 }
 
 /* ============================================================
@@ -1228,10 +1295,10 @@ function renderStatusStrip(){
     }
   }
 
-  /* Count only real, approved events here */
+  /* ★ FIX: Count active subscriptions here so it matches the My Events section */
   const hint = $('statusHint');
   if(hint){
-    const approvedCount = getApprovedEvents().length;
+    const approvedCount = activeSubscriptions.length;
     hint.textContent = `${approvedCount} event${approvedCount===1?'':'s'} · ${records} service${records===1?'':'s'} coordinated`;
   }
 }
@@ -1273,9 +1340,9 @@ function buildNotificationItems(){
   });
 
   /* 2. Events — approved by admin only
-        subscription placeholder records are skipped entirely */
+        ★ FIX: subscription placeholder records are skipped entirely */
   userEvents.forEach(ev => {
-    if(isPlaceholderEvent(ev)) return;
+    if(isPlaceholderEvent(ev)) return;               // ★ FIX
     const when = ev.updatedAt?.toMillis?.() || ev.createdAt?.toMillis?.() || 0;
     if(!when) return;
     const evName = safe(ev.name || ev.eventName || 'Your event', 50);
@@ -1548,48 +1615,64 @@ function gateAction(link){
 window.gateAction = gateAction;
 
 /* ============================================================
-   EVENTS PREVIEW — LISTS ACTIVE SUBSCRIPTION PACKAGES
+   EVENTS PREVIEW — SHOWS APPROVED SUBSCRIPTION PACKAGES
    ──────────────────────────────────────────────────────────
-   ★ Shows each active package (Small, Medium, Large) as a card.
-     Multiple packages of the same type are listed individually.
-     No status labels, just the package name and date.
+   ★ FIX: Instead of filtering out placeholder events, we now
+   map the active subscriptions directly into event cards.
+   This ensures that every approved package (Small, Medium,
+   Large, or duplicates) appears in the My Events section.
 ============================================================ */
 function renderEventsPreview(){
   const grid = $('eventsPreview'); if(!grid) return;
 
-  if(activeSubscriptions.length === 0){
+  // Map each active subscription to an event-like card.
+  // This ignores drafts and setup, just lists the approved packages.
+  const subEvents = activeSubscriptions.map(sub => {
+      const pkg = PACKAGES[sub.planId] || { name: 'Event Package' };
+      return {
+          id: sub.id,
+          name: sub.planName || pkg.name,
+          package: sub.planId,
+          status: 'approved',
+          createdAt: sub.approvedAt || sub.createdAt,
+          isSubscription: true
+      };
+  });
+
+  if(!subEvents.length){
     grid.innerHTML = `
       <div class="empty">
         <i class="fas fa-calendar-plus big"></i>
-        <h4>No events yet</h4>
-        <p>Create your first event to get started with Zone21.</p>
+        <h4>No active packages</h4>
+        <p>Subscribe to a plan to get started with Zone21.</p>
         <button class="btn-lime-solid" onclick="gateAction('subscription.html')">
-          <i class="fas fa-plus-circle"></i> Create Event
+          <i class="fas fa-crown"></i> View Plans
         </button>
       </div>`;
     return;
   }
 
-  grid.innerHTML = activeSubscriptions.map(sub => {
-    const planName = PACKAGES[sub.planId] ? PACKAGES[sub.planId].name : (sub.planName || 'Event Package');
-    const date = formatEventDate(sub.createdAt);
-    const href = `manageevent.html?subscriptionId=${encodeURIComponent(sub.id)}`;
+  // Render all active subscriptions as event cards
+  grid.innerHTML = subEvents.map(ev => {
+    const pkgName = PACKAGES[ev.package]?.name || 'Event Package';
+    const date = formatEventDate(ev.createdAt);
     return `
-      <div class="ev-card" onclick="window.location.href='${href}'">
+      <div class="ev-card" onclick="window.location.href='subscription.html'">
         <div class="ev-avatar">
-          <i class="fas fa-calendar-alt"></i>
+          <i class="fas fa-crown"></i>
+          <span class="ev-dot approved"></span>
         </div>
         <div class="ev-content">
-          <div class="ev-name">${escapeHtml(safe(planName, 40))}</div>
-          <div class="ev-pkg"><i class="fas fa-tag"></i> Event Package</div>
+          <div class="ev-name">${escapeHtml(pkgName)}</div>
+          <div class="ev-pkg"><i class="fas fa-tag"></i> ${escapeHtml(ev.package || 'Event Package')}</div>
           <div class="ev-footer">
             <span class="ev-date"><i class="fas fa-clock"></i> ${date}</span>
+            <span class="ev-badge approved">Active</span>
           </div>
         </div>
       </div>`;
   }).join('');
 }
-
 function formatEventDate(ts){
   if(!ts) return 'Just now';
   let d;
@@ -1603,13 +1686,21 @@ function formatEventDate(ts){
   if(diffDays < 7) return `${diffDays}d ago`;
   return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
 }
+function labelForStatus(s){
+  if(s === 'approved') return 'Approved';
+  if(s === 'active') return 'Active';
+  if(s === 'draft') return 'Draft';
+  if(s === 'rejected') return 'Rejected';
+  return 'Pending';
+}
 
 /* ============================================================
-   PACKAGES — Shows count of active plans per package
+   PACKAGES — ★ FIX: Shows count of active plans per package
 ============================================================ */
 function renderPackages(){
   const grid = $('packagesGrid'); if(!grid) return;
 
+  // Count how many active subscriptions exist for each plan ID
   const activeCounts = {};
   activeSubscriptions.forEach(sub => {
     const pid = sub.planId || 'unknown';
@@ -1889,9 +1980,9 @@ function updateBadges(){
   }
 
   if(navEvents){
-    /* ★ FIX: Show count of active subscriptions in the badge */
-    const activeCount = activeSubscriptions.length;
-    if(activeCount){ navEvents.textContent = activeCount; navEvents.classList.add('visible'); }
+    /* ★ FIX: Count active subscriptions so the badge matches the My Events section */
+    const approvedCount = activeSubscriptions.length;
+    if(approvedCount){ navEvents.textContent = approvedCount; navEvents.classList.add('visible'); }
     else navEvents.classList.remove('visible');
   }
 }

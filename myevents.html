@@ -219,7 +219,7 @@
 
         .event-item.disabled {
             cursor: default;
-            opacity: 0.85;
+            opacity: 0.9;
         }
 
         .event-item.disabled:hover {
@@ -743,27 +743,31 @@
         window.loadEvents = loadEvents;
 
         /* ============================================================
-           LIVE VISIBILITY FILTER (mirrors adminpayments.html exactly)
+           LIVE VISIBILITY FILTER
            ------------------------------------------------------------
-           An event is only shown when ALL of these are true:
+           An event is shown when BOTH:
 
-             1. A non-deleted subscription exists for this user whose
-                status is active / approved / completed AND whose
-                invoiceNumber matches the event's invoiceNumber
-                (or whose planId matches the event's packageId).
+             1. It belongs to this organizer (organizerId == uid).
 
-             2. That same invoiceNumber actually exists as a live
-                document in the `invoices` collection for this user.
+             2. It is tied to a LIVE (non-deleted) subscription for
+                this user — matched by invoiceNumber OR packageId.
+                Events with no invoice/packageId at all are still
+                shown (manually created events).
 
-             3. The event is NOT tied to any soft-deleted subscription
-                (invoice / planId / planName block-list).
+           Hard-blocks (event hidden):
+             · Event's invoiceNumber matches a soft-deleted sub
+             · Event's packageId matches a soft-deleted sub
+             · Event's package name matches a soft-deleted sub name
+             · Event has invoiceNumber but that invoice no longer
+               exists in the `invoices` collection
 
-           If an event has NO invoiceNumber at all AND no active
-           subscription is linked to it, we hide it — it's orphaned
-           cache, not a real live event.
+           Self-heal:
+             · If the linked subscription is active/approved, and the
+               event is still draft OR pending_payment, promote the
+               event to `approved` in Firestore so it matches what
+               adminpayments.html writes.
            ============================================================ */
         async function buildVisibilityFilter() {
-            /* ---- 1. Fetch all subscriptions for this user ---- */
             const subsQuery = query(
                 collection(db, 'subscriptions'),
                 where('userId', '==', currentUser.uid)
@@ -772,6 +776,8 @@
 
             const activeInvoiceNumbers = new Set();
             const activePlanIds        = new Set();
+            const anyLiveInvoiceNumbers = new Set();   // any non-deleted sub, regardless of status
+            const anyLivePlanIds        = new Set();
 
             const deletedInvoiceNumbers = new Set();
             const deletedPlanIds        = new Set();
@@ -790,6 +796,11 @@
                     return;
                 }
 
+                /* Any non-deleted sub keeps the event visible */
+                if (inv) anyLiveInvoiceNumbers.add(inv);
+                if (pid) anyLivePlanIds.add(pid);
+
+                /* Active/approved specifically — for self-heal + Approved chip */
                 const status = String(sub.status || '').toLowerCase();
                 if (status === 'active' || status === 'approved' || status === 'completed') {
                     if (inv) activeInvoiceNumbers.add(inv);
@@ -797,9 +808,7 @@
                 }
             });
 
-            /* ---- 2. Fetch this user's live invoices ---- */
-            /* An event is only legit if its invoice still exists.
-               This is what filters the Oct 4 ghost. */
+            /* Live invoices — used to filter orphaned events */
             const liveInvoiceNumbers = new Set();
             try {
                 const invQuery = query(
@@ -809,8 +818,6 @@
                 const invSnap = await getDocs(invQuery);
                 invSnap.forEach(d => {
                     const inv = d.data() || {};
-                    /* Collect every plausible identifier an event
-                       might use to reference this invoice. */
                     if (inv.invoiceNumber) liveInvoiceNumbers.add(String(inv.invoiceNumber));
                     liveInvoiceNumbers.add(String(d.id));
                     if (inv.subscriptionId) liveInvoiceNumbers.add(String(inv.subscriptionId));
@@ -822,6 +829,8 @@
             return {
                 activeInvoiceNumbers,
                 activePlanIds,
+                anyLiveInvoiceNumbers,
+                anyLivePlanIds,
                 deletedInvoiceNumbers,
                 deletedPlanIds,
                 deletedPlanNames,
@@ -834,25 +843,22 @@
             const evPlanId = event.packageId     ? String(event.packageId).toLowerCase() : '';
             const evPkgNm  = event.package       ? String(event.package).toLowerCase()   : '';
 
-            /* Rule 3: hard-block anything tied to a deleted sub */
+            /* Hard-block: tied to a deleted sub */
             if (evInv    && filter.deletedInvoiceNumbers.has(evInv)) return false;
             if (evPlanId && filter.deletedPlanIds.has(evPlanId))     return false;
             if (evPkgNm  && filter.deletedPlanNames.has(evPkgNm))    return false;
 
-            /* Rule 1a: must have an invoice that's on an active sub */
-            const invoiceOnActiveSub = evInv && filter.activeInvoiceNumbers.has(evInv);
+            /* Allow events with no link info (manually created / legacy) */
+            const hasLink = !!(evInv || evPlanId);
+            if (!hasLink) return true;
 
-            /* Rule 1b: OR a packageId matching an active plan */
-            const planOnActiveSub = evPlanId && filter.activePlanIds.has(evPlanId);
+            /* Must be tied to SOME live subscription (any status) */
+            const tiedByInvoice = evInv    && filter.anyLiveInvoiceNumbers.has(evInv);
+            const tiedByPlan    = evPlanId && filter.anyLivePlanIds.has(evPlanId);
+            if (!tiedByInvoice && !tiedByPlan) return false;
 
-            if (!invoiceOnActiveSub && !planOnActiveSub) return false;
-
-            /* Rule 2: if the event has an invoiceNumber, that invoice
-               must still exist as a live document.  If it doesn't,
-               the event is orphaned cache — hide it. */
+            /* If the event has an invoiceNumber, that invoice must still exist */
             if (evInv && !filter.liveInvoiceNumbers.has(evInv)) {
-                /* Exception: allow when there is no invoice collection
-                   access at all (offline / rules), fall back to sub match. */
                 if (filter.liveInvoiceNumbers.size > 0) return false;
             }
 
@@ -860,7 +866,7 @@
         }
 
         /* ============================================================
-           REALTIME LISTENER — listens to events, subs, and invoices
+           REALTIME LISTENER — events + subs + invoices
         ============================================================ */
         async function setupRealtimeListener() {
             if (!currentUser) return;
@@ -877,12 +883,16 @@
                 const filter = await buildVisibilityFilter();
                 const visible = events.filter(e => isEventVisible(e, filter));
 
-                /* Self-heal: promote pending_payment → approved when the
-                   invoice is confirmed active. */
-                const pendingEvents = visible.filter(e => (e.status || '').toLowerCase() === 'pending_payment');
-                if (pendingEvents.length > 0 && filter.activeInvoiceNumbers.size > 0) {
-                    for (const event of pendingEvents) {
-                        if (event.invoiceNumber && filter.activeInvoiceNumbers.has(String(event.invoiceNumber))) {
+                /* Self-heal: promote draft / pending_payment → approved when the
+                   linked subscription is now active/approved. */
+                const stale = visible.filter(e => {
+                    const s = String(e.status || '').toLowerCase();
+                    return (s === 'draft' || s === 'pending_payment' || s === 'pending');
+                });
+                if (stale.length > 0 && filter.activeInvoiceNumbers.size > 0) {
+                    for (const event of stale) {
+                        const inv = event.invoiceNumber ? String(event.invoiceNumber) : '';
+                        if (inv && filter.activeInvoiceNumbers.has(inv)) {
                             try {
                                 await updateDoc(doc(db, 'events', event.id), { status: 'approved' });
                                 event.status = 'approved';
@@ -970,18 +980,24 @@
             }
 
             container.innerHTML = events.map(event => {
-                const name    = event.name || 'Untitled Event';
-                const pkg     = event.package || 'Event Package';
+                /* Prefer the user's real event name when they've set one;
+                   fall back to the subscription-generated placeholder. */
+                const name    = event.eventName || event.name || 'Untitled Event';
+                const pkg     = event.package || event.packageName || 'Event Package';
                 const time    = formatTime(event.createdAt);
-                const status  = event.status || 'pending';
+                const status  = String(event.status || 'pending').toLowerCase();
                 const statusBadge = getStatusBadge(status);
                 const statusDot   = getStatusDot(status);
-                
-                const isClickable = ['approved', 'active'].includes(status.toLowerCase());
+
+                /* Clickable only when the event is truly live.
+                   Draft and pending stay non-clickable to Manage Event
+                   (organizer should finish setup first). */
+                const isClickable = ['approved', 'active'].includes(status);
                 const clickClass  = isClickable ? '' : 'disabled';
                 const clickHandler = isClickable ? `onclick="goToManageEvent('${event.id}')"` : '';
 
-                const showInvoiceBtn = ['pending', 'pending_payment', 'rejected'].includes(status.toLowerCase());
+                /* Show the invoice button whenever there IS an invoice */
+                const showInvoiceBtn = !!event.invoiceNumber;
 
                 return `
                     <li class="event-item ${clickClass}" data-name="${name.toLowerCase()}" ${clickHandler}>
@@ -997,11 +1013,15 @@
                             <div class="event-meta">
                                 <i class="fas fa-tag"></i> ${escapeHtml(pkg)}
                                 ${statusBadge}
-                                ${status.toLowerCase() === 'pending_payment' ? 
+                                ${status === 'pending_payment' ? 
                                     `<span style="font-size:0.65rem;color:var(--text-dim);">
                                         <i class="fas fa-info-circle"></i> Awaiting payment
                                     </span>` : ''}
-                                ${status.toLowerCase() === 'rejected' ? 
+                                ${status === 'draft' ? 
+                                    `<span style="font-size:0.65rem;color:var(--text-dim);">
+                                        <i class="fas fa-pen"></i> Not submitted yet
+                                    </span>` : ''}
+                                ${status === 'rejected' ? 
                                     `<span style="font-size:0.65rem;color:var(--red);">
                                         <i class="fas fa-exclamation-circle"></i> Payment rejected
                                     </span>` : ''}
@@ -1135,7 +1155,9 @@
 
             try {
                 const ref = doc(db, 'events', activeEventIdToRename);
-                await setDoc(ref, { name: newName }, { merge: true });
+                /* Save to BOTH `name` and `eventName` so all pages
+                   pick up the new label consistently. */
+                await setDoc(ref, { name: newName, eventName: newName }, { merge: true });
 
                 const nameEl = document.getElementById(`name-${activeEventIdToRename}`);
                 if (nameEl) {

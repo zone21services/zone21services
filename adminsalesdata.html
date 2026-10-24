@@ -213,7 +213,7 @@ body{
    SUMMARY STATS
    ============================================================ */
 .summary-stats{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:1rem;margin-bottom:1.5rem;
 }
 .stat-box{
@@ -351,6 +351,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
   font-size:.72rem;font-weight:600;
 }
 .detail-value.pink{color:var(--pink);font-weight:800;font-size:.95rem}
+.detail-value.green{color:var(--success);font-weight:800;font-size:.95rem}
 
 .buyer-header{
   display:flex;justify-content:space-between;
@@ -494,7 +495,15 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
     </div>
     <div class="stat-box">
       <div class="val" id="s-revenue">$0</div>
-      <div class="lbl">Total Revenue</div>
+      <div class="lbl">Gross Revenue</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" id="s-fee" style="color:var(--pink-deep)">$0</div>
+      <div class="lbl">Platform Fee (4%)</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" id="s-net" style="color:var(--success-deep)">$0</div>
+      <div class="lbl">Net Organizer Revenue</div>
     </div>
     <div class="stat-box">
       <div class="val" id="s-unique-buyers">0</div>
@@ -559,6 +568,9 @@ const ZAR_COUNTRIES = new Set(['ZA','LS','SZ','NA']);
 
 /* Fixed rate matched to platform plan pricing: $10 → R190, $50 → R950 */
 const USD_TO_ZAR = 19;
+
+/* 4% Commission Rate */
+const ZONE21_FEE_RATE = 0.04;
 
 const TIMEZONE_COUNTRY = {
   'Africa/Johannesburg':'ZA','Africa/Maseru':'LS','Africa/Mbabane':'SZ',
@@ -881,14 +893,21 @@ function renderStats(data){
   const totalTickets = data.length;
   const scanned = data.filter(t=>t.status === 'scanned').length;
   const unscanned = data.filter(t=>t.status === 'approved').length;
-  const revenueUsd = data.reduce((sum, t)=>sum + t.priceUsd, 0);
+  
+  const grossRevenueUsd = data.reduce((sum, t)=>sum + t.priceUsd, 0);
+  const feeUsd = grossRevenueUsd * ZONE21_FEE_RATE;
+  const netRevenueUsd = grossRevenueUsd - feeUsd;
+  
   const uniqueBuyers = new Set(data.map(t=>t.buyerEmail || t.buyerName)).size;
 
   $('s-total-tickets').textContent = totalTickets;
   $('s-scanned').textContent = scanned;
   $('s-unscanned').textContent = unscanned;
-  $('s-revenue').textContent = formatFromUSD(revenueUsd);
+  $('s-revenue').textContent = formatFromUSD(grossRevenueUsd);
+  $('s-fee').textContent = formatFromUSD(feeUsd);
+  $('s-net').textContent = formatFromUSD(netRevenueUsd);
   $('s-unique-buyers').textContent = uniqueBuyers;
+  
   recordCount.textContent = `${totalTickets} record${totalTickets === 1 ? '' : 's'}`;
 }
 
@@ -943,6 +962,9 @@ function showBuyerDetails(ticketId){
   const content = $('buyer-detail-content');
   const inv = ticket.invoiceData || {};
   const paymentProof = inv.paymentProofBase64 || null;
+  
+  const feeUsd = ticket.priceUsd * ZONE21_FEE_RATE;
+  const netUsd = ticket.priceUsd - feeUsd;
 
   const scanStatus =
     ticket.status === 'scanned' ? '<span class="badge badge-blue">Scanned</span>' :
@@ -975,8 +997,16 @@ function showBuyerDetails(ticketId){
       <span class="detail-value">${ticket.ticketTypeName || '—'}</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label"><i class="fas fa-coins"></i> Price</span>
-      <span class="detail-value pink">${formatFromUSD(ticket.priceUsd)}</span>
+      <span class="detail-label"><i class="fas fa-coins"></i> Ticket Price</span>
+      <span class="detail-value">${formatFromUSD(ticket.priceUsd)}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label"><i class="fas fa-percent"></i> Platform Fee (4%)</span>
+      <span class="detail-value pink">-${formatFromUSD(feeUsd)}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label"><i class="fas fa-hand-holding-usd"></i> Net to Organizer</span>
+      <span class="detail-value green">${formatFromUSD(netUsd)}</span>
     </div>
     <div class="detail-row">
       <span class="detail-label"><i class="fas fa-clock"></i> Payment Approved</span>
@@ -1027,23 +1057,31 @@ function exportCSV(){
   const sym = currencySymbol(activeCurrency);
   const headers = [
     'Ticket ID', 'Buyer Name', 'Email', 'Phone', 'Event',
-    'Ticket Type', `Price (${activeCurrency})`, 'Payment Approved At',
-    'Scanned At', 'Status', 'Invoice ID'
+    'Ticket Type', `Gross Price (${activeCurrency})`, `Fee (4%) (${activeCurrency})`, `Net Price (${activeCurrency})`,
+    'Payment Approved At', 'Scanned At', 'Status', 'Invoice ID'
   ];
 
-  const rows = filteredData.map(t=>[
-    t.id,
-    t.buyerName || '',
-    t.buyerEmail || '',
-    t.buyerPhone || '',
-    t.eventName || '',
-    t.ticketTypeName || '',
-    `${sym}${convertAmount(t.priceUsd).toFixed(2)}`,
-    t.approvedAt ? t.approvedAt.toISOString() : '',
-    t.scannedAt ? t.scannedAt.toISOString() : '',
-    t.status || '',
-    t.invoiceData?.id || t.invoiceId || ''
-  ]);
+  const rows = filteredData.map(t=>{
+    const gross = t.priceUsd;
+    const fee = gross * ZONE21_FEE_RATE;
+    const net = gross - fee;
+    
+    return [
+      t.id,
+      t.buyerName || '',
+      t.buyerEmail || '',
+      t.buyerPhone || '',
+      t.eventName || '',
+      t.ticketTypeName || '',
+      `${sym}${convertAmount(gross).toFixed(2)}`,
+      `${sym}${convertAmount(fee).toFixed(2)}`,
+      `${sym}${convertAmount(net).toFixed(2)}`,
+      t.approvedAt ? t.approvedAt.toISOString() : '',
+      t.scannedAt ? t.scannedAt.toISOString() : '',
+      t.status || '',
+      t.invoiceData?.id || t.invoiceId || ''
+    ];
+  });
 
   const csvContent = [headers, ...rows]
     .map(row=>row.map(cell=>{
@@ -1088,7 +1126,7 @@ window.auth = auth;
 window.setCurrency = window.setCurrency;
 
 applyCurrencyUI();
-console.log('✅ Sales Database v4.6 — dual currency + flags + geo-detect.');
+console.log('✅ Sales Database v4.7 — 4% Fee applied.');
 </script>
 </body>
-    </html>
+</html>

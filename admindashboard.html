@@ -194,6 +194,41 @@
         .svc-chip{font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--bg);color:var(--text-secondary);border:1px solid var(--border);white-space:nowrap}
         .svc-chip.more{background:var(--navy);color:var(--lime);border-color:var(--navy)}
 
+        /* PAYOUT DETAILS BOX */
+        .payout-details-box {
+            margin-top: 10px;
+            background: #f8fafc;
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .payout-details-box i {
+            color: var(--gold-deep);
+            font-size: 1rem;
+        }
+        .payout-details-box .pdb-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .payout-details-box .pdb-lbl {
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 800;
+            letter-spacing: 0.05em;
+        }
+        .payout-details-box .pdb-val {
+            font-weight: 700;
+            color: var(--navy);
+            font-size: 0.82rem;
+        }
+
         /* BUTTONS */
         .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1rem;border:1px solid transparent;border-radius:8px;font-size:.75rem;font-weight:700;transition:var(--transition);text-decoration:none;white-space:nowrap}
         .btn i{font-size:.85em}
@@ -379,7 +414,7 @@
         <a class="nav-item" href="adminpublishevents.html"><i class="fas fa-globe"></i> Publish Events</a>
 
         <div class="section-label" style="margin-top:12px;">Blueprint Control</div>
-        <a class="nav-item" href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')"><i class="fas fa-file-invoice-dollar"></i> Payment Approvals <span class="badge" id="pendingPaymentsBadge">0</span></a>
+        <a class="nav-item" href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')"><i class="fas fa-file-invoice-dollar"></i> Vendor Payments <span class="badge" id="pendingPaymentsBadge">0</span></a>
         <a class="nav-item" href="#vendorPayouts" onclick="scrollToSection('vendorPayouts')"><i class="fas fa-hand-holding-dollar"></i> Vendor Payouts <span class="badge lime" id="pendingPayoutsBadge">0</span></a>
         <a class="nav-item" href="#cashoutRequests" onclick="scrollToSection('cashoutRequests')"><i class="fas fa-money-bill-transfer"></i> Cashout Requests <span class="badge" id="pendingCashoutsBadge">0</span></a>
         <a class="nav-item" href="#eventCoordination" onclick="scrollToSection('eventCoordination')"><i class="fas fa-sitemap"></i> Live Coordination</a>
@@ -387,18 +422,13 @@
         <div class="section-label" style="margin-top:12px;">Artists</div>
         <a class="nav-item" href="adminbookings.html"><i class="fas fa-microphone"></i> Manage Artists <span class="badge lime">New</span></a>
 
-        <div class="section-label" style="margin-top:12px;">Analytics</div>
-        <a class="nav-item" href="adminrevenue"><i class="fas fa-dollar-sign"></i> Tickets Revenue</a>
-        <a class="nav-item" href="adminsalesdata.html"><i class="fas fa-chart-bar"></i> Sales Data</a>
-
         <div class="section-label" style="margin-top:12px;">Management</div>
         <a class="nav-item" href="managevendors.html"><i class="fas fa-store"></i> Vendors</a>
         <a class="nav-item" href="manageorganizers.html"><i class="fas fa-users"></i> Event Organizers</a>
         <a class="nav-item" href="adminsupport.html"><i class="fas fa-headset"></i> Support</a>
-        <a class="nav-item" href="adminpayments.html"><i class="fas fa-credit-card"></i> Payments</a>
         <a class="nav-item" href="scantickets.html"><i class="fas fa-qrcode"></i> Scan Tickets</a>
     </nav>
-    <div class="sidebar-footer">Admin Panel v3.4 · Blueprint</div>
+    <div class="sidebar-footer">Admin Panel v4.0 · 100% Free Platform</div>
 </aside>
 
 <!-- MAIN -->
@@ -675,27 +705,12 @@ function scrollToSection(id){
 window.scrollToSection = scrollToSection;
 
 /* ============================================================
-   ⚠️ KEY FIX: Only blueprint/vendor payments belong here.
-   ------------------------------------------------------------
-   Blueprint invoices (created by vendorpayments.html):
-     · Have `lines[]` (services being paid for)
-     · Have `eventId` (the event session id)
-     · Have `payType`: deposit | balance | full
-     · Have `payNowUsd` + `payNowDisplay`
-     · Have `userId` = the ORGANISER's uid
-
-   Subscription invoices (created by provider-checkout.html):
-     · Have `planId` / `planName` / `packageDetails`
-     · Have NO lines[], NO eventId, NO payType
-     · Have `userId` = the VENDOR's uid
+   ⚠️ GUARD: Only blueprint/vendor payments belong here.
    ============================================================ */
 function isBlueprintInvoice(inv){
     if(!inv) return false;
-    // Must have services (lines) — subscription invoices never do
     if(Array.isArray(inv.lines) && inv.lines.length > 0) return true;
-    // OR must be explicitly tied to an event
     if(inv.eventId && inv.payType) return true;
-    // Otherwise it's a subscription (or something else) — keep off this dashboard
     return false;
 }
 
@@ -850,7 +865,6 @@ function listenEventsStats(){
         tr.className = 'stat-trend' + (c > 0 ? ' warn' : '');
     }, err => console.error('pending events:', err));
 
-    // Revenue = sum of approved/paid invoices
     db.collection('invoices').where('status','==','paid').onSnapshot(snap => {
         let total = 0;
         snap.forEach(d => {
@@ -872,10 +886,7 @@ function listenEventsStats(){
 }
 
 /* ============================================================
-   VENDOR PAYMENT APPROVALS (BLUEPRINT ONLY)
-   ------------------------------------------------------------
-   Only shows invoices tied to an event (has lines[] or eventId + payType).
-   Subscriptions are filtered out entirely.
+   VENDOR PAYMENT APPROVALS
 ============================================================ */
 let paymentFilter = 'all';
 let cachedPayments = [];
@@ -892,11 +903,10 @@ function setPaymentFilter(f){
 }
 window.setPaymentFilter = setPaymentFilter;
 
-/* Return blueprint-only details. No 'subscription' category. */
 function analyzeBlueprintInvoice(inv){
     const lines = Array.isArray(inv.lines) ? inv.lines : [];
-    const payType = String(inv.payType || '').toLowerCase(); // deposit | balance | full
-    let category = 'full'; // default for any blueprint invoice without payType
+    const payType = String(inv.payType || '').toLowerCase();
+    let category = 'full';
     if(payType === 'deposit') category = 'deposit';
     else if(payType === 'balance') category = 'balance';
     else if(payType === 'full') category = 'full';
@@ -904,16 +914,12 @@ function analyzeBlueprintInvoice(inv){
 }
 
 function listenPayments(){
-    /* Listen for invoices awaiting manual transfer. Client-side filter keeps
-       only blueprint/vendor payments. */
     const processSnap = snap => {
         const all = [];
         snap.forEach(d => {
             const data = { id: d.id, ...d.data() };
             const st = String(data.status || '').toLowerCase();
-            /* Skip anything already processed */
             if(st === 'paid' || st === 'approved' || st === 'rejected') return;
-            /* ⚠️ Keep ONLY blueprint/vendor payments */
             if(!isBlueprintInvoice(data)) return;
             all.push(data);
         });
@@ -923,11 +929,9 @@ function listenPayments(){
     db.collection('invoices')
       .where('paymentStatus','==','pending_manual_transfer')
       .onSnapshot(processSnap, err => {
-        console.warn('payments listener (paymentStatus):', err.message);
         db.collection('invoices')
           .where('status','==','pending_manual_transfer')
           .onSnapshot(processSnap, err2 => {
-            console.warn('payments listener (status) failed, falling back to full scan:', err2.message);
             db.collection('invoices').onSnapshot(snap2 => {
                 const all = [];
                 snap2.forEach(d => {
@@ -1019,7 +1023,6 @@ function renderPayments(invoices){
         const eventName = inv.eventName || '';
         const dateStr = toDate(inv.createdAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
 
-        /* Amounts — prefer payNowUsd for blueprint invoices */
         const payNowUsd = Number(inv.payNowUsd || 0);
         const subtotalUsd = Number(inv.subtotalUsd || 0);
         const balanceUsd = Number(inv.balanceUsd || 0);
@@ -1027,7 +1030,6 @@ function renderPayments(invoices){
         const subtotalDisplay = cur === 'ZAR' ? subtotalUsd * 19 : subtotalUsd;
         const balanceDisplay = cur === 'ZAR' ? balanceUsd * 19 : balanceUsd;
 
-        /* Category badge */
         let badgeClass = 'blueprint';
         let badgeLabel = 'Blueprint';
         let iconClass = 'green';
@@ -1036,7 +1038,6 @@ function renderPayments(invoices){
         else if(a.category === 'balance'){ badgeClass = 'balance'; badgeLabel = 'Balance'; iconClass = 'purple'; iconFa = 'fa-flag-checkered'; }
         else if(a.category === 'full'){ badgeClass = 'full'; badgeLabel = 'Full Payment'; iconClass = 'green'; iconFa = 'fa-circle-check'; }
 
-        /* Services & event context */
         const lineCount = a.lines.length;
         const eventChip = eventName
           ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(safe(eventName, 40))}</span>`
@@ -1090,16 +1091,13 @@ function renderPayments(invoices){
     }).join('');
 }
 
-/* ─── Approve Blueprint Payment ─── */
 async function approvePayment(invoiceNumber, userId, eventId, category, payType){
-    // Fetch the invoice
     let invData = null;
     try {
         const d = await db.collection('invoices').doc(invoiceNumber).get();
         if(d.exists) invData = d.data();
     } catch(e){}
 
-    /* Safety guard: refuse to approve subscription invoices via this panel. */
     if(invData && !isBlueprintInvoice(invData)){
         toast('This invoice is not a vendor payment — approve it from the appropriate page.', 'warn');
         return;
@@ -1153,7 +1151,6 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
         btnClass: 'btn-green',
         onConfirm: async () => {
             try{
-                // 1. Mark invoice paid
                 await db.collection('invoices').doc(invoiceNumber).update({
                     status: 'paid',
                     paymentStatus: 'approved',
@@ -1161,7 +1158,6 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
                     approvedBy: auth.currentUser?.uid || 'admin'
                 });
 
-                // 2. Update linked assignments
                 const newStatus = (category === 'deposit') ? 'paid_deposit' : 'paid_full';
 
                 let linkedAssignments = [];
@@ -1212,7 +1208,6 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
 
                 if(linkedAssignments.length > 0) await batch.commit();
 
-                // 3. Notify each vendor
                 for(const a of linkedAssignments){
                     try {
                         const vendorId = a.data.providerId || a.data.providerUid || '';
@@ -1231,7 +1226,6 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
                     } catch(e){}
                 }
 
-                // 4. Notify the organiser
                 if(userId){
                     try {
                         const orgSubject = category === 'deposit'
@@ -1257,7 +1251,6 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
                     } catch(e){}
                 }
 
-                // 5. Audit log
                 try {
                     await db.collection('paymentEvents').add({
                         invoiceNumber,
@@ -1388,7 +1381,6 @@ function renderPayouts(){
 
     list.innerHTML = payouts.map(a => {
         const currency = a.currency || 'USD';
-        // STRICT: read priceUsd (written by the inviteAll fix) — never fall back to event budget
         const explicitUsd = Number(a.priceUsd);
         const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
         const legacyUsd = Number(a.agreedAmount || a.price || 0);
@@ -1533,10 +1525,21 @@ function detectNewCashouts(requests){
         const amt = fmtMoney(r.amount || 0, cur);
         showActivityToast('cash', {
             title: '💸 New cashout request',
-            meta: `<strong>${escapeHtml(r.providerName || 'Vendor')}</strong> requested <strong>${escapeHtml(amt)}</strong>`,
+            meta: `<strong>${escapeHtml(r.providerName || 'Vendor')}</strong> requested <strong>${escapeHtml(amt)}</strong>${r.payoutMethod ? ` via ${escapeHtml(r.payoutMethod)}` : ''}`,
             onClick: () => scrollToSection('cashoutRequests')
         });
     });
+}
+
+/* ─── Payout method icon mapping ─── */
+function getPayoutIcon(method) {
+    const m = String(method || '').toLowerCase();
+    if (m.includes('ecocash') || m.includes('phone') || m.includes('mobile')) return 'fa-mobile-screen-button';
+    if (m.includes('innbucks')) return 'fa-bolt';
+    if (m.includes('mukuru')) return 'fa-paper-plane';
+    if (m.includes('bank')) return 'fa-building-columns';
+    if (m.includes('wallet')) return 'fa-wallet';
+    return 'fa-money-bill-transfer';
 }
 
 function renderCashouts(requests){
@@ -1566,8 +1569,36 @@ function renderCashouts(requests){
         const reqAt = toDate(r.requestedAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
         const reqAgo = r.requestedAt?.toMillis ? timeAgo(r.requestedAt.toMillis()) : '—';
 
+        // Vendor payment method details
+        const method = r.payoutMethod || 'Not specified';
+        const accountName = r.payoutName || '—';
+        const accountNum = r.payoutAccount || '—';
+        const icon = getPayoutIcon(method);
+
+        // Assemble the details box
+        let detailsBox = '';
+        if (st === 'pending' || st === 'approved') {
+            detailsBox = `
+                <div class="payout-details-box">
+                    <i class="fas ${icon}"></i>
+                    <div class="pdb-item">
+                        <span class="pdb-lbl">Send via</span>
+                        <span class="pdb-val">${escapeHtml(method)}</span>
+                    </div>
+                    <div class="pdb-item">
+                        <span class="pdb-lbl">Account Name</span>
+                        <span class="pdb-val">${escapeHtml(accountName)}</span>
+                    </div>
+                    <div class="pdb-item">
+                        <span class="pdb-lbl">Account Number</span>
+                        <span class="pdb-val">${escapeHtml(accountNum)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
         return `
-            <div class="bp-row">
+            <div class="bp-row" style="flex-wrap: wrap;">
                 <div class="bp-row__icon amber"><i class="fas fa-money-bill-transfer"></i></div>
                 <div class="bp-row__body">
                     <div class="bp-row__title">${escapeHtml(r.providerName || 'Vendor')}</div>
@@ -1576,6 +1607,7 @@ function renderCashouts(requests){
                         <span><i class="fas fa-calendar"></i> ${reqAt}</span>
                         <span><i class="fas fa-clock"></i> ${reqAgo}</span>
                     </div>
+                    ${detailsBox}
                 </div>
                 <div class="bp-row__right">
                     <span class="status-chip ${cls}">${statusLabel}</span>
@@ -1775,7 +1807,6 @@ function renderCoordination(){
             not_sent:'Not sent', cancelled:'Cancelled'
         }[st] || st;
         const currency = a.currency || 'USD';
-        // STRICT: read priceUsd — never fall back to event budget
         const explicitUsd = Number(a.priceUsd);
         const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
         const legacyUsd = Number(a.agreedAmount || a.price || 0);

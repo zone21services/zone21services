@@ -390,7 +390,7 @@ img{max-width:100%;display:block}
     <a href="support.html"><i class="fas fa-headset"></i> Contact Admin</a>
     <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
   </nav>
-  <div class="sidebar__foot">Zone21 · Vendor Hub v7.0</div>
+  <div class="sidebar__foot">Zone21 · Vendor Hub v7.1</div>
 </aside>
 
 <div class="main">
@@ -571,7 +571,7 @@ img{max-width:100%;display:block}
           <i class="fas fa-hourglass-half"></i>
           <div>Checking available funds…</div>
         </div>
-        <button class="btn btn-primary btn-block" id="btnRequestCashout" onclick="requestCashout()">
+        <button class="btn btn-primary btn-block" id="btnRequestCashout" onclick="openCashoutModal()">
           <i class="fas fa-paper-plane"></i> Request Cashout
         </button>
       </div>
@@ -670,6 +670,53 @@ img{max-width:100%;display:block}
     <div class="modal__foot">
       <button class="btn btn-outline" onclick="closeDecline()">Cancel</button>
       <button class="btn btn-red" id="declineConfirmBtn"><i class="fas fa-circle-xmark"></i> Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- CASHOUT MODAL (NEW) -->
+<div class="modal-overlay" id="cashoutModal">
+  <div class="modal">
+    <div class="modal__head">
+      <h3><i class="fas fa-money-bill-transfer"></i> Request Cashout</h3>
+      <button class="modal__close" onclick="closeCashoutModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="modal__body">
+      <p style="font-size:.88rem;color:var(--body);line-height:1.6;margin-bottom:20px">
+        Zone21 will transfer your net earnings manually. Please provide the exact details of where you'd like the money sent.
+      </p>
+
+      <div class="input-group" style="margin-bottom:16px">
+        <label style="font-size:.7rem;font-weight:800;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Payout Method</label>
+        <select id="cashoutMethod" style="width:100%;padding:12px;border:1.5px solid var(--line-strong);border-radius:10px;font-family:inherit;font-size:.9rem;background:var(--canvas);outline:none">
+          <option value="EcoCash">EcoCash (Zimbabwe)</option>
+          <option value="Innbucks">InnBucks (Zimbabwe)</option>
+          <option value="Mukuru">Mukuru (South Africa)</option>
+          <option value="E-Wallet">E-Wallet (South Africa)</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+        </select>
+      </div>
+
+      <div class="input-group" style="margin-bottom:16px">
+        <label style="font-size:.7rem;font-weight:800;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Account Name</label>
+        <input type="text" id="cashoutName" placeholder="e.g. John Doe / Studio 21" style="width:100%;padding:12px;border:1.5px solid var(--line-strong);border-radius:10px;font-family:inherit;font-size:.9rem;background:var(--canvas);outline:none">
+      </div>
+
+      <div class="input-group" style="margin-bottom:20px">
+        <label style="font-size:.7rem;font-weight:800;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Account Number / Phone Number</label>
+        <input type="text" id="cashoutAccount" placeholder="e.g. 077 123 4567" style="width:100%;padding:12px;border:1.5px solid var(--line-strong);border-radius:10px;font-family:inherit;font-size:.9rem;background:var(--canvas);outline:none">
+      </div>
+
+      <div style="background:var(--green-soft);border:1px solid rgba(15,157,110,.2);border-radius:10px;padding:14px;font-size:.85rem;color:#0b8259;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+        <span>Amount to receive:</span>
+        <span id="cashoutModalAmount" style="font-size:1.1rem;font-weight:800">—</span>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn-outline" onclick="closeCashoutModal()">Cancel</button>
+      <button class="btn btn-primary" id="cashoutSubmitBtn" onclick="submitCashoutRequest()">
+        <i class="fas fa-paper-plane"></i> Submit Request
+      </button>
     </div>
   </div>
 </div>
@@ -843,7 +890,7 @@ function calculatePayout(a) {
 
 /* ============================================================
    RICH TOASTS
-============================================================ */
+   ============================================================ */
 function showEventRequestToast(assignment){
   const stack = $('z21EventToastStack'); if(!stack) return;
   const el = document.createElement('div');
@@ -925,7 +972,7 @@ auth.onAuthStateChanged(async user => {
 
 /* ============================================================
    DATA FETCHING
-============================================================ */
+   ============================================================ */
 async function tryCollection(colName){
   try {
     const snap = await db.collection(colName).doc(currentUser.uid).get();
@@ -1518,7 +1565,10 @@ function renderPayments(){
   $('cashoutTblBody').innerHTML = cashoutRows.length ? cashoutRows.join('') : `<tr><td colspan="4"><div class="empty" style="padding:2rem 1rem;border:none;background:transparent"><i class="fas fa-hand-holding-dollar"></i><p style="font-size:.85rem">No cashout requests yet.</p></div></td></tr>`;
 }
 
-async function requestCashout(){
+/* ============================================================
+   CASHOUT MODAL LOGIC
+   ============================================================ */
+function getHeldAmounts() {
   let heldUSD = 0, heldZAR = 0;
   assignments.forEach(a => {
     const payout = calculatePayout(a);
@@ -1529,8 +1579,11 @@ async function requestCashout(){
       if(payout.currency === 'ZAR') heldZAR += payout.net; else heldUSD += payout.net;
     }
   });
+  return { heldUSD, heldZAR, total: heldUSD + heldZAR };
+}
 
-  const total = heldUSD + heldZAR;
+function openCashoutModal(){
+  const { heldUSD, heldZAR, total } = getHeldAmounts();
   if(total <= 0){ toast('No funds available.', 'info'); return; }
   
   const parts = [];
@@ -1538,9 +1591,36 @@ async function requestCashout(){
   if(heldZAR > 0) parts.push(fmtZAR(heldZAR));
   const heldDisp = parts.join(' + ');
 
-  if(!confirm(`Request cashout of ${heldDisp} (net after 10% fee)?\n\nAdmin will review and release the funds.`)) return;
+  $('cashoutModalAmount').textContent = heldDisp;
+  $('cashoutMethod').value = 'EcoCash';
+  $('cashoutName').value = providerData?.name || providerData?.businessName || '';
+  $('cashoutAccount').value = '';
+  
+  $('cashoutModal').classList.add('active');
+}
+function closeCashoutModal(){
+  $('cashoutModal').classList.remove('active');
+}
+window.openCashoutModal = openCashoutModal;
+window.closeCashoutModal = closeCashoutModal;
 
-  const btn = $('btnRequestCashout');
+async function submitCashoutRequest(){
+  const { heldUSD, heldZAR, total } = getHeldAmounts();
+  if(total <= 0){ toast('No funds available.', 'info'); return; }
+  
+  const method = $('cashoutMethod').value;
+  const name = $('cashoutName').value.trim();
+  const account = $('cashoutAccount').value.trim();
+
+  if(!name){ toast('Please enter the account name.', 'warn'); $('cashoutName').focus(); return; }
+  if(!account){ toast('Please enter the account or phone number.', 'warn'); $('cashoutAccount').focus(); return; }
+
+  const parts = [];
+  if(heldUSD > 0) parts.push(fmtUSD(heldUSD));
+  if(heldZAR > 0) parts.push(fmtZAR(heldZAR));
+  const heldDisp = parts.join(' + ');
+
+  const btn = $('cashoutSubmitBtn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
 
@@ -1548,30 +1628,35 @@ async function requestCashout(){
     const promises = [];
     if(heldUSD > 0){
       promises.push(db.collection('cashouts').add({
-        providerId: currentUser.uid, providerName: providerData?.name || currentUser.email,
+        providerId: currentUser.uid, 
+        providerName: providerData?.name || currentUser.email,
         amount: heldUSD, currency: 'USD', status: 'pending',
+        payoutMethod: method, payoutName: name, payoutAccount: account,
         requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }));
     }
     if(heldZAR > 0){
       promises.push(db.collection('cashouts').add({
-        providerId: currentUser.uid, providerName: providerData?.name || currentUser.email,
+        providerId: currentUser.uid, 
+        providerName: providerData?.name || currentUser.email,
         amount: heldZAR, currency: 'ZAR', status: 'pending',
+        payoutMethod: method, payoutName: name, payoutAccount: account,
         requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }));
     }
     await Promise.all(promises);
     toast('Cashout requested — admin will process it.', 'success');
-    pushNotif('admin', 'Cashout requested', `Zone21 admin will release ${heldDisp} after review.`);
+    pushNotif('admin', 'Cashout requested', `Zone21 admin will release ${heldDisp} via ${method}.`);
+    closeCashoutModal();
   } catch(e){
     toast('Failed to request cashout.', 'error');
     btn.disabled = false;
-    btn.innerHTML = `<i class="fas fa-paper-plane"></i> Request Cashout (${heldDisp})`;
+    btn.innerHTML = `<i class="fas fa-paper-plane"></i> Submit Request`;
   }
 }
-window.requestCashout = requestCashout;
+window.submitCashoutRequest = submitCashoutRequest;
 
 /* ============================================================
    NOTIFICATIONS
@@ -1677,9 +1762,10 @@ $('logoutLink').addEventListener('click', e => { e.preventDefault(); if(confirm(
 $('notifBtn').addEventListener('click', () => switchView('reminders'));
 
 $('declineModal').addEventListener('click', e => { if(e.target === $('declineModal')) closeDecline(); });
+$('cashoutModal').addEventListener('click', e => { if(e.target === $('cashoutModal')) closeCashoutModal(); });
 $('detailModal').addEventListener('click', e => { if(e.target === $('detailModal')) closeDetail(); });
 
-console.log('[Zone21 Vendor Hub v7.0] 0% Subscription · 10% Commission · Modern UI Loaded');
+console.log('[Zone21 Vendor Hub v7.1] 0% Subscription · 10% Commission · Cashout Details Added');
 </script>
 </body>
 </html>

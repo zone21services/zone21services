@@ -191,9 +191,47 @@ body{
   font-size:.72rem;color:var(--muted);
   margin-top:.3rem;font-weight:700;letter-spacing:.02em;
 }
+.stat-card .sub{
+  font-size:.68rem;color:var(--body);margin-top:4px;font-weight:600;
+}
 
 /* ============================================================
-   CARDS
+   NOTIFICATIONS FEED
+   ============================================================ */
+.notif-feed-wrapper{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius-xl);padding:1.25rem 1.4rem;
+  margin-bottom:1.5rem;box-shadow:var(--shadow-sm);
+}
+.notif-head{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--line);
+}
+.notif-head h3{font-size:.95rem;font-weight:800;color:var(--navy-900);display:flex;align-items:center;gap:.5rem}
+.notif-head h3 i{color:var(--pink)}
+.notif-feed{display:flex;flex-direction:column;gap:.6rem}
+.notif-item{
+  display:flex;gap:.75rem;padding:.85rem 1rem;
+  background:var(--bg-alt);border:1px solid var(--line);
+  border-radius:var(--radius-md);align-items:flex-start;
+  transition:var(--transition);
+}
+.notif-item:hover{transform:translateX(2px);border-color:var(--line-strong)}
+.notif-icon{
+  width:32px;height:32px;border-radius:8px;display:grid;place-items:center;
+  font-size:.85rem;flex-shrink:0;
+}
+.notif-icon.success{background:rgba(15,157,110,.12);color:var(--success-deep)}
+.notif-icon.warn{background:rgba(245,158,11,.12);color:#92400E}
+.notif-icon.info{background:rgba(59,130,246,.12);color:#1E40AF}
+.notif-icon.pink{background:var(--pink-soft);color:var(--pink-deep)}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:.82rem;font-weight:800;color:var(--navy-900);margin-bottom:2px}
+.notif-desc{font-size:.75rem;color:var(--body);font-weight:500;line-height:1.45}
+.notif-time{font-size:.65rem;color:var(--muted);font-weight:600;margin-top:4px}
+
+/* ============================================================
+   CARDS & TABLES
    ============================================================ */
 .card{
   background:var(--surface);border:1px solid var(--line);
@@ -410,12 +448,24 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
     </div>
   </div>
 
+  <!-- ============ NOTIFICATIONS ============ -->
+  <div class="notif-feed-wrapper">
+    <div class="notif-head">
+      <h3><i class="fas fa-bell"></i> Recent Updates</h3>
+      <span class="live-indicator" style="font-size:.6rem;padding:3px 8px">Live</span>
+    </div>
+    <div class="notif-feed" id="notif-feed-mount">
+      <p class="text-muted" style="font-size:.78rem;">Loading notifications...</p>
+    </div>
+  </div>
+
   <!-- ============ STATS ============ -->
   <div class="stats-grid">
     <div class="stat-card">
       <div class="icon"><i class="fas fa-coins"></i></div>
-      <div class="value" id="a-total-revenue">$0</div>
-      <div class="label">Total Revenue</div>
+      <div class="value" id="a-net-revenue">$0</div>
+      <div class="label">Net Revenue (After 4% Fee)</div>
+      <div class="sub" id="a-total-fee" style="color:var(--pink-deep)">$0 fee paid</div>
     </div>
     <div class="stat-card">
       <div class="icon"><i class="fas fa-ticket-alt"></i></div>
@@ -474,7 +524,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
             <tr>
               <th>Date</th>
               <th>Tickets Sold</th>
-              <th>Revenue</th>
+              <th>Net Revenue</th>
               <th>Cumulative</th>
             </tr>
           </thead>
@@ -492,7 +542,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
             <tr>
               <th>Week Starting</th>
               <th>Tickets Sold</th>
-              <th>Revenue</th>
+              <th>Net Revenue</th>
               <th>Cumulative</th>
             </tr>
           </thead>
@@ -510,7 +560,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
             <tr>
               <th>Month</th>
               <th>Tickets Sold</th>
-              <th>Revenue</th>
+              <th>Net Revenue</th>
               <th>Cumulative</th>
             </tr>
           </thead>
@@ -545,6 +595,9 @@ const ZAR_COUNTRIES = new Set(['ZA','LS','SZ','NA']);
 
 /* Fixed rate matched to plan pricing: $10 → R190, $50 → R950 */
 const USD_TO_ZAR = 19;
+
+/* 4% Commission Rate */
+const ZONE21_FEE_RATE = 0.04;
 
 const TIMEZONE_COUNTRY = {
   'Africa/Johannesburg':'ZA','Africa/Maseru':'LS','Africa/Mbabane':'SZ',
@@ -686,6 +739,7 @@ let allEvents = [];
 let allTickets = [];
 let allInvoices = [];
 let allCashouts = [];
+let allNotifications = [];
 let currentUser = null;
 let unsubscribers = [];
 
@@ -756,31 +810,52 @@ function startListening(){
     snap.forEach(d=>allCashouts.push({ id:d.id, ...d.data() }));
     renderAll();
   }, err=>console.error('Cashouts listener error:', err)));
+
+  // Notifications listener
+  unsubscribers.push(db.collection('notifications')
+    .where('userId','==',currentUser.uid)
+    .limit(10).onSnapshot(snap => {
+      allNotifications = [];
+      snap.forEach(d => allNotifications.push({ id: d.id, ...d.data() }));
+      allNotifications.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      renderNotifications();
+    }, err => console.warn('Notif error', err)));
 }
 
 function refreshData(){ renderAll(); }
 
 /* ============================================================
-   UTILITY
+   UTILITY — WITH 4% FEE LOGIC
    ============================================================ */
 function getEventRevenue(eventId){
   const tickets = allTickets.filter(t=>
     t.eventId === eventId && (t.status === 'approved' || t.status === 'scanned')
   );
   const sold = tickets.length;
-  let revenueUsd = 0;
+  let grossUsd = 0;
+  
   tickets.forEach(t=>{
     const inv = allInvoices.find(i=>i.ticketId === t.id);
-    if(inv && inv.amount) revenueUsd += Number(inv.amount) || 0;
+    if(inv && inv.amount) grossUsd += Number(inv.amount) || 0;
     else {
       const ev = allEvents.find(e=>e.id === eventId);
       if(ev && ev.ticketTypes){
         const tt = ev.ticketTypes.find(tk=>tk.name === t.ticketTypeName);
-        if(tt) revenueUsd += Number(tt.price) || 0;
+        if(tt) grossUsd += Number(tt.price) || 0;
       }
     }
   });
-  return { sold, revenueUsd: Math.round(revenueUsd * 100) / 100 };
+  
+  // Apply 4% fee
+  const feeUsd = grossUsd * ZONE21_FEE_RATE;
+  const netUsd = grossUsd - feeUsd;
+  
+  return { 
+    sold, 
+    grossUsd: Math.round(grossUsd * 100) / 100,
+    feeUsd: Math.round(feeUsd * 100) / 100,
+    netUsd: Math.round(netUsd * 100) / 100
+  };
 }
 
 function getMyEvents(){
@@ -828,7 +903,7 @@ function updateEventSelector(){
 }
 
 /* ============================================================
-   RENDER ALL
+   RENDER ALL — WITH 4% FEE LOGIC
    ============================================================ */
 function renderAll(){
   if(!currentUser) return;
@@ -836,17 +911,22 @@ function renderAll(){
   const filtered = getFilteredEvents();
 
   /* Stats (converted) */
-  let totalRevUsd = 0, totalSold = 0;
+  let totalGrossUsd = 0, totalFeeUsd = 0, totalNetUsd = 0, totalSold = 0;
+  
   myEvents.forEach(ev=>{
     const r = getEventRevenue(ev.id);
-    totalRevUsd += r.revenueUsd;
+    totalGrossUsd += r.grossUsd;
+    totalFeeUsd += r.feeUsd;
+    totalNetUsd += r.netUsd;
     totalSold += r.sold;
   });
+  
   const pending = allCashouts.filter(c=>
     c.organiserId === currentUser.uid && c.status === 'pending'
   ).length;
 
-  $('a-total-revenue').textContent = formatFromUSD(totalRevUsd);
+  $('a-net-revenue').textContent = formatFromUSD(totalNetUsd);
+  $('a-total-fee').textContent = `${formatFromUSD(totalFeeUsd)} fee paid`;
   $('a-total-tickets').textContent = totalSold;
   $('a-total-events').textContent = myEvents.length;
   $('a-pending-cashouts').textContent = pending;
@@ -860,31 +940,43 @@ function renderAll(){
   ticketsForEvents.forEach(t=>{
     const dateKey = t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : null;
     if(!dateKey) return;
-    if(!dailyMap.has(dateKey)) dailyMap.set(dateKey, { tickets:0, revenueUsd:0 });
+    if(!dailyMap.has(dateKey)) dailyMap.set(dateKey, { tickets:0, grossUsd:0, feeUsd:0, netUsd:0 });
     const entry = dailyMap.get(dateKey);
     entry.tickets += 1;
+    
+    let ticketGross = 0;
     const inv = allInvoices.find(i=>i.ticketId === t.id);
-    if(inv && inv.amount) entry.revenueUsd += Number(inv.amount) || 0;
+    if(inv && inv.amount) ticketGross += Number(inv.amount) || 0;
     else {
       const ev = allEvents.find(e=>e.id === t.eventId);
       if(ev && ev.ticketTypes){
         const tt = ev.ticketTypes.find(tk=>tk.name === t.ticketTypeName);
-        if(tt) entry.revenueUsd += Number(tt.price) || 0;
+        if(tt) ticketGross += Number(tt.price) || 0;
       }
     }
+    
+    // Apply 4% fee for this ticket
+    const ticketFee = ticketGross * ZONE21_FEE_RATE;
+    const ticketNet = ticketGross - ticketFee;
+    
+    entry.grossUsd += ticketGross;
+    entry.feeUsd += ticketFee;
+    entry.netUsd += ticketNet;
   });
 
   const sortedDates = Array.from(dailyMap.keys()).sort();
   const dailyData = sortedDates.map(d=>({
     date: d,
     tickets: dailyMap.get(d).tickets,
-    revenueUsd: Math.round(dailyMap.get(d).revenueUsd * 100) / 100
+    grossUsd: Math.round(dailyMap.get(d).grossUsd * 100) / 100,
+    feeUsd: Math.round(dailyMap.get(d).feeUsd * 100) / 100,
+    netUsd: Math.round(dailyMap.get(d).netUsd * 100) / 100
   }));
 
-  let cumUsd = 0;
+  let cumNetUsd = 0;
   const dailyCum = dailyData.map(d=>{
-    cumUsd += d.revenueUsd;
-    return { ...d, cumulativeUsd: Math.round(cumUsd * 100) / 100 };
+    cumNetUsd += d.netUsd;
+    return { ...d, cumulativeNetUsd: Math.round(cumNetUsd * 100) / 100 };
   });
 
   /* Weekly aggregation */
@@ -897,40 +989,48 @@ function renderAll(){
     monday.setDate(diff);
     monday.setHours(0,0,0,0);
     const weekKey = monday.toISOString().split('T')[0];
-    if(!weeklyMap.has(weekKey)) weeklyMap.set(weekKey, { tickets:0, revenueUsd:0 });
+    if(!weeklyMap.has(weekKey)) weeklyMap.set(weekKey, { tickets:0, grossUsd:0, feeUsd:0, netUsd:0 });
     const entry = weeklyMap.get(weekKey);
     entry.tickets += d.tickets;
-    entry.revenueUsd += d.revenueUsd;
+    entry.grossUsd += d.grossUsd;
+    entry.feeUsd += d.feeUsd;
+    entry.netUsd += d.netUsd;
   });
   const weeklyData = Array.from(weeklyMap.keys()).sort().map(w=>({
     weekStart: w,
     tickets: weeklyMap.get(w).tickets,
-    revenueUsd: Math.round(weeklyMap.get(w).revenueUsd * 100) / 100
+    grossUsd: Math.round(weeklyMap.get(w).grossUsd * 100) / 100,
+    feeUsd: Math.round(weeklyMap.get(w).feeUsd * 100) / 100,
+    netUsd: Math.round(weeklyMap.get(w).netUsd * 100) / 100
   }));
-  cumUsd = 0;
+  cumNetUsd = 0;
   const weeklyCum = weeklyData.map(w=>{
-    cumUsd += w.revenueUsd;
-    return { ...w, cumulativeUsd: Math.round(cumUsd * 100) / 100 };
+    cumNetUsd += w.netUsd;
+    return { ...w, cumulativeNetUsd: Math.round(cumNetUsd * 100) / 100 };
   });
 
   /* Monthly aggregation */
   const monthlyMap = new Map();
   dailyData.forEach(d=>{
     const monthKey = d.date.substring(0,7);
-    if(!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { tickets:0, revenueUsd:0 });
+    if(!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, { tickets:0, grossUsd:0, feeUsd:0, netUsd:0 });
     const entry = monthlyMap.get(monthKey);
     entry.tickets += d.tickets;
-    entry.revenueUsd += d.revenueUsd;
+    entry.grossUsd += d.grossUsd;
+    entry.feeUsd += d.feeUsd;
+    entry.netUsd += d.netUsd;
   });
   const monthlyData = Array.from(monthlyMap.keys()).sort().map(m=>({
     month: m,
     tickets: monthlyMap.get(m).tickets,
-    revenueUsd: Math.round(monthlyMap.get(m).revenueUsd * 100) / 100
+    grossUsd: Math.round(monthlyMap.get(m).grossUsd * 100) / 100,
+    feeUsd: Math.round(monthlyMap.get(m).feeUsd * 100) / 100,
+    netUsd: Math.round(monthlyMap.get(m).netUsd * 100) / 100
   }));
-  cumUsd = 0;
+  cumNetUsd = 0;
   const monthlyCum = monthlyData.map(m=>{
-    cumUsd += m.revenueUsd;
-    return { ...m, cumulativeUsd: Math.round(cumUsd * 100) / 100 };
+    cumNetUsd += m.netUsd;
+    return { ...m, cumulativeNetUsd: Math.round(cumNetUsd * 100) / 100 };
   });
 
   /* Render tables + charts (values converted to active currency for display) */
@@ -938,9 +1038,9 @@ function renderAll(){
   renderTable(weeklyBody, weeklyCum, 'weekStart');
   renderTable(monthlyBody, monthlyCum, 'month');
 
-  renderChart('daily-chart', dailyCum, 'date', 'Daily Revenue');
-  renderChart('weekly-chart', weeklyCum, 'weekStart', 'Weekly Revenue');
-  renderChart('monthly-chart', monthlyCum, 'month', 'Monthly Revenue');
+  renderChart('daily-chart', dailyCum, 'date', 'Daily Net Revenue');
+  renderChart('weekly-chart', weeklyCum, 'weekStart', 'Weekly Net Revenue');
+  renderChart('monthly-chart', monthlyCum, 'month', 'Monthly Net Revenue');
 
   renderCashoutSummary();
 }
@@ -956,8 +1056,8 @@ function renderTable(tbody, data, keyLabel){
     tr.innerHTML = `
       <td><strong>${d[keyLabel]}</strong></td>
       <td>${d.tickets}</td>
-      <td>${formatFromUSD(d.revenueUsd)}</td>
-      <td><strong>${formatFromUSD(d.cumulativeUsd)}</strong></td>
+      <td>${formatFromUSD(d.netUsd)}</td>
+      <td><strong>${formatFromUSD(d.cumulativeNetUsd)}</strong></td>
     `;
     tbody.appendChild(tr);
   });
@@ -972,7 +1072,7 @@ function renderChart(canvasId, data, labelKey, chartLabel){
   if(canvasId === 'monthly-chart' && monthlyChart){ monthlyChart.destroy(); monthlyChart = null; }
 
   const labels = data.map(d=>d[labelKey]);
-  const revenues = data.map(d=>convertAmount(d.revenueUsd));   /* ← converted for display */
+  const revenues = data.map(d=>convertAmount(d.netUsd));   /* ← converted for display */
   const tickets = data.map(d=>d.tickets);
 
   const sym = currencySymbol(activeCurrency);
@@ -984,7 +1084,7 @@ function renderChart(canvasId, data, labelKey, chartLabel){
       labels,
       datasets:[
         {
-          label:`Revenue (${sym})`,
+          label:`Net Revenue (${sym})`,
           data: revenues,
           backgroundColor:'rgba(192,200,0,.65)',
           borderColor:'#C0C800',
@@ -1057,7 +1157,7 @@ function renderChart(canvasId, data, labelKey, chartLabel){
           },
           title:{
             display:true,
-            text:`Revenue (${sym})`,
+            text:`Net Revenue (${sym})`,
             font:{family:"'Plus Jakarta Sans', sans-serif", size:10, weight:'700'},
             color:'#7A8899'
           }
@@ -1159,6 +1259,45 @@ function viewCashoutDetails(eventId){
 }
 
 /* ============================================================
+   RENDER NOTIFICATIONS
+   ============================================================ */
+function renderNotifications(){
+  const mount = $('notif-feed-mount');
+  if(!mount) return;
+
+  if(allNotifications.length === 0){
+    mount.innerHTML = '<p class="text-muted" style="font-size:.78rem;">No new notifications.</p>';
+    return;
+  }
+
+  mount.innerHTML = allNotifications.slice(0, 5).map(n => {
+    let iconClass = 'info';
+    let icon = 'fa-bell';
+    
+    if(n.type === 'cashout_approved') { iconClass = 'success'; icon = 'fa-circle-check'; }
+    else if(n.type === 'cashout_paid') { iconClass = 'success'; icon = 'fa-sack-dollar'; }
+    else if(n.type === 'cashout_rejected') { iconClass = 'pink'; icon = 'fa-circle-xmark'; }
+    else if(n.type === 'ticket_sold') { iconClass = 'success'; icon = 'fa-ticket-alt'; }
+    else if(n.type === 'payment_received') { iconClass = 'success'; icon = 'fa-coins'; }
+    else if(n.type === 'payout_pending') { iconClass = 'warn'; icon = 'fa-clock'; }
+
+    const when = n.createdAt?.toDate?.() || new Date(n.createdAt || Date.now());
+    const timeAgo = Math.floor((Date.now() - when.getTime())/60000) + 'm ago';
+
+    return `
+      <div class="notif-item">
+        <div class="notif-icon ${iconClass}"><i class="fas ${icon}"></i></div>
+        <div class="notif-body">
+          <div class="notif-title">${n.title || 'Notification'}</div>
+          <div class="notif-desc">${n.body || ''}</div>
+          <div class="notif-time">${timeAgo}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ============================================================
    FILTERS + TABS
    ============================================================ */
 function applyFilters(){ renderAll(); }
@@ -1195,7 +1334,7 @@ window.auth = auth;
 window.setCurrency = window.setCurrency;
 
 applyCurrencyUI();
-console.log('✅ Sales Analytics v4.6 — dual currency + flags + geo-detect.');
+console.log('✅ Sales Analytics v4.7 — 4% Fee applied, Cashouts & Notifications active.');
 </script>
 </body>
-        </html>
+</html>

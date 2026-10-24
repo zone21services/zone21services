@@ -194,6 +194,9 @@ body{
   font-size:.72rem;color:var(--muted);
   margin-top:.3rem;font-weight:700;letter-spacing:.02em;
 }
+.stat-card .sub{
+  font-size:.68rem;color:var(--body);margin-top:4px;font-weight:600;
+}
 
 /* ============================================================
    CARDS
@@ -276,7 +279,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
 }
 
 /* ============================================================
-   BADGES
+   BADGES & PILLS
    ============================================================ */
 .badge{
   display:inline-flex;align-items:center;gap:.3rem;
@@ -291,7 +294,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
 .badge-gray{background:#EEF1F5;color:var(--body);border:1px solid var(--line-strong)}
 
 /* ============================================================
-   CASHOUT LIST
+   CASHOUT LIST & PAYOUT DETAILS
    ============================================================ */
 .cashout-list{margin-top:.5rem}
 .cashout-item{
@@ -311,8 +314,44 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
 .cashout-item .info .meta{
   font-size:.75rem;color:var(--muted);
   margin-top:3px;font-weight:600;
+  display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
 }
 .cashout-item .info .meta strong{color:var(--navy-900);font-weight:800}
+
+.payout-details-box {
+  margin-top: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  color: var(--body);
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.payout-details-box i {
+  color: var(--lime-deep);
+  font-size: 1rem;
+}
+.payout-details-box .pdb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.payout-details-box .pdb-lbl {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.payout-details-box .pdb-val {
+  font-weight: 700;
+  color: var(--navy-900);
+  font-size: 0.82rem;
+}
 
 .status-badge{
   display:inline-flex;align-items:center;gap:.3rem;
@@ -497,7 +536,13 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
     <div class="stat-card">
       <div class="icon"><i class="fas fa-coins"></i></div>
       <div class="value" id="a-total-revenue">$0</div>
-      <div class="label">Total Revenue</div>
+      <div class="label">Total Gross Revenue</div>
+      <div class="sub" id="a-total-fee" style="color:var(--pink-deep)">$0 fee collected (4%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="icon"><i class="fas fa-hand-holding-usd"></i></div>
+      <div class="value" id="a-net-revenue">$0</div>
+      <div class="label">Net Organizer Revenue</div>
     </div>
     <div class="stat-card">
       <div class="icon"><i class="fas fa-ticket-alt"></i></div>
@@ -510,7 +555,7 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
       <div class="label">Total Events</div>
     </div>
     <div class="stat-card">
-      <div class="icon"><i class="fas fa-hand-holding-usd"></i></div>
+      <div class="icon"><i class="fas fa-money-bill-transfer"></i></div>
       <div class="value" id="a-pending-cashouts">0</div>
       <div class="label">Pending Cashouts</div>
     </div>
@@ -528,14 +573,16 @@ td strong{color:var(--navy-900);font-weight:800;letter-spacing:-.015em}
           <tr>
             <th>Event</th>
             <th>Date</th>
-            <th>Tickets Sold</th>
-            <th>Revenue</th>
+            <th>Tickets</th>
+            <th>Gross Revenue</th>
+            <th>Fee (4%)</th>
+            <th>Net Revenue</th>
             <th>Cashout Status</th>
             <th style="width:130px;">Actions</th>
           </tr>
         </thead>
         <tbody id="admin-events-table">
-          <tr><td colspan="6" class="text-center text-muted">Loading events…</td></tr>
+          <tr><td colspan="8" class="text-center text-muted">Loading events…</td></tr>
         </tbody>
       </table>
     </div>
@@ -622,6 +669,9 @@ const ZAR_COUNTRIES = new Set(['ZA','LS','SZ','NA']);
 
 /* Fixed rate matched to plan pricing: $10 → R190, $50 → R950 */
 const USD_TO_ZAR = 19;
+
+/* 4% Commission Rate */
+const ZONE21_FEE_RATE = 0.04;
 
 const TIMEZONE_COUNTRY = {
   'Africa/Johannesburg':'ZA','Africa/Maseru':'LS','Africa/Mbabane':'SZ',
@@ -819,36 +869,50 @@ function startListening(){
     renderAdmin();
   }, err=>console.error('Invoices listener error:', err)));
 
+  // Listening to both cashout_requests (from revenue.html) and cashouts (from admindashboard.html)
   unsubscribers.push(db.collection('cashout_requests').onSnapshot(snap=>{
-    allCashouts = [];
-    snap.forEach(d=>allCashouts.push({ id:d.id, ...d.data() }));
+    let requests = [];
+    snap.forEach(d=>requests.push({ id:d.id, ...d.data() }));
+    // Merge with existing 'cashouts' collection if needed, or just use this one.
+    // Assuming revenue.html is the primary source now.
+    allCashouts = requests;
     renderAdmin();
-  }, err=>console.error('Cashouts listener error:', err)));
+  }, err=>console.error('Cashout requests listener error:', err)));
 }
 
 function refreshData(){ renderAdmin(); }
 
 /* ============================================================
-   COMPUTATIONS
+   COMPUTATIONS — WITH 4% FEE
    ============================================================ */
 function getEventRevenue(eventId){
   const tickets = allTickets.filter(t=>
     t.eventId === eventId && (t.status === 'approved' || t.status === 'scanned')
   );
   const sold = tickets.length;
-  let revenueUsd = 0;
+  let grossUsd = 0;
+  
   tickets.forEach(t=>{
     const inv = allInvoices.find(i=>i.ticketId === t.id);
-    if(inv && inv.amount) revenueUsd += Number(inv.amount) || 0;
+    if(inv && inv.amount) grossUsd += Number(inv.amount) || 0;
     else {
       const ev = allEvents.find(e=>e.id === eventId);
       if(ev && ev.ticketTypes){
         const tt = ev.ticketTypes.find(tk=>tk.name === t.ticketTypeName);
-        if(tt) revenueUsd += Number(tt.price) || 0;
+        if(tt) grossUsd += Number(tt.price) || 0;
       }
     }
   });
-  return { sold, revenueUsd: Math.round(revenueUsd * 100) / 100 };
+  
+  const feeUsd = grossUsd * ZONE21_FEE_RATE;
+  const netUsd = grossUsd - feeUsd;
+  
+  return { 
+    sold, 
+    grossUsd: Math.round(grossUsd * 100) / 100,
+    feeUsd: Math.round(feeUsd * 100) / 100,
+    netUsd: Math.round(netUsd * 100) / 100
+  };
 }
 
 function getEventCashoutStatus(eventId){
@@ -858,15 +922,35 @@ function getEventCashoutStatus(eventId){
   return latest.status;
 }
 
+function getPayoutIcon(method) {
+  const m = String(method || '').toLowerCase();
+  if (m.includes('ecocash') || m.includes('phone') || m.includes('mobile')) return 'fa-mobile-screen-button';
+  if (m.includes('innbucks')) return 'fa-bolt';
+  if (m.includes('mukuru')) return 'fa-paper-plane';
+  if (m.includes('bank')) return 'fa-building-columns';
+  if (m.includes('wallet')) return 'fa-wallet';
+  return 'fa-money-bill-transfer';
+}
+
 /* ============================================================
    RENDER
    ============================================================ */
 function renderAdmin(){
-  const totalRevenueUsd = allEvents.reduce((sum, ev)=>sum + getEventRevenue(ev.id).revenueUsd, 0);
-  const totalTickets = allEvents.reduce((sum, ev)=>sum + getEventRevenue(ev.id).sold, 0);
+  let totalGrossUsd = 0, totalFeeUsd = 0, totalNetUsd = 0, totalTickets = 0;
+  
+  allEvents.forEach(ev=>{
+    const r = getEventRevenue(ev.id);
+    totalGrossUsd += r.grossUsd;
+    totalFeeUsd += r.feeUsd;
+    totalNetUsd += r.netUsd;
+    totalTickets += r.sold;
+  });
+
   const pendingCashouts = allCashouts.filter(c=>c.status === 'pending').length;
 
-  $('a-total-revenue').textContent = formatFromUSD(totalRevenueUsd);
+  $('a-total-revenue').textContent = formatFromUSD(totalGrossUsd);
+  $('a-total-fee').textContent = formatFromUSD(totalFeeUsd) + ' fee collected (4%)';
+  $('a-net-revenue').textContent = formatFromUSD(totalNetUsd);
   $('a-total-tickets').textContent = totalTickets;
   $('a-total-events').textContent = allEvents.length;
   $('a-pending-cashouts').textContent = pendingCashouts;
@@ -875,7 +959,7 @@ function renderAdmin(){
   /* Table */
   const tbody = $('admin-events-table');
   if(allEvents.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No events found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No events found.</td></tr>';
   } else {
     tbody.innerHTML = '';
     allEvents.forEach(ev=>{
@@ -897,7 +981,9 @@ function renderAdmin(){
         <td><span class="truncate" title="${ev.eventName || ''}">${ev.eventName || 'Untitled Event'}</span></td>
         <td>${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'}</td>
         <td>${rev.sold}</td>
-        <td><strong>${formatFromUSD(rev.revenueUsd)}</strong></td>
+        <td><strong>${formatFromUSD(rev.grossUsd)}</strong></td>
+        <td><span style="color:var(--pink-deep);font-weight:700;">-${formatFromUSD(rev.feeUsd)}</span></td>
+        <td><strong>${formatFromUSD(rev.netUsd)}</strong></td>
         <td><span class="badge ${statusClass}">${statusLabel}</span></td>
         <td>
           <button class="btn btn-primary btn-sm" onclick="toggleExpand('${ev.id}')" title="Expand">
@@ -915,7 +1001,7 @@ function renderAdmin(){
       expandTr.className = 'expand-row';
       expandTr.id = `expand-${ev.id}`;
       expandTr.innerHTML = `
-        <td colspan="6">
+        <td colspan="8">
           <div class="expand-content">
             <strong>Ticket Breakdown</strong>
             <div class="ticket-breakdown" id="breakdown-${ev.id}">Loading…</div>
@@ -944,12 +1030,14 @@ function loadTicketBreakdown(eventId){
   let html = '';
   ev.ticketTypes.forEach(tt=>{
     const count = tickets.filter(t=>t.ticketTypeName === tt.name).length;
-    const revUsd = count * (Number(tt.price) || 0);
+    const grossUsd = count * (Number(tt.price) || 0);
+    const feeUsd = grossUsd * ZONE21_FEE_RATE;
+    const netUsd = grossUsd - feeUsd;
     html += `
       <div class="item">
         <div class="name">${tt.name}</div>
         <div class="count">${count}</div>
-        <div class="rev">${formatFromUSD(revUsd)}</div>
+        <div class="rev">${formatFromUSD(netUsd)} net</div>
       </div>
     `;
   });
@@ -977,23 +1065,41 @@ function renderCashouts(){
   const container = $('admin-cashout-list');
   const pending = allCashouts.filter(c=>c.status === 'pending');
   $('cashout-count-badge').textContent = pending.length + ' pending';
+  
   if(pending.length === 0){
     container.innerHTML = '<p class="text-muted">No pending cashout requests.</p>';
     return;
   }
+
   container.innerHTML = '';
   pending.forEach(co=>{
     const ev = allEvents.find(e=>e.id === co.eventId);
+    const method = co.details ? 'Manual Details' : 'Not specified'; // Fallback if details are unstructured
+    // Attempt to extract details if they were saved structured
+    const detailsText = co.details || '—';
+    const methodIcon = getPayoutIcon(detailsText);
+
     const div = document.createElement('div');
     div.className = 'cashout-item';
     div.innerHTML = `
       <div class="info">
         <div class="name">${ev ? ev.eventName : 'Unknown Event'}</div>
         <div class="meta">Organiser: ${co.organiserName || '—'} · Amount: <strong>${formatFromUSD(co.amount || 0)}</strong> · ${new Date(co.requestedAt).toLocaleString()}</div>
+        
+        <div class="payout-details-box">
+            <i class="fas ${methodIcon}"></i>
+            <div class="pdb-item">
+                <span class="pdb-lbl">Payment Details</span>
+                <span class="pdb-val">${escapeHtml(detailsText)}</span>
+            </div>
+        </div>
       </div>
-      <div>
-        <button class="btn btn-primary btn-sm" onclick="openCashoutDetail('${co.id}')">
-          <i class="fas fa-eye"></i> Review
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-green btn-sm" onclick="approveCashout('${co.id}','${escapeAttr(co.organiserName||'')}','${escapeAttr(formatFromUSD(co.amount||0))}')">
+            <i class="fas fa-check"></i> Approve
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="rejectCashout('${co.id}','${escapeAttr(co.organiserName||'')}')">
+            <i class="fas fa-xmark"></i> Reject
         </button>
       </div>
     `;
@@ -1001,23 +1107,79 @@ function renderCashouts(){
   });
 }
 
-/* ============================================================
-   CASHOUT DETAIL (ADMIN)
-   ============================================================ */
-function openCashoutDetail(cashoutId){
-  selectedCashoutId = cashoutId;
-  const co = allCashouts.find(c=>c.id === cashoutId);
-  if(!co) return alert('Cashout not found.');
-  const ev = allEvents.find(e=>e.id === co.eventId);
-  $('cd-event-name').textContent = ev ? ev.eventName : 'Unknown Event';
-  $('cd-organiser').textContent = co.organiserName || co.organiserEmail || '—';
-  $('cd-amount').textContent = formatFromUSD(co.amount || 0);
-  $('cd-details').textContent = co.details || '—';
-  $('cd-notes').textContent = co.notes || '—';
-  $('cd-requested').textContent = co.requestedAt ? new Date(co.requestedAt).toLocaleString() : '—';
-  $('cd-admin-notes').value = co.adminNotes || '';
-  openModal('cashout-detail-modal');
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function escapeAttr(s){
+  return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+
+/* ============================================================
+   CASHOUT ACTIONS
+   ============================================================ */
+async function approveCashout(id, vendorName, amount){
+  if(!confirm(`Approve this cashout of ${amount} for ${vendorName}?`)) return;
+  try{
+    await db.collection('cashout_requests').doc(id).update({
+      status: 'approved',
+      processedAt: new Date().toISOString(),
+      adminNotes: 'Approved by admin'
+    });
+
+    try {
+      const co = allCashouts.find(c => c.id === id);
+      const vendorId = co?.organiserId || co?.vendorId || '';
+      if(vendorId){
+        await db.collection('notifications').add({
+          userId: vendorId,
+          title: '✅ Cashout approved',
+          body: `Your cashout of ${amount} has been approved. Funds will be transferred shortly.`,
+          type: 'cashout_approved',
+          read: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    } catch(e){}
+
+    alert('Cashout approved.');
+    renderAdmin();
+  }catch(e){
+    alert('Failed: ' + e.message);
+  }
+}
+window.approveCashout = approveCashout;
+
+async function rejectCashout(id, vendorName){
+  if(!confirm(`Reject this cashout request from ${vendorName}?`)) return;
+  try{
+    await db.collection('cashout_requests').doc(id).update({
+      status: 'rejected',
+      processedAt: new Date().toISOString(),
+      adminNotes: 'Rejected by admin'
+    });
+
+    try {
+      const co = allCashouts.find(c => c.id === id);
+      const vendorId = co?.organiserId || co?.vendorId || '';
+      if(vendorId){
+        await db.collection('notifications').add({
+          userId: vendorId,
+          title: '⚠️ Cashout not approved',
+          body: `Your cashout request was not approved. Contact support if you have questions.`,
+          type: 'cashout_rejected',
+          read: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    } catch(e){}
+
+    alert('Cashout rejected.');
+    renderAdmin();
+  }catch(e){
+    alert('Failed: ' + e.message);
+  }
+}
+window.rejectCashout = rejectCashout;
 
 async function processCashout(action){
   if(!selectedCashoutId) return;
@@ -1039,10 +1201,26 @@ async function processCashout(action){
     });
     alert('Cashout updated to: ' + status.toUpperCase());
     closeModal('cashout-detail-modal');
+    renderAdmin();
   } catch(err){
     console.error(err);
     alert('Update failed.');
   }
+}
+
+function openCashoutDetail(cashoutId){
+  selectedCashoutId = cashoutId;
+  const co = allCashouts.find(c=>c.id === cashoutId);
+  if(!co) return alert('Cashout not found.');
+  const ev = allEvents.find(e=>e.id === co.eventId);
+  $('cd-event-name').textContent = ev ? ev.eventName : 'Unknown Event';
+  $('cd-organiser').textContent = co.organiserName || co.organiserEmail || '—';
+  $('cd-amount').textContent = formatFromUSD(co.amount || 0);
+  $('cd-details').textContent = co.details || '—';
+  $('cd-notes').textContent = co.notes || '—';
+  $('cd-requested').textContent = co.requestedAt ? new Date(co.requestedAt).toLocaleString() : '—';
+  $('cd-admin-notes').value = co.adminNotes || '';
+  openModal('cashout-detail-modal');
 }
 
 /* ============================================================
@@ -1057,17 +1235,19 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 });
 
 /* ============================================================
-   EXPORT CSV (uses active currency)
+   EXPORT CSV
    ============================================================ */
 function exportCSV(){
   if(allEvents.length === 0) return alert('No events.');
   const sym = currencySymbol(activeCurrency);
-  let csv = `Event,Date,Tickets Sold,Revenue (${activeCurrency}),Cashout Status\n`;
+  let csv = `Event,Date,Tickets Sold,Gross Revenue (${activeCurrency}),Platform Fee (4%),Net Revenue (${activeCurrency}),Cashout Status\n`;
   allEvents.forEach(ev=>{
     const rev = getEventRevenue(ev.id);
     const status = getEventCashoutStatus(ev.id);
-    const convertedRev = convertAmount(rev.revenueUsd).toFixed(2);
-    csv += `"${ev.eventName}",${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'},${rev.sold},${sym}${convertedRev},${status}\n`;
+    const gross = convertAmount(rev.grossUsd).toFixed(2);
+    const fee = convertAmount(rev.feeUsd).toFixed(2);
+    const net = convertAmount(rev.netUsd).toFixed(2);
+    csv += `"${ev.eventName}",${ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'},${rev.sold},${sym}${gross},${sym}${fee},${sym}${net},${status}\n`;
   });
   const blob = new Blob([csv], { type:'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -1093,7 +1273,7 @@ window.auth = auth;
 window.setCurrency = window.setCurrency;
 
 applyCurrencyUI();
-console.log('✅ Admin Revenue v4.6 — dual currency + flags + geo-detect.');
+console.log('✅ Admin Revenue v4.7 — 4% Fee applied, Cashout Processing active.');
 </script>
 </body>
-    </html>
+</html>

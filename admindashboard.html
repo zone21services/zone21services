@@ -206,6 +206,7 @@
             display: inline-flex;
             align-items: center;
             gap: 14px;
+            flex-wrap: wrap;
         }
         .payout-details-box i {
             color: var(--gold-deep);
@@ -391,6 +392,53 @@
             .stats-grid{grid-template-columns:1fr}
         }
         @media (min-width:769px){.sidebar-overlay{display:none!important}}
+
+        /* --- CLASSY MOBILE ARRANGEMENT --- */
+        @media (max-width: 768px) {
+            /* Adjust Grids */
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            
+            /* Stack Action Rows nicely */
+            .bp-row {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 14px 16px;
+                gap: 12px;
+            }
+            .bp-row__right {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+                margin-top: 8px;
+                border-top: 1px dashed var(--border);
+                padding-top: 12px;
+            }
+            
+            /* Make buttons full width for easy tapping */
+            .bp-row__right .btn {
+                flex: 1;
+                min-width: 120px;
+                justify-content: center;
+            }
+            
+            /* Adjust Payout Details Box */
+            .payout-details-box {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            /* Clean up cards */
+            .stat-card { padding: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+            .stat-card .stat-icon { width: 34px; height: 34px; font-size: 1rem; margin-bottom: 8px; }
+            .stat-card .value { font-size: 1.25rem; }
+            .stat-card .label { font-size: 0.7rem; line-height: 1.2; }
+            .stat-card .stat-trend { display: none; } /* Hide trend pill on mobile to save space */
+            
+            /* Section headers */
+            .section-head { flex-direction: column; align-items: flex-start; gap: 10px; margin: 24px 0 12px; }
+            .section-head h2 { font-size: 1rem; }
+        }
     </style>
 </head>
 <body>
@@ -412,6 +460,10 @@
         <a class="nav-item" href="adminevents.html"><i class="fas fa-check-circle"></i> Approve Events <span class="badge" id="pending-badge">0</span></a>
         <a class="nav-item" href="ticketsmanagement.html"><i class="fas fa-ticket-alt"></i> Manage Tickets</a>
         <a class="nav-item" href="adminpublishevents.html"><i class="fas fa-globe"></i> Publish Events</a>
+        
+        <!-- ADDED PAGES -->
+        <a class="nav-item" href="adminsalesdata.html"><i class="fas fa-database"></i> Ticket Sales</a>
+        <a class="nav-item" href="adminrevenue.html"><i class="fas fa-coins"></i> Ticket Revenue</a>
 
         <div class="section-label" style="margin-top:12px;">Blueprint Control</div>
         <a class="nav-item" href="#paymentApprovals" onclick="scrollToSection('paymentApprovals')"><i class="fas fa-file-invoice-dollar"></i> Vendor Payments <span class="badge" id="pendingPaymentsBadge">0</span></a>
@@ -443,7 +495,7 @@
             </div>
         </div>
         <div class="right">
-            <button class="notif-btn" title="Notifications" onclick="scrollToSection('paymentApprovals')">
+            <button class="notif-btn" title="Notifications" onclick="scrollToSection('recentNotifications')">
                 <i class="fas fa-bell"></i>
                 <span class="dot" id="notifDot"></span>
             </button>
@@ -492,7 +544,7 @@
                     <span class="stat-trend danger" id="payments-trend">Pending</span>
                 </div>
                 <div class="value" id="stat-pending-payments">0</div>
-                <div class="label">Vendor Payments to Approve</div>
+                <div class="label">Vendor Payments</div>
             </div>
             <div class="stat-card s6">
                 <div class="stat-accent"></div>
@@ -606,16 +658,16 @@
             </div>
         </section>
 
-        <!-- ═════════ RECENT ═════════ -->
-        <div class="recent-section" style="margin-top:24px">
+        <!-- ═════════ RECENT NOTIFICATIONS (Unified Feed) ═════════ -->
+        <div class="recent-section" id="recentNotifications" style="margin-top:24px; scroll-margin-top:80px;">
             <div class="header">
-                <h3><i class="fas fa-clock"></i> Recent Event Activity</h3>
-                <a href="adminevents.html">View All</a>
+                <h3><i class="fas fa-bell"></i> Recent Notifications & Activity</h3>
+                <span style="font-size:.72rem;color:var(--text-muted);">Live Updates</span>
             </div>
             <div id="recent-activity">
                 <div class="recent-item">
                     <div class="icon"><i class="fas fa-spinner fa-spin"></i></div>
-                    <div class="info"><div class="title">Loading recent activity...</div></div>
+                    <div class="info"><div class="title">Loading activity...</div></div>
                 </div>
             </div>
         </div>
@@ -705,8 +757,8 @@ function scrollToSection(id){
 window.scrollToSection = scrollToSection;
 
 /* ============================================================
-   ⚠️ GUARD: Only blueprint/vendor payments belong here.
-   ============================================================ */
+   GUARD: Only blueprint/vendor payments belong here.
+============================================================ */
 function isBlueprintInvoice(inv){
     if(!inv) return false;
     if(Array.isArray(inv.lines) && inv.lines.length > 0) return true;
@@ -717,31 +769,14 @@ function isBlueprintInvoice(inv){
 /* ============================================================
    ACTIVITY TOASTS
 ============================================================ */
-const seenIds = {
-    payments: new Set(),
-    cashouts: new Set(),
-    payouts: new Set(),
-    acceptances: new Set()
-};
-let firstLoad = {
-    payments: true,
-    cashouts: true,
-    payouts: true,
-    acceptances: true
-};
+const seenIds = { payments: new Set(), cashouts: new Set(), payouts: new Set(), acceptances: new Set() };
+let firstLoad = { payments: true, cashouts: true, payouts: true, acceptances: true };
 
 function showActivityToast(kind, { title, meta, onClick }){
     const stack = document.getElementById('activityStack');
     if(!stack) return;
 
-    const iconMap = {
-        pay: 'fa-file-invoice-dollar',
-        cash: 'fa-money-bill-transfer',
-        payout: 'fa-hand-holding-dollar',
-        accept: 'fa-circle-check',
-        deposit: 'fa-hand-holding-usd',
-        balance: 'fa-flag-checkered'
-    };
+    const iconMap = { pay: 'fa-file-invoice-dollar', cash: 'fa-money-bill-transfer', payout: 'fa-hand-holding-dollar', accept: 'fa-circle-check', deposit: 'fa-hand-holding-usd', balance: 'fa-flag-checkered' };
 
     const el = document.createElement('div');
     el.className = 'activity-toast ' + kind;
@@ -774,7 +809,6 @@ function showActivityToast(kind, { title, meta, onClick }){
     stack.appendChild(el);
     const timer = setTimeout(dismiss, 9000);
     el.addEventListener('mouseenter', () => clearTimeout(timer));
-
     while(stack.children.length > 4) stack.removeChild(stack.firstChild);
 }
 
@@ -831,7 +865,7 @@ auth.onAuthStateChanged(async (user) => {
         listenPayments();
         listenAssignments();
         listenCashouts();
-        loadRecentActivity();
+        listenRecentNotifications();
     }catch(e){
         console.error(e);
         await auth.signOut();
@@ -858,11 +892,9 @@ function listenEventsStats(){
         const c = snap.size;
         document.getElementById('stat-pending-events').textContent = c;
         const pb = document.getElementById('pending-badge');
-        pb.textContent = c;
-        pb.classList.toggle('visible', c > 0);
+        if(pb) { pb.textContent = c; pb.classList.toggle('visible', c > 0); }
         const tr = document.getElementById('pending-trend');
-        tr.textContent = c > 0 ? `${c} awaiting` : 'All clear';
-        tr.className = 'stat-trend' + (c > 0 ? ' warn' : '');
+        if(tr){ tr.textContent = c > 0 ? `${c} awaiting` : 'All clear'; tr.className = 'stat-trend' + (c > 0 ? ' warn' : ''); }
     }, err => console.error('pending events:', err));
 
     db.collection('invoices').where('status','==','paid').onSnapshot(snap => {
@@ -873,7 +905,6 @@ function listenEventsStats(){
         });
         document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
     }, err => {
-        console.warn('revenue listener:', err.message);
         db.collection('invoices').where('status','==','approved').onSnapshot(snap2 => {
             let total = 0;
             snap2.forEach(d => {
@@ -950,11 +981,7 @@ function listenPayments(){
 }
 
 function processInvoices(invoices){
-    invoices.sort((a,b) => {
-        const at = a.createdAt?.toMillis?.() || 0;
-        const bt = b.createdAt?.toMillis?.() || 0;
-        return bt - at;
-    });
+    invoices.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     cachedPayments = invoices;
     renderPayments(invoices);
     detectNewPayments(invoices);
@@ -994,10 +1021,7 @@ function renderPayments(invoices){
 
     let filtered = invoices;
     if(paymentFilter !== 'all'){
-        filtered = invoices.filter(inv => {
-            const a = analyzeBlueprintInvoice(inv);
-            return a.category === paymentFilter;
-        });
+        filtered = invoices.filter(inv => analyzeBlueprintInvoice(inv).category === paymentFilter);
     }
 
     count.textContent = invoices.length;
@@ -1030,18 +1054,13 @@ function renderPayments(invoices){
         const subtotalDisplay = cur === 'ZAR' ? subtotalUsd * 19 : subtotalUsd;
         const balanceDisplay = cur === 'ZAR' ? balanceUsd * 19 : balanceUsd;
 
-        let badgeClass = 'blueprint';
-        let badgeLabel = 'Blueprint';
-        let iconClass = 'green';
-        let iconFa = 'fa-file-invoice-dollar';
+        let badgeClass = 'blueprint', badgeLabel = 'Blueprint', iconClass = 'green', iconFa = 'fa-file-invoice-dollar';
         if(a.category === 'deposit'){ badgeClass = 'deposit'; badgeLabel = 'Deposit'; iconClass = 'amber'; iconFa = 'fa-hand-holding-usd'; }
         else if(a.category === 'balance'){ badgeClass = 'balance'; badgeLabel = 'Balance'; iconClass = 'purple'; iconFa = 'fa-flag-checkered'; }
         else if(a.category === 'full'){ badgeClass = 'full'; badgeLabel = 'Full Payment'; iconClass = 'green'; iconFa = 'fa-circle-check'; }
 
         const lineCount = a.lines.length;
-        const eventChip = eventName
-          ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(safe(eventName, 40))}</span>`
-          : '';
+        const eventChip = eventName ? `<span><i class="fas fa-calendar-alt"></i> ${escapeHtml(safe(eventName, 40))}</span>` : '';
         const svcChips = a.lines.slice(0, 5).map(l => `<span class="svc-chip">${escapeHtml(safe(l.service || 'Service', 22))}</span>`).join('');
         const moreChip = a.lines.length > 5 ? `<span class="svc-chip more">+${a.lines.length - 5} more</span>` : '';
 
@@ -1053,13 +1072,7 @@ function renderPayments(invoices){
             </div>
             ${svcChips ? `<div class="svc-chips">${svcChips}${moreChip}</div>` : ''}`;
 
-        const approveArgs = [
-            JSON.stringify(invNo),
-            JSON.stringify(userId),
-            JSON.stringify(eventId),
-            JSON.stringify(a.category),
-            JSON.stringify(a.payType || '')
-        ].join(',');
+        const approveArgs = [JSON.stringify(invNo), JSON.stringify(userId), JSON.stringify(eventId), JSON.stringify(a.category), JSON.stringify(a.payType || '')].join(',');
 
         return `
             <div class="bp-row">
@@ -1108,104 +1121,54 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
     const payNowDisplay = cur === 'ZAR' ? payNowUsd * 19 : payNowUsd;
     const balanceUsd = (invData && Number(invData.balanceUsd)) || 0;
     const balanceDisplay = cur === 'ZAR' ? balanceUsd * 19 : balanceUsd;
-
     const catLabel = { deposit: 'deposit', balance: 'balance', full: 'full payment' }[category] || 'vendor payment';
 
     let bodyHtml = '';
     if(category === 'deposit'){
-        bodyHtml = `<strong>What happens:</strong><br>
-            • Invoice marked as paid<br>
-            • All vendor assignments → <strong>Deposit Paid</strong><br>
-            • Vendors notified (cashout unlocked at their 50%)<br>
-            • Organiser notified: <strong>${fmtMoney(balanceDisplay, cur)}</strong> balance now due
-        `;
-    } else if(category === 'balance'){
-        bodyHtml = `<strong>What happens:</strong><br>
-            • Invoice marked as paid<br>
-            • All vendor assignments → <strong>Fully Paid</strong><br>
-            • Vendors notified (full cashout unlocked)<br>
-            • Booking confirmed complete
-        `;
+        bodyHtml = `<strong>What happens:</strong><br>• Invoice marked as paid<br>• All vendor assignments → <strong>Deposit Paid</strong><br>• Vendors notified<br>• Organiser notified: <strong>${fmtMoney(balanceDisplay, cur)}</strong> balance now due`;
     } else {
-        bodyHtml = `<strong>What happens:</strong><br>
-            • Invoice marked as paid<br>
-            • All vendor assignments → <strong>Fully Paid</strong><br>
-            • Vendors notified<br>
-            • Booking confirmed complete
-        `;
+        bodyHtml = `<strong>What happens:</strong><br>• Invoice marked as paid<br>• All vendor assignments → <strong>Fully Paid</strong><br>• Vendors notified<br>• Booking confirmed complete`;
     }
 
     openConfirm({
         title: `Approve ${catLabel}?`,
-        body: `
-            <p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">
-                You're about to approve <strong>invoice ${escapeHtml(invoiceNumber)}</strong> for
-                <strong>${escapeHtml(fmtMoney(payNowDisplay, cur))}</strong>.
-                This action is <strong>immediate and cannot be undone</strong>.
-            </p>
-            <div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6">
-                ${bodyHtml}
-            </div>
-        `,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">You're about to approve <strong>invoice ${escapeHtml(invoiceNumber)}</strong> for <strong>${escapeHtml(fmtMoney(payNowDisplay, cur))}</strong>. This action is <strong>immediate and cannot be undone</strong>.</p><div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6">${bodyHtml}</div>`,
         btnLabel: '<i class="fas fa-check"></i> Approve & Apply',
         btnClass: 'btn-green',
         onConfirm: async () => {
             try{
                 await db.collection('invoices').doc(invoiceNumber).update({
-                    status: 'paid',
-                    paymentStatus: 'approved',
+                    status: 'paid', paymentStatus: 'approved',
                     approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     approvedBy: auth.currentUser?.uid || 'admin'
                 });
 
                 const newStatus = (category === 'deposit') ? 'paid_deposit' : 'paid_full';
-
                 let linkedAssignments = [];
                 try {
                     let snap;
                     if(eventId){
-                        snap = await db.collection('assignments')
-                            .where('eventId','==',eventId).get();
+                        snap = await db.collection('assignments').where('eventId','==',eventId).get();
                     } else if(userId){
-                        snap = await db.collection('assignments')
-                            .where('organizerId','==',userId)
-                            .where('status','in',['accepted','paid_deposit']).get();
+                        snap = await db.collection('assignments').where('organizerId','==',userId).where('status','in',['accepted','paid_deposit']).get();
                     }
                     if(snap) snap.forEach(d => linkedAssignments.push({ id: d.id, ref: d.ref, data: d.data() }));
-                } catch(e){
-                    console.warn('assignment lookup:', e.message);
-                }
+                } catch(e){ console.warn('assignment lookup:', e.message); }
 
                 const batch = db.batch();
                 const now = firebase.firestore.FieldValue.serverTimestamp();
 
                 linkedAssignments.forEach(a => {
-                    const update = {
-                        status: newStatus,
-                        updatedAt: now,
-                        lastPaymentAt: now,
-                        lastPaymentInvoice: invoiceNumber
-                    };
+                    const update = { status: newStatus, updatedAt: now, lastPaymentAt: now, lastPaymentInvoice: invoiceNumber };
                     if(category === 'deposit'){
-                        update.depositPaid = true;
-                        update.depositPaidAt = now;
-                        update.depositInvoice = invoiceNumber;
-                        update.balanceDueUsd = balanceUsd;
-                        update.paymentProgress = 'deposit_paid';
-                    } else if(category === 'balance'){
-                        update.fullyPaid = true;
-                        update.fullyPaidAt = now;
-                        update.balanceInvoice = invoiceNumber;
-                        update.paymentProgress = 'fully_paid';
+                        update.depositPaid = true; update.depositPaidAt = now; update.depositInvoice = invoiceNumber;
+                        update.balanceDueUsd = balanceUsd; update.paymentProgress = 'deposit_paid';
                     } else {
-                        update.fullyPaid = true;
-                        update.fullyPaidAt = now;
-                        update.fullInvoice = invoiceNumber;
+                        update.fullyPaid = true; update.fullyPaidAt = now; update.balanceInvoice = invoiceNumber;
                         update.paymentProgress = 'fully_paid';
                     }
                     batch.update(a.ref, update);
                 });
-
                 if(linkedAssignments.length > 0) await batch.commit();
 
                 for(const a of linkedAssignments){
@@ -1215,12 +1178,8 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
                         await db.collection('notifications').add({
                             userId: vendorId,
                             title: category === 'deposit' ? '💰 Deposit received' : '🎉 Fully paid',
-                            body: (category === 'deposit'
-                                ? `A 50% deposit was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now available for the deposit portion.`
-                                : `Full payment was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}. Cashout is now fully unlocked.`),
-                            type: 'payment_received',
-                            assignmentId: a.id,
-                            read: false,
+                            body: (category === 'deposit' ? `A 50% deposit was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}.` : `Full payment was received for ${a.data.service || 'your service'} at ${a.data.eventName || 'the event'}.`),
+                            type: 'payment_received', assignmentId: a.id, read: false,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     } catch(e){}
@@ -1228,46 +1187,19 @@ async function approvePayment(invoiceNumber, userId, eventId, category, payType)
 
                 if(userId){
                     try {
-                        const orgSubject = category === 'deposit'
-                            ? `Deposit Confirmed · ${invoiceNumber}`
-                            : category === 'balance'
-                                ? `Balance Confirmed · Booking Complete · ${invoiceNumber}`
-                                : `Payment Confirmed · ${invoiceNumber}`;
-                        const orgMessage = category === 'deposit'
-                            ? `Your deposit of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated. Balance of ${fmtMoney(balanceDisplay, cur)} is now available to pay.`
-                            : category === 'balance'
-                                ? `Your balance payment of ${fmtMoney(payNowDisplay, cur)} has been confirmed. All ${linkedAssignments.length} vendor booking${linkedAssignments.length===1?'':'s'} are now fully paid.`
-                                : `Your full payment of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed. ${linkedAssignments.length} vendor${linkedAssignments.length===1?'':'s'} updated.`;
+                        const orgSubject = category === 'deposit' ? `Deposit Confirmed · ${invoiceNumber}` : `Payment Confirmed · ${invoiceNumber}`;
+                        const orgMessage = category === 'deposit' ? `Your deposit of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed.` : `Your payment of ${fmtMoney(payNowDisplay, cur)} for invoice ${invoiceNumber} has been confirmed.`;
 
                         await db.collection('messages').add({
-                            sender: 'admin', senderId: auth.currentUser?.uid || 'admin',
-                            senderType: 'admin', senderName: 'Zone21 Admin',
-                            subject: orgSubject,
-                            message: orgMessage,
-                            type: 'blueprint_payment_confirmed',
+                            sender: 'admin', senderId: auth.currentUser?.uid || 'admin', senderType: 'admin', senderName: 'Zone21 Admin',
+                            subject: orgSubject, message: orgMessage, type: 'blueprint_payment_confirmed',
                             recipientId: userId, status: 'unread', invoiceNumber,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     } catch(e){}
                 }
 
-                try {
-                    await db.collection('paymentEvents').add({
-                        invoiceNumber,
-                        eventId, userId,
-                        category, payType,
-                        amountUsd: payNowUsd,
-                        currency: cur,
-                        assignmentsUpdated: linkedAssignments.length,
-                        newStatus,
-                        approvedBy: auth.currentUser?.uid || 'admin',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch(e){}
-
                 toast('Vendor payment approved successfully', 'success');
-                loadRecentActivity();
-
             }catch(e){
                 console.error(e);
                 toast('Failed to approve: ' + e.message, 'error');
@@ -1280,16 +1212,13 @@ window.approvePayment = approvePayment;
 async function rejectPayment(invoiceNumber){
     openConfirm({
         title: 'Reject this payment?',
-        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">
-            The invoice <strong>${escapeHtml(invoiceNumber)}</strong> will be marked as rejected.
-            The organiser will need to resubmit proof of payment.</p>`,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">The invoice <strong>${escapeHtml(invoiceNumber)}</strong> will be marked as rejected. The organiser will need to resubmit proof of payment.</p>`,
         btnLabel: '<i class="fas fa-xmark"></i> Reject Payment',
         btnClass: 'btn-red',
         onConfirm: async () => {
             try{
                 await db.collection('invoices').doc(invoiceNumber).update({
-                    status: 'rejected',
-                    paymentStatus: 'rejected',
+                    status: 'rejected', paymentStatus: 'rejected',
                     rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     rejectedBy: auth.currentUser?.uid || 'admin'
                 });
@@ -1311,43 +1240,28 @@ function listenAssignments(){
     db.collection('assignments').onSnapshot(snap => {
         allAssignments = [];
         snap.forEach(d => allAssignments.push({ id: d.id, ...d.data() }));
-        allAssignments.sort((a,b) => {
-            const at = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
-            const bt = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
-            return bt - at;
-        });
-
+        allAssignments.sort((a,b) => (b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0));
         renderPayouts();
         renderCoordination();
         updateAssignmentStats();
         detectNewAcceptances();
-    }, err => {
-        console.warn('assignments:', err.message);
-    });
+    }, err => { console.warn('assignments:', err.message); });
 }
 
 function updateAssignmentStats(){
     const active = allAssignments.filter(a => ['invited','accepted','paid_deposit','paid_full'].includes(String(a.status||''))).length;
     document.getElementById('stat-assignments').textContent = active;
-    const tr = document.getElementById('assignments-trend');
-    tr.textContent = active > 0 ? 'Live' : 'Idle';
 }
 
 function detectNewAcceptances(){
-    if(firstLoad.acceptances){
-        allAssignments.forEach(a => seenIds.acceptances.add(a.id));
-        firstLoad.acceptances = false;
-        return;
-    }
+    if(firstLoad.acceptances){ allAssignments.forEach(a => seenIds.acceptances.add(a.id)); firstLoad.acceptances = false; return; }
     const acceptedNow = allAssignments.filter(a => String(a.status||'') === 'accepted');
     acceptedNow.forEach(a => {
         const key = `accept_${a.id}`;
         if(seenIds.acceptances.has(key)) return;
         seenIds.acceptances.add(key);
-
         const updatedAt = a.updatedAt?.toMillis?.() || 0;
         if(Date.now() - updatedAt > 15000) return;
-
         showActivityToast('accept', {
             title: `✅ Vendor accepted a job`,
             meta: `<strong>${escapeHtml(a.providerName || 'Vendor')}</strong> accepted <strong>${escapeHtml(a.service || 'service')}</strong> · ${escapeHtml(a.eventName || 'event')}`,
@@ -1369,10 +1283,7 @@ function renderPayouts(){
     });
 
     count.textContent = payouts.length;
-    if(badge){
-        if(payouts.length){ badge.textContent = payouts.length; badge.classList.add('visible'); }
-        else { badge.classList.remove('visible'); }
-    }
+    if(badge){ if(payouts.length){ badge.textContent = payouts.length; badge.classList.add('visible'); } else { badge.classList.remove('visible'); } }
 
     if(payouts.length === 0){
         list.innerHTML = `<div class="bp-empty"><i class="fas fa-hand-holding-dollar"></i><h4>No pending payouts</h4><p>Vendors with received funds will show up here.</p></div>`;
@@ -1384,31 +1295,22 @@ function renderPayouts(){
         const explicitUsd = Number(a.priceUsd);
         const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
         const legacyUsd = Number(a.agreedAmount || a.price || 0);
-        const lineUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0)
-            ? explicitUsd
-            : (tierUsd || legacyUsd);
+        const lineUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0) ? explicitUsd : (tierUsd || legacyUsd);
         const st = String(a.status).toLowerCase();
         const paidPct = st === 'paid_deposit' ? 0.5 : 1;
         const amountDueUsd = lineUsd * paidPct;
         const amountDisplay = fmtFromUSD(amountDueUsd, currency);
-        const eventName = a.eventName || 'Event';
-        const vendorName = a.providerName || 'Vendor';
-        const service = a.service || 'Service';
-        const date = a.date || '—';
         const statusLabel = st === 'paid_deposit' ? 'Deposit Received (50%)' : 'Fully Paid (100%)';
         const paidAt = toDate(a.lastPaymentAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric'}) || '—';
-        const tierTag = a.selectedTier?.name
-            ? `<span class="svc-chip" style="background:var(--navy);color:var(--lime);border-color:var(--navy)">${escapeHtml(safe(a.selectedTier.name,22))}</span>`
-            : '';
 
         return `
             <div class="bp-row">
                 <div class="bp-row__icon green"><i class="fas fa-hand-holding-dollar"></i></div>
                 <div class="bp-row__body">
-                    <div class="bp-row__title">${escapeHtml(vendorName)} · ${escapeHtml(service)}</div>
+                    <div class="bp-row__title">${escapeHtml(a.providerName || 'Vendor')} · ${escapeHtml(a.service || 'Service')}</div>
                     <div class="bp-row__sub">
-                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(eventName)}</span>
-                        <span><i class="fas fa-clock"></i> ${escapeHtml(date)}</span>
+                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(a.eventName || 'Event')}</span>
+                        <span><i class="fas fa-clock"></i> ${escapeHtml(a.date || '—')}</span>
                         <span><i class="fas fa-user"></i> ${escapeHtml(safe(a.organizerName||'Organizer',40))}</span>
                     </div>
                     <div class="bp-row__meta">
@@ -1416,12 +1318,11 @@ function renderPayouts(){
                         <span><i class="fas fa-percent"></i> ${st === 'paid_deposit' ? '50%' : '100%'} received</span>
                         ${a.lastPaymentInvoice ? `<span><i class="fas fa-hashtag"></i> ${escapeHtml(safe(a.lastPaymentInvoice,22))}</span>` : ''}
                     </div>
-                    ${tierTag ? `<div class="svc-chips">${tierTag}</div>` : ''}
                 </div>
                 <div class="bp-row__right">
                     <span class="status-chip accepted">${statusLabel}</span>
                     <span class="bp-row__amount">${amountDisplay}</span>
-                    <button class="btn btn-green" onclick="releasePayout('${escapeAttr(a.id)}','${escapeAttr(vendorName)}','${escapeAttr(amountDisplay)}','${escapeAttr(service)}','${escapeAttr(eventName)}')">
+                    <button class="btn btn-green" onclick="releasePayout('${escapeAttr(a.id)}','${escapeAttr(a.providerName||'')}','${escapeAttr(amountDisplay)}','${escapeAttr(a.service||'')}','${escapeAttr(a.eventName||'')}')">
                         <i class="fas fa-paper-plane"></i> Release
                     </button>
                 </div>
@@ -1432,58 +1333,18 @@ function renderPayouts(){
 async function releasePayout(assignmentId, vendorName, amountDisplay, service, eventName){
     openConfirm({
         title: 'Release payout to vendor?',
-        body: `
-            <p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">
-                You're about to release <strong>${escapeHtml(amountDisplay)}</strong> to
-                <strong>${escapeHtml(vendorName)}</strong>.
-            </p>
-            <div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6">
-                <strong>Service:</strong> ${escapeHtml(service)}<br>
-                <strong>Event:</strong> ${escapeHtml(eventName)}<br>
-                <strong>Amount:</strong> ${escapeHtml(amountDisplay)}<br><br>
-                <span style="color:var(--text-muted)">The assignment will be marked as completed and the vendor will be notified.</span>
-            </div>
-        `,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">You're about to release <strong>${escapeHtml(amountDisplay)}</strong> to <strong>${escapeHtml(vendorName)}</strong>.</p><div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6"><strong>Service:</strong> ${escapeHtml(service)}<br><strong>Event:</strong> ${escapeHtml(eventName)}<br><strong>Amount:</strong> ${escapeHtml(amountDisplay)}</div>`,
         btnLabel: '<i class="fas fa-paper-plane"></i> Confirm Release',
         btnClass: 'btn-green',
         onConfirm: async () => {
             try{
                 await db.collection('assignments').doc(assignmentId).update({
-                    payoutStatus: 'released',
-                    payoutReleasedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    payoutReleasedBy: auth.currentUser?.uid || 'admin',
-                    status: 'completed'
+                    payoutStatus: 'released', payoutReleasedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    payoutReleasedBy: auth.currentUser?.uid || 'admin', status: 'completed'
                 });
-
-                try {
-                    await db.collection('vendorPayouts').add({
-                        assignmentId, vendorName, service, eventName, amountDisplay,
-                        releasedBy: auth.currentUser?.uid || 'admin',
-                        releasedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch(e){}
-
-                try {
-                    const a = allAssignments.find(x => x.id === assignmentId);
-                    const vendorId = a?.providerId || a?.providerUid || '';
-                    if(vendorId){
-                        await db.collection('notifications').add({
-                            userId: vendorId,
-                            title: '💸 Payout released',
-                            body: `Zone21 has released ${amountDisplay} for ${service} at ${eventName}.`,
-                            type: 'payout_released',
-                            assignmentId,
-                            read: false,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                } catch(e){}
-
+                try { await db.collection('vendorPayouts').add({ assignmentId, vendorName, service, eventName, amountDisplay, releasedBy: auth.currentUser?.uid || 'admin', releasedAt: firebase.firestore.FieldValue.serverTimestamp() }); } catch(e){}
                 toast(`Payout released to ${vendorName}`, 'success');
-            }catch(e){
-                console.error(e);
-                toast('Failed: ' + e.message, 'error');
-            }
+            }catch(e){ toast('Failed: ' + e.message, 'error'); }
         }
     });
 }
@@ -1498,24 +1359,14 @@ function listenCashouts(){
     db.collection('cashouts').onSnapshot(snap => {
         cachedCashouts = [];
         snap.forEach(d => cachedCashouts.push({ id: d.id, ...d.data() }));
-        cachedCashouts.sort((a,b) => {
-            const at = a.requestedAt?.toMillis?.() || 0;
-            const bt = b.requestedAt?.toMillis?.() || 0;
-            return bt - at;
-        });
+        cachedCashouts.sort((a,b) => (b.requestedAt?.toMillis?.() || 0) - (a.requestedAt?.toMillis?.() || 0));
         renderCashouts(cachedCashouts);
         detectNewCashouts(cachedCashouts);
-    }, err => {
-        console.warn('cashouts:', err.message);
-    });
+    }, err => { console.warn('cashouts:', err.message); });
 }
 
 function detectNewCashouts(requests){
-    if(firstLoad.cashouts){
-        requests.forEach(r => seenIds.cashouts.add(r.id));
-        firstLoad.cashouts = false;
-        return;
-    }
+    if(firstLoad.cashouts){ requests.forEach(r => seenIds.cashouts.add(r.id)); firstLoad.cashouts = false; return; }
     requests.forEach(r => {
         if(seenIds.cashouts.has(r.id)) return;
         seenIds.cashouts.add(r.id);
@@ -1531,7 +1382,6 @@ function detectNewCashouts(requests){
     });
 }
 
-/* ─── Payout method icon mapping ─── */
 function getPayoutIcon(method) {
     const m = String(method || '').toLowerCase();
     if (m.includes('ecocash') || m.includes('phone') || m.includes('mobile')) return 'fa-mobile-screen-button';
@@ -1550,10 +1400,7 @@ function renderCashouts(requests){
 
     count.textContent = pending.length;
     document.getElementById('stat-cashouts').textContent = pending.length;
-    if(badge){
-        if(pending.length){ badge.textContent = pending.length; badge.classList.add('visible'); }
-        else { badge.classList.remove('visible'); }
-    }
+    if(badge){ if(pending.length){ badge.textContent = pending.length; badge.classList.add('visible'); } else { badge.classList.remove('visible'); } }
 
     if(requests.length === 0){
         list.innerHTML = `<div class="bp-empty"><i class="fas fa-money-bill-transfer"></i><h4>No cashout requests</h4><p>Vendor withdrawals will appear here.</p></div>`;
@@ -1569,30 +1416,19 @@ function renderCashouts(requests){
         const reqAt = toDate(r.requestedAt)?.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) || '—';
         const reqAgo = r.requestedAt?.toMillis ? timeAgo(r.requestedAt.toMillis()) : '—';
 
-        // Vendor payment method details
         const method = r.payoutMethod || 'Not specified';
         const accountName = r.payoutName || '—';
         const accountNum = r.payoutAccount || '—';
         const icon = getPayoutIcon(method);
 
-        // Assemble the details box
         let detailsBox = '';
         if (st === 'pending' || st === 'approved') {
             detailsBox = `
                 <div class="payout-details-box">
                     <i class="fas ${icon}"></i>
-                    <div class="pdb-item">
-                        <span class="pdb-lbl">Send via</span>
-                        <span class="pdb-val">${escapeHtml(method)}</span>
-                    </div>
-                    <div class="pdb-item">
-                        <span class="pdb-lbl">Account Name</span>
-                        <span class="pdb-val">${escapeHtml(accountName)}</span>
-                    </div>
-                    <div class="pdb-item">
-                        <span class="pdb-lbl">Account Number</span>
-                        <span class="pdb-val">${escapeHtml(accountNum)}</span>
-                    </div>
+                    <div class="pdb-item"><span class="pdb-lbl">Send via</span><span class="pdb-val">${escapeHtml(method)}</span></div>
+                    <div class="pdb-item"><span class="pdb-lbl">Account Name</span><span class="pdb-val">${escapeHtml(accountName)}</span></div>
+                    <div class="pdb-item"><span class="pdb-lbl">Account Number</span><span class="pdb-val">${escapeHtml(accountNum)}</span></div>
                 </div>
             `;
         }
@@ -1613,17 +1449,11 @@ function renderCashouts(requests){
                     <span class="status-chip ${cls}">${statusLabel}</span>
                     <span class="bp-row__amount">${amount}</span>
                     ${st === 'pending' ? `
-                        <button class="btn btn-green" onclick="approveCashout('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}','${escapeAttr(amount)}')">
-                            <i class="fas fa-check"></i> Approve
-                        </button>
-                        <button class="btn btn-outline" onclick="rejectCashout('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}')" title="Reject">
-                            <i class="fas fa-xmark"></i>
-                        </button>
+                        <button class="btn btn-green" onclick="approveCashout('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}','${escapeAttr(amount)}')"><i class="fas fa-check"></i> Approve</button>
+                        <button class="btn btn-outline" onclick="rejectCashout('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}')" title="Reject"><i class="fas fa-xmark"></i></button>
                     ` : ''}
                     ${st === 'approved' ? `
-                        <button class="btn btn-primary" onclick="markCashoutPaid('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}','${escapeAttr(amount)}')">
-                            <i class="fas fa-check-double"></i> Mark Paid
-                        </button>
+                        <button class="btn btn-primary" onclick="markCashoutPaid('${escapeAttr(r.id)}','${escapeAttr(r.providerName||'')}','${escapeAttr(amount)}')"><i class="fas fa-check-double"></i> Mark Paid</button>
                     ` : ''}
                 </div>
             </div>`;
@@ -1633,48 +1463,14 @@ function renderCashouts(requests){
 async function approveCashout(id, vendorName, amount){
     openConfirm({
         title: 'Approve this cashout?',
-        body: `
-            <p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">
-                You're approving a cashout of <strong>${escapeHtml(amount)}</strong> for
-                <strong>${escapeHtml(vendorName || 'this vendor')}</strong>.
-            </p>
-            <div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6;color:var(--text-secondary)">
-                <strong style="color:var(--text)">Next steps:</strong><br>
-                • Complete the manual transfer to the vendor's account<br>
-                • Then click <strong>Mark Paid</strong> on the request<br>
-                • The vendor will be notified at both steps
-            </div>
-        `,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px">You're approving a cashout of <strong>${escapeHtml(amount)}</strong> for <strong>${escapeHtml(vendorName || 'this vendor')}</strong>.</p><div style="background:var(--bg);border-radius:12px;padding:14px;font-size:.82rem;line-height:1.6;color:var(--text-secondary)"><strong style="color:var(--text)">Next steps:</strong><br>• Complete the manual transfer<br>• Then click <strong>Mark Paid</strong><br>• The vendor will be notified</div>`,
         btnLabel: '<i class="fas fa-check"></i> Approve Request',
         btnClass: 'btn-green',
         onConfirm: async () => {
             try{
-                await db.collection('cashouts').doc(id).update({
-                    status: 'approved',
-                    approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    approvedBy: auth.currentUser?.uid || 'admin'
-                });
-
-                try{
-                    const c = cachedCashouts.find(x => x.id === id);
-                    const vendorId = c?.providerId || '';
-                    if(vendorId){
-                        await db.collection('notifications').add({
-                            userId: vendorId,
-                            title: '✅ Cashout approved',
-                            body: `Your cashout of ${amount} has been approved. Funds will be transferred shortly.`,
-                            type: 'cashout_approved',
-                            cashoutId: id,
-                            read: false,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                }catch(e){}
-
+                await db.collection('cashouts').doc(id).update({ status: 'approved', approvedAt: firebase.firestore.FieldValue.serverTimestamp(), approvedBy: auth.currentUser?.uid || 'admin' });
                 toast('Cashout approved — complete the transfer', 'success');
-            }catch(e){
-                toast('Failed: ' + e.message, 'error');
-            }
+            }catch(e){ toast('Failed: ' + e.message, 'error'); }
         }
     });
 }
@@ -1683,43 +1479,14 @@ window.approveCashout = approveCashout;
 async function markCashoutPaid(id, vendorName, amount){
     openConfirm({
         title: 'Mark cashout as paid?',
-        body: `
-            <p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">
-                Confirm you have completed the <strong>${escapeHtml(amount)}</strong> transfer to
-                <strong>${escapeHtml(vendorName || 'this vendor')}</strong>.
-                The request will be closed.
-            </p>
-        `,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">Confirm you have completed the <strong>${escapeHtml(amount)}</strong> transfer to <strong>${escapeHtml(vendorName || 'this vendor')}</strong>.</p>`,
         btnLabel: '<i class="fas fa-check-double"></i> Mark as Paid',
         btnClass: 'btn-primary',
         onConfirm: async () => {
             try{
-                await db.collection('cashouts').doc(id).update({
-                    status: 'paid',
-                    paidAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    paidBy: auth.currentUser?.uid || 'admin'
-                });
-
-                try{
-                    const c = cachedCashouts.find(x => x.id === id);
-                    const vendorId = c?.providerId || '';
-                    if(vendorId){
-                        await db.collection('notifications').add({
-                            userId: vendorId,
-                            title: '💸 Cashout paid',
-                            body: `Zone21 has transferred ${amount} to your account.`,
-                            type: 'cashout_paid',
-                            cashoutId: id,
-                            read: false,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                }catch(e){}
-
+                await db.collection('cashouts').doc(id).update({ status: 'paid', paidAt: firebase.firestore.FieldValue.serverTimestamp(), paidBy: auth.currentUser?.uid || 'admin' });
                 toast('Cashout marked as paid', 'success');
-            }catch(e){
-                toast('Failed: ' + e.message, 'error');
-            }
+            }catch(e){ toast('Failed: ' + e.message, 'error'); }
         }
     });
 }
@@ -1728,40 +1495,14 @@ window.markCashoutPaid = markCashoutPaid;
 async function rejectCashout(id, vendorName){
     openConfirm({
         title: 'Reject this cashout request?',
-        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">
-            The cashout request from <strong>${escapeHtml(vendorName || 'this vendor')}</strong> will be rejected.
-            The vendor can request again later.
-        </p>`,
+        body: `<p style="font-size:.86rem;color:var(--text-secondary);line-height:1.6">The cashout request from <strong>${escapeHtml(vendorName || 'this vendor')}</strong> will be rejected.</p>`,
         btnLabel: '<i class="fas fa-xmark"></i> Reject Request',
         btnClass: 'btn-red',
         onConfirm: async () => {
             try{
-                await db.collection('cashouts').doc(id).update({
-                    status: 'rejected',
-                    rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    rejectedBy: auth.currentUser?.uid || 'admin'
-                });
-
-                try{
-                    const c = cachedCashouts.find(x => x.id === id);
-                    const vendorId = c?.providerId || '';
-                    if(vendorId){
-                        await db.collection('notifications').add({
-                            userId: vendorId,
-                            title: '⚠️ Cashout not approved',
-                            body: `Your cashout request was not approved. Contact support if you have questions.`,
-                            type: 'cashout_rejected',
-                            cashoutId: id,
-                            read: false,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                }catch(e){}
-
+                await db.collection('cashouts').doc(id).update({ status: 'rejected', rejectedAt: firebase.firestore.FieldValue.serverTimestamp(), rejectedBy: auth.currentUser?.uid || 'admin' });
                 toast('Cashout rejected', 'info');
-            }catch(e){
-                toast('Failed: ' + e.message, 'error');
-            }
+            }catch(e){ toast('Failed: ' + e.message, 'error'); }
         }
     });
 }
@@ -1800,41 +1541,25 @@ function renderCoordination(){
     list.innerHTML = filtered.slice(0, 40).map(a => {
         const st = String(a.status || 'not_sent').toLowerCase();
         const stCls = ['invited','accepted','paid_deposit','paid_full','declined'].includes(st) ? st : 'pending';
-        const stLabel = {
-            invited:'Invited', accepted:'Accepted',
-            paid_deposit:'Deposit Paid', paid_full:'Fully Paid',
-            declined:'Declined', completed:'Completed',
-            not_sent:'Not sent', cancelled:'Cancelled'
-        }[st] || st;
+        const stLabel = { invited:'Invited', accepted:'Accepted', paid_deposit:'Deposit Paid', paid_full:'Fully Paid', declined:'Declined', completed:'Completed', not_sent:'Not sent', cancelled:'Cancelled' }[st] || st;
         const currency = a.currency || 'USD';
         const explicitUsd = Number(a.priceUsd);
         const tierUsd = Number(a.selectedTier?.priceUsd) || 0;
         const legacyUsd = Number(a.agreedAmount || a.price || 0);
-        const budgetUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0)
-            ? explicitUsd
-            : (tierUsd || legacyUsd);
+        const budgetUsd = (Number.isFinite(explicitUsd) && explicitUsd > 0) ? explicitUsd : (tierUsd || legacyUsd);
         const amount = budgetUsd ? fmtFromUSD(budgetUsd, currency) : '—';
-        const eventName = a.eventName || 'Event';
-        const vendorName = a.providerName || 'Unassigned';
-        const service = a.service || 'Service';
-        const date = a.date || '—';
         const when = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || Date.now();
-        const tierTag = a.selectedTier?.name
-            ? `<span class="svc-chip" style="background:var(--navy);color:var(--lime);border-color:var(--navy)">${escapeHtml(safe(a.selectedTier.name,22))}</span>`
-            : '';
 
         return `
             <div class="bp-row">
                 <div class="bp-row__icon blue"><i class="fas fa-sitemap"></i></div>
                 <div class="bp-row__body">
-                    <div class="bp-row__title">${escapeHtml(service)} · ${escapeHtml(vendorName)}</div>
+                    <div class="bp-row__title">${escapeHtml(a.service || 'Service')} · ${escapeHtml(a.providerName || 'Unassigned')}</div>
                     <div class="bp-row__sub">
-                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(eventName)}</span>
-                        <span><i class="fas fa-clock"></i> ${escapeHtml(date)} ${a.time?'· '+escapeHtml(a.time):''}</span>
-                        <span><i class="fas fa-user"></i> ${escapeHtml(safe(a.organizerName||'Organizer',40))}</span>
+                        <span><i class="fas fa-calendar-alt"></i> ${escapeHtml(a.eventName || 'Event')}</span>
+                        <span><i class="fas fa-clock"></i> ${escapeHtml(a.date || '—')} ${a.time?'· '+escapeHtml(a.time):''}</span>
                         <span><i class="fas fa-hourglass-half"></i> ${timeAgo(when)}</span>
                     </div>
-                    ${tierTag ? `<div class="svc-chips">${tierTag}</div>` : ''}
                 </div>
                 <div class="bp-row__right">
                     <span class="status-chip ${stCls}">${stLabel}</span>
@@ -1842,44 +1567,86 @@ function renderCoordination(){
                 </div>
             </div>`;
     }).join('');
-
-    if(filtered.length > 40){
-        list.innerHTML += `<div class="bp-empty"><p>Showing first 40 of ${filtered.length} records.</p></div>`;
-    }
 }
 
 /* ============================================================
-   RECENT EVENT ACTIVITY
+   UNIFIED RECENT NOTIFICATIONS
 ============================================================ */
-function loadRecentActivity(){
+function listenRecentNotifications() {
     const container = document.getElementById('recent-activity');
-    db.collection('events').orderBy('createdAt','desc').limit(5)
-        .onSnapshot(snap => {
-            if(snap.empty){
-                container.innerHTML = `<div class="recent-item"><div class="icon"><i class="fas fa-info-circle"></i></div><div class="info"><div class="title">No recent activity</div><div class="desc">Events will appear here as they are created</div></div></div>`;
-                return;
-            }
-            let html = '';
-            snap.forEach(doc => {
-                const d = doc.data();
-                const eventName = d.eventName || d.name || d.title || 'Unnamed event';
-                let timeStr = 'Just now';
-                if(d.createdAt){
-                    const dt = d.createdAt.toDate ? d.createdAt.toDate() : new Date(d.createdAt);
-                    timeStr = dt.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-                }
-                let icon = 'fa-calendar-plus';
-                let label = 'New event created';
-                if(d.status === 'pending'){ icon = 'fa-hourglass-half'; label = 'Event pending approval'; }
-                else if(d.status === 'approved'){ icon = 'fa-check-circle'; label = 'Event approved'; }
-                else if(d.status === 'rejected'){ icon = 'fa-times-circle'; label = 'Event rejected'; }
-                else if(d.status === 'cancelled'){ icon = 'fa-ban'; label = 'Event cancelled'; }
-                html += `<div class="recent-item"><div class="icon"><i class="fas ${icon}"></i></div><div class="info"><div class="title">${escapeHtml(label)}</div><div class="desc">${escapeHtml(safe(eventName,60))}</div></div><span class="time">${escapeHtml(timeStr)}</span></div>`;
+    let eventsData = [], paymentsData = [], cashoutsData = [];
+
+    const renderFeed = () => {
+        let feed = [];
+        
+        // Add Events
+        eventsData.forEach(d => {
+            feed.push({
+                time: d.createdAt?.toMillis?.() || d.timestamp || 0,
+                icon: 'fa-calendar-plus', color: 'var(--lime)',
+                title: `New event created`,
+                desc: `${d.eventName || 'Event'} — by ${d.organizerName || 'Organizer'}`
             });
-            container.innerHTML = html;
-        }, err => {
-            container.innerHTML = `<div class="recent-item"><div class="icon"><i class="fas fa-exclamation-triangle"></i></div><div class="info"><div class="title">Could not load activity</div><div class="desc">${escapeHtml(err.message)}</div></div></div>`;
         });
+
+        // Add Payments (from cachedPayments)
+        paymentsData.forEach(p => {
+            feed.push({
+                time: p.createdAt?.toMillis?.() || 0,
+                icon: 'fa-file-invoice-dollar', color: 'var(--green)',
+                title: `Payment pending approval`,
+                desc: `${p.eventName || 'Event'} — ${fmtMoney(p.payNowUsd || 0, p.currency || 'USD')}`
+            });
+        });
+
+        // Add Cashouts
+        cashoutsData.forEach(c => {
+            if(String(c.status) !== 'pending') return;
+            feed.push({
+                time: c.requestedAt?.toMillis?.() || 0,
+                icon: 'fa-money-bill-transfer', color: 'var(--purple)',
+                title: `Cashout requested`,
+                desc: `${c.providerName || 'Vendor'} — ${fmtMoney(c.amount || 0, c.currency || 'USD')}`
+            });
+        });
+
+        // Sort by time descending
+        feed.sort((a, b) => b.time - a.time);
+        feed = feed.slice(0, 5); // Show top 5
+
+        if(feed.length === 0) {
+            container.innerHTML = `<div class="recent-item"><div class="icon"><i class="fas fa-info-circle"></i></div><div class="info"><div class="title">No recent activity</div><div class="desc">Notifications will appear here as they happen.</div></div></div>`;
+            return;
+        }
+
+        container.innerHTML = feed.map(item => `
+            <div class="recent-item">
+                <div class="icon" style="color:${item.color}; background:${item.color}15">
+                    <i class="fas ${item.icon}"></i>
+                </div>
+                <div class="info">
+                    <div class="title">${escapeHtml(item.title)}</div>
+                    <div class="desc">${escapeHtml(item.desc)}</div>
+                </div>
+                <span class="time">${item.time ? timeAgo(item.time) : 'Just now'}</span>
+            </div>
+        `).join('');
+    };
+
+    // Listen to Events
+    db.collection('events').orderBy('createdAt','desc').limit(5).onSnapshot(snap => {
+        eventsData = [];
+        snap.forEach(d => eventsData.push({ id: d.id, ...d.data() }));
+        renderFeed();
+    });
+
+    // Listen to Pending Payments (hook into existing state logic)
+    // We update a local array and re-render the feed
+    setInterval(() => {
+        paymentsData = cachedPayments;
+        cashoutsData = cachedCashouts;
+        renderFeed();
+    }, 2000); // Lightweight polling to keep the feed fresh without multiple heavy listeners
 }
 
 /* ============================================================
@@ -1892,48 +1659,35 @@ const menuToggle = document.getElementById('menuToggle');
 function toggleSidebar(){
     const open = sidebar.classList.contains('open');
     if(open){
-        sidebar.classList.remove('open');
-        sidebar.classList.add('closed');
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
+        sidebar.classList.remove('open'); sidebar.classList.add('closed');
+        overlay.classList.remove('active'); document.body.style.overflow = '';
     } else {
-        sidebar.classList.remove('closed');
-        sidebar.classList.add('open');
-        overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        sidebar.classList.remove('closed'); sidebar.classList.add('open');
+        overlay.classList.add('active'); document.body.style.overflow = 'hidden';
     }
 }
 menuToggle.addEventListener('click', toggleSidebar);
 overlay.addEventListener('click', () => {
     sidebar.classList.remove('open'); sidebar.classList.add('closed');
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
+    overlay.classList.remove('active'); document.body.style.overflow = '';
 });
 document.querySelectorAll('.sidebar .nav-item').forEach(l => {
     l.addEventListener('click', () => {
         if(window.innerWidth <= 768){
             sidebar.classList.remove('open'); sidebar.classList.add('closed');
-            overlay.classList.remove('active');
-            document.body.style.overflow = '';
+            overlay.classList.remove('active'); document.body.style.overflow = '';
         }
     });
 });
 window.addEventListener('resize', () => {
     if(window.innerWidth > 768){
         sidebar.classList.remove('open','closed');
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
+        overlay.classList.remove('active'); document.body.style.overflow = '';
     }
 });
-if(window.innerWidth > 768){
-    sidebar.classList.remove('closed','open');
-} else {
-    sidebar.classList.add('closed');
-}
+if(window.innerWidth > 768){ sidebar.classList.remove('closed','open'); } else { sidebar.classList.add('closed'); }
 
-document.addEventListener('keydown', e => {
-    if(e.key === 'Escape') closeConfirm();
-});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeConfirm(); });
 </script>
 </body>
 </html>

@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>Notifications · Zone21</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#0A1E2C;--navy-700:#1B3A52;--navy-800:#102838;--navy-900:#061420;
+  --lime:#C0C800;--lime-hover:#D4DC00;--lime-deep:#8A9000;--lime-soft:rgba(192,200,0,.10);
+  --gold:#C9A961;--gold-soft:rgba(201,169,97,.12);--gold-deep:#9C7F3F;
+  --coral:#D4856B;--coral-soft:rgba(212,133,107,.08);
+  --pink:#F80070;--pink-deep:#CC005C;--pink-soft:rgba(248,0,112,.10);
+  --green:#0F9D6E;--green-soft:rgba(15,157,110,.10);
+  --amber:#F5B400;--amber-soft:rgba(245,180,0,.10);
+  --blue:#0A84FF;--blue-soft:rgba(10,132,255,.10);
+  --purple:#7C3AED;--purple-soft:rgba(124,58,237,.10);
+  --cyan:#00A8C0;--cyan-soft:rgba(0,168,192,.10);
+  --ink:#0F172A;--body:#475569;--muted:#7A8899;
+  --line:#E6EAF0;--line-strong:#D3DAE3;
+  --canvas:#F6F7F9;--surface:#FFFFFF;
+  --danger:#D92D20;
+  --radius:12px;--radius-lg:16px;--radius-xl:22px;
+  --shadow-sm:0 1px 3px rgba(10,30,44,.05);
+  --shadow-md:0 6px 20px -6px rgba(10,30,44,.10);
+  --shadow-lg:0 24px 48px -20px rgba(10,30,44,.20);
+  --t:.25s cubic-bezier(.4,0,.2,1);
+  --sidebar-w:250px;--topbar-h:64px;
+}
+html{scroll-behavior:smooth}
+html,body{height:100%;overflow-x:hidden;background:var(--canvas);font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);font-size:.95rem;line-height:1.55;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+img{max-width:100%;display:block}
+
+/* SIDEBAR & TOPBAR (Standard) */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(6,20,32,.45);backdrop-filter:blur(4px);z-index:998}
+.sidebar-overlay.active{display:block}
+.sidebar{background:linear-gradient(180deg,var(--navy-900) 0%,var(--navy) 100%);width:var(--sidebar-w);height:100vh;position:fixed;top:0;left:0;z-index:999;display:flex;flex-direction:column;padding:20px 12px 20px;overflow-y:auto;transition:transform .35s cubic-bezier(.4,0,.2,1);color:#fff;box-shadow:4px 0 40px rgba(10,30,44,.15)}
+.sidebar.closed{transform:translateX(-100%)}
+.sidebar-brand{display:flex;align-items:center;gap:12px;padding:0 8px 18px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:16px}
+.sidebar-brand .mark{width:40px;height:40px;border-radius:11px;background:var(--lime);color:var(--navy);display:grid;place-items:center;font-weight:800;font-size:.85rem;flex-shrink:0}
+.sidebar-brand h1{font-size:.98rem;font-weight:800;color:var(--lime);letter-spacing:-.02em;line-height:1.2}
+.sidebar-brand small{display:block;font-size:.55rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-top:2px}
+.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:3px}
+.sidebar-nav a{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;color:rgba(255,255,255,.68);font-size:.83rem;font-weight:600;transition:var(--t);cursor:pointer;position:relative}
+.sidebar-nav a:hover{background:rgba(192,200,0,.08);color:#fff}
+.sidebar-nav a.active{background:rgba(192,200,0,.14);color:var(--lime);box-shadow:inset 0 0 0 1px rgba(192,200,0,.2)}
+.sidebar-nav a i{width:20px;text-align:center;font-size:.9rem}
+.sidebar-nav a .nav-badge{margin-left:auto;background:var(--pink);color:#fff;font-size:.55rem;font-weight:800;padding:2px 8px;border-radius:20px;min-width:18px;text-align:center;display:none}
+.sidebar-nav a .nav-badge.visible{display:inline-block}
+.sidebar-nav a .nav-badge.green{background:var(--green)}
+.sidebar-foot{padding-top:16px;border-top:1px solid rgba(255,255,255,.05);font-size:.62rem;color:rgba(255,255,255,.35);text-align:center;font-weight:600}
+
+.main{flex:1;min-height:100vh;margin-left:var(--sidebar-w);width:calc(100% - var(--sidebar-w));display:flex;flex-direction:column;transition:margin-left .35s cubic-bezier(.4,0,.2,1),width .35s cubic-bezier(.4,0,.2,1)}
+.topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:12px 26px;display:flex;justify-content:space-between;align-items:center;gap:14px;position:sticky;top:0;z-index:900;flex-wrap:wrap}
+.topbar__left{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
+.menu-btn{display:none;font-size:1.3rem;color:var(--navy);padding:6px;border-radius:9px}
+.menu-btn:hover{background:var(--canvas)}
+.topbar__title h2{font-size:1rem;font-weight:800;color:var(--navy);letter-spacing:-.015em}
+.topbar__title span{font-size:.68rem;color:var(--muted);font-weight:600;display:block;margin-top:1px}
+.topbar__right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.curr-switch{display:flex;gap:3px;background:var(--canvas);border:1px solid var(--line);border-radius:999px;padding:3px}
+.curr-switch button{border:0;background:transparent;font-family:inherit;font-size:.68rem;font-weight:800;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:var(--t)}
+.curr-switch button.active{background:var(--navy);color:#fff}
+.curr-switch button.active[data-curr="ZAR"]{background:#007A4D;color:#FFB612}
+.icon-btn{width:40px;height:40px;border-radius:11px;background:var(--canvas);color:var(--navy);display:grid;place-items:center;font-size:.9rem;transition:var(--t);position:relative}
+.icon-btn:hover{background:var(--lime-soft);color:var(--lime-deep)}
+.icon-btn .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--pink);color:#fff;font-size:.58rem;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;background:var(--canvas);border-radius:999px;font-size:.78rem;font-weight:700;color:var(--navy);max-width:180px}
+.user-chip .av{width:30px;height:30px;border-radius:50%;background:var(--navy);color:var(--lime);display:grid;place-items:center;font-size:.7rem;font-weight:800;flex-shrink:0;overflow:hidden}
+.user-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.content{flex:1;padding:22px 26px 60px;max-width:1000px;width:100%;margin:0 auto}
+
+/* ══════════════════════════════════════════════
+   PAGE HEADER & FILTER TABS
+══════════════════════════════════════════════ */
+.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-header h1{font-family:'Fraunces',Georgia,serif;font-size:1.8rem;font-weight:700;color:var(--navy);letter-spacing:-.02em;display:flex;align-items:center;gap:12px}
+.page-header h1 i{color:var(--gold-deep);font-size:1.4rem}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-action{background:#fff;border:1px solid var(--line-strong);color:var(--navy);padding:8px 14px;border-radius:10px;font-size:.75rem;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:var(--t);font-family:inherit}
+.btn-action:hover{background:var(--canvas);border-color:var(--navy)}
+.btn-action.danger:hover{border-color:var(--pink);color:var(--pink);background:var(--pink-soft)}
+.btn-action:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+.filter-tabs{display:flex;gap:8px;margin-bottom:24px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.filter-tabs::-webkit-scrollbar{display:none}
+.filter-tab{padding:10px 20px;background:#fff;border:1px solid var(--line);border-radius:999px;font-size:.8rem;font-weight:700;color:var(--muted);cursor:pointer;transition:all .25s;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;font-family:inherit}
+.filter-tab:hover{background:var(--canvas);color:var(--navy)}
+.filter-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 4px 12px -4px rgba(10,30,44,.3)}
+.filter-tab .count{background:rgba(255,255,255,.2);color:inherit;padding:2px 7px;border-radius:20px;font-size:.65rem;font-weight:800}
+.filter-tab:not(.active) .count{background:var(--canvas);color:var(--muted);border:1px solid var(--line)}
+
+/* ══════════════════════════════════════════════
+   NOTIFICATIONS FEED
+══════════════════════════════════════════════ */
+.notif-date-group{margin-bottom:20px}
+.date-label{font-size:.75rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;padding-left:4px}
+
+.notif-feed{display:flex;flex-direction:column;gap:10px}
+.notif{
+  display:flex;gap:16px;padding:18px;background:#fff;
+  border:1px solid var(--line);border-radius:16px;
+  transition:all .25s cubic-bezier(.22,1,.36,1);
+  position:relative;align-items:flex-start;
+}
+.notif:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm);transform:translateX(4px)}
+.notif.read{opacity:.65;background:var(--canvas)}
+.notif.info{background:linear-gradient(180deg,#fff,#F7FBFF);border-left:4px solid var(--blue)}
+.notif.success{background:linear-gradient(180deg,#fff,#F2FBF7);border-left:4px solid var(--green)}
+.notif.warn{background:linear-gradient(180deg,#fff,#FFFBF0);border-left:4px solid var(--amber)}
+.notif.error{background:linear-gradient(180deg,#fff,#FFF5FA);border-left:4px solid var(--pink)}
+.notif.gold{background:linear-gradient(180deg,#fff,#FFFDF6);border-left:4px solid var(--gold)}
+.notif.paynow{background:linear-gradient(135deg,#F0FDF4,#E7FBEF);border-left:4px solid var(--green);box-shadow:0 4px 16px -6px rgba(15,157,110,.2)}
+.notif.read.info,.notif.read.success,.notif.read.warn,.notif.read.error,.notif.read.gold,.notif.read.paynow{background:var(--canvas);border-left-color:var(--line-strong)}
+
+.notif__icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;flex-shrink:0;font-size:1.1rem;background:var(--canvas);color:var(--navy);transition:all .25s}
+.notif:hover .notif__icon{transform:scale(1.05)}
+.notif.info .notif__icon{background:var(--blue-soft);color:var(--blue)}
+.notif.success .notif__icon{background:var(--green-soft);color:var(--green)}
+.notif.warn .notif__icon{background:var(--amber-soft);color:#9A6E00}
+.notif.error .notif__icon{background:var(--pink-soft);color:var(--pink)}
+.notif.gold .notif__icon{background:var(--gold-soft);color:var(--gold-deep)}
+.notif.paynow .notif__icon{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 8px 20px -8px rgba(16,185,129,.5)}
+
+.notif__body{flex:1;min-width:0;padding-top:2px}
+.notif__title{font-size:.95rem;font-weight:800;color:var(--navy);letter-spacing:-.01em;line-height:1.35;margin-bottom:6px;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.notif__desc{font-size:.82rem;color:var(--body);font-weight:500;line-height:1.55;word-break:break-word}
+.notif__time{font-size:.68rem;color:var(--muted);font-weight:700;margin-top:10px;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.notif__time i{font-size:.6rem}
+.notif__unread-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--pink);flex-shrink:0;box-shadow:0 0 0 3px rgba(248,0,112,.15);animation:dotPulse 2s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+.notif__action{
+  margin-top:14px;background:var(--navy);color:#fff;padding:9px 18px;border-radius:10px;border:none;cursor:pointer;
+  font-size:.76rem;font-weight:800;letter-spacing:.02em;display:inline-flex;align-items:center;gap:6px;
+  transition:all .2s;text-decoration:none;font-family:inherit;
+}
+.notif__action:hover{background:var(--navy-800);transform:translateY(-1px);box-shadow:0 6px 16px -6px rgba(10,30,44,.3)}
+.notif.paynow .notif__action{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 6px 16px -6px rgba(16,185,129,.4)}
+.notif.paynow .notif__action:hover{background:linear-gradient(135deg,#059669,#047857)}
+.notif.gold .notif__action{background:var(--gold-deep);color:#fff}
+.notif.success .notif__action{background:var(--green);color:#fff}
+
+.notif__dismiss{
+  position:absolute;top:16px;right:16px;width:30px;height:30px;
+  border-radius:50%;background:rgba(10,30,44,.04);color:var(--muted);
+  display:grid;place-items:center;font-size:.75rem;cursor:pointer;
+  transition:var(--t);opacity:0;border:none;font-family:inherit;
+}
+.notif:hover .notif__dismiss{opacity:1}
+.notif__dismiss:hover{background:var(--pink);color:#fff;transform:rotate(90deg)}
+@media(max-width:640px){
+  .notif__dismiss{opacity:1}
+  .notif{padding:14px;gap:12px}
+  .notif__icon{width:40px;height:40px;font-size:1rem}
+  .notif__title{font-size:.88rem}
+  .notif__desc{font-size:.78rem}
+}
+
+.tag-mini{font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--canvas);color:var(--body);border:1px solid var(--line);letter-spacing:.02em;display:inline-flex;align-items:center;gap:4px}
+.tag-mini.tier{background:var(--navy);color:var(--lime);border-color:var(--navy);font-weight:800}
+.tag-mini.cur-usd{background:rgba(10,132,255,.1);color:var(--blue);border-color:rgba(10,132,255,.25);font-weight:800}
+.tag-mini.cur-zar{background:rgba(0,122,77,.1);color:#007A4D;border-color:rgba(0,122,77,.25);font-weight:800}
+
+/* Empty State & Load More */
+.empty{padding:3rem 1.5rem;text-align:center;border:1.5px dashed var(--line-strong);border-radius:16px;color:var(--muted);background:var(--canvas)}
+.empty i.big{font-size:2.4rem;display:block;margin-bottom:1rem;color:var(--line-strong)}
+.empty h4{color:var(--navy);font-size:1.05rem;font-weight:800;margin-bottom:.4rem}
+.empty p{font-size:.85rem;max-width:400px;margin:0 auto;font-weight:500}
+
+.load-more-wrap{text-align:center;margin-top:24px;padding-bottom:20px}
+.btn-load-more{background:#fff;border:1px solid var(--line-strong);color:var(--navy);padding:12px 24px;border-radius:12px;font-size:.82rem;font-weight:800;cursor:pointer;transition:var(--t);display:inline-flex;align-items:center;gap:8px;font-family:inherit}
+.btn-load-more:hover{background:var(--canvas);border-color:var(--navy);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+
+/* Loader */
+.loader-wrap{padding:3rem 0;text-align:center;color:var(--muted);font-weight:600}
+.loader-wrap i{font-size:2rem;color:var(--gold-deep);margin-bottom:12px;display:block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#toast{position:fixed;top:80px;right:1rem;z-index:99998;display:flex;flex-direction:column;gap:.5rem;max-width:340px;width:calc(100% - 2rem)}
+.toast{padding:.8rem 1.05rem;border-radius:10px;background:var(--navy);color:#fff;font-size:.8rem;font-weight:700;box-shadow:var(--shadow-lg);animation:slIn .3s cubic-bezier(.22,1,.36,1);display:flex;align-items:center;gap:.6rem;border-left:3px solid var(--lime)}
+.toast.success{border-left-color:var(--green)}
+.toast.error{border-left-color:var(--pink)}
+.toast.warn{border-left-color:var(--amber)}
+@keyframes slIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;width:100%}
+  .topbar{padding:12px 14px}
+  .menu-btn{display:grid;place-items:center}
+  .topbar__title span{display:none}
+  .user-chip span{display:none}
+  .user-chip{padding:4px}
+  .content{padding:16px 14px 50px}
+  .page-header h1{font-size:1.5rem}
+  .curr-switch button{padding:5px 9px;font-size:.6rem}
+  .topbar__right{gap:5px}
+  .icon-btn{width:36px;height:36px;font-size:.82rem}
+}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<aside class="sidebar closed" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="mark">Z21</div>
+    <div>
+      <h1>Zone<span style="color:#fff">21</span></h1>
+      <small>Organizer</small>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><i class="fas fa-home"></i> Home</a>
+    <a href="organizer-profile.html"><i class="fas fa-user-circle"></i> My Profile</a>
+    <a href="myevents.html"><i class="fas fa-calendar-alt"></i> My Events <span class="nav-badge" id="navBadgeEvents">0</span></a>
+    <a href="vendorpayments.html"><i class="fas fa-coins"></i> Payments <span class="nav-badge green" id="navBadgePayments">0</span></a>
+    <a class="active" href="notifications.html"><i class="fas fa-bell"></i> Notifications <span class="nav-badge" id="navBadgeNotif">0</span></a>
+    <a href="zone21security.html"><i class="fas fa-shield-alt"></i> Zone21 Security</a>
+    <a href="support.html"><i class="fas fa-headset"></i> Contact Admin</a>
+    <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Logout</a>
+  </nav>
+  <div class="sidebar-foot">Zone21 v4.2 · Organizer · Free</div>
+</aside>
+
+<div class="main" id="mainContent">
+  <header class="topbar">
+    <div class="topbar__left">
+      <button class="menu-btn" id="menuBtn" aria-label="Menu"><i class="fas fa-bars"></i></button>
+      <div class="topbar__title">
+        <h2>Notifications</h2>
+        <span id="topbarSub">Your activity feed</span>
+      </div>
+    </div>
+    <div class="topbar__right">
+      <div class="curr-switch" id="currSwitch" title="Display currency">
+        <button type="button" data-curr="USD" onclick="setGlobalCurrency('USD',true)">🇺🇸 USD</button>
+        <button type="button" data-curr="ZAR" onclick="setGlobalCurrency('ZAR',true)">🇿🇦 ZAR</button>
+      </div>
+      <a class="icon-btn" href="vendorpayments.html" title="Payments" style="text-decoration:none">
+        <i class="fas fa-coins"></i>
+        <span class="badge green" id="topPaymentsBadge" style="display:none">0</span>
+      </a>
+      <a class="icon-btn active" href="notifications.html" title="Notifications" style="text-decoration:none;background:var(--lime-soft);color:var(--lime-deep)">
+        <i class="fas fa-bell"></i>
+        <span class="badge" id="topNotifBadge" style="display:none">0</span>
+      </a>
+      <a class="user-chip" href="organizer-profile.html" id="userChip">
+        <div class="av" id="userAvatar">O</div>
+        <span id="userName">Organizer</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="page-header">
+      <h1><i class="fas fa-bell"></i> Notifications</h1>
+      <div class="header-actions">
+        <button class="btn-action" id="markAllReadBtn"><i class="fas fa-check-double"></i> Mark all read</button>
+        <button class="btn-action danger" id="clearAllBtn"><i class="fas fa-eraser"></i> Clear all</button>
+      </div>
+    </div>
+
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-filter="all">All <span class="count" id="countAll">0</span></button>
+      <button class="filter-tab" data-filter="unread">Unread <span class="count" id="countUnread">0</span></button>
+      <button class="filter-tab" data-filter="payments">Payments <span class="count" id="countPayments">0</span></button>
+      <button class="filter-tab" data-filter="events">Events <span class="count" id="countEvents">0</span></button>
+    </div>
+
+    <div id="notificationsContainer">
+      <div class="loader-wrap">
+        <i class="fas fa-circle-notch"></i>
+        <p>Loading your activity…</p>
+      </div>
+    </div>
+    
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+      <button class="btn-load-more" id="loadMoreBtn">
+        Load older notifications <i class="fas fa-chevron-down"></i>
+      </button>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   FIREBASE
+============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBQj0hNKz07wfbimTtjb9tm92fd-G62PVo",
+  authDomain: "zone21.firebaseapp.com",
+  projectId: "zone21",
+  storageBucket: "zone21.firebasestorage.app",
+  messagingSenderId: "405963057292",
+  appId: "1:405963057292:web:80e9923ae84eb7029073a9",
+  measurementId: "G-KE007Y89F1"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ============================================================
+   CURRENCY
+============================================================ */
+const CURRENCIES = {
+  USD: { sym:'$', code:'USD', label:'US Dollar' },
+  ZAR: { sym:'R', code:'ZAR', label:'South African Rand' }
+};
+let displayCurrency = 'USD';
+try {
+  const stored = localStorage.getItem('zone21_organizer_display_currency');
+  if(stored && CURRENCIES[stored]) displayCurrency = stored;
+} catch(e){}
+
+function fmtIn(amount, currency){
+  const c = (CURRENCIES[currency]) ? currency : 'USD';
+  const n = Math.round(Number(amount) || 0);
+  return `${CURRENCIES[c].sym}${n.toLocaleString('en-US')}`;
+}
+function fmtUSD(usd){ return fmtIn(usd, 'USD'); }
+function fmtZAR(zar){ return fmtIn(zar, 'ZAR'); }
+
+function setGlobalCurrency(curr, isManual){
+  if(!CURRENCIES[curr]) return;
+  displayCurrency = curr;
+  if(isManual){
+    try { localStorage.setItem('zone21_organizer_display_currency', curr); } catch(e){}
+  }
+  document.querySelectorAll('#currSwitch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.curr === displayCurrency);
+  });
+  renderNotifications();
+}
+window.setGlobalCurrency = setGlobalCurrency;
+
+function updateCurrencyUI(){
+  document.querySelectorAll('#currSwitch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.curr === displayCurrency);
+  });
+}
+
+/* ============================================================
+   STATE
+============================================================ */
+let currentUser = null;
+let userEvents = [];
+let userAssignments = [];
+let userInvoices = [];
+let pendingCart = null;
+
+let unsubEvents = null, unsubAssign = null;
+
+let readNotifIds = new Set();
+let dismissedNotifIds = new Set();
+
+let allNotifications = [];
+let currentFilter = 'all';
+let visibleLimit = 15;
+
+function readNotifStoreKey(){
+  return currentUser ? `zone21_organizer_read_notifs_${currentUser.uid}` : 'zone21_organizer_read_notifs_guest';
+}
+function dismissedNotifStoreKey(){
+  return currentUser ? `zone21_organizer_dismissed_notifs_${currentUser.uid}` : 'zone21_organizer_dismissed_notifs_guest';
+}
+function loadReadNotifIds(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(readNotifStoreKey()) || '[]');
+    readNotifIds = new Set(Array.isArray(raw) ? raw.filter(Boolean) : []);
+  } catch(e){ readNotifIds = new Set(); }
+}
+function persistReadNotifIds(){
+  try { localStorage.setItem(readNotifStoreKey(), JSON.stringify(Array.from(readNotifIds))); } catch(e){}
+}
+function loadDismissedNotifIds(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(dismissedNotifStoreKey()) || '[]');
+    dismissedNotifIds = new Set(Array.isArray(raw) ? raw.filter(Boolean) : []);
+  } catch(e){ dismissedNotifIds = new Set(); }
+}
+function persistDismissedNotifIds(){
+  try { localStorage.setItem(dismissedNotifStoreKey(), JSON.stringify(Array.from(dismissedNotifIds))); } catch(e){}
+}
+
+const $ = id => document.getElementById(id);
+
+/* ============================================================
+   TOAST + UTILITIES
+============================================================ */
+function toast(msg, type='info'){
+  const c = $('toast'); if(!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  const icon = type==='success'?'fa-circle-check':type==='error'?'fa-circle-exclamation':type==='warn'?'fa-triangle-exclamation':'fa-circle-info';
+  t.innerHTML = `<i class="fas ${icon}"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 4500);
+}
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function safe(s, max=80){
+  if(s==null) return '';
+  let v = String(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  if(v.length>max) v = v.slice(0,max).trim()+'…';
+  return v;
+}
+function timeAgo(t){
+  const s = Math.floor((Date.now()-t)/1000);
+  if(s < 60) return 'Just now';
+  if(s < 3600) return Math.floor(s/60)+'m ago';
+  if(s < 86400) return Math.floor(s/3600)+'h ago';
+  if(s < 604800) return Math.floor(s/86400)+'d ago';
+  return new Date(t).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+const toDate = v => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
+
+/* ============================================================
+   AUTH & INIT
+============================================================ */
+auth.onAuthStateChanged(async user => {
+  if(!user){ window.location.href = 'index.html'; return; }
+  currentUser = user;
+  $('userName').textContent = user.displayName || user.email || 'Organizer';
+  $('userAvatar').textContent = (user.displayName || user.email || 'O').charAt(0).toUpperCase();
+  loadReadNotifIds();
+  loadDismissedNotifIds();
+
+  await Promise.all([
+    subscribeEvents(),
+    subscribeAssignments(),
+    loadInvoices()
+  ]);
+
+  refreshPendingPaymentCart();
+});
+
+/* ============================================================
+   DATA FETCHING
+============================================================ */
+function subscribeEvents(){
+  if(unsubEvents) unsubEvents();
+  unsubEvents = db.collection('events').where('organizerId','==',currentUser.uid)
+    .onSnapshot(snap => {
+      userEvents = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if(data.deletedAt) return;
+        userEvents.push({ id: d.id, ...data });
+      });
+      buildAndRender();
+    }, () => {});
+}
+
+function subscribeAssignments(){
+  if(unsubAssign) unsubAssign();
+  unsubAssign = db.collection('assignments')
+    .where('organizerId','==',currentUser.uid)
+    .onSnapshot(snap => {
+      userAssignments = [];
+      snap.forEach(d => userAssignments.push({ id: d.id, ...d.data() }));
+      buildAndRender();
+    }, err => { console.warn('assignments:', err.message); });
+}
+
+async function loadInvoices(){
+  try {
+    const snap = await db.collection('invoices')
+      .where('userId','==',currentUser.uid)
+      .limit(100).get();
+    userInvoices = [];
+    snap.forEach(d => userInvoices.push({ id: d.id, ...d.data() }));
+    buildAndRender();
+  } catch(e){
+    console.warn('invoices:', e.message);
+    userInvoices = [];
+    buildAndRender();
+  }
+}
+
+function refreshPendingPaymentCart(){
+  try {
+    const raw = localStorage.getItem('zone21_payment_cart');
+    if(!raw){ pendingCart = null; return; }
+    const parsed = JSON.parse(raw);
+    if(!parsed || !parsed.lines?.length){ pendingCart = null; return; }
+    if(Date.now() - (parsed.timestamp || 0) > 86400000){ pendingCart = null; return; }
+    pendingCart = parsed;
+  } catch(e){ pendingCart = null; }
+}
+
+function isPlaceholderEvent(ev){
+  if(!ev) return true;
+  if(ev.fromSubscription === true || ev.isPlaceholder === true) return true;
+  if(ev.subscriptionId || ev.subscriptionDocId) return true;
+  const src = String(ev.source || ev.origin || '').toLowerCase();
+  if(src === 'subscription' || src === 'subscription_purchase') return true;
+  const nm = String(ev.name || ev.eventName || '').trim();
+  const PLACEHOLDER_NAME_RE = /^(new\s+)?(small|medium|large)(\s+event)?(\s+package)?\s*$/i;
+  if(nm && PLACEHOLDER_NAME_RE.test(nm)) return true;
+  return false;
+}
+
+/* ============================================================
+   PER-ASSIGNMENT CURRENCY + AMOUNT
+============================================================ */
+function assignCurrency(a){
+  if(!a) return 'USD';
+  if(a.serviceCurrency && CURRENCIES[a.serviceCurrency]) return a.serviceCurrency;
+  if(a.currency && CURRENCIES[a.currency]) return a.currency;
+  return 'USD';
+}
+function assignAmount(a){
+  if(!a) return { amount: 0, currency:'USD', label:'', breakdown:'' };
+  const cur = assignCurrency(a);
+  const explicitUsd = Number(a.priceUsd);
+  if(Number.isFinite(explicitUsd) && explicitUsd > 0){
+    if(cur === 'ZAR'){
+      if(Number.isFinite(Number(a.amountZAR)) && Number(a.amountZAR) > 0){
+        return { amount: Number(a.amountZAR), currency:'ZAR', label: a.priceLabel || '', breakdown: a.priceBreakdown || '' };
+      }
+      return { amount: explicitUsd * 19, currency:'ZAR', label: a.priceLabel || '', breakdown: a.priceBreakdown || '' };
+    }
+    return { amount: explicitUsd, currency:'USD', label: a.priceLabel || '', breakdown: a.priceBreakdown || '' };
+  }
+  const legacyUsd = Number(a.agreedAmount ?? a.selectedTier?.priceUsd ?? a.price ?? 0);
+  if(legacyUsd > 0){
+    if(cur === 'ZAR'){
+      return { amount: legacyUsd * 19, currency:'ZAR', label: a.selectedTier?.name || 'Agreed rate', breakdown:'' };
+    }
+    return { amount: legacyUsd, currency:'USD', label: a.selectedTier?.name || 'Agreed rate', breakdown:'' };
+  }
+  return { amount: 0, currency: cur, label:'', breakdown:'' };
+}
+
+/* ============================================================
+   BUILD NOTIFICATIONS (Exactly mirrors dashboard logic)
+============================================================ */
+function buildNotificationItems(){
+  const items = [];
+
+  userEvents.forEach(ev => {
+    if(isPlaceholderEvent(ev)) return;
+    const when = ev.updatedAt?.toMillis?.() || ev.createdAt?.toMillis?.() || 0;
+    if(!when) return;
+    const evName = safe(ev.name || ev.eventName || 'Your event', 50);
+    const status = String(ev.status || '').toLowerCase();
+    const idBase = `event-${ev.id}-${status}`;
+
+    if(status === 'pending'){
+      items.push({
+        id: idBase, type:'warn', icon:'fa-hourglass-half', category:'events',
+        title:`Event awaiting admin approval`,
+        desc:`${evName} · submitted for review.`,
+        time: when
+      });
+    } else if(status === 'approved' || status === 'active'){
+      items.push({
+        id: idBase, type:'success', icon:'fa-circle-check', category:'events',
+        title:`Event approved · ${evName}`,
+        desc:`Your event is live. Open My Events to manage it.`,
+        time: when,
+        action: { label:'Open My Events', icon:'fa-arrow-right', href:'myevents.html' }
+      });
+    } else if(status === 'rejected'){
+      items.push({
+        id: idBase, type:'error', icon:'fa-circle-xmark', category:'events',
+        title:`Event rejected · ${evName}`,
+        desc: ev.rejectReason || 'Contact Zone21 support for details.',
+        time: when
+      });
+    }
+  });
+
+  userAssignments.forEach(a => {
+    const when = a.createdAt?.toMillis?.() || a.updatedAt?.toMillis?.() || 0;
+    if(!when) return;
+    const svc = a.service || 'Service';
+    const evt = a.eventName || 'Event';
+    const vendor = a.providerName || 'Vendor';
+    const { amount, currency, label } = assignAmount(a);
+    const priceTag = amount > 0
+      ? `<span class="tag-mini ${currency==='ZAR'?'cur-zar':'cur-usd'}">${fmtIn(amount, currency)}</span>`
+      : `<span class="tag-mini">price on request</span>`;
+    const tierTag = a.selectedTier?.name
+      ? `<span class="tag-mini tier"><i class="fas fa-layer-group" style="font-size:.5rem"></i> ${escapeHtml(safe(a.selectedTier.name,30))}</span>`
+      : '';
+    const idBase = `assign-${a.id}-${a.status}`;
+
+    if(a.status === 'invited'){
+      items.push({ id:idBase, type:'info', icon:'fa-envelope-open-text', category:'events',
+        title:`Invitation sent · ${svc}`, priceTag, tierTag,
+        desc:`${vendor} was invited to ${evt}${label ? ' · '+label : ''}.`,
+        time: when });
+    } else if(a.status === 'accepted'){
+      items.push({ id:idBase, type:'paynow', icon:'fa-coins', category:'payments',
+        title:`Ready to pay · ${svc}`, priceTag, tierTag,
+        desc:`${vendor} confirmed for ${evt}${label ? ' · '+label : ''}. Pay to lock it in.`,
+        time: when,
+        action: { label:'Pay This Service', icon:'fa-coins', action:`payForAssignment('${escapeHtml(a.id)}')` } });
+    } else if(a.status === 'declined'){
+      items.push({ id:idBase, type:'warn', icon:'fa-circle-xmark', category:'events',
+        title:`Vendor declined · ${svc}`, tierTag,
+        desc:`${vendor} declined for ${evt}${a.declineReason ? ' · '+a.declineReason : ''}. Zone21 may auto-replace.`,
+        time: when });
+    } else if(a.status === 'paid_deposit'){
+      items.push({ id:idBase, type:'gold', icon:'fa-coins', category:'payments',
+        title:`Deposit received · ${svc}`, priceTag, tierTag,
+        desc:`Deposit for ${evt} received. Balance can be paid anytime.`,
+        time: when,
+        action: { label:'Pay Balance', icon:'fa-arrow-right', action:`payForAssignment('${escapeHtml(a.id)}', true)` } });
+    } else if(a.status === 'paid_full'){
+      items.push({ id:idBase, type:'success', icon:'fa-sack-dollar', category:'payments',
+        title:`Fully paid · ${svc}`, priceTag, tierTag,
+        desc:`Full payment for ${evt} received. Booking locked in.`,
+        time: when });
+    }
+  });
+
+  userInvoices.forEach(inv => {
+    const when = toDate(inv.updatedAt)?.getTime()
+              || toDate(inv.createdAt)?.getTime()
+              || 0;
+    if(!when) return;
+    const invCur = (inv.currency && CURRENCIES[inv.currency]) ? inv.currency : 'USD';
+    const amt = Number(inv.payNowUsd || inv.payNow || 0);
+    const display = invCur === 'ZAR' ? amt * 19 : amt;
+    const idBase = `inv-${inv.id}-${inv.status}`;
+
+    if(inv.status === 'pending' || inv.status === 'pending_payment'){
+      items.push({
+        id: idBase, type:'warn', icon:'fa-clock', category:'payments',
+        title:`Invoice pending approval · ${inv.eventName || 'Event'}`,
+        priceTag: `<span class="tag-mini ${invCur==='ZAR'?'cur-zar':'cur-usd'}">${fmtIn(display, invCur)}</span>`,
+        desc:`${inv.payType === 'deposit' ? 'Deposit' : inv.payType === 'balance' ? 'Balance' : 'Full payment'} awaiting Zone21 admin verification.`,
+        time: when });
+    } else if(inv.status === 'paid' || inv.status === 'approved'){
+      items.push({
+        id: idBase, type:'success', icon:'fa-circle-check', category:'payments',
+        title:`Payment approved · ${inv.eventName || 'Event'}`,
+        priceTag: `<span class="tag-mini ${invCur==='ZAR'?'cur-zar':'cur-usd'}">${fmtIn(display, invCur)}</span>`,
+        desc:`${inv.payType === 'deposit' ? 'Deposit confirmed — balance remaining' : 'Confirmed'}.`,
+        time: when });
+    } else if(inv.status === 'rejected'){
+      items.push({
+        id: idBase, type:'error', icon:'fa-circle-exclamation', category:'payments',
+        title:`Payment rejected · ${inv.eventName || 'Event'}`,
+        priceTag: `<span class="tag-mini ${invCur==='ZAR'?'cur-zar':'cur-usd'}">${fmtIn(display, invCur)}</span>`,
+        desc: inv.rejectReason || 'Contact Zone21 support for details.',
+        time: when });
+    }
+  });
+
+  if(pendingCart && pendingCart.lines?.length){
+    const cartCur = (pendingCart.currency && CURRENCIES[pendingCart.currency]) ? pendingCart.currency : 'USD';
+    const subUsd = pendingCart.subtotalUsd || 0;
+    const subDisplay = cartCur === 'ZAR' ? subUsd * 19 : subUsd;
+    items.push({
+      id: `cart-${pendingCart.timestamp || pendingCart.sessionId || 'pending'}`,
+      type: 'paynow', icon: 'fa-cart-shopping', category:'payments',
+      title: `Payment cart waiting · ${pendingCart.eventData?.name || 'your event'}`,
+      priceTag: `<span class="tag-mini ${cartCur==='ZAR'?'cur-zar':'cur-usd'}">${fmtIn(subDisplay, cartCur)}</span>`,
+      desc: `${pendingCart.lines.length} service${pendingCart.lines.length===1?'':'s'} ready for checkout`,
+      time: pendingCart.timestamp || Date.now(),
+      action: { label:'Finish Checkout', icon:'fa-arrow-right', href:'vendorpayments.html' }
+    });
+  }
+
+  // Filter dismissed and deduplicate
+  const filtered = items.filter(it => !dismissedNotifIds.has(it.id));
+  const seen = new Map();
+  filtered.forEach(it => {
+    const ex = seen.get(it.id);
+    if(!ex || it.time > ex.time) seen.set(it.id, it);
+  });
+  
+  return Array.from(seen.values()).sort((a,b) => b.time - a.time);
+}
+
+/* ============================================================
+   RENDER LOGIC
+============================================================ */
+function buildAndRender(){
+  allNotifications = buildNotificationItems();
+  updateCounts();
+  renderNotifications();
+}
+
+function updateCounts(){
+  let unread = 0, pay = 0, ev = 0;
+  
+  allNotifications.forEach(n => {
+    if(!readNotifIds.has(n.id)) unread++;
+    if(n.category === 'payments') pay++;
+    if(n.category === 'events') ev++;
+  });
+
+  $('countAll').textContent = allNotifications.length;
+  $('countUnread').textContent = unread;
+  $('countPayments').textContent = pay;
+  $('countEvents').textContent = ev;
+
+  const markBtn = $('markAllReadBtn');
+  if(unread > 0) markBtn.removeAttribute('disabled');
+  else markBtn.setAttribute('disabled', 'true');
+  
+  const clearBtn = $('clearAllBtn');
+  if(allNotifications.length > 0) clearBtn.removeAttribute('disabled');
+  else clearBtn.setAttribute('disabled', 'true');
+
+  // Update top badges
+  const topNotifBadge = $('topNotifBadge');
+  if(topNotifBadge){
+    if(unread > 0){ topNotifBadge.textContent = unread > 99 ? '99+' : unread; topNotifBadge.style.display = 'grid'; }
+    else topNotifBadge.style.display = 'none';
+  }
+  const navNotif = $('navBadgeNotif');
+  if(navNotif){
+    if(unread > 0){ navNotif.textContent = unread > 99 ? '99+' : unread; navNotif.classList.add('visible'); }
+    else navNotif.classList.remove('visible');
+  }
+  
+  // Update payments badge
+  const payCount = userInvoices.filter(i => i.status === 'pending' || i.status === 'pending_payment').length + 
+                   userAssignments.filter(a => a.status === 'accepted').length + 
+                   (pendingCart ? 1 : 0);
+  const topPayBadge = $('topPaymentsBadge');
+  if(topPayBadge){
+    if(payCount > 0){ topPayBadge.textContent = payCount > 99 ? '99+' : payCount; topPayBadge.style.display = 'grid'; }
+    else topPayBadge.style.display = 'none';
+  }
+  const navPay = $('navBadgePayments');
+  if(navPay){
+    if(payCount > 0){ navPay.textContent = payCount > 99 ? '99+' : payCount; navPay.classList.add('visible'); }
+    else navPay.classList.remove('visible');
+  }
+}
+
+function getFilteredItems(){
+  let items = allNotifications;
+  if(currentFilter === 'unread') items = items.filter(n => !readNotifIds.has(n.id));
+  else if(currentFilter === 'payments') items = items.filter(n => n.category === 'payments');
+  else if(currentFilter === 'events') items = items.filter(n => n.category === 'events');
+  return items;
+}
+
+function renderNotifications(){
+  const container = $('notificationsContainer');
+  if(!container) return;
+
+  const items = getFilteredItems();
+  
+  if(items.length === 0){
+    let emptyMsg = "You're all caught up!";
+    if(currentFilter === 'payments') emptyMsg = "No payment notifications found.";
+    if(currentFilter === 'events') emptyMsg = "No event notifications found.";
+    if(currentFilter === 'unread') emptyMsg = "No unread notifications right now.";
+    
+    container.innerHTML = `
+      <div class="empty">
+        <i class="fas fa-bell-slash big"></i>
+        <h4>Nothing here</h4>
+        <p>${emptyMsg}</p>
+      </div>`;
+    $('loadMoreWrap').style.display = 'none';
+    return;
+  }
+
+  const visible = items.slice(0, visibleLimit);
+  
+  // Group by date
+  const groups = {};
+  visible.forEach(it => {
+    const d = new Date(it.time);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    
+    let label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if(d.toDateString() === today.toDateString()) label = 'Today';
+    else if(d.toDateString() === yesterday.toDateString()) label = 'Yesterday';
+    
+    if(!groups[label]) groups[label] = [];
+    groups[label].push(it);
+  });
+
+  let html = '';
+  for(const [label, groupItems] of Object.entries(groups)){
+    html += `<div class="notif-date-group">
+      <div class="date-label">${label}</div>
+      <div class="notif-feed">`;
+      
+    groupItems.forEach(it => {
+      const isRead = readNotifIds.has(it.id);
+      const icons = { success:'fa-circle-check', error:'fa-circle-exclamation', warn:'fa-triangle-exclamation', info:'fa-circle-info', ai:'fa-wand-magic-sparkles' };
+      const icon = icons[it.type] || 'fa-bell';
+      
+      const actionHtml = it.action
+        ? (it.action.href
+            ? `<a class="notif__action" href="${escapeHtml(it.action.href)}"><i class="fas ${escapeHtml(it.action.icon||'fa-arrow-right')}"></i> ${escapeHtml(it.action.label)}</a>`
+            : `<button class="notif__action" onclick="${escapeHtml(it.action.action||'')}"><i class="fas ${escapeHtml(it.action.icon||'fa-arrow-right')}"></i> ${escapeHtml(it.action.label)}</button>`)
+        : '';
+        
+      html += `<div class="notif ${it.type} ${isRead?'read':''}" data-notif-id="${escapeHtml(it.id)}">
+        <div class="notif__icon"><i class="fas ${icon}"></i></div>
+        <div class="notif__body">
+          <div class="notif__title">
+            ${!isRead ? '<span class="notif__unread-dot"></span>' : ''}
+            ${escapeHtml(it.title)} ${it.priceTag || ''} ${it.tierTag || ''}
+          </div>
+          <div class="notif__desc">${escapeHtml(it.desc)}</div>
+          ${actionHtml}
+          <div class="notif__time"><i class="far fa-clock"></i> ${timeAgo(it.time)}</div>
+        </div>
+        <button class="notif__dismiss" onclick="dismissNotification('${escapeHtml(it.id)}')" title="Dismiss"><i class="fas fa-xmark"></i></button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  container.innerHTML = html;
+  
+  // Load more button
+  if(items.length > visibleLimit){
+    $('loadMoreWrap').style.display = 'block';
+  } else {
+    $('loadMoreWrap').style.display = 'none';
+  }
+}
+
+/* ============================================================
+   INTERACTIONS
+============================================================ */
+$('filterTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-tab');
+  if(!btn) return;
+  
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  
+  currentFilter = btn.dataset.filter;
+  visibleLimit = 15;
+  renderNotifications();
+});
+
+$('loadMoreBtn').addEventListener('click', () => {
+  visibleLimit += 15;
+  renderNotifications();
+});
+
+$('markAllReadBtn').addEventListener('click', () => {
+  const items = getFilteredItems();
+  if(!items.length) return;
+  
+  items.forEach(it => readNotifIds.add(it.id));
+  persistReadNotifIds();
+  buildAndRender();
+  toast('Marked all as read.', 'success');
+});
+
+$('clearAllBtn').addEventListener('click', () => {
+  if(!confirm('Dismiss all notifications? They will be permanently hidden.')) return;
+  const items = getFilteredItems();
+  if(!items.length) return;
+  
+  items.forEach(it => dismissedNotifIds.add(it.id));
+  persistDismissedNotifIds();
+  buildAndRender();
+  toast('Notifications cleared.', 'info');
+});
+
+function dismissNotification(id){
+  if(!id) return;
+  dismissedNotifIds.add(id);
+  readNotifIds.add(id);
+  persistDismissedNotifIds();
+  persistReadNotifIds();
+  buildAndRender();
+  toast('Notification dismissed.', 'info');
+}
+window.dismissNotification = dismissNotification;
+
+// Click notification to mark as read
+$('notificationsContainer').addEventListener('click', (e) => {
+  const card = e.target.closest('.notif');
+  if(!card) return;
+  const id = card.getAttribute('data-notif-id');
+  if(id && !readNotifIds.has(id)){
+    readNotifIds.add(id);
+    persistReadNotifIds();
+    card.classList.add('read');
+    const dot = card.querySelector('.notif__unread-dot');
+    if(dot) dot.remove();
+    updateCounts();
+  }
+});
+
+/* ============================================================
+   PAY PER ASSIGNMENT (from Notifications)
+============================================================ */
+async function payForAssignment(assignmentId, balanceOnly){
+  if(!currentUser){ toast('Please sign in first.', 'error'); return; }
+  if(!assignmentId){ toast('Assignment not found.', 'error'); return; }
+
+  const a = userAssignments.find(x => x.id === assignmentId);
+  if(!a){ toast('Assignment not found in your records.', 'error'); return; }
+
+  const { amount, currency, label, breakdown } = assignAmount(a);
+  if(amount <= 0){ toast('This service has no price yet — contact Zone21 support.', 'error'); return; }
+
+  const isDepositPaid = a.status === 'paid_deposit';
+  const payNowLocal = (balanceOnly && isDepositPaid) ? (amount * 0.5) : amount;
+  const payNowUsd = currency === 'ZAR' ? (payNowLocal / 19) : payNowLocal;
+
+  const line = {
+    service:        a.service || 'Service',
+    providerId:     a.providerId || '',
+    providerName:   a.providerName || 'Vendor',
+    providerEmail:  '',
+    breakdown:      label || breakdown || 'Agreed rate',
+    reasoning:      'Priced from the vendor tier you selected when the invitation was sent.',
+    amountUsd:      payNowUsd,
+    amountLocal:    payNowLocal,
+    currencyLocal:  currency,
+    selectedTier:   a.selectedTier || null,
+    priceTiers:     a.priceTiers || [],
+    source:         'assignment',
+    location:       a.location || ''
+  };
+
+  const matches = {};
+  matches[a.service || 'Service'] = [{
+    uid: a.providerId,
+    name: a.providerName,
+    priceUsd: currency === 'ZAR' ? payNowLocal / 19 : payNowLocal,
+    currency,
+    location: a.location || '',
+    source: 'assignment',
+    priceTiers: a.priceTiers || [],
+    avatar: null
+  }];
+
+  const handoff = {
+    source:    'notifications',
+    version:   5,
+    timestamp: Date.now(),
+    userId:    currentUser.uid,
+    userEmail: currentUser.email || '',
+    userName:  currentUser.displayName || currentUser.email || 'Organiser',
+    sessionId: a.eventId || `single_${assignmentId}`,
+    eventId:   a.eventId || `single_${assignmentId}`,
+    eventData: {
+      name:      a.eventName || 'Event',
+      date:      a.date || '',
+      time:      a.time || '',
+      location:  a.location || '',
+      type:      a.eventType || '',
+      attendees: a.attendees || 0,
+      budget:    a.eventBudget || amount,
+      currency
+    },
+    invitations: {},
+    pickedProviders: {},
+    pickedTiers: {},
+    matches,
+    lines: [line],
+    subtotalUsd: payNowUsd,
+    currency,
+    preferredPayType: balanceOnly ? 'balance' : 'full'
+  };
+
+  try { localStorage.setItem('zone21_payment_cart', JSON.stringify(handoff)); } catch(e){}
+
+  try {
+    if(a.eventId){
+      await db.collection('paymentCarts').doc(a.eventId).set({
+        ...handoff,
+        status: 'cart_handoff',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+  } catch(e){ console.warn('Cart mirror failed:', e.message); }
+
+  toast(`Opening payment for ${line.service}…`, 'info');
+  setTimeout(() => { window.location.href = 'vendorpayments.html'; }, 350);
+}
+window.payForAssignment = payForAssignment;
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+const sidebar = $('sidebar');
+const overlay = $('sidebarOverlay');
+const menuBtn = $('menuBtn');
+function openSidebar(){
+  sidebar.classList.remove('closed'); sidebar.classList.add('open');
+  overlay.classList.add('active'); document.body.style.overflow = 'hidden';
+}
+function closeSidebar(){
+  sidebar.classList.remove('open'); sidebar.classList.add('closed');
+  overlay.classList.remove('active'); document.body.style.overflow = '';
+}
+menuBtn.addEventListener('click', () => {
+  if(sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
+});
+overlay.addEventListener('click', closeSidebar);
+window.addEventListener('resize', () => {
+  if(window.innerWidth > 768){
+    sidebar.classList.remove('open','closed');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  } else {
+    if(!sidebar.classList.contains('open')) sidebar.classList.add('closed');
+  }
+});
+if(window.innerWidth <= 768){ sidebar.classList.add('closed'); }
+else { sidebar.classList.remove('closed'); }
+
+$('logoutLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  if(confirm('Sign out of Zone21?')){ auth.signOut().then(() => window.location.href = 'index.html'); }
+});
+
+updateCurrencyUI();
+</script>
+</body>
+  </html>

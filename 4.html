@@ -1235,22 +1235,16 @@ function detectCountry(loc){
 function metaOf(key){ return key ? (COUNTRY_DB[key]||null) : null; }
 function detectVendorCountry(v){
   if(!v) return null;
-  // Direct code match
   const rawCountry = (v.country || '').toString().trim().toLowerCase();
   if(rawCountry){
     if(COUNTRY_DB[rawCountry]) return rawCountry;
-    // Check by code
     for(const [key,meta] of Object.entries(COUNTRY_DB)){
       if(meta.code && meta.code.toLowerCase() === rawCountry) return key;
       if(meta.aliases && meta.aliases.map(a=>a.toLowerCase()).includes(rawCountry)) return key;
     }
   }
-  const c = [v.location, v.address, v.city, v.country, (v.city && v.country) ? `${v.city}, ${v.country}` : '', v.fullAddress, v.place, v.region].filter(Boolean);
-  for(const x of c){ 
-    const d = detectCountry(x); 
-    if(d) return d; 
-  }
-  // Last resort: check if location contains any city alias substring
+  const c = [v.location, v.address, v.city, v.country, (v.city && v.country) ? `${v.city}, ${v.country}` : '', v.fullAddress, v.place].filter(Boolean);
+  for(const x of c){ const d = detectCountry(x); if(d) return d; }
   const locStr = (v.location || v.address || '').toString().toLowerCase();
   if(locStr){
     for(const [key,meta] of Object.entries(COUNTRY_DB)){
@@ -1408,33 +1402,27 @@ function scoreProviderForService(p, service){
 }
 function getScopedVendors(countryKey){
   if(!countryKey) {
-    console.warn('[Zone21] getScopedVendors called with no countryKey, returning all cached');
+    console.warn('[Zone21] No countryKey, returning all cached vendors:', providersCache.length);
     return { venues: venuesCache, providers: providersCache, meta: null };
   }
   const meta = metaOf(countryKey);
   let venues = venuesCache.filter(v => detectVendorCountry(v) === countryKey);
   let providers = providersCache.filter(p => detectVendorCountry(p) === countryKey);
-  
-  // Fallback: if filtering yields 0 but cache has data, vendor country detection may be failing
-  // Show all vendors with warning instead of empty, so blueprint at least has data
+  console.log(`[Zone21] Scoped for ${countryKey}: ${providers.length} providers / ${venues.length} venues from total ${providersCache.length}/${venuesCache.length}`);
   if(providers.length === 0 && providersCache.length > 0){
-    console.warn(`[Zone21] No providers matched country ${countryKey} after filtering ${providersCache.length} total. Showing all as fallback.`);
-    // Try looser match: include vendors where country detection returned null (unknown country)
     const unknown = providersCache.filter(p => !detectVendorCountry(p));
     if(unknown.length > 0){
-      console.log(`[Zone21] Found ${unknown.length} providers with unknown country, using as fallback for ${countryKey}`);
+      console.log(`[Zone21] Using ${unknown.length} unknown-country providers as fallback`);
       providers = unknown;
     } else {
-      // Last resort: show all
+      console.warn(`[Zone21] No match for ${countryKey}, showing ALL ${providersCache.length} as fallback`);
       providers = providersCache;
     }
   }
   if(venues.length === 0 && venuesCache.length > 0){
-    const unknownVenues = venuesCache.filter(v => !detectVendorCountry(v));
-    if(unknownVenues.length > 0) venues = unknownVenues;
-    else venues = venuesCache;
+    const unknownV = venuesCache.filter(v => !detectVendorCountry(v));
+    venues = unknownV.length > 0 ? unknownV : venuesCache;
   }
-  
   return { venues, providers, meta };
 }
 
@@ -1561,16 +1549,11 @@ async function isDoubleBooked(providerId, date){
 
 function matchVenuesForEvent(location, attendees, budgetUsd, dateStr){
   let targetCountry = detectCountry(location);
-  if(!targetCountry){
-    console.warn('[Zone21] Could not detect country for venue matching:', location);
-  }
+  console.log(`[Zone21] matchVenuesForEvent: location=${location}, country=${targetCountry}`);
   const scoped = targetCountry ? getScopedVendors(targetCountry) : { venues: venuesCache, providers: [], meta: null };
   let venues = scoped.venues;
-  if(!venues || venues.length === 0){
-    venues = venuesCache;
-  }
+  if(!venues || venues.length === 0) venues = venuesCache;
   const cityTerms = (location||'').toLowerCase().split(/[,\s]+/).filter(t=>t.length>2);
-  
   const scored = venues.map(v => {
     const capacity = Number(v.capacity || v.maxGuests || v.guestCapacity || 0);
     const priceUsd = Number(v.eventRate || v.dayRate || v.priceUsd || v.basePrice || 0);
@@ -1578,34 +1561,26 @@ function matchVenuesForEvent(location, attendees, budgetUsd, dateStr){
     const vLoc = (v.location||'').toLowerCase();
     const nearby = cityTerms.some(t=>vLoc.includes(t));
     const available = isAvailable(v, dateStr);
-    
     let fitScore = 10;
     const reasons = [];
-    
     if(capacity > 0){
       if(capacity >= attendees && capacity <= attendees * 1.5){ reasons.push('✅ Perfect capacity'); fitScore += 5; }
       else if(capacity >= attendees){ reasons.push('✅ Fits guests'); fitScore += 3; }
       else { reasons.push('⚠️ Small for guests'); fitScore -= 5; }
     }
-    
     if(priceUsd > 0 && budgetUsd > 0){
       const pct = (priceUsd / budgetUsd) * 100;
       if(pct <= 30){ reasons.push('💰 Great value'); fitScore += 3; }
       else if(pct <= 50){ reasons.push('💰 Within budget'); fitScore += 2; }
     }
-    
     if(rating >= 4.5){ reasons.push('⭐ Top rated'); fitScore += 3; }
     else if(rating >= 4){ reasons.push('⭐ Highly rated'); fitScore += 2; }
-    
     if(nearby){ reasons.push('📍 Nearby'); fitScore += 3; }
     if(available){ reasons.push('📅 Available'); fitScore += 2; }
     else { reasons.push('⚠️ Date clash'); fitScore -= 20; }
-    
     const tiers = getPriceTiers(v);
-    
     return { ...v, priceUsd, priceTiers: tiers, _source:'venue', fitScore, reasons, _available: available };
   });
-  
   scored.sort((a,b)=>b.fitScore - a.fitScore);
   const avail = scored.filter(x => x._available);
   const unav = scored.filter(x => !x._available);
@@ -1616,19 +1591,17 @@ function matchVenuesForEvent(location, attendees, budgetUsd, dateStr){
 
 function matchProvidersForService(service, location, budgetUsd, dateStr){
   let targetCountry = detectCountry(location);
+  console.log(`[Zone21] matchProvidersForService: service=${service}, location=${location}, detectedCountry=${targetCountry}`);
   if(!targetCountry){
-    console.warn('[Zone21] Could not detect country from location:', location, '— trying all vendors');
-    // Fallback to all providers if country detection fails
-    targetCountry = null;
+    console.warn('[Zone21] Could not detect country from location, using all vendors');
   }
   const scoped = targetCountry ? getScopedVendors(targetCountry) : { providers: providersCache, venues: venuesCache, meta: null };
   let providers = scoped.providers;
   if(!providers || providers.length === 0){
-    console.warn('[Zone21] No providers in scoped list, using full cache:', providersCache.length);
+    console.warn('[Zone21] Scoped empty, using full cache');
     providers = providersCache;
   }
   const cityTerms = (location||'').toLowerCase().split(/[,\s]+/).filter(t=>t.length>2);
-
   const zone21Map = new Map();
   providers.forEach(p => {
     if(isZone21Account(p)){
@@ -1636,7 +1609,6 @@ function matchProvidersForService(service, location, budgetUsd, dateStr){
       if(slot) zone21Map.set(p.id, slot);
     }
   });
-
   if(isExclusiveService(service)){
     const matched = providers.filter(p => zone21Map.get(p.id) === service);
     const scored = matched.map(p => {
@@ -1663,14 +1635,11 @@ function matchProvidersForService(service, location, budgetUsd, dateStr){
     const unav = scored.filter(x => !x._available);
     return randomiseTop(avail).concat(unav).slice(0, 6);
   }
-
   const scored = providers.map(p => {
     if(zone21Map.has(p.id)) return null;
     if(isThirdPartySecurity(p) || isThirdPartyPlanner(p)) return null;
-
     const { score, matches: kws, direct } = scoreProviderForService(p, service);
     if(score <= 0) return null;
-
     const tiers = getPriceTiers(p);
     const minTier = tiers.length ? Math.min(...tiers.map(t=>t.priceUsd)) : 0;
     const priceUsd = minTier || Number(p.eventRate || p.dayRate || p.hourlyRate || p.basePrice) || 0;
@@ -1678,7 +1647,6 @@ function matchProvidersForService(service, location, budgetUsd, dateStr){
     const pLoc = (p.location||'').toLowerCase();
     const nearby = cityTerms.some(t=>pLoc.includes(t));
     const available = isAvailable(p, dateStr);
-
     const reasons = [];
     let fitScore = score;
     if(direct) reasons.push('✅ Listed service');
@@ -1698,18 +1666,14 @@ function matchProvidersForService(service, location, budgetUsd, dateStr){
       else if(pct <= 70){ reasons.push('💰 Within budget'); fitScore += 1; }
       else reasons.push('⚠️ Above budget');
     } else reasons.push('ℹ️ Price TBD');
-
     if(rating >= 4.5){ reasons.push('⭐ Top rated'); fitScore += 3; }
     else if(rating >= 4){ reasons.push('⭐ Highly rated'); fitScore += 2; }
     else if(rating >= 3){ reasons.push('⭐ Good rating'); fitScore += 1; }
-
     if(nearby){ reasons.push('📍 Nearby'); fitScore += 3; }
     if(available){ reasons.push('📅 Available'); fitScore += 2; }
     else { reasons.push('⚠️ Date clash'); fitScore -= 20; }
-
     return { ...p, priceUsd, priceTiers: tiers, _source:'provider', fitScore, reasons, _available: available };
   }).filter(Boolean);
-
   scored.sort((a,b)=>b.fitScore - a.fitScore);
   const avail = scored.filter(x => x._available);
   const unav = scored.filter(x => !x._available);
@@ -2172,6 +2136,7 @@ window.aiResuggestServices = async function(){
    FIRESTORE LOADERS
 ========================================================================== */
 async function tryCollections(names, limit = 2000){
+  // Kept for compatibility but no longer used for venues/providers
   const tried = [];
   for(const col of names){
     try {
@@ -2180,96 +2145,88 @@ async function tryCollections(names, limit = 2000){
       if(!snap.empty){
         const rows = [];
         snap.forEach(d => rows.push({ id: d.id, _collection: col, ...d.data() }));
-        console.log(`[Zone21] Loaded ${rows.length} from ${col}`);
         return { rows, tried, used: col, ok: true };
-      } else {
-        console.warn(`[Zone21] Collection ${col} exists but empty (0 docs)`);
       }
     } catch(e){
-      tried.push({ collection: col, count: 0, ok: false, error: e.message });
-      console.warn(`[Zone21] try ${col} failed:`, e.message);
+      tried.push({ collection: col, count: 0, ok: false, error: e.code+': '+e.message });
     }
   }
   return { rows: [], tried, used: null, ok: false };
 }
 
 async function loadVenues(){
-  const names = ['venues','veneus','eventVenues','Venue','Venues','event_venues','allVenues','venue','EventVenues','VENUES','VenuesList','event-venues','venueList'];
-  const result = await tryCollections(names, 3000);
-  let rows = result.rows;
-  // Fallback: try users collection for venue-type accounts
-  if(rows.length === 0){
-    try {
-      const snap = await db.collection('users').limit(3000).get();
-      const venueUsers = [];
-      snap.forEach(d => {
-        const data = d.data();
-        const isVenue = (data.role === 'venue' || data.accountType === 'venue' || data.category === 'venue' || data.venueName || data.venueType || (data.services && data.services.includes && data.services.includes('Venue')));
-        if(isVenue){
-          venueUsers.push({ id: d.id, _collection: 'users', ...data });
-        }
-      });
-      if(venueUsers.length > 0){
-        rows = venueUsers;
-        result.used = 'users (venue filter)';
-        result.rows = rows;
-        result.ok = true;
-        console.log(`[Zone21] Fallback venues from users: ${rows.length}`);
-      }
-    } catch(e){
-      console.warn('[Zone21] users venue fallback failed', e.message);
+  console.log('[Zone21] Loading venues from `venues` collection...');
+  try {
+    const snap = await db.collection('venues').get();
+    console.log(`[Zone21] venues snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}`);
+    const rows = [];
+    snap.forEach(d => {
+      rows.push({ id: d.id, _collection: 'venues', ...d.data() });
+    });
+    venuesCache = rows;
+    collectionDiagnostics.venues = { rows, used: 'venues', ok: true, count: rows.length };
+    if(rows.length === 0){
+      console.warn('[Zone21] venues collection exists but returned 0 docs - check if docs exist in Firestore console');
+      toast('Venues collection is empty (0 docs)', 'error');
+    } else {
+      console.log(`[Zone21] ✅ Venues loaded: ${rows.length}`);
+      toast(`Loaded ${rows.length} venues`, 'success');
     }
+    return rows.length;
+  } catch(e){
+    console.error('[Zone21] ❌ venues load failed:', e.code, e.message, e);
+    toast(`Venues error: ${e.code} ${e.message}`, 'error');
+    venuesCache = [];
+    collectionDiagnostics.venues = { rows: [], used: null, ok: false, error: e.message };
+    return 0;
   }
-  venuesCache = rows;
-  collectionDiagnostics.venues = result;
-  if(rows.length === 0){
-    console.warn('[Zone21] No venues found after trying:', result.tried.map(t=>`${t.collection}(${t.count})`).join(', '));
-    toast('No venues found in database — check Firebase collections', 'error');
-  } else {
-    console.log(`[Zone21] Venues loaded: ${rows.length} from ${result.used}`);
-  }
-  return rows.length;
 }
 async function loadProviders(){
-  const names = ['serviceProviders','service_providers','providers','vendors','services','allVendors','allProviders','ServiceProviders','Providers','Vendors','serviceProvidersList','service_providers_list','providerList','vendorList','ServiceProvider','all_service_providers'];
-  const result = await tryCollections(names, 3000);
-  let rows = result.rows;
-  // Fallback: try users collection for vendor-type accounts
-  if(rows.length === 0){
+  console.log('[Zone21] Loading providers from `serviceProviders` collection...');
+  try {
+    const snap = await db.collection('serviceProviders').get();
+    console.log(`[Zone21] serviceProviders snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}`);
+    const rows = [];
+    snap.forEach(d => {
+      const data = d.data();
+      // Ensure at least minimal location data for matching
+      rows.push({ id: d.id, _collection: 'serviceProviders', ...data });
+    });
+    providersCache = rows;
+    collectionDiagnostics.providers = { rows, used: 'serviceProviders', ok: true, count: rows.length };
+    if(rows.length === 0){
+      console.warn('[Zone21] serviceProviders collection exists but returned 0 docs');
+      toast('Vendors collection is empty (0 docs)', 'error');
+    } else {
+      console.log(`[Zone21] ✅ Providers loaded: ${rows.length}`);
+      console.log('[Zone21] Sample provider:', rows[0]);
+      toast(`Loaded ${rows.length} vendors`, 'success');
+    }
+    return rows.length;
+  } catch(e){
+    console.error('[Zone21] ❌ providers load failed:', e.code, e.message, e);
+    toast(`Vendors error: ${e.code} ${e.message}`, 'error');
+    providersCache = [];
+    collectionDiagnostics.providers = { rows: [], used: null, ok: false, error: e.message };
+    // Fallback to users collection as last resort
     try {
-      const snap = await db.collection('users').limit(3000).get();
+      const snap2 = await db.collection('users').get();
       const vendorUsers = [];
-      snap.forEach(d => {
+      snap2.forEach(d => {
         const data = d.data();
-        const hasServices = data.services || data.serviceType || data.category || data.businessName || data.companyName;
-        const isVendor = data.role === 'vendor' || data.role === 'provider' || data.role === 'serviceProvider' || data.accountType === 'vendor' || data.accountType === 'provider' || data.isVendor || data.isProvider || hasServices;
-        if(isVendor){
-          vendorUsers.push({ id: d.id, _collection: 'users', ...data });
-        }
+        const isVendor = data.role === 'vendor' || data.role === 'service_provider' || data.isVendor || data.businessName || data.companyName;
+        if(isVendor) vendorUsers.push({ id: d.id, _collection: 'users', ...data });
       });
       if(vendorUsers.length > 0){
-        rows = vendorUsers;
-        result.used = 'users (vendor filter)';
-        result.rows = rows;
-        result.ok = true;
-        console.log(`[Zone21] Fallback providers from users: ${rows.length}`);
-      } else {
-        console.warn('[Zone21] users collection scanned but no vendor-like docs found');
+        providersCache = vendorUsers;
+        console.log(`[Zone21] Fallback from users: ${vendorUsers.length}`);
+        return vendorUsers.length;
       }
-    } catch(e){
-      console.warn('[Zone21] users provider fallback failed', e.message);
+    } catch(e2){
+      console.warn('users fallback failed', e2.message);
     }
+    return 0;
   }
-  providersCache = rows;
-  collectionDiagnostics.providers = result;
-  if(rows.length === 0){
-    console.warn('[Zone21] No providers found after trying:', result.tried.map(t=>`${t.collection}(${t.count})`).join(', '));
-    toast('No vendors found in database — check Firebase collections', 'error');
-  } else {
-    console.log(`[Zone21] Providers loaded: ${rows.length} from ${result.used}`);
-    toast(`Loaded ${rows.length} vendors from ${result.used}`, 'success');
-  }
-  return rows.length;
 }
 
 function refreshPendingPaymentBanner(){

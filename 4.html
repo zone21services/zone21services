@@ -1051,7 +1051,8 @@ let userPackageLimit = Infinity;
 let userIsPending = false;
 const AI_CONFIG = {
   apiUrl: 'https://blueprint.zone21services.workers.dev/v1/chat/completions',
-  model: 'deepseek-chat'
+  model: 'deepseek-chat',
+  apiKey: ''
 };
 
 const ZONE21 = {
@@ -1700,6 +1701,50 @@ async function aiCall(messages, opts = {}, maxRetries = 3){
 
       const res = await fetch(AI_CONFIG.apiUrl, {
         method:'POST',
+        headers: { 
+          'Content-Type':'application/json', 
+          ...(AI_CONFIG.apiKey ? { 'Authorization': `Bearer ${AI_CONFIG.apiKey}` } : {})
+        },
+        body: JSON.stringify(body)
+      });
+
+      if(!res.ok){
+        let detail = '';
+        try { detail = await res.text(); } catch(e){}
+        if(res.status === 401) throw new Error('Zone21 engine key is invalid.');
+        if(res.status === 402) throw new Error('Zone21 engine credits exhausted.');
+        if(res.status === 429) throw new Error('Zone21 engine busy — retrying…');
+        throw new Error(`Zone21 engine error ${res.status}: ${detail.slice(0,200)}`);
+      }
+
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message || 'Engine error.');
+      const content = data?.choices?.[0]?.message?.content || '';
+      if(!content || !content.trim()) throw new Error('Empty response from engine.');
+      return content;
+    } catch(err){
+      lastError = err;
+      const retriable = /empty|busy|429|timeout|network|failed to fetch/i.test(err.message);
+      if(!retriable || attempt === maxRetries) throw err;
+      await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+    }
+  }
+  throw lastError || new Error('Zone21 engine failed after retries.');
+}, maxRetries = 3){
+  let lastError = null;
+  for(let attempt = 0; attempt <= maxRetries; attempt++){
+    try {
+      const body = {
+        model: AI_CONFIG.model,
+        messages,
+        temperature: opts.temperature !== undefined ? opts.temperature : 0.3,
+        top_p: opts.top_p !== undefined ? opts.top_p : 0.9,
+        max_tokens: opts.max_tokens || 4000
+      };
+      if(opts.jsonMode) body.response_format = { type: 'json_object' };
+
+      const res = await fetch(AI_CONFIG.apiUrl, {
+        method:'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${AI_CONFIG.apiKey}` },
         body: JSON.stringify(body)
       });
@@ -2135,8 +2180,7 @@ window.aiResuggestServices = async function(){
 /* ==========================================================================
    FIRESTORE LOADERS
 ========================================================================== */
-async function tryCollections(names, limit = 2000){
-  // Kept for compatibility but no longer used for venues/providers
+async function tryCollections(names, limit = 800){
   const tried = [];
   for(const col of names){
     try {
@@ -2148,83 +2192,94 @@ async function tryCollections(names, limit = 2000){
         return { rows, tried, used: col, ok: true };
       }
     } catch(e){
-      tried.push({ collection: col, count: 0, ok: false, error: e.code+': '+e.message });
+      tried.push({ collection: col, count: 0, ok: false, error: e.message });
     }
   }
   return { rows: [], tried, used: null, ok: false };
 }
 
 async function loadVenues(){
-  console.log('[Zone21] Loading venues from `venues` collection...');
+  console.log('[Zone21] Loading venues from `venues` collection (server source)...');
   try {
-    const snap = await db.collection('venues').get();
-    console.log(`[Zone21] venues snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}`);
+    const snap = await db.collection('venues').get({ source: 'server' });
+    console.log(`[Zone21] venues server snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}, hasPendingWrites=${snap.metadata.hasPendingWrites}`);
     const rows = [];
     snap.forEach(d => {
+      console.log('[Zone21] venue doc:', d.id, d.data());
       rows.push({ id: d.id, _collection: 'venues', ...d.data() });
     });
     venuesCache = rows;
     collectionDiagnostics.venues = { rows, used: 'venues', ok: true, count: rows.length };
     if(rows.length === 0){
-      console.warn('[Zone21] venues collection exists but returned 0 docs - check if docs exist in Firestore console');
-      toast('Venues collection is empty (0 docs)', 'error');
-    } else {
-      console.log(`[Zone21] ✅ Venues loaded: ${rows.length}`);
-      toast(`Loaded ${rows.length} venues`, 'success');
+      console.warn('[Zone21] venues returned 0 from server - collection may be empty or rules block list');
+      // Try without source option as fallback
+      try {
+        const snap2 = await db.collection('venues').get();
+        console.log(`[Zone21] venues fallback (any source): size=${snap2.size}`);
+        if(snap2.size > 0){
+          snap2.forEach(d => rows.push({ id: d.id, _collection: 'venues', ...d.data() }));
+          venuesCache = rows;
+          console.log(`[Zone21] venues fallback loaded: ${rows.length}`);
+        }
+      } catch(e2){ console.error('fallback failed', e2); }
     }
-    return rows.length;
+    if(venuesCache.length === 0){
+      toast('Venues: 0 docs from server', 'error');
+    } else {
+      console.log(`[Zone21] ✅ Venues loaded: ${venuesCache.length}`);
+      toast(`Loaded ${venuesCache.length} venues`, 'success');
+    }
+    return venuesCache.length;
   } catch(e){
     console.error('[Zone21] ❌ venues load failed:', e.code, e.message, e);
-    toast(`Venues error: ${e.code} ${e.message}`, 'error');
+    toast(`Venues error: ${e.code} - ${e.message}`, 'error');
     venuesCache = [];
-    collectionDiagnostics.venues = { rows: [], used: null, ok: false, error: e.message };
     return 0;
   }
 }
 async function loadProviders(){
-  console.log('[Zone21] Loading providers from `serviceProviders` collection...');
+  console.log('[Zone21] Loading providers from `serviceProviders` (server source)...');
   try {
-    const snap = await db.collection('serviceProviders').get();
-    console.log(`[Zone21] serviceProviders snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}`);
+    const snap = await db.collection('serviceProviders').get({ source: 'server' });
+    console.log(`[Zone21] serviceProviders server snapshot: size=${snap.size}, empty=${snap.empty}, fromCache=${snap.metadata.fromCache}`);
     const rows = [];
     snap.forEach(d => {
-      const data = d.data();
-      // Ensure at least minimal location data for matching
-      rows.push({ id: d.id, _collection: 'serviceProviders', ...data });
+      console.log('[Zone21] provider doc:', d.id, Object.keys(d.data()));
+      rows.push({ id: d.id, _collection: 'serviceProviders', ...d.data() });
     });
     providersCache = rows;
     collectionDiagnostics.providers = { rows, used: 'serviceProviders', ok: true, count: rows.length };
     if(rows.length === 0){
-      console.warn('[Zone21] serviceProviders collection exists but returned 0 docs');
-      toast('Vendors collection is empty (0 docs)', 'error');
-    } else {
-      console.log(`[Zone21] ✅ Providers loaded: ${rows.length}`);
-      console.log('[Zone21] Sample provider:', rows[0]);
-      toast(`Loaded ${rows.length} vendors`, 'success');
+      console.warn('[Zone21] serviceProviders returned 0 from server');
+      // Try any source
+      try {
+        const snap2 = await db.collection('serviceProviders').get();
+        console.log(`[Zone21] serviceProviders fallback (any source): size=${snap2.size}`);
+        if(snap2.size > 0){
+          snap2.forEach(d => rows.push({ id: d.id, _collection: 'serviceProviders', ...d.data() }));
+          providersCache = rows;
+        }
+      } catch(e2){ console.error('fallback failed', e2); }
     }
-    return rows.length;
+    if(providersCache.length === 0){
+      toast('Vendors: 0 docs from server - check console', 'error');
+      // Direct test
+      console.log('[Zone21] Running direct test query...');
+      db.collection('serviceProviders').limit(1).get().then(s => {
+        console.log('[Zone21] Direct limit(1) test: size=', s.size);
+      }).catch(err => {
+        console.error('[Zone21] Direct test failed:', err.code, err.message);
+      });
+    } else {
+      console.log(`[Zone21] ✅ Providers loaded: ${providersCache.length}`);
+      console.log('[Zone21] Sample:', providersCache[0]);
+      toast(`Loaded ${providersCache.length} vendors`, 'success');
+    }
+    return providersCache.length;
   } catch(e){
     console.error('[Zone21] ❌ providers load failed:', e.code, e.message, e);
-    toast(`Vendors error: ${e.code} ${e.message}`, 'error');
+    toast(`Vendors error: ${e.code} - ${e.message}`, 'error');
     providersCache = [];
-    collectionDiagnostics.providers = { rows: [], used: null, ok: false, error: e.message };
-    // Fallback to users collection as last resort
-    try {
-      const snap2 = await db.collection('users').get();
-      const vendorUsers = [];
-      snap2.forEach(d => {
-        const data = d.data();
-        const isVendor = data.role === 'vendor' || data.role === 'service_provider' || data.isVendor || data.businessName || data.companyName;
-        if(isVendor) vendorUsers.push({ id: d.id, _collection: 'users', ...data });
-      });
-      if(vendorUsers.length > 0){
-        providersCache = vendorUsers;
-        console.log(`[Zone21] Fallback from users: ${vendorUsers.length}`);
-        return vendorUsers.length;
-      }
-    } catch(e2){
-      console.warn('users fallback failed', e2.message);
-    }
     return 0;
   }
 }

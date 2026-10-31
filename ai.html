@@ -1,27 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><style>
-@font-face {
-  font-family: "Optimistic";
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url("/fonts/OptimisticAI_VF_Optimized.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Optimistic Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/OptimisticMono_W_TextRegular.woff2") format("woff2");
-}
-:where(html) {
-  font-family: "Optimistic", system-ui, sans-serif;
-}
-:where(code, pre, kbd, samp) {
-  font-family: "Optimistic Mono", ui-monospace, monospace;
-}
-</style>
+<head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Zone21 · Event Coordination</title>
@@ -1051,9 +1030,8 @@ let userPackageLimit = Infinity;
 let userIsPending = false;
 const AI_CONFIG = {
   apiUrl: 'https://blueprint.zone21services.workers.dev/v1/chat/completions',
-  model: 'deepseek-chat',
-  apiKey: ''
-};;
+  model: 'deepseek-chat'
+};
 
 const ZONE21 = {
   phone: '+263789912268',
@@ -1236,27 +1214,8 @@ function detectCountry(loc){
 function metaOf(key){ return key ? (COUNTRY_DB[key]||null) : null; }
 function detectVendorCountry(v){
   if(!v) return null;
-  const rawCountry = (v.country || '').toString().trim().toLowerCase();
-  if(rawCountry){
-    if(COUNTRY_DB[rawCountry]) return rawCountry;
-    for(const [key,meta] of Object.entries(COUNTRY_DB)){
-      if(meta.code && meta.code.toLowerCase() === rawCountry) return key;
-      if(meta.aliases && meta.aliases.map(a=>a.toLowerCase()).includes(rawCountry)) return key;
-    }
-  }
-  const c = [v.location, v.address, v.city, v.country, (v.city && v.country) ? `${v.city}, ${v.country}` : '', v.fullAddress, v.place].filter(Boolean);
+  const c = [v.location, v.address, v.city, v.country, (v.city && v.country) ? `${v.city}, ${v.country}` : ''].filter(Boolean);
   for(const x of c){ const d = detectCountry(x); if(d) return d; }
-  const locStr = (v.location || v.address || '').toString().toLowerCase();
-  if(locStr){
-    for(const [key,meta] of Object.entries(COUNTRY_DB)){
-      for(const city of meta.cities){
-        if(locStr.includes(city.toLowerCase())) return key;
-      }
-      for(const alias of meta.aliases){
-        if(locStr.includes(alias.toLowerCase())) return key;
-      }
-    }
-  }
   return null;
 }
 function currencyOfCountry(key){ return ZAR_COUNTRIES.has(key) ? 'ZAR' : 'USD'; }
@@ -1402,29 +1361,13 @@ function scoreProviderForService(p, service){
   return { score, matches, direct: false };
 }
 function getScopedVendors(countryKey){
-  if(!countryKey) {
-    console.warn('[Zone21] No countryKey, returning all cached');
-    return { venues: venuesCache, providers: providersCache, meta: null };
-  }
+  if(!countryKey) return { venues: [], providers: [], meta: null };
   const meta = metaOf(countryKey);
-  let venues = venuesCache.filter(v => detectVendorCountry(v) === countryKey);
-  let providers = providersCache.filter(p => detectVendorCountry(p) === countryKey);
-  console.log(`[Zone21] Scoped for ${countryKey}: ${providers.length} providers / ${venues.length} venues from ${providersCache.length}/${venuesCache.length} total`);
-  if(providers.length === 0 && providersCache.length > 0){
-    const unknown = providersCache.filter(p => !detectVendorCountry(p));
-    if(unknown.length > 0){
-      console.log(`[Zone21] Using ${unknown.length} unknown-country as fallback`);
-      providers = unknown;
-    } else {
-      console.warn(`[Zone21] No match for ${countryKey}, showing all ${providersCache.length}`);
-      providers = providersCache;
-    }
-  }
-  if(venues.length === 0 && venuesCache.length > 0){
-    const unknownV = venuesCache.filter(v => !detectVendorCountry(v));
-    venues = unknownV.length > 0 ? unknownV : venuesCache;
-  }
-  return { venues, providers, meta };
+  return {
+    venues: venuesCache.filter(v => detectVendorCountry(v) === countryKey),
+    providers: providersCache.filter(p => detectVendorCountry(p) === countryKey),
+    meta
+  };
 }
 
 function randomiseTop(sorted){
@@ -1698,50 +1641,6 @@ function matchProvidersForService(service, location, budgetUsd, dateStr){
    AI ENGINE
 ========================================================================== */
 async function aiCall(messages, opts = {}, maxRetries = 3){
-  let lastError = null;
-  for(let attempt = 0; attempt <= maxRetries; attempt++){
-    try {
-      const body = {
-        model: AI_CONFIG.model,
-        messages,
-        temperature: opts.temperature !== undefined ? opts.temperature : 0.3,
-        top_p: opts.top_p !== undefined ? opts.top_p : 0.9,
-        max_tokens: opts.max_tokens || 4000
-      };
-      if(opts.jsonMode) body.response_format = { type: 'json_object' };
-
-      const res = await fetch(AI_CONFIG.apiUrl, {
-        method:'POST',
-        headers: { 
-          'Content-Type':'application/json', 
-          ...(AI_CONFIG.apiKey ? { 'Authorization': `Bearer ${AI_CONFIG.apiKey}` } : {})
-        },
-        body: JSON.stringify(body)
-      });
-
-      if(!res.ok){
-        let detail = '';
-        try { detail = await res.text(); } catch(e){}
-        if(res.status === 401) throw new Error('Zone21 engine key is invalid.');
-        if(res.status === 402) throw new Error('Zone21 engine credits exhausted.');
-        if(res.status === 429) throw new Error('Zone21 engine busy — retrying…');
-        throw new Error(`Zone21 engine error ${res.status}: ${detail.slice(0,200)}`);
-      }
-
-      const data = await res.json();
-      if(data.error) throw new Error(data.error.message || 'Engine error.');
-      const content = data?.choices?.[0]?.message?.content || '';
-      if(!content || !content.trim()) throw new Error('Empty response from engine.');
-      return content;
-    } catch(err){
-      lastError = err;
-      const retriable = /empty|busy|429|timeout|network|failed to fetch/i.test(err.message);
-      if(!retriable || attempt === maxRetries) throw err;
-      await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
-    }
-  }
-  throw lastError || new Error('Zone21 engine failed after retries.');
-}, maxRetries = 3){
   let lastError = null;
   for(let attempt = 0; attempt <= maxRetries; attempt++){
     try {
@@ -2191,7 +2090,7 @@ window.aiResuggestServices = async function(){
 /* ==========================================================================
    FIRESTORE LOADERS
 ========================================================================== */
-async function tryCollections(names, limit = 2000){
+async function tryCollections(names, limit = 800){
   const tried = [];
   for(const col of names){
     try {
@@ -2200,77 +2099,26 @@ async function tryCollections(names, limit = 2000){
       if(!snap.empty){
         const rows = [];
         snap.forEach(d => rows.push({ id: d.id, _collection: col, ...d.data() }));
-        console.log(`[Zone21] Loaded ${rows.length} from ${col}`);
         return { rows, tried, used: col, ok: true };
       }
     } catch(e){
-      tried.push({ collection: col, count: 0, ok: false, error: e.code + ': ' + e.message });
-      console.warn(`[Zone21] try ${col} failed:`, e.message);
+      tried.push({ collection: col, count: 0, ok: false, error: e.message });
     }
   }
   return { rows: [], tried, used: null, ok: false };
 }
 
 async function loadVenues(){
-  console.log('[Zone21] Loading venues...');
-  try {
-    const snap = await db.collection('venues').get();
-    console.log(`[Zone21] venues snapshot size=${snap.size} empty=${snap.empty}`);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, _collection: 'venues', ...d.data() }));
-    venuesCache = rows;
-    collectionDiagnostics.venues = { rows, used: 'venues', ok: true, count: rows.length };
-    if(rows.length === 0){
-      console.warn('[Zone21] venues is 0, trying fallback names');
-      const result = await tryCollections(['veneus','eventVenues','Venue','Venues'], 2000);
-      if(result.rows.length > 0){
-        venuesCache = result.rows;
-        collectionDiagnostics.venues = result;
-      }
-    }
-    if(venuesCache.length === 0){
-      toast('Venues: 0 docs - check Firestore has data', 'error');
-    } else {
-      console.log(`[Zone21] ✅ Venues loaded: ${venuesCache.length}`);
-    }
-    return venuesCache.length;
-  } catch(e){
-    console.error('[Zone21] venues load failed:', e.code, e.message);
-    toast(`Venues error: ${e.message}`, 'error');
-    venuesCache = [];
-    return 0;
-  }
+  const result = await tryCollections(['venues', 'veneus', 'eventVenues']);
+  venuesCache = result.rows;
+  collectionDiagnostics.venues = result;
+  return result.rows.length;
 }
 async function loadProviders(){
-  console.log('[Zone21] Loading vendors from serviceProviders...');
-  try {
-    const snap = await db.collection('serviceProviders').get();
-    console.log(`[Zone21] serviceProviders snapshot size=${snap.size} empty=${snap.empty}`);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, _collection: 'serviceProviders', ...d.data() }));
-    providersCache = rows;
-    collectionDiagnostics.providers = { rows, used: 'serviceProviders', ok: true, count: rows.length };
-    if(rows.length === 0){
-      console.warn('[Zone21] serviceProviders is 0, trying fallback names');
-      const result = await tryCollections(['service_providers','providers','vendors','services'], 2000);
-      if(result.rows.length > 0){
-        providersCache = result.rows;
-        collectionDiagnostics.providers = result;
-      }
-    }
-    if(providersCache.length === 0){
-      toast('Vendors: 0 docs - check Firestore', 'error');
-    } else {
-      console.log(`[Zone21] ✅ Providers loaded: ${providersCache.length}`, providersCache[0]);
-      toast(`Loaded ${providersCache.length} vendors`, 'success');
-    }
-    return providersCache.length;
-  } catch(e){
-    console.error('[Zone21] providers load failed:', e.code, e.message);
-    toast(`Vendors error: ${e.message}`, 'error');
-    providersCache = [];
-    return 0;
-  }
+  const result = await tryCollections(['serviceProviders','service_providers','providers','vendors','services'], 800);
+  providersCache = result.rows;
+  collectionDiagnostics.providers = result;
+  return result.rows.length;
 }
 
 function refreshPendingPaymentBanner(){
@@ -4648,5 +4496,5 @@ document.querySelectorAll('.modal-overlay').forEach(ov=>{
   ov.addEventListener('click', e=>{ if(e.target === ov) ov.classList.remove('active'); });
 });
 </script>
-<script>(function(){var loc=location.href.replace(/#.*$/,"");var ATTR_NAMES=["data-product-id","data-productid","data-product_id","product-id","productid","product_id","data-source-entity-id","source-entity-id","source_entity_id","data-product","data-metadata","data-meta"];var DATASET_KEYS=["productId","productid","product_id","sourceEntityId","sourceentityid","source_entity_id","product","metadata","meta"];function readProductId(value){if(typeof value!=="string"||value.length===0)return null;if(/^[0-9]{6,}$/.test(value))return value;var match=value.match(/(?:product(?:_|-)?id|source(?:_|-)?entity(?:_|-)?id)["'=:\s]+([0-9]{6,})/i);return match?match[1]:null}function extractProductId(start){for(var node=start;node&&node!==document.body;node=node.parentElement){for(var i=0;i<ATTR_NAMES.length;i++){var attrValue=node.getAttribute&&node.getAttribute(ATTR_NAMES[i]);var attrProductId=readProductId(attrValue);if(attrProductId)return attrProductId}var dataset=node.dataset||null;if(dataset){for(var j=0;j<DATASET_KEYS.length;j++){var dataValue=dataset[DATASET_KEYS[j]];var dataProductId=readProductId(dataValue);if(dataProductId)return dataProductId}}}return null}function isInlineMediaSlotElement(node){return !!(node&&node.getAttribute&&node.getAttribute("data-clippy-inline-media-slot")!==null)}function findInlineMediaSlot(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(isInlineMediaSlotElement(node))return node}return null}function readInlineMediaUrl(node){if(!node)return null;return node.getAttribute&&((node.getAttribute("data-clippy-inline-media-url")||node.getAttribute("data-url")||node.getAttribute("data_url")))||node.href||null}function stripHash(url){return String(url).replace(/#.*$/,"")}function urlsMatch(a,b){if(!a||!b)return false;try{return stripHash(new URL(a,loc).href)===stripHash(new URL(b,loc).href)}catch(_){return stripHash(a)===stripHash(b)}}function isFirstPartyReelUrl(value){try{var url=new URL(value,loc);if(url.protocol!=="https:")return false;var host=url.hostname.toLowerCase();var supported=host==="instagram.com"||host.endsWith(".instagram.com")||host==="facebook.com"||host.endsWith(".facebook.com");return supported&&/\/reels?\//i.test(url.pathname)}catch(_){return false}}function isInlineMediaUrlClick(node,href){var slot=findInlineMediaSlot(node);if(!slot)return false;var slotUrl=readInlineMediaUrl(slot);if(slotUrl)return urlsMatch(href,slotUrl);return isFirstPartyReelUrl(href)}function findDataHref(start){for(var node=start;node&&node!==document.body;node=node.parentElement){if(node.getAttribute){var href=node.getAttribute("data-href")||node.getAttribute("data-url");if(href)return{href:href,node:node}}}return null}var nativeOpen=window.open;window.open=function(url){if(parent!==window&&typeof url==="string"&&/^https?:\/\//.test(url)){parent.postMessage({type:"ecto:usercontent-link-click",href:url},"*");return null}return nativeOpen?nativeOpen.apply(window,arguments):null};document.addEventListener("click",function(e){var target=e.target instanceof Element?e.target:null;if(!target)return;if(parent===window)return;var a=target.closest?target.closest("a[href]"):null;if(a&&a.href&&/^https?:\/\//.test(a.href)&&a.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(a,a.href))return;var productId=extractProductId(target)||extractProductId(a);if(productId){e.preventDefault();parent.postMessage({type:"ecto-artifact-link-click",productId:productId},"*");return}e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:a.href},"*");return}var dataHref=findDataHref(target);if(dataHref&&/^https?:\/\//.test(dataHref.href)&&dataHref.href.replace(/#.*$/,"")!==loc){if(isInlineMediaUrlClick(dataHref.node,dataHref.href))return;e.preventDefault();parent.postMessage({type:"ecto:usercontent-link-click",href:dataHref.href},"*")}},true)})();</script><script>(function(){var FOCUS_TYPE="ecto:artifact-focus-request";var CLOSE_TYPE="ecto:artifact-close-request";function focusArtifactDocument(){var body=document.body;if(!body)return;try{window.focus();}catch(e){}if(!body.hasAttribute("tabindex"))body.setAttribute("tabindex","-1");try{body.focus({preventScroll:true});}catch(e){try{body.focus();}catch(e2){}}}window.addEventListener("message",function(event){if(event.source!==window.parent)return;var data=event.data;if(!data||typeof data!=="object"||data.type!==FOCUS_TYPE)return;if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",focusArtifactDocument,{once:true});return;}focusArtifactDocument();});window.addEventListener("keydown",function(event){if(event.key!=="Escape")return;window.setTimeout(function(){if(event.defaultPrevented)return;window.parent.postMessage({type:CLOSE_TYPE},"*");},0);});})();</script></body>
+</body>
 </html>
